@@ -1,0 +1,29 @@
+server:
+  # 开发环境允许 HTTP，但只监听本机回环地址；远程管理需要 HTTPS 或加密隧道。
+  address: 127.0.0.1
+
+spring:
+  datasource:
+    druid:
+      # 开发库固定为独立的 portfolio_dev，凭据只从仓库根目录被忽略的 .env 注入。
+      url: jdbc:postgresql://${PSQL_HOST:127.0.0.1}:${PSQL_PORT:5432}/portfolio_dev
+      username: ${PSQL_USERNAME:postgres}
+      password: ${PSQL_PASSWORD:}
+      initial-size: 0
+      min-idle: 1
+      max-active: 5
+      stat-view-servlet:
+        enabled: false
+  flyway:
+    locations: classpath:db/postgresql
+
+mybatis-plus:
+  configuration:
+    # 账号查询包含密码哈希，开发环境也不能把 SQL 参数和结果打印到控制台。
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+portfolio:
+  security:
+    allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:9333}
+  api-log:
+    enabled: ${API_LOG_ENABLED:true}

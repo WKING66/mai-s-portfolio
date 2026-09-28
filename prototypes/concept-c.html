@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>方案 C · 编辑索引</title>
+  <link rel="stylesheet" href="base.css">
+  <style>
+    :root { --bg: #f1efe8; --surface: rgba(255,255,255,.52); --surface-strong: #faf9f4; --text: #191b18; --muted: #6e726a; --accent: #2c7308; --accent-2: #16596e; }
+    :root[data-theme="dark"] { --bg: #121510; --surface: rgba(31,35,28,.62); --surface-strong: #1b2018; --text: #f1f0e9; --muted: #a2a899; --accent: #a8e56b; --accent-2: #73cce3; }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #121510; --surface: rgba(31,35,28,.62); --surface-strong: #1b2018; --text: #f1f0e9; --muted: #a2a899; --accent: #a8e56b; --accent-2: #73cce3; } }
+    body { font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif; }
+    .site-header { position: relative; background: transparent; }
+    .brand { font-family: Georgia, "Times New Roman", serif; font-size: 1.15rem; }
+    .folio { display: grid; grid-template-columns: 190px 1fr; gap: 64px; }
+    .rail { position: sticky; top: 22px; align-self: start; min-height: calc(100vh - 44px); padding: 20px 0; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--line); }
+    .rail .index { display: grid; gap: 13px; }
+    .rail a { width: fit-content; color: var(--muted); font: 700 .75rem ui-monospace, monospace; letter-spacing: .08em; text-decoration: none; }
+    .rail a:hover { color: var(--accent); }
+    .rail small { color: var(--muted); writing-mode: vertical-rl; transform: rotate(180deg); }
+    .page { min-width: 0; }
+    .hero { min-height: calc(100vh - 71px); display: flex; flex-direction: column; justify-content: center; padding: 80px 0; }
+    .hero .display { max-width: 940px; font-family: Georgia, "Times New Roman", serif; font-weight: 400; font-size: clamp(4rem, 10vw, 9rem); line-height: .88; letter-spacing: -.075em; }
+    .hero .display i { color: var(--accent); font-weight: 400; }
+    .hero-bottom { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: end; }
+    .hero-note { margin: 0; padding-left: 18px; border-left: 2px solid var(--accent); color: var(--muted); }
+    .ticker { max-width: 100%; overflow: hidden; border-block: 1px solid var(--line); }
+    .ticker-track { display: flex; width: max-content; padding: 12px 0; animation: ticker 22s linear infinite; }
+    .ticker span { margin-right: 48px; font: 700 .72rem ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+    .ticker b { color: var(--accent); }
+    @keyframes ticker { to { transform: translateX(-50%); } }
+    .section-heading h2 { font-family: Georgia, "Times New Roman", serif; font-weight: 400; }
+    .profile-list { border-top: 1px solid var(--text); }
+    .profile-row { display: grid; grid-template-columns: 90px 1.1fr 1fr; gap: 26px; padding: 32px 0; border-bottom: 1px solid var(--line); }
+    .profile-row .num { color: var(--accent); font: 700 .72rem ui-monospace, monospace; }
+    .profile-row h3 { margin: 0; font: 400 clamp(1.65rem, 3vw, 2.7rem) Georgia, serif; letter-spacing: -.035em; }
+    .profile-row p { margin: 0; color: var(--muted); }
+    .proof { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 54px; }
+    .proof article { padding: 26px 0; border-top: 3px solid var(--text); }
+    .proof h3 { margin: 35px 0 8px; font: 400 1.8rem Georgia, serif; }
+    .proof p { color: var(--muted); }
+    .projects { border-top: 1px solid var(--text); }
+    .project { position: relative; display: grid; grid-template-columns: 100px 1fr 250px; gap: 28px; align-items: start; padding: 42px 0; border-bottom: 1px solid var(--line); }
+    .project .num { color: var(--muted); font: .75rem ui-monospace, monospace; }
+    .project h3 { margin: 0 0 12px; font: 400 clamp(2.2rem, 5vw, 5rem) Georgia, serif; line-height: .95; letter-spacing: -.05em; }
+    .project p { color: var(--muted); }
+    .project-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+    .swatch { height: 150px; margin-top: 12px; background: repeating-linear-gradient(135deg, transparent 0 12px, color-mix(in srgb, var(--accent) 18%, transparent) 12px 24px), linear-gradient(135deg, color-mix(in srgb, var(--accent-2) 18%, transparent), var(--surface)); border: 1px solid var(--line); }
+    .writing { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0 34px; border-top: 1px solid var(--text); }
+    .essay { padding: 30px 0; border-bottom: 1px solid var(--line); text-decoration: none; }
+    .essay .meta { display: flex; justify-content: space-between; color: var(--muted); font: .72rem ui-monospace, monospace; }
+    .essay h3 { margin: 44px 0 8px; font: 400 1.7rem/1.1 Georgia, serif; }
+    .essay p { color: var(--muted); }
+    .closing { border-top: 1px solid var(--text); }
+    .closing .display { font-family: Georgia, serif; font-weight: 400; }
+    .back { position: fixed; right: 18px; bottom: 18px; z-index: 30; }
+    @media (max-width: 850px) {
+      .folio { display: block; }
+      .rail { display: none; }
+      .hero-bottom, .proof, .writing { grid-template-columns: 1fr; }
+      .profile-row { grid-template-columns: 54px 1fr; }
+      .profile-row p { grid-column: 2; }
+      .project { grid-template-columns: 52px 1fr; }
+      .project aside { grid-column: 2; }
+    }
+  </style>
+</head>
+<body>
+  <header class="site-header"><div class="shell nav"><a class="brand" href="#top">The Mai Index</a><nav class="nav-links" aria-label="主导航"><a href="#about">关于我</a><a href="#stack">技术栈</a><a href="#work">项目</a><a href="#writing">博客</a><a class="keep" href="#contact">联系</a><button class="theme-toggle" data-theme-toggle aria-label="切换明暗主题">◐</button><details class="mobile-menu"><summary>菜单</summary><div><a href="#about">关于我</a><a href="#stack">技术栈</a><a href="#work">项目</a><a href="#writing">博客</a><a href="#contact">联系</a></div></details></nav></div></header>
+  <div class="shell folio">
+    <aside class="rail" aria-label="页面索引"><div class="index"><span class="eyebrow">INDEX / 2026</span><a href="#about">00 — 关于我</a><a href="#stack">01 — 技术栈</a><a href="#profile">02 — 能力与学习</a><a href="#work">03 — 项目</a><a href="#writing">04 — 写作</a><a href="#contact">05 — 联系</a></div><small>Student developer</small></aside>
+    <main class="page" id="top">
+      <section class="hero" id="about"><span class="eyebrow">Mai / Portfolio of a student developer</span><h1 class="display">认真构建，<br>清楚表达，<br><i>持续分享。</i></h1><div class="hero-bottom"><p class="lede">你好，我是 Mai，一名在校开发者。我喜欢先理解问题，再动手设计和实现。这个网站收录我做过的项目、写下的技术笔记，以及在反复实践中形成的方法。希望你能从作品看见我解决问题的方式，也能从文章了解我的思考。</p><div><p class="hero-note">当前关注<br><strong>软件工程 / 全栈开发 / AI 应用</strong></p><div class="actions"><a class="button primary" href="#work">浏览项目</a><a class="button" href="#writing">阅读博客</a><a class="button" href="#contact">联系我</a></div><div class="proof-links"><span>邮箱与 GitHub 入口在本页联系区，当前为待填写占位。</span></div></div></div></section>
+      <div class="ticker" aria-hidden="true"><div class="ticker-track"><span><b>01</b> Built with curiosity</span><span><b>02</b> Skills with evidence</span><span><b>03</b> Projects with decisions</span><span><b>04</b> Notes in public</span><span><b>01</b> Built with curiosity</span><span><b>02</b> Skills with evidence</span><span><b>03</b> Projects with decisions</span><span><b>04</b> Notes in public</span></div></div>
+
+      <section class="section" id="stack"><div class="section-heading reveal"><div><span class="eyebrow">01 / Technology</span><h2>使用中的技术</h2></div><p>按实践场景整理。以下是视觉示例，正式版只保留你真实用过的技术。</p></div><div class="tech-grid reveal"><article class="tech-card"><h3>编程语言</h3><ul class="tech-items"><li>JavaScript</li><li>TypeScript</li><li>Python</li><li>SQL</li></ul></article><article class="tech-card"><h3>界面与框架</h3><ul class="tech-items"><li>React</li><li>HTML / CSS</li><li>Figma</li></ul></article><article class="tech-card"><h3>工程工具</h3><ul class="tech-items"><li>Git</li><li>Docker</li><li>Linux</li></ul></article><article class="tech-card"><h3>数据与存储</h3><ul class="tech-items"><li>PostgreSQL</li><li>SQLite</li><li>Redis</li></ul></article></div></section>
+
+      <section class="section" id="profile"><div class="section-heading reveal"><div><span class="eyebrow">01 / Selected evidence</span><h2>先看作品，<br>再认识我。</h2></div><p>项目展示如何解决问题，文章记录做决定时的思考。</p></div><div class="profile-list reveal">
+        <article class="profile-row"><span class="num">01</span><h3>Atlas 学习助手</h3><p>把分散学习材料整理为可检索、可复习的系统。<a href="#work">查看项目 →</a></p></article>
+        <article class="profile-row"><span class="num">02</span><h3>从模糊需求到功能</h3><p>把一次项目拆解写成可复用的方法。<a href="#writing">阅读文章 →</a></p></article>
+        <article class="profile-row"><span class="num">03</span><h3>产品型开发</h3><p>从需求理解、交互设计到完整实现，关注功能为什么存在，也关注它如何被使用。</p></article>
+      </div><div class="proof reveal"><article><span class="eyebrow">Education</span><h3>计算机相关专业 · 本科在读</h3><p>正式页面填写你的真实学校、专业和课程。</p></article><article><span class="eyebrow">Learning in public</span><h3>项目 / 博客 / 开源</h3><p>通过作品和文章展示持续学习与实践。</p></article></div></section>
+
+      <section class="section" id="work"><div class="section-heading reveal"><div><span class="eyebrow">02 / Work</span><h2>做过什么，<br>为什么这样做。</h2></div><p>用过程、具体贡献和结果，让作品自己说明能力。</p></div><div class="projects">
+        <article class="project reveal"><span class="num">P—01</span><div><h3>Atlas<br>学习助手</h3><p>把分散的学习材料整理成可搜索、可复习、可追踪的个人知识系统。重点说明你的角色、判断和结果。</p><div class="project-meta"><span class="tag">Full-stack</span><span class="tag">AI</span><span class="tag">Product</span></div></div><aside><span class="eyebrow">Case study</span><div class="swatch"></div><a href="#">阅读案例 →</a></aside></article>
+        <article class="project reveal"><span class="num">P—02</span><div><h3>Pulse<br>数据看板</h3><p>重新组织指标层级，让状态、趋势和异常更容易被发现。展示真实截图后，这块会更有说服力。</p><div class="project-meta"><span class="tag">Data</span><span class="tag">Interface</span></div></div><aside><span class="eyebrow">Case study</span><div class="swatch"></div><a href="#">阅读案例 →</a></aside></article>
+      </div></section>
+
+      <section class="section" id="writing"><div class="section-heading reveal"><div><span class="eyebrow">03 / Writing</span><h2>最近写下的<br>问题与答案。</h2></div><p>本地笔记导入和站内撰写共享同一套草稿、预览与发布流程。</p></div><div class="writing reveal">
+        <a class="essay" href="#"><div class="meta"><span>产品思考</span><time>2026.09.18</time></div><h3>我是怎样把一个模糊需求拆成可实现功能的</h3><p>7 分钟阅读</p></a>
+        <a class="essay" href="#"><div class="meta"><span>项目复盘</span><time>2026.09.04</time></div><h3>个人项目不只是代码：如何说明你的判断</h3><p>5 分钟阅读</p></a>
+        <a class="essay" href="#"><div class="meta"><span>成长</span><time>2026.08.21</time></div><h3>从课程作业到可展示作品，中间缺了什么</h3><p>6 分钟阅读</p></a>
+        <a class="essay" href="#"><div class="meta"><span>工程</span><time>2026.08.08</time></div><h3>我为一个小项目保留了哪些必要约束</h3><p>4 分钟阅读</p></a>
+      </div></section>
+
+      <section class="section closing" id="contact"><div class="contact-hub reveal"><span class="eyebrow">Contact / Open to connect</span><h2>继续交流。</h2><p>欢迎聊项目合作、实习机会或技术话题。正式版会填写你的真实联系方式；目前仅展示入口位置，不会发送消息。</p><div class="contact-options"><span>✉ 邮箱 · 待填写</span><span>↗ GitHub · 待填写</span><span>↗ 其他社交账号 · 待填写</span></div></div></section>
+    </main>
+  </div>
+  <footer class="footer"><div class="shell">方案 C · 编辑索引 — 示例内容，不代表真实履历。</div></footer><a class="button back" href="index.html">← 返回比较</a><script src="base.js"></script>
+</body>
+</html>

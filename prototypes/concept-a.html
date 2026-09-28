@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>阿霾 · 蓝调档案预览</title>
+  <link rel="stylesheet" href="base.css">
+  <style>
+    :root { --accent: #156cb3; --accent-2: #0c997a; }
+    :root[data-theme="dark"] { --accent: #83c7ff; --accent-2: #78efc9; }
+    body {
+      min-width: 0;
+      background-image:
+        radial-gradient(circle at 8% 9%, color-mix(in srgb, var(--accent) 17%, transparent), transparent 34rem),
+        radial-gradient(circle at 88% 26%, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent 30rem),
+        radial-gradient(circle at var(--mx) var(--my), color-mix(in srgb, var(--accent) 7%, transparent), transparent 21rem);
+      background-size: 125% 125%, 135% 135%, auto;
+      animation: ambient-flow 22s ease-in-out infinite alternate;
+    }
+    @keyframes ambient-flow { to { background-position: 7% 5%, 92% 10%, 0 0; } }
+    .site-header { background: color-mix(in srgb, var(--bg) 62%, transparent); }
+    .brand::before { content: "M"; display: inline-grid; place-items: center; width: 32px; height: 32px; margin-right: 9px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #071018; font-size: .85rem; }
+    .hero { min-height: calc(100vh - 71px); display: grid; grid-template-columns: minmax(0, 1fr) 235px; align-items: center; gap: 60px; padding: 40px 0 48px; }
+    .hero h1 { margin: 12px 0 0; font-size: clamp(4.3rem, 10vw, 8.5rem); letter-spacing: -.08em; line-height: 1; }
+    .hero-role { margin: 4px 0 16px; font-size: clamp(1.45rem, 3.5vw, 2.55rem); font-weight: 700; letter-spacing: -.04em; background: linear-gradient(90deg, var(--accent), var(--accent-2)); color: transparent; background-clip: text; }
+    .hero .lede { max-width: 760px; margin: 8px 0; line-height: 1.6; }
+    .hero-shortcuts { display: grid; grid-template-columns: repeat(2, 154px); gap: 14px 18px; width: max-content; margin-top: 22px; }
+    .hero-shortcut { display: inline-flex; align-items: center; gap: 11px; min-height: 46px; padding: 0 15px; border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--line)); border-radius: 999px; background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--text); font-size: 1rem; font-weight: 800; letter-spacing: .01em; }
+    a.hero-shortcut { text-decoration: none; }
+    a.hero-shortcut:hover, a.hero-shortcut:focus-visible { border-color: var(--accent); box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 20%, transparent); }
+    .hero-shortcut[aria-disabled="true"] { opacity: .72; cursor: not-allowed; }
+    .hero-shortcut svg { flex: none; width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .hero-shortcut.resume { border-color: transparent; background: #4daeff; color: #071a2d; box-shadow: 0 0 28px rgba(77,174,255,.18); }
+    .shortcut-note { margin: 12px 0 0; color: var(--muted); font-size: .78rem; }
+    .availability { display: inline-flex; align-items: center; gap: 9px; padding: 6px 13px; border: 1px solid color-mix(in srgb, var(--accent-2) 50%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--accent-2) 10%, transparent); color: var(--text); font-size: .78rem; }
+    .availability::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); box-shadow: 0 0 12px var(--accent-2); }
+    .status-panel { align-self: center; min-height: 310px; display: flex; flex-direction: column; justify-content: space-between; padding: 22px; border: 1px solid var(--line); border-radius: 24px; background: var(--surface); backdrop-filter: blur(16px); box-shadow: var(--shadow); }
+    .status-panel dl { margin: 0; }
+    .status-panel dt { margin-top: 18px; color: var(--muted); font: 700 .67rem ui-monospace, monospace; letter-spacing: .12em; text-transform: uppercase; }
+    .status-panel dd { margin: 2px 0 0; font-weight: 720; }
+    .signal { display: grid; place-items: center; width: 72px; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #071018; font-size: 1.35rem; font-weight: 900; box-shadow: 0 0 40px color-mix(in srgb, var(--accent) 35%, transparent); animation: signal 3s ease-in-out infinite; }
+    @keyframes signal { 50% { transform: scale(1.15); filter: drop-shadow(0 0 16px var(--accent)); } }
+    .capability-grid { grid-template-columns: repeat(12, 1fr); }
+    .capability { min-height: 230px; padding: 28px; border-radius: 22px; backdrop-filter: blur(12px); }
+    .capability:nth-child(1) { grid-column: span 5; }
+    .capability:nth-child(2) { grid-column: span 4; }
+    .capability:nth-child(3) { grid-column: span 3; }
+    .capability small { color: var(--accent); font: 700 .7rem ui-monospace, monospace; }
+    .capability h3 { margin: 54px 0 8px; font-size: 1.6rem; letter-spacing: -.04em; }
+    .capability p { margin: 0; color: var(--muted); }
+    .projects { grid-template-columns: 1.35fr .65fr; }
+    .project { position: relative; overflow: hidden; min-height: 330px; padding: 32px; border-radius: 24px; backdrop-filter: blur(14px); transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+    .project::after { content: attr(data-index); position: absolute; right: -8px; bottom: -48px; color: color-mix(in srgb, var(--accent) 12%, transparent); font-size: 10rem; font-weight: 900; line-height: 1; }
+    .project h3 { margin: 80px 0 8px; font-size: 2rem; letter-spacing: -.045em; }
+    .project p { max-width: 480px; color: var(--muted); }
+    .journal-list { border-top: 1px solid var(--line); }
+    .article { display: grid; grid-template-columns: 110px 1fr auto; gap: 24px; align-items: center; padding: 25px 0; border-bottom: 1px solid var(--line); text-decoration: none; }
+    .article time, .article span { color: var(--muted); font: .78rem ui-monospace, monospace; }
+    .article h3 { margin: 0; font-size: 1.15rem; }
+    .tech-card { min-height: 258px; padding: 30px; overflow: hidden; backdrop-filter: blur(14px); box-shadow: var(--shadow); }
+    .tech-card h3 { margin: 0; color: var(--accent); font-size: 1.25rem; }
+    .tech-card h3 small { display: block; margin-bottom: 6px; color: var(--muted); font: 700 .65rem ui-monospace, monospace; letter-spacing: .13em; }
+    .logo-window { overflow: hidden; margin: 27px -30px 0; mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent); }
+    .logo-track { display: flex; width: max-content; }
+    .logo-track.is-ready { animation: logo-slide 15s linear infinite; }
+    .tech-card:nth-child(even) .logo-track.is-ready { animation-direction: reverse; }
+    @keyframes logo-slide { to { transform: translateX(-50%); } }
+    .logo-row { display: flex; gap: 14px; width: max-content; margin: 0; padding: 0 14px 0 0; list-style: none; }
+    .logo-row li { flex: none; display: grid; justify-items: center; align-content: center; gap: 12px; width: 112px; height: 122px; color: var(--text); font-size: .76rem; font-weight: 700; }
+    .logo-row img { width: 52px; height: 52px; object-fit: contain; filter: drop-shadow(0 5px 14px color-mix(in srgb, var(--accent) 20%, transparent)); }
+    .tech-mark { display: grid; place-items: center; width: 52px; height: 52px; color: var(--accent); font: 900 1.2rem ui-monospace, monospace; letter-spacing: -.08em; }
+    .project-visual { height: 112px; border-radius: 16px; background: radial-gradient(circle at 76% 32%, color-mix(in srgb, var(--accent-2) 58%, transparent), transparent 27%), linear-gradient(125deg, color-mix(in srgb, var(--accent) 30%, transparent), color-mix(in srgb, var(--accent-2) 13%, transparent)); }
+    .project:nth-child(2) .project-visual { background: radial-gradient(circle at 25% 70%, color-mix(in srgb, var(--accent) 48%, transparent), transparent 24%), linear-gradient(150deg, color-mix(in srgb, var(--accent-2) 28%, transparent), color-mix(in srgb, var(--accent) 10%, transparent)); }
+    .project h3 { margin-top: 20px; }
+    .project-hint { color: var(--muted); font-size: .82rem; }
+    .tech-card.tilt-card::before { background: radial-gradient(360px circle at var(--spot-x, 50%) var(--spot-y, 50%), color-mix(in srgb, var(--accent) 42%, transparent), transparent 72%); }
+    .tech-card.tilt-card:hover { box-shadow: 0 30px 90px color-mix(in srgb, var(--accent) 30%, transparent); }
+    .learning-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+    .learning-grid article { padding: 25px; border: 1px solid var(--line); border-radius: 22px; background: var(--surface); }
+    .learning-grid h3 { margin: 12px 0 8px; }
+    .learning-grid p { margin: 0; color: var(--muted); }
+    .tilt-card { position: relative; isolation: isolate; background-image: linear-gradient(105deg, transparent 28%, color-mix(in srgb, var(--accent) 10%, transparent) 47%, transparent 66%); background-size: 240% 100%; animation: surface-flow 9s linear infinite; transition: transform .28s ease, box-shadow .28s ease, border-color .28s ease; }
+    @keyframes surface-flow { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+    .tilt-card::before { content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit; pointer-events: none; opacity: var(--glow, 0); background: radial-gradient(260px circle at var(--spot-x, 50%) var(--spot-y, 50%), color-mix(in srgb, var(--accent) 28%, transparent), transparent 70%); transition: opacity .25s ease; }
+    .tilt-card > * { position: relative; z-index: 2; }
+    .tilt-card.reveal { transform: translateY(24px); }
+    .tilt-card.reveal.is-visible, .tilt-card:not(.reveal) { transform: perspective(900px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); }
+    .tilt-card.reveal.is-visible:hover, .tilt-card:not(.reveal):hover { transform: perspective(900px) translateY(-4px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); box-shadow: 0 25px 70px color-mix(in srgb, var(--accent) 17%, transparent); }
+    .back { position: fixed; right: 18px; bottom: 18px; z-index: 30; }
+    @media (max-width: 780px) {
+      .hero { grid-template-columns: 1fr; }
+      .status-panel { display: none; }
+      .capability:nth-child(n) { grid-column: span 12; }
+      .projects { grid-template-columns: 1fr; }
+      .learning-grid { grid-template-columns: 1fr; }
+      .article { grid-template-columns: 1fr auto; }
+      .article time { display: none; }
+      .back { position: static; margin: 0 14px 18px; }
+    }
+    @media (max-width: 430px) { .hero-shortcuts { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .hero-shortcut { padding-inline: 11px; font-size: .9rem; } }
+    @media (prefers-reduced-motion: reduce) { .tilt-card.reveal.is-visible, .tilt-card:not(.reveal), .tilt-card.reveal.is-visible:hover, .tilt-card:not(.reveal):hover { transform: none; } .tilt-card::before { display: none; } .logo-track.is-ready { transform: none; } }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="shell nav">
+      <a class="brand" href="#top">阿霾 · 个人作品集</a>
+      <nav class="nav-links" aria-label="主导航"><a href="#about">关于我</a><a href="#stack">技术栈</a><a href="#projects">项目</a><a href="#journal">博客</a><a href="#learning">学习成果</a><a class="keep" href="#contact">联系</a><button class="theme-toggle" data-theme-toggle aria-label="切换明暗主题">◐</button><details class="mobile-menu"><summary>菜单</summary><div><a href="#about">关于我</a><a href="#stack">技术栈</a><a href="#projects">项目</a><a href="#journal">博客</a><a href="#learning">学习成果</a><a href="#contact">联系</a></div></details></nav>
+    </div>
+  </header>
+  <main id="top">
+    <section class="shell hero" id="about">
+      <div>
+        <span class="availability">关注 Java 后端与 AI 智能体开发</span>
+        <h1>阿霾</h1>
+        <p class="hero-role">Java 后端工程师 · 转向 AI 智能体开发</p>
+        <p class="lede">你好，我是阿霾，一名 Java 后端工程师，正在转型从事 AI 智能体开发。</p>
+        <p class="lede">我复盘了自己的首个大语言模型项目，找出 37 个缺陷——因此我十分关注工具权限、token 预算，以及如何证明模型性能确实得到改善。</p>
+        <div class="hero-shortcuts" aria-label="简历与联系方式">
+          <span class="hero-shortcut resume" aria-disabled="true" title="简历尚未上传"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 2h9l5 5v6M5 2v20h8M14 2v5h5M16 18l2 2 4-4"/></svg>Resume</span>
+          <a class="hero-shortcut" href="https://github.com/WKING66" target="_blank" rel="noopener noreferrer"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4 1-4-2-6-2m12 4v-3a3 3 0 0 0-.8-2.3c2.7-.3 5.6-1.3 5.6-6A4.7 4.7 0 0 0 18.5 6 4.3 4.3 0 0 0 18.4 3S17.3 2.7 15 4.2a12 12 0 0 0-6 0C6.7 2.7 5.6 3 5.6 3A4.3 4.3 0 0 0 5.5 6a4.7 4.7 0 0 0-1.3 3.7c0 4.7 2.9 5.7 5.6 6A3 3 0 0 0 9 18v3"/></svg>GitHub</a>
+          <a class="hero-shortcut" href="mailto:2899964923@qq.com"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></svg>Email</a>
+        </div>
+        <p class="shortcut-note">GitHub 与邮箱为已确认的公开入口；简历文件待补充。</p>
+        <div class="proof-links"><a href="#projects">查看项目 →</a><a href="#journal">阅读博客 →</a></div>
+      </div>
+      <aside class="status-panel tilt-card" aria-label="当前状态">
+        <div class="signal" aria-hidden="true">霾</div>
+        <dl><dt>定位</dt><dd>Java 后端 → AI 智能体</dd><dt>关注方向</dt><dd>工具权限 / Token 预算</dd><dt>头像</dt><dd>待上传</dd></dl>
+      </aside>
+    </section>
+
+    <section class="section" id="stack"><div class="shell"><div class="section-heading reveal"><div><span class="eyebrow">01 / Technology</span><h2>技术栈</h2></div><p>以下技术由本人提供；没有现成图标的项目暂用文字标记，正式上线前再核对品牌素材。</p></div><div class="tech-grid reveal">
+      <article class="tech-card tilt-card"><h3><small>PROGRAMMING LANGUAGES</small>编程语言</h3><div class="logo-window"><div class="logo-track"><ul class="logo-row">
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/java/java-original.svg" alt="" loading="lazy"><span>Java</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/javascript/javascript-original.svg" alt="" loading="lazy"><span>JavaScript</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/typescript/typescript-original.svg" alt="" loading="lazy"><span>TypeScript</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/python/python-original.svg" alt="" loading="lazy"><span>Python</span></li>
+      </ul></div></div></article>
+      <article class="tech-card tilt-card"><h3><small>FRAMEWORKS & TOOLS</small>框架与工具</h3><div class="logo-window"><div class="logo-track"><ul class="logo-row">
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/spring/spring-original.svg" alt="" loading="lazy"><span>Spring Boot</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/vuejs/vuejs-original.svg" alt="" loading="lazy"><span>Vue</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/vitejs/vitejs-original.svg" alt="" loading="lazy"><span>Vite</span></li>
+        <li><img src="https://cdn.simpleicons.org/langchain/5BC0A4" alt="" loading="lazy"><span>LangChain</span></li>
+        <li><img src="https://cdn.simpleicons.org/langgraph/5BA8DB" alt="" loading="lazy"><span>LangGraph</span></li>
+        <li><span class="tech-mark" aria-hidden="true">MB+</span><span>MyBatis-Plus</span></li>
+      </ul></div></div></article>
+      <article class="tech-card tilt-card"><h3><small>INFRASTRUCTURE</small>工程与部署</h3><div class="logo-window"><div class="logo-track"><ul class="logo-row">
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/linux/linux-original.svg" alt="" loading="lazy"><span>Linux</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/docker/docker-original.svg" alt="" loading="lazy"><span>Docker</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/git/git-original.svg" alt="" loading="lazy"><span>Git</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/nginx/nginx-original.svg" alt="" loading="lazy"><span>Nginx</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/jenkins/jenkins-original.svg" alt="" loading="lazy"><span>Jenkins</span></li>
+        <li><img src="https://cdn.simpleicons.org/github/83C7FF" alt="" loading="lazy"><span>GitHub CI/CD</span></li>
+      </ul></div></div></article>
+      <article class="tech-card tilt-card"><h3><small>DATABASES</small>数据与存储</h3><div class="logo-window"><div class="logo-track"><ul class="logo-row">
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/mysql/mysql-original.svg" alt="" loading="lazy"><span>MySQL</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/elasticsearch/elasticsearch-original.svg" alt="" loading="lazy"><span>Elasticsearch</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/redis/redis-original.svg" alt="" loading="lazy"><span>Redis</span></li>
+        <li><img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postgresql/postgresql-original.svg" alt="" loading="lazy"><span>PostgreSQL</span></li>
+        <li><span class="tech-mark" aria-hidden="true">pgv</span><span>pgvector</span></li>
+      </ul></div></div></article>
+    </div></div></section>
+
+    <section class="section" id="capabilities">
+      <div class="shell">
+        <div class="section-heading reveal"><div><span class="eyebrow">02 / Evidence</span><h2>用作品与写作说话</h2></div><p>真实项目与文章尚未录入。以下内容仅是布局演示，不代表阿霾的成果。</p></div>
+        <div class="grid capability-grid">
+          <article class="card capability tilt-card reveal"><small>PROJECT / 演示数据</small><h3>项目卡片预览</h3><p>展示项目的介绍、技术标签和本人贡献。</p><a href="#projects">查看卡片 →</a></article>
+          <article class="card capability tilt-card reveal"><small>WRITING / 测试素材</small><h3>Markdown 导入</h3><p>使用带本地图片的测试笔记检验导入与预览。</p><a href="#journal">查看博客区 →</a></article>
+          <article class="card capability tilt-card reveal"><small>FOCUS / 已确认方向</small><h3>AI 智能体开发</h3><p>关注工具权限、Token 预算与可证明的性能改进。</p></article>
+        </div>
+        <p class="lede reveal" style="margin-top:42px">个人背景与学习成果会在你提供并批准真实资料后补充；当前不使用虚构学校、课程或证书。</p>
+      </div>
+    </section>
+
+    <section class="section" id="projects">
+      <div class="shell">
+        <div class="section-heading reveal"><div><span class="eyebrow">03 / Selected work</span><h2>项目展示卡片</h2></div><p>下列两项均为演示数据，仅用于检查图片、标签与介绍的版式；真实项目列表目前为空。</p></div>
+        <div class="grid projects">
+          <article class="card project tilt-card reveal" data-index="01"><span class="tag">演示数据 · AI</span><div class="project-visual" role="img" aria-label="项目展示图片占位图"></div><h3>示例项目 A</h3><p>这里将展示项目要解决的问题、你的具体贡献和关键技术。</p><span class="project-hint">真实项目资料与外部入口待添加</span></article>
+          <article class="card project tilt-card reveal" data-index="02"><span class="tag">演示数据 · Backend</span><div class="project-visual" role="img" aria-label="项目展示图片占位图"></div><h3>示例项目 B</h3><p>第二张卡片用于检查不同长度的简介和标签排版。</p><span class="project-hint">真实项目资料与外部入口待添加</span></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="journal">
+      <div class="shell">
+        <div class="section-heading reveal"><div><span class="eyebrow">04 / Journal</span><h2>博客预览</h2></div><p>真实文章尚未提供。下列仅为导入测试样本，保持未发布。</p></div>
+        <div class="journal-list reveal">
+          <div class="article"><time>TEST ONLY</time><h3>Markdown 图片导入测试笔记</h3><span>未发布</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="learning"><div class="shell"><div class="section-heading reveal"><div><span class="eyebrow">05 / Learning</span><h2>课程与成长记录</h2></div><p>借鉴参考站的证书区结构，正式版只放你的真实课程、证书与成果。</p></div><div class="learning-grid reveal"><article class="tilt-card"><span class="tag">课程成果 · 示例</span><h3>软件工程实践</h3><p>展示课程目标、完成的作品和收获。</p></article><article class="tilt-card"><span class="tag">认证 · 待补充</span><h3>可验证的学习成果</h3><p>有证书时展示名称、颁发方、时间与验证链接。</p></article></div></div></section>
+
+    <section class="section" id="contact"><div class="shell"><div class="contact-hub reveal"><span class="eyebrow">06 / Contact</span><h2>聊聊你的想法。</h2><p>欢迎交流 AI 智能体、Java 后端或项目合作。以下是已确认公开的联系方式。</p><div class="contact-options"><a href="mailto:2899964923@qq.com">✉ 2899964923@qq.com</a><a href="https://github.com/WKING66" target="_blank" rel="noopener noreferrer">↗ GitHub / WKING66</a></div></div></div></section>
+  </main>
+  <footer class="footer"><div class="shell">阿霾 · 蓝调档案预览。项目与测试笔记均非真实公开作品。</div></footer>
+  <a class="button back" href="index.html">← 返回比较</a>
+  <script src="base.js"></script>
+  <script>
+    document.querySelectorAll(".logo-track").forEach(track => {
+      const copy = track.firstElementChild.cloneNode(true);
+      copy.setAttribute("aria-hidden", "true");
+      track.append(copy);
+      track.classList.add("is-ready");
+    });
+    if (matchMedia("(hover: hover) and (pointer: fine)").matches && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      document.querySelectorAll(".tilt-card").forEach(card => {
+        card.addEventListener("pointermove", event => {
+          const box = card.getBoundingClientRect();
+          const x = (event.clientX - box.left) / box.width;
+          const y = (event.clientY - box.top) / box.height;
+          const angle = card.classList.contains("tech-card") ? 15 : 10;
+          card.style.setProperty("--tilt-x", `${(0.5 - y) * angle}deg`);
+          card.style.setProperty("--tilt-y", `${(x - 0.5) * angle}deg`);
+          card.style.setProperty("--spot-x", `${x * 100}%`);
+          card.style.setProperty("--spot-y", `${y * 100}%`);
+          card.style.setProperty("--glow", "1");
+        });
+        card.addEventListener("pointerleave", () => {
+          for (const name of ["--tilt-x", "--tilt-y", "--spot-x", "--spot-y", "--glow"]) card.style.removeProperty(name);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

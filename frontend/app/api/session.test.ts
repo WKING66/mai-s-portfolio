@@ -1,0 +1,46 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { loginOwner } from './session'
+
+afterEach(() => vi.unstubAllGlobals())
+
+describe('loginOwner', () => {
+  it('sends only a one-time challenge ID and RSA ciphertext in the login request', async () => {
+    const keyPair = await crypto.subtle.generateKey({
+      name: 'RSA-OAEP', modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256',
+    }, true, ['encrypt', 'decrypt'])
+    const publicKey = btoa(String.fromCharCode(
+      ...new Uint8Array(await crypto.subtle.exportKey('spki', keyPair.publicKey)),
+    ))
+    let submittedBody: Record<string, string> | undefined
+    const fetchMock = vi.fn(async (_url: string, options?: { body?: Record<string, string> }) => {
+      if (!options?.body) {
+        return { code: 'OK', message: '成功', data: {
+          challengeId: 'one-time-id', publicKey, algorithm: 'RSA-OAEP-256',
+          expiresAt: '2026-09-26T10:00:00Z',
+        }, details: [] }
+      }
+      submittedBody = options.body
+      return { code: 'OK', message: '成功', data: {
+        loggedIn: true, username: 'owner', csrfToken: 'test-csrf',
+      }, details: [] }
+    })
+    vi.stubGlobal('$fetch', fetchMock)
+
+    const session = await loginOwner('owner', 'only-in-memory-password')
+
+    expect(session.loggedIn).toBe(true)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(submittedBody).toBeDefined()
+    expect(Object.keys(submittedBody!)).toEqual(['username', 'challengeId', 'encryptedPassword'])
+    expect(JSON.stringify(submittedBody)).not.toContain('only-in-memory-password')
+    const encryptedPassword = submittedBody?.encryptedPassword
+    if (typeof encryptedPassword !== 'string') {
+      throw new Error('Missing encrypted password in login request')
+    }
+    const encryptedBytes = Uint8Array.from(atob(encryptedPassword),
+      character => character.charCodeAt(0))
+    const decrypted = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, keyPair.privateKey, encryptedBytes)
+    expect(new TextDecoder().decode(decrypted)).toBe('only-in-memory-password')
+  })
+})

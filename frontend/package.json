@@ -1,0 +1,25 @@
+{
+  "name": "amai-portfolio-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --host 127.0.0.1",
+    "typecheck": "nuxt typecheck",
+    "build": "nuxt build",
+    "preview": "nuxt preview --host 127.0.0.1",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "nuxt": "4.5.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "5.9.2",
+    "vitest": "3.2.4",
+    "vue-tsc": "3.3.11"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  }
+}
