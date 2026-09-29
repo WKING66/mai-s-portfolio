@@ -18,7 +18,7 @@
 
 **2026-09-26 确认**: Sa-Token、MyBatis-Plus、Druid 是站点主人确认的首选；具体版本先做 Boot 4 组合启动与会话/CSRF/分页实测。用户要求未来 Sa-Token Redis 接入兼容 Redis **服务端 3.2.1**，但首版不启用 Redis；该旧版本的真实适配和运行安全需另设门槛，不据此降低首版组件安全性。首页首屏之后沿用 A 版先展示技术栈，再展示项目和博客；排期仅为预估，开发按质量门槛下最快可验证进度推进。
 
-**2026-09-26 编码与接口决策**: 以 [Spring Boot + Nuxt 代码规范](springboot-nuxt-code-style.md) 为评审门槛。后端按明确三层组织：`controller → service → mapper`，`entity`、`dto`、`enums`、`config`、`common` 仅提供配套类型；Controller/拦截器不直接访问 Mapper，业务层不得用 JdbcTemplate 替代已确认的 MyBatis-Plus。Service 必须先定义接口，具体逻辑由 `service/impl/*Impl` 实现；启动 Runner 调用接口。用户可见的响应、错误和状态提示集中在命名常量中，不散落在业务代码。所有 JSON 成功与失败响应采用统一 `{code,message,data,details}` 外壳，文件字节下载除外；同步修改 [HTTP 合同](contracts/http-api.md)、前端 API 层、OpenAPI 和测试。站点主人明确禁用 ponytail，后续开发不得启用该技能。
+**2026-09-26 编码与接口决策**: 以 [Spring Boot + Nuxt 代码规范](springboot-nuxt-code-style.md) 为评审门槛。每个业务模块内部按明确三层组织：`controller → service → mapper`，`entity`、`dto`、`enums`、`config`、`common` 仅提供配套类型；Controller/拦截器不直接访问 Mapper，业务层不得用 JdbcTemplate 替代已确认的 MyBatis-Plus。Service 必须先定义接口，具体逻辑由 `service/impl/*Impl` 实现；启动 Runner 调用接口。用户可见的响应、错误和状态提示集中在命名常量中，不散落在业务代码。所有 JSON 成功与失败响应采用统一 `{code,message,data,details}` 外壳，文件字节下载除外；同步修改 [HTTP 合同](contracts/http-api.md)、前端 API 层、OpenAPI 和测试。博客与 Agent 采用同进程 Maven 模块化单体中的 provider/service 业务模块；它们不是 Starter，模块间不得直连 Mapper、DO 或实现类。站点主人明确禁用 ponytail，后续开发不得启用该技能。
 
 **Storage**: PostgreSQL 保存账号、资料、项目、统一 Document、不可变 DocumentVersion、BlogPost、标签和 Asset 元数据；首个基线草案为 15 张表，全部使用自增 BIGINT `id` 主键，状态/类别/开关用 SMALLINT 编码。业务校验先在服务层完成；唯一索引及物理外键维护完整性，外键禁止级联删除。OSS 私有 Bucket 存二进制字节，READY Asset 不原地覆盖。Markdown 正文只保存在 DocumentVersion，博客和 RAG 不另存第二真源。
 
@@ -82,26 +82,31 @@ frontend/
 ├── app/composables/         # 确有复用需要时的页面逻辑
 ├── public/                   # 静态资源
 └── tests/
-backend/
-├── src/main/java/.../
-│   ├── controller/           # 只处理 HTTP 边界
-│   ├── service/              # Service 接口
-│   │   └── impl/             # 对应实现类，业务规则、权限、事务
-│   ├── mapper/               # MyBatis-Plus 数据访问
-│   ├── entity/               # 数据库实体，不直接暴露给 API
-│   ├── dto/                  # 专用请求与响应类型
-│   ├── enums/                # SMALLINT 数值码的业务语义
-│   ├── config/               # 配置和拦截器
-│   └── common/               # 统一响应与异常
-├── src/main/resources/db/migration/   # 已停用的 MySQL 历史迁移
-├── src/main/resources/db/postgresql/  # dev 已启用的 PostgreSQL 基线
-└── src/test/
+backend/                       # Maven 模块化单体聚合工程
+├── mai-portfolio-dependencies/ # BOM：统一内部与第三方依赖版本
+├── mai-portfolio-common/       # 跨业务域公共能力、通用工具与通用模型
+├── mai-portfolio-framework/    # 仅放可复用依赖组件 Starter
+│   ├── mai-portfolio-spring-boot-starter-web/
+│   ├── mai-portfolio-spring-boot-starter-validation/
+│   ├── mai-portfolio-spring-boot-starter-api-log/
+│   ├── mai-portfolio-spring-boot-starter-security/
+│   ├── mai-portfolio-spring-boot-starter-mybatis/
+│   ├── mai-portfolio-spring-boot-starter-datasource/
+│   ├── mai-portfolio-spring-boot-starter-flyway/
+│   ├── mai-portfolio-spring-boot-starter-openapi/
+│   └── mai-portfolio-spring-boot-starter-storage/
+├── mai-portfolio-modules/      # 业务域；每个域按 provider/service 拆分
+│   ├── mai-portfolio-module-system/{provider,service}
+│   ├── mai-portfolio-module-blog/{provider,service}
+│   └── mai-portfolio-module-agent/{provider,service}
+├── mai-portfolio-launch/       # 唯一可执行 Spring Boot 入口与环境配置
+└── pom.xml                     # 根聚合与构建插件管理
 infra/                       # 首版不含 Docker 配置；生产部署文件后定
 prototypes/                  # 已完成的视觉参考，不作为运行时依赖
 samples/markdown-import/     # 虚构测试素材，不注入正式公开内容
 ```
 
-**Structure Decision**: 前端与后端独立构建、独立运行，通过同源 `/api/v1` HTTP 合同交互。Nuxt 服务端负责页面呈现与必要的请求转发，不复制内容权限或图片抓取规则；Spring Boot 是业务判断的唯一来源。管理页属于同一个 Nuxt 前端，不另建第三个应用。
+**Structure Decision**: 前端与后端独立构建、独立运行，通过同源 `/api/v1` HTTP 合同交互。Nuxt 服务端负责页面呈现与必要的请求转发，不复制内容权限或图片抓取规则；Spring Boot 是业务判断的唯一来源。后端采用同一 JVM 内运行的模块化单体，不拆微服务：依赖方向固定为 `launch → modules → framework → common → dependencies`。业务域按 provider/service 拆分，Blog 与 Agent 不得做成 Starter，也不得引用对方 Mapper、DO 或实现类；跨域仅通过所属模块 provider 的窄接口与稳定 DTO 协作。Starter 按单一基础设施职责拆分为 Web、校验、接口日志、安全、MyBatis、数据源、Flyway、OpenAPI 与对象存储，并通过官方自动配置或项目 `@AutoConfiguration` 接入。权限判断仍由数据所属业务域执行。管理页属于同一个 Nuxt 前端，不另建第三个应用。详细决定见 [后端分层模块化架构](modular-backend-architecture.md)。
 
 ## Complexity Tracking
 

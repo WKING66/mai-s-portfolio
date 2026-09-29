@@ -103,6 +103,35 @@ public ApiResponse<UserResponse> create(
 
 ---
 
+## 2.2 大型业务模块与 Spring Boot Starter 边界
+
+博客、Agent 等大型业务不得继续堆放在同一个应用源码模块中，统一采用**同进程模块化单体**，不得因此擅自拆成微服务。
+
+模块职责固定如下：
+
+- `mai-portfolio-dependencies`：BOM，只负责统一内部模块和第三方依赖版本。
+- `mai-portfolio-common`：只存放已经确认可跨业务域复用且不依赖框架的公共能力、通用工具和通用模型，例如统一响应、分布式锁抽象、JSON 转换、通用 Util、分页 Request/Vo。某个 Starter 专属的接口、模型、异常和工具必须归该 Starter，不得为了“看起来通用”放入 common，也不得预造尚无调用方的公共类。
+- `mai-portfolio-framework`：只放可复用依赖组件的 Spring Boot Starter；当前按 Web、参数校验、接口日志、Sa-Token 安全、MyBatis、数据源、Flyway、OpenAPI/Knife4j、对象存储拆分，不得放 Blog/Agent 业务。
+- `mai-portfolio-module-*-provider`：只公开所属业务域允许其他模块使用的 API、DTO 和枚举，不得包含 Mapper、DO 或实现类。
+- `mai-portfolio-module-*-service`：拥有所属业务域的 Controller、Service 接口/impl、Mapper、DO 和资源，并保持三层架构。
+- `mai-portfolio-launch`：唯一可执行应用，只负责启动、环境配置和业务模块装配，不承载业务实现。
+
+强制依赖规则：
+
+1. 依赖方向固定为 `launch → modules → framework → common → dependencies`，禁止反向依赖。
+2. Blog 与 Agent 是业务模块，不得做成 Spring Boot Starter；两者禁止引用对方的 Mapper、DO、Service 实现或内部 DTO。
+3. 跨模块协作必须只依赖能力所属模块的 provider，并通过窄接口与稳定 DTO 完成；不得为了省事开放整个内部模型。
+4. 文档可见性、发布状态和资源授权由 Blog 模块判定；Agent 只能消费已经授权的知识读取接口，不以“已建立索引”代替授权。
+5. 基础设施 Starter 使用 `@AutoConfiguration` 和 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 显式注册；禁止扫描整个 `dev.amai.portfolio` 根包。
+6. LangChain、LangGraph、Milvus 等 Agent 专属依赖只能存在于 Agent service，不得传染 Blog、common 或 launch。
+7. 每个业务模块必须拥有自己的单元测试与集成测试；聚合工程还须运行全量回归。
+8. Provider 可以先保留边界说明，但不得伪造已完成的业务 API；业务实现随对应任务逐项进入 service。
+9. 一个 Starter 只拥有一种基础设施职责；业务 service 只依赖内部 Starter，不得再次直接声明该 Starter 已封装的第三方运行依赖。
+10. 项目自定义自动配置 Bean 必须提供合理的条件装配和覆盖点；仅聚合官方依赖的 Starter 不得重复实现官方自动配置。
+11. 接口日志采用 `@ApiLog` 显式启用，禁止按 `RestController` 全局兜底切入；新增标注时必须先确认字段脱敏、内容截断和文件流省略策略。
+
+---
+
 # 3. Service 编码规范
 
 Service 负责：
@@ -181,7 +210,7 @@ Repository / Mapper 只负责数据访问。
 
 ---
 
-# 5. Entity / DTO / Response 分离
+# 5. Entity / Request / Vo 分离
 
 数据库实体不得直接作为 Controller 的请求或响应对象。
 
@@ -205,8 +234,8 @@ public UserEntity detail(@PathVariable Long id)
 CreateUserRequest
 UpdateUserRequest
 UserQueryRequest
-UserResponse
-UserDetailResponse
+UserVo
+UserDetailVo
 ```
 
 禁止创建一个万能：
@@ -217,7 +246,9 @@ UserDTO
 
 然后所有接口全部复用。
 
-DTO 名称必须体现用途。
+HTTP 入参统一放在 `entity/request`，并以 `Request` 结尾；返回前端的数据统一放在 `entity/vo`，并以 `Vo` 结尾。禁止使用 `Response`、`DTO`、`Data` 或 `Envelope` 作为接口实体后缀，也禁止把返回类型放进 request 目录。仅供 OpenAPI 展开泛型响应的具体模型同样属于返回模型，必须放在 `entity/vo` 并使用 `Vo` 后缀。
+
+内部基础设施命令（例如对象存储写入参数）应放在所属模块的领域或 SPI 包中；不得为了后缀一致把非 HTTP 类型塞进 `entity/request`。
 
 ---
 
@@ -232,7 +263,7 @@ UserController
 UserService
 UserRepository
 CreateUserRequest
-UserResponse
+UserVo
 UserStatus
 ```
 

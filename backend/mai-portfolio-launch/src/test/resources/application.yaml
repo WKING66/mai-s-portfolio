@@ -1,0 +1,17 @@
+portfolio:
+  media:
+    # 普通回归不依赖外网；真实 OSS 由显式集成测试单独验证。
+    storage: local
+  security:
+    # 多个安全回归共享同一 Spring 上下文与回环地址，不让测试量触发生产限流阈值。
+    max-challenges-per-client: 256
+    max-login-attempts-per-client: 256
+
+logging:
+  file:
+    # 回归测试不在仓库目录产生日志文件。
+    name: ${java.io.tmpdir}/mai-portfolio-tests/mai-portfolio.log
+
+sa-token:
+  cookie:
+    secure: false

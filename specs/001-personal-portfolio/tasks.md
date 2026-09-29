@@ -32,7 +32,7 @@
 - [ ] T009 [P] 在 `backend/src/main/java/dev/amai/portfolio/common/GlobalExceptionHandler.java` 与各业务 Service 统一 `401/403/404/409/413/422` 和 `{code,message,data,details}`；输入、枚举码、长度、HTTP(S) 链接、关联目标及重复关系先在服务层检查，SQL 异常只作兜底并隐藏原文。当前已覆盖现有接口的统一外壳、Bean Validation、匿名/CSRF 和未知路由；新业务校验及全部状态码仍待对应功能完成。
 - [X] T010 在 `backend/src/main/java/portfolio/auth/AdminSessionController.java`、`AdminAuthorization.java` 实现 `GET/POST/DELETE /api/v1/admin/session`、OWNER 且 ENABLED 才可管理、HttpOnly 同源会话 Cookie 和写操作 CSRF；匿名读不建账号，NORMAL 账号不得访问 `/admin/**`。后续按站点主人确认升级为 `GET /challenge` 一次性 RSA-OAEP 公钥 + 密文 POST 登录；原明文字段不再接受，前端通过 Web Crypto 实现并测试。
 - [X] T011 [P] 在 `backend/src/test/java/portfolio/auth/AdminSecurityTest.java` 先写匿名、NORMAL、OWNER、失效会话和无 CSRF 写请求的接口测试，再使 T010 通过；禁止密码进入 URL、响应和日志。
-- [ ] T012 在三层架构下定义 ObjectStorage 接口及本地/阿里云 OSS 实现；PostgreSQL 只存 Asset 元数据，私有 Bucket 存字节，READY 对象不原地覆盖；本地实现仅供开发，不向浏览器返回 OSS 凭据或对象键。
+- [X] T012 在三层架构下定义 ObjectStorage 接口及本地/阿里云 OSS 实现；PostgreSQL 只存 Asset 元数据，私有 Bucket 存字节，READY 对象不原地覆盖；本地实现仅供测试或显式离线排障，dev 默认连接真实 OSS，不向浏览器返回 OSS 凭据或对象键。已实现统一安全对象键、流式读写、同键禁止覆盖、强制 HTTPS 的 local/oss 条件装配与缺失凭据快速失败；对象存储实现、自动配置和测试已归入 `mai-portfolio-spring-boot-starter-storage`，Java 21 Reactor 全量回归 47 个测试通过（真实 OSS 测试按设计跳过 1 个），另有 1 个 `amai-portfolio` 私有 Bucket 集成测试通过，覆盖 ACL、上传、读取、禁止覆盖、删除及最终清理。Asset 业务授权与坏文件/网络抓取场景仍归 T014/T066/T072 验收。
 - [ ] T013 在媒体 Service/Controller 中实现文件类型/真实内容/字节/像素校验、仅 OWNER 可触发的受限网络图片抓取；`GET /api/v1/media/{id}` 每次按当前公开 profile、已发布项目或 BlogPost 的 published_version_id 与版本 Asset 清单授权。草稿媒体匿名 `404`，响应缓存不得在撤稿后继续公开。
 - [ ] T014 [P] 在媒体访问测试中先覆盖枚举自增媒体 ID、草稿/下架/旧发布版本与新草稿 Asset 隔离、个人头像或简历授权、READY 对象不可覆盖、坏文件、本地/OSS 两种实现，以及抓取内网/回环/危险跳转的拒绝行为，再使 T012–T013 通过。
 - [ ] T015 为唯一性、关联替换及文档版本保存实现 PostgreSQL 事务、服务层复查与 `lock_version` 冲突语义；外部 OSS 工作先于短事务，READY 对象不可覆盖，且不假装 PostgreSQL 与 OSS 原子提交。
@@ -166,8 +166,9 @@
 1. **T001–T005 Setup** → **T006–T017 Foundation** → 任何用户故事。T001/T002 是技术门槛；T003/T004 可在选型验证期间各自独立推进。
 2. **US1 T018–T024** 与 **US2 T025–T032** 在 Foundation 完成后按优先级推进；US2 的首页卡片接入 T022，但项目 API 与管理流可独立测试。US1 单独是“身份首页”最小演示；US1+US2 是对外更有说服力的作品集 MVP。
 3. **US5 T054–T057** 紧接 US1+US2 完成首页和项目页的 A 版视觉、交互、响应式；涉及博客页面的部分待博客需求重新确认后再接入。T058 中首页/项目页的 SEO/GEO 基础可先验收，博客相关元数据随后补齐。
-4. 历史 **US3 T033–T038** 与 **US4 T039–T053** 已归档；博客按 T065–T070 执行。T069 普通账号登录是普通访客导出的前置；Document/Asset、显式发布先完成，公开读取与 Markdown 导出随后验收。T072–T073 的全站验收在博客实现后进行，不阻塞作品集展示评审点。
-5. 每个故事的测试任务先写失败用例，随后按服务/接口→页面→集成验证顺序完成。当前单人执行顺序为 US1→US2→US5 的展示部分→展示页 SEO/GEO→博客需求重审→US3/US4→全站验收。
+4. 历史 **US3 T033–T038** 与 **US4 T039–T053** 已归档；先执行并审核 T074 的后端聚合工程与 Blog provider/service 边界，再按 T065–T070 实现博客。T069 普通账号登录是普通访客导出的前置；Document/Asset、显式发布先完成，公开读取与 Markdown 导出随后验收。
+5. 第二阶段 Agent 必须先执行并审核 T075 的 Agent provider/service 边界，再执行 T071；T072–T073 的全站验收在博客实现后进行，不阻塞作品集展示评审点。Blog 与 Agent 同 JVM 部署，但 Agent 只能依赖 Blog provider，禁止访问 Blog Mapper/DO/实现类。
+6. 每个故事的测试任务先写失败用例，随后按服务/接口→页面→集成验证顺序完成。当前单人执行顺序为 US1→US2→US5 的展示部分→展示页 SEO/GEO→T074→US3/US4→全站验收→T075→Agent。
 
 ### Parallel Examples
 
@@ -209,3 +210,5 @@
 - [ ] T071 [FR-042][SC-026] 第二阶段 Agent 接入前，明确非博客文档的知识用途与可见性模型并另建迁移；公开 KnowledgeRetriever 必须按当前发布版本或经批准的知识用途逐次过滤。先写“草稿已建索引但访客不可检索”及撤稿/重新发布回归测试，不以索引存在性作为授权依据。
 - [ ] T072 [FR-043][FR-044] 同步 Knife4j/OpenAPI、错误码常量、前端 API 类型与配置；分别运行后端测试、前端类型检查/构建、真实 PostgreSQL/OSS 集成测试，未运行的检查不得标为通过。
 - [ ] T073 [SC-024][SC-025] 完成独立审核点：SQL 与迁移报告先审；Document/Asset 版本化再审；Blog/普通账号/Markdown 流程最后审。每点附通过的测试和保留的风险，之后再重估部署与 Agent 排期。
+- [X] T074 [ARCH] 已参考 `orion-visor-w` 将 `backend` 重构为 24 项 Maven Reactor：建立 dependencies BOM、跨业务域公共能力 common、基础设施 framework、业务 modules 和唯一 launch 五层；System/Blog/Agent 按 provider/service 拆分，framework 按 Web、参数校验、接口日志、Sa-Token 安全、MyBatis、数据源、Flyway、OpenAPI/Knife4j、对象存储共 9 个 Starter 拆分。对象存储接口、模型、异常与实现全部归 Storage Starter；common 当前为空，后续只按实际复用需求加入分布式锁抽象、JSON 转换、通用 Util、分页 Request/Vo 等公共内容。业务 service 不再直接声明这些 Starter 已封装的第三方运行依赖。原 HTTP 合同保持，模块化全量测试通过。Blog 业务实体、Service 与 Mapper 仍按 T065–T070 逐项实现。
+- [X] T075 [ARCH] 已建立 Agent provider/service 业务域边界，不使用业务 Starter；Agent service 只能依赖 Blog provider，不得访问 Blog Mapper、DO 或实现类。当前未引入 LangChain/LangGraph/Milvus 运行依赖；实际授权与功能回归仍在 T071 实施。

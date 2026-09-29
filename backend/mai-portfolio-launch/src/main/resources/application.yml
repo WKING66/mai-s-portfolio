@@ -1,0 +1,109 @@
+
+server:
+  port: 9333
+
+spring:
+  application:
+    name: mai_portfolio
+  profiles:
+    # 本地默认使用 dev；部署时必须通过 SPRING_PROFILES_ACTIVE 显式切换环境配置。
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  servlet:
+    # 文件上传相关配置项
+    multipart:
+      # 单个文件大小
+      max-file-size: 128MB
+      # 消息体大小
+      max-request-size: 128MB
+  datasource:
+    druid:
+      driver-class-name: org.postgresql.Driver
+      # 初始连接数
+      initial-size: 5
+      # 最小连接池数量
+      min-idle: 5
+      # 最大连接池数量
+      max-active: 20
+      # 配置获取连接等待超时的时间
+      max-wait: 600000
+      # 检测间隔
+      time-between-eviction-runs-millis: 60000
+      # 最小生存的时间
+      min-evictable-idle-time-millis: 300000
+      # 最大生存的时间
+      max-evictable-idle-time-millis: 900000
+      validation-query: SELECT 1
+  flyway:
+    # 全环境统一读取 PostgreSQL 基线，避免非 dev 环境回退到默认 db/migration。
+    locations: classpath:db/postgresql
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  mapper-locations: classpath*:mapper/*Mapper.xml
+#  global-config:
+#    db-config:
+#      logic-delete-field: deleted
+#      logic-not-delete-value: 0
+#      logic-delete-value: 1
+
+
+portfolio:
+  bootstrap:
+    enabled: true
+    initial-password: ${OWNER_PASSWORD:}
+  security:
+    allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:8080}
+    login-challenge-ttl: 60s
+    max-outstanding-challenges: 128
+    # RSA 生成成本高，按来源限流；32 次/分钟兼顾后台重试和自动化回归。
+    max-challenges-per-client: 32
+    challenge-rate-window: 1m
+    max-login-attempts-per-client: 5
+    login-attempt-window: 10m
+    max-tracked-login-clients: 4096
+  media:
+    storage: ${MEDIA_STORAGE:local}
+    local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-media}
+    oss:
+      endpoint: ${OSS_ENDPOINT:}
+      bucket-name: ${OSS_BUCKET_NAME:}
+      access-key-id: ${OSS_ACCESS_KEY_ID:}
+      access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+      connect-timeout: ${OSS_CONNECT_TIMEOUT:5s}
+      socket-timeout: ${OSS_SOCKET_TIMEOUT:30s}
+      max-connections: ${OSS_MAX_CONNECTIONS:20}
+  api-log:
+    enabled: ${API_LOG_ENABLED:false}
+    max-payload-length: ${API_LOG_MAX_PAYLOAD_LENGTH:2048}
+    additional-sensitive-fields: []
+
+springdoc:
+  api-docs:
+    enabled: true
+
+logging:
+  file:
+    # 接口审计日志与应用日志统一进入滚动文件；部署时可用 LOG_FILE 覆盖绝对路径。
+    name: ${LOG_FILE:logs/mai-portfolio.log}
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${LOG_FILE_PATTERN:logs/mai-portfolio.%d{yyyy-MM-dd}.%i.log.gz}
+      max-file-size: ${LOG_MAX_FILE_SIZE:20MB}
+      max-history: ${LOG_MAX_HISTORY:30}
+      total-size-cap: ${LOG_TOTAL_SIZE_CAP:2GB}
+      clean-history-on-start: false
+  swagger-ui:
+    enabled: true
+
+sa-token:
+  token-name: portfolio_session
+  is-read-header: false
+  is-read-body: false
+  is-read-cookie: true
+  is-print: false
+  cookie:
+    http-only: true
+    same-site: Lax
+    # 非开发环境默认只允许浏览器经 HTTPS 回传会话 Cookie。
+    secure: true

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>dev.amai</groupId>
+        <artifactId>mai-portfolio</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>mai-portfolio-framework</artifactId>
+    <packaging>pom</packaging>
+    <name>mai-portfolio-framework</name>
+    <modules>
+        <module>mai-portfolio-spring-boot-starter-web</module>
+        <module>mai-portfolio-spring-boot-starter-validation</module>
+        <module>mai-portfolio-spring-boot-starter-api-log</module>
+        <module>mai-portfolio-spring-boot-starter-security</module>
+        <module>mai-portfolio-spring-boot-starter-mybatis</module>
+        <module>mai-portfolio-spring-boot-starter-datasource</module>
+        <module>mai-portfolio-spring-boot-starter-flyway</module>
+        <module>mai-portfolio-spring-boot-starter-openapi</module>
+        <module>mai-portfolio-spring-boot-starter-storage</module>
+    </modules>
+</project>

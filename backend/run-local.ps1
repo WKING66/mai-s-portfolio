@@ -12,6 +12,22 @@ Get-Content -LiteralPath $configPath | ForEach-Object {
         $settings[$matches[1]] = $matches[2].Trim().Trim('"', "'")
     }
 }
+
+$javaHome = if ($settings.ContainsKey('JAVA_21_HOME') `
+    -and -not [string]::IsNullOrWhiteSpace($settings['JAVA_21_HOME'])) {
+    $settings['JAVA_21_HOME']
+} else {
+    $env:JAVA_HOME
+}
+$javaRelease = if ([string]::IsNullOrWhiteSpace($javaHome)) { $null } else { Join-Path $javaHome 'release' }
+if ([string]::IsNullOrWhiteSpace($javaRelease) -or -not (Test-Path -LiteralPath $javaRelease) `
+    -or -not (Select-String -LiteralPath $javaRelease -Pattern '^JAVA_VERSION="21(?:\.|\")' -Quiet)) {
+    throw '项目要求 Java 21。请设置 JAVA_HOME，或在 .env 中设置 JAVA_21_HOME。'
+}
+[Environment]::SetEnvironmentVariable('JAVA_HOME', $javaHome, 'Process')
+[Environment]::SetEnvironmentVariable('PATH',
+    ((Join-Path $javaHome 'bin') + [IO.Path]::PathSeparator + $env:PATH), 'Process')
+
 foreach ($name in @('PSQL_HOST', 'PSQL_PORT', 'PSQL_USERNAME', 'PSQL_PASSWORD', 'OWNER_PASSWORD')) {
     if (-not $settings.ContainsKey($name) -or [string]::IsNullOrWhiteSpace($settings[$name])) {
         throw ".env 缺少 $name"
@@ -20,7 +36,38 @@ foreach ($name in @('PSQL_HOST', 'PSQL_PORT', 'PSQL_USERNAME', 'PSQL_PASSWORD', 
 }
 
 # 开发配置固定连接独立的 portfolio_dev，不读取 .env 中可能存在的其他库名。
-$env:MEDIA_STORAGE = 'local'
+$mediaStorage = if ($settings.ContainsKey('MEDIA_STORAGE') `
+    -and -not [string]::IsNullOrWhiteSpace($settings['MEDIA_STORAGE'])) {
+    $settings['MEDIA_STORAGE'].ToLowerInvariant()
+} else {
+    'oss'
+}
+if ($mediaStorage -notin @('local', 'oss')) {
+    throw 'MEDIA_STORAGE 只允许 local 或 oss'
+}
+[Environment]::SetEnvironmentVariable('MEDIA_STORAGE', $mediaStorage, 'Process')
+
+foreach ($name in @('MEDIA_LOCAL_DIRECTORY', 'OSS_ENDPOINT', 'OSS_BUCKET_NAME',
+    'OSS_ACCESS_KEY_ID', 'OSS_ACCESS_KEY_SECRET', 'OSS_CONNECT_TIMEOUT',
+    'OSS_SOCKET_TIMEOUT', 'OSS_MAX_CONNECTIONS')) {
+    if ($settings.ContainsKey($name) -and -not [string]::IsNullOrWhiteSpace($settings[$name])) {
+        [Environment]::SetEnvironmentVariable($name, $settings[$name], 'Process')
+    }
+}
+
+if ($mediaStorage -eq 'oss') {
+    foreach ($name in @('OSS_ENDPOINT', 'OSS_BUCKET_NAME', 'OSS_ACCESS_KEY_ID',
+        'OSS_ACCESS_KEY_SECRET')) {
+        if (-not $settings.ContainsKey($name) -or [string]::IsNullOrWhiteSpace($settings[$name])) {
+            throw "OSS 模式下 .env 缺少 $name"
+        }
+    }
+}
+
 $mavenCommand = Get-Command mvn.cmd -ErrorAction Stop
-& $mavenCommand.Source spring-boot:run '-Dspring-boot.run.profiles=dev'
+& $mavenCommand.Source -B -DskipTests install
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+& $mavenCommand.Source -f 'mai-portfolio-launch/pom.xml' spring-boot:run '-Dspring-boot.run.profiles=dev'
 exit $LASTEXITCODE

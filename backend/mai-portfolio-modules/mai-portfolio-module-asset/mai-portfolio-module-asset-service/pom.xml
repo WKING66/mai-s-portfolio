@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>dev.amai</groupId>
+        <artifactId>mai-portfolio-module-asset</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>mai-portfolio-module-asset-service</artifactId>
+    <name>mai-portfolio-module-asset-service</name>
+    <description>媒体资产元数据与访问策略的三层业务实现。</description>
+    <dependencies>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-module-asset-provider</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-spring-boot-starter-storage</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+    </dependencies>
+</project>
