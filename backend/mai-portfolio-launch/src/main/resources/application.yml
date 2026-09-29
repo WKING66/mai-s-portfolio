@@ -33,6 +33,14 @@ spring:
       # 最大生存的时间
       max-evictable-idle-time-millis: 900000
       validation-query: SELECT 1
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:3s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:3s}
   flyway:
     # 全环境统一读取 PostgreSQL 基线，避免非 dev 环境回退到默认 db/migration。
     locations: classpath:db/postgresql
@@ -49,6 +57,9 @@ mybatis-plus:
 
 
 portfolio:
+  redis:
+    # 所有项目自有 Redis 键统一加前缀，避免与同一实例中的其他应用冲突。
+    key-prefix: ${REDIS_KEY_PREFIX:mai-portfolio}
   bootstrap:
     enabled: true
     initial-password: ${OWNER_PASSWORD:}
@@ -61,7 +72,6 @@ portfolio:
     challenge-rate-window: 1m
     max-login-attempts-per-client: 5
     login-attempt-window: 10m
-    max-tracked-login-clients: 4096
   media:
     storage: ${MEDIA_STORAGE:local}
     local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-media}

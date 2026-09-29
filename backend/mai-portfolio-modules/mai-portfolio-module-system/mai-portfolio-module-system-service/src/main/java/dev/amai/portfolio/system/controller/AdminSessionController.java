@@ -58,7 +58,7 @@ public class AdminSessionController {
 
     @GetMapping("/challenge")
     @Operation(summary = "获取一次性登录公钥", description = "返回短时 RSA-OAEP SHA-256 公钥和 challengeId；"
-        + "密钥只在当前后端实例内存中有效，登录提交后立即失效")
+        + "凭证存储在 Redis，支持多实例消费，登录提交后立即失效")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "一次性登录加密凭证，不可缓存",
             content = @Content(mediaType = "application/json",

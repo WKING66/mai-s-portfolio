@@ -16,6 +16,5 @@ public record SecurityProperties(@NotEmpty List<String> allowedOrigins,
                                  @Positive int maxChallengesPerClient,
                                  @NotNull Duration challengeRateWindow,
                                  @Positive int maxLoginAttemptsPerClient,
-                                 @NotNull Duration loginAttemptWindow,
-                                 @Positive int maxTrackedLoginClients) {
+                                 @NotNull Duration loginAttemptWindow) {
 }

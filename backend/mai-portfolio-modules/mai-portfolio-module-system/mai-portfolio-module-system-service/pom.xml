@@ -13,6 +13,10 @@
     <dependencies>
         <dependency>
             <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-system-provider</artifactId>
         </dependency>
         <dependency>
@@ -30,6 +34,10 @@
         <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-spring-boot-starter-redis</artifactId>
         </dependency>
         <dependency>
             <groupId>dev.amai</groupId>

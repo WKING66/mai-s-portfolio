@@ -15,6 +15,7 @@
         <module>mai-portfolio-spring-boot-starter-validation</module>
         <module>mai-portfolio-spring-boot-starter-api-log</module>
         <module>mai-portfolio-spring-boot-starter-security</module>
+        <module>mai-portfolio-spring-boot-starter-redis</module>
         <module>mai-portfolio-spring-boot-starter-mybatis</module>
         <module>mai-portfolio-spring-boot-starter-datasource</module>
         <module>mai-portfolio-spring-boot-starter-flyway</module>

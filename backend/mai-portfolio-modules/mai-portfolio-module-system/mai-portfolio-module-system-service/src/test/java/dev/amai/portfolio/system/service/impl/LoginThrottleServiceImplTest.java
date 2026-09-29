@@ -2,7 +2,11 @@ package dev.amai.portfolio.system.service.impl;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import dev.amai.portfolio.redis.FixedWindowRateLimiter;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.Duration;
@@ -11,11 +15,14 @@ import org.junit.jupiter.api.Test;
 
 class LoginThrottleServiceImplTest {
     @Test
-    void limitsEachClientIndependentlyAndClearsSuccessfulLoginWindow() {
-        SecurityProperties properties = new SecurityProperties(List.of("http://localhost"),
-            Duration.ofMinutes(1), 32, 2, Duration.ofMinutes(1),
-            2, Duration.ofMinutes(10), 64);
-        LoginThrottleServiceImpl throttle = new LoginThrottleServiceImpl(properties);
+    void delegatesSharedWindowCountingAndClearsSuccessfulLoginWindow() {
+        SecurityProperties properties = properties();
+        FixedWindowRateLimiter rateLimiter = mock(FixedWindowRateLimiter.class);
+        when(rateLimiter.tryAcquire("auth:login", "client-a", 2, Duration.ofMinutes(10)))
+            .thenReturn(true, true, false, true);
+        when(rateLimiter.tryAcquire("auth:login", "client-b", 2, Duration.ofMinutes(10)))
+            .thenReturn(true);
+        LoginThrottleServiceImpl throttle = new LoginThrottleServiceImpl(properties, rateLimiter);
 
         throttle.acquireLoginPermit("client-a");
         throttle.acquireLoginPermit("client-a");
@@ -24,19 +31,24 @@ class LoginThrottleServiceImplTest {
         assertThatCode(() -> throttle.acquireLoginPermit("client-b")).doesNotThrowAnyException();
 
         throttle.recordLoginSuccess("client-a");
+        verify(rateLimiter).reset("auth:login", "client-a");
         assertThatCode(() -> throttle.acquireLoginPermit("client-a")).doesNotThrowAnyException();
     }
 
     @Test
-    void limitsChallengeGenerationBeforeCreatingAnotherKeyPair() {
-        SecurityProperties properties = new SecurityProperties(List.of("http://localhost"),
-            Duration.ofMinutes(1), 32, 1, Duration.ofMinutes(1),
-            3, Duration.ofMinutes(10), 64);
-        LoginThrottleServiceImpl throttle = new LoginThrottleServiceImpl(properties);
-
-        throttle.acquireChallengePermit("client-a");
+    void rejectsChallengeWhenRedisWindowHasNoRemainingPermit() {
+        SecurityProperties properties = properties();
+        FixedWindowRateLimiter rateLimiter = mock(FixedWindowRateLimiter.class);
+        when(rateLimiter.tryAcquire("auth:challenge", "client-a", 2, Duration.ofMinutes(1)))
+            .thenReturn(false);
+        LoginThrottleServiceImpl throttle = new LoginThrottleServiceImpl(properties, rateLimiter);
 
         assertThatThrownBy(() -> throttle.acquireChallengePermit("client-a"))
             .isInstanceOf(ApiException.class);
+    }
+
+    private SecurityProperties properties() {
+        return new SecurityProperties(List.of("http://localhost"), Duration.ofMinutes(1), 32,
+            2, Duration.ofMinutes(1), 2, Duration.ofMinutes(10));
     }
 }

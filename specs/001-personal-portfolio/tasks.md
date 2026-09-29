@@ -4,7 +4,7 @@
 
 **Input**: [spec.md](spec.md)、[plan.md](plan.md)、[research.md](research.md)、[data-model.md](data-model.md)、[HTTP 合同](contracts/http-api.md)、[编码规范](springboot-nuxt-code-style.md)、[quickstart.md](quickstart.md)。
 
-**当前边界**: Nuxt 前端 + Spring Boot 后端；PostgreSQL 已替换本机 MySQL 成为开发环境唯一关系型主库，旧 MySQL 库保留为可恢复备份来源；私有 OSS 保存二进制资源。不使用或修改本机 Docker，也不创建虚拟盘符映射。不安排正式服务器/域名、Agent 运行模块、Redis/Caffeine 运行依赖、项目源码上传或 Word/PDF 格式实现。博客模块需要普通访客登录后才可导出，但注册/登录与博客一起安排在展示功能之后。Markdown Importer/Exporter 首版可验收，其他格式只保留接口。
+**当前边界**: Nuxt 前端 + Spring Boot 后端；PostgreSQL 已替换本机 MySQL 成为开发环境唯一关系型主库，旧 MySQL 库保留为可恢复备份来源；私有 OSS 保存二进制资源；Redis/Redisson 提供会话、限流、短时数据与分布式锁，Caffeine 留到 Agent 阶段按实际读热点评估。不使用或修改本机 Docker，也不创建虚拟盘符映射。不安排正式服务器/域名、Agent 运行模块、项目源码上传或 Word/PDF 格式实现。博客模块需要普通访客登录后才可导出，但注册/登录与博客一起安排在展示功能之后。Markdown Importer/Exporter 首版可验收，其他格式只保留接口。
 
 **工作方式**: 每项均以 `- [ ] Txxx [P?] [US?]` 标记；`[P]` 仅表示文件互不冲突且前置条件已满足后可并行。路径均相对仓库根目录。后端按 `controller → service（接口 + impl 实现）→ mapper` 三层及配套 `entity/dto/enums/config/common` 组织；下方早期任务路径按职责迁入相应层，不再按业务域平铺。用户可见提示写入命名常量，所有 JSON 成功/失败均遵循 `{code,message,data,details}`（文件字节除外）。站点主人禁止使用 ponytail，本项目任何后续阶段不得启用。测试任务先写出失败用例，再实现并使之通过。所有功能以服务层校验和实际接口结果为准，不把数据库异常当正常校验方式。
 
@@ -14,7 +14,7 @@
 
 **目标**: 锁定脚手架和有分歧的技术决定，使后续任务不会一边开发一边更换底座。
 
-- [X] T001 核对 `specs/001-personal-portfolio/plan.md` 与 `research.md`、`contracts/http-api.md` 的认证/数据访问差异；以站点主人确认的 Sa-Token、MyBatis-Plus、Druid 为首选，同步 `research.md`、`plan.md`、`spec.md` 的决策及 A 版顺序；记录 Redis 服务端 3.2.1 是未来适配测试条件而非首版运行依赖。实际会话/CSRF、分页和数据源兼容性由 T002 及基础阶段测试验证。
+- [X] T001 核对 `specs/001-personal-portfolio/plan.md` 与 `research.md`、`contracts/http-api.md` 的认证/数据访问差异；以站点主人确认的 Sa-Token、MyBatis-Plus、Druid 为首选，同步 `research.md`、`plan.md`、`spec.md` 的决策及 A 版顺序。该任务当时记录 Redis 3.2.1 仅为未来适配条件；此决定已被 T076 取代，Redis 现为首版鉴权基础设施。实际会话/CSRF、分页和数据源兼容性由 T002 及基础阶段测试验证。
 - [X] T002 在 `backend/pom.xml` 建 Java 21 / Spring Boot 4.1 工程并用最小测试验证 Sa-Token、MyBatis-Plus、Druid、springdoc-openapi 3.x、SQL 迁移工具与 Boot 4 的启动、会话/CSRF、分页、数据源和 `/v3/api-docs`；若未来引入 Sa-Token Redis 适配，再另用真实 Redis 3.2.1 验证命令/序列化/TTL，不拿现代 Redis 测试代替。若首版组件不兼容，先更新 `plan.md` 和 `research.md` 的替代决定再继续。
 - [X] T003 [P] 在 `frontend/package.json`、`frontend/nuxt.config.ts` 建 Node 24 / Nuxt 4 / TypeScript 工程，锁定必要依赖、测试工具及包版本；确认 SSR 可输出含公开数据的初始 HTML。后续按站点主人决定补入 Tailwind CSS 4.3.3 与 `@tailwindcss/vite` 4.3.3，集中主题令牌并让页面实际使用工具类；HTTP 请求仍使用 Nuxt 内置能力，不额外引入客户端库。新增 Tailwind 后已用 Node 24 验证生产构建、Nuxt 类型检查和现有前端测试，构建产物含实际工具类和主题令牌，首页 SSR 保留姓名、GitHub 与邮箱。
 - [X] T004 [P] 对接站点主人本机 MySQL（当前检测为 8.0.34/13306），在 `frontend/.env.example`、`backend/src/main/resources/application-dev.yaml` 提供本地开发配置与忽略规则；只使用独立测试库并预留 `MEDIA_STORAGE=local|oss`，不运行 Docker、不提交密码或 OSS AccessKey。
@@ -210,5 +210,6 @@
 - [ ] T071 [FR-042][SC-026] 第二阶段 Agent 接入前，明确非博客文档的知识用途与可见性模型并另建迁移；公开 KnowledgeRetriever 必须按当前发布版本或经批准的知识用途逐次过滤。先写“草稿已建索引但访客不可检索”及撤稿/重新发布回归测试，不以索引存在性作为授权依据。
 - [ ] T072 [FR-043][FR-044] 同步 Knife4j/OpenAPI、错误码常量、前端 API 类型与配置；分别运行后端测试、前端类型检查/构建、真实 PostgreSQL/OSS 集成测试，未运行的检查不得标为通过。
 - [ ] T073 [SC-024][SC-025] 完成独立审核点：SQL 与迁移报告先审；Document/Asset 版本化再审；Blog/普通账号/Markdown 流程最后审。每点附通过的测试和保留的风险，之后再重估部署与 Agent 排期。
-- [X] T074 [ARCH] 已参考 `orion-visor-w` 将 `backend` 重构为 24 项 Maven Reactor：建立 dependencies BOM、跨业务域公共能力 common、基础设施 framework、业务 modules 和唯一 launch 五层；System/Blog/Agent 按 provider/service 拆分，framework 按 Web、参数校验、接口日志、Sa-Token 安全、MyBatis、数据源、Flyway、OpenAPI/Knife4j、对象存储共 9 个 Starter 拆分。对象存储接口、模型、异常与实现全部归 Storage Starter；common 当前为空，后续只按实际复用需求加入分布式锁抽象、JSON 转换、通用 Util、分页 Request/Vo 等公共内容。业务 service 不再直接声明这些 Starter 已封装的第三方运行依赖。原 HTTP 合同保持，模块化全量测试通过。Blog 业务实体、Service 与 Mapper 仍按 T065–T070 逐项实现。
+- [X] T074 [ARCH] 已参考 `orion-visor-w` 将 `backend` 重构为 Maven Reactor：建立 dependencies BOM、跨业务域公共能力 common、基础设施 framework、业务 modules 和唯一 launch 五层；System/Blog/Agent 按 provider/service 拆分，framework 按 Web、参数校验、接口日志、Sa-Token 安全、Redis/Redisson、MyBatis、数据源、Flyway、OpenAPI/Knife4j、对象存储共 10 个 Starter 拆分。对象存储接口、模型、异常与实现全部归 Storage Starter；common 只放已经被跨模块使用的统一响应、提示与分布式锁抽象。业务 service 不再直接声明这些 Starter 已封装的第三方运行依赖。原 HTTP 合同保持，模块化全量测试通过。Blog 业务实体、Service 与 Mapper 仍按 T065–T070 逐项实现。
 - [X] T075 [ARCH] 已建立 Agent provider/service 业务域边界，不使用业务 Starter；Agent service 只能依赖 Blog provider，不得访问 Blog Mapper、DO 或实现类。当前未引入 LangChain/LangGraph/Milvus 运行依赖；实际授权与功能回归仍在 T071 实施。
+- [X] T076 [ARCH][AUTH] 新增独立 Redis/Redisson Starter：统一应用键前缀，对动态主体做摘要，提供 Redis 3.2 兼容的 Lua 原子限流、逐条 TTL/原子取出、分布式锁与真实 Redis 集成测试；Sa-Token 改用命名空间隔离的 Redisson DAO，登录限流和一次性 RSA 挑战由 JVM 内存迁移到 Redis，支持多实例消费。普通回归使用测试专用进程内替身，不依赖外部 Redis；真实 Redis 由 `backend/test-redis.ps1` 显式验收。Caffeine 暂不引入，等 Agent 出现明确的高频读与一致性策略后再评估。

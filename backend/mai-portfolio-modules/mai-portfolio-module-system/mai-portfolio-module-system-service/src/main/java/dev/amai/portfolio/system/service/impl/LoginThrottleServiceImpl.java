@@ -3,71 +3,55 @@ package dev.amai.portfolio.system.service.impl;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.service.LoginThrottleService;
+import dev.amai.portfolio.redis.FixedWindowRateLimiter;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.HashMap;
-import java.util.Map;
 import org.springframework.stereotype.Service;
 
 /**
- * 单实例固定窗口限流实现。
+ * 登录场景固定窗口限流服务。
  *
- * <p>它负责第一版单节点服务的入口保护；未来扩容为多实例时保持接口不变，替换为 Redis 实现。</p>
+ * <p>计数由 Redis Lua 脚本原子维护，所有应用实例共享同一窗口。</p>
  */
 @Service
 public class LoginThrottleServiceImpl implements LoginThrottleService {
-    private final Map<String, Window> challengeWindows = new HashMap<>();
-    private final Map<String, Window> loginWindows = new HashMap<>();
-    private final SecurityProperties security;
+    private static final String CHALLENGE_NAMESPACE = "auth:challenge";
+    private static final String LOGIN_NAMESPACE = "auth:login";
 
-    public LoginThrottleServiceImpl(SecurityProperties security) {
+    private final SecurityProperties security;
+    private final FixedWindowRateLimiter rateLimiter;
+
+    public LoginThrottleServiceImpl(SecurityProperties security,
+            FixedWindowRateLimiter rateLimiter) {
         this.security = security;
+        this.rateLimiter = rateLimiter;
     }
 
     @Override
-    public synchronized void acquireChallengePermit(String clientKey) {
-        acquire(challengeWindows, clientKey, security.maxChallengesPerClient(),
+    public void acquireChallengePermit(String clientKey) {
+        acquire(CHALLENGE_NAMESPACE, clientKey, security.maxChallengesPerClient(),
             security.challengeRateWindow());
     }
 
     @Override
-    public synchronized void acquireLoginPermit(String clientKey) {
-        acquire(loginWindows, clientKey, security.maxLoginAttemptsPerClient(),
+    public void acquireLoginPermit(String clientKey) {
+        acquire(LOGIN_NAMESPACE, clientKey, security.maxLoginAttemptsPerClient(),
             security.loginAttemptWindow());
     }
 
     @Override
-    public synchronized void recordLoginSuccess(String clientKey) {
-        loginWindows.remove(clientKey);
+    public void recordLoginSuccess(String clientKey) {
+        rateLimiter.reset(LOGIN_NAMESPACE, clientKey);
     }
 
-    private void acquire(Map<String, Window> windows, String clientKey, int limit, Duration duration) {
-        Instant now = Instant.now();
-        windows.entrySet().removeIf(entry -> !now.isBefore(entry.getValue().expiresAt()));
-        Window current = windows.get(clientKey);
-        if (current == null) {
-            if (trackedClientCount() >= security.maxTrackedLoginClients()) {
-                throw rateLimited();
-            }
-            windows.put(clientKey, new Window(1, now.plus(duration)));
-            return;
-        }
-        if (current.count() >= limit) {
+    private void acquire(String namespace, String clientKey, int limit,
+            java.time.Duration duration) {
+        if (!rateLimiter.tryAcquire(namespace, clientKey, limit, duration)) {
             throw rateLimited();
         }
-        windows.put(clientKey, new Window(current.count() + 1, current.expiresAt()));
-    }
-
-    private int trackedClientCount() {
-        return challengeWindows.size() + loginWindows.size();
     }
 
     private ApiException rateLimited() {
         return new ApiException(ApiErrorCode.RATE_LIMITED, SystemMessageConstants.LOGIN_RATE_LIMITED);
-    }
-
-    private record Window(int count, Instant expiresAt) {
     }
 }

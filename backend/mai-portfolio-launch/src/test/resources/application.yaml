@@ -1,4 +1,7 @@
 portfolio:
+  redis:
+    # 每个测试上下文使用独立命名空间，避免限流计数污染后续回归。
+    key-prefix: mai-portfolio:test:${random.uuid}
   media:
     # 普通回归不依赖外网；真实 OSS 由显式集成测试单独验证。
     storage: local
@@ -6,6 +9,20 @@ portfolio:
     # 多个安全回归共享同一 Spring 上下文与回环地址，不让测试量触发生产限流阈值。
     max-challenges-per-client: 256
     max-login-attempts-per-client: 256
+
+spring:
+  autoconfigure:
+    # 普通回归不依赖外部 Redis；真实 Redis 联调使用独立集成测试和环境变量。
+    exclude:
+      - org.redisson.spring.starter.RedissonAutoConfigurationV4
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: 3s
+      timeout: 3s
 
 logging:
   file:

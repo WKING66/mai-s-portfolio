@@ -33,6 +33,7 @@ class ModuleWiringTest {
             .contains("dev.amai.portfolio.web.WebAutoConfiguration")
             .contains("dev.amai.portfolio.logging.autoconfigure.ApiLogAutoConfiguration")
             .contains("dev.amai.portfolio.security.SecurityAutoConfiguration")
+            .contains("dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureAutoConfiguration")
             .contains("dev.amai.portfolio.mybatis.autoconfigure.MybatisPlusAutoConfiguration")
             .contains("dev.amai.portfolio.datasource.DatasourceAutoConfiguration")
             .contains("dev.amai.portfolio.storage.autoconfigure.ObjectStorageAutoConfiguration");

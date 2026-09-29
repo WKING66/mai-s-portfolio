@@ -1,8 +1,12 @@
 package dev.amai.portfolio.security;
 
+import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.interceptor.SaInterceptor;
+import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
 import dev.amai.portfolio.security.password.Argon2PasswordHasher;
 import dev.amai.portfolio.security.password.PasswordHasher;
+import dev.amai.portfolio.security.session.NamespacedSaTokenDao;
+import org.redisson.api.RedissonClient;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -30,5 +34,16 @@ public class SecurityAutoConfiguration implements WebMvcConfigurer {
     @ConditionalOnMissingBean(SaTokenExceptionHandler.class)
     SaTokenExceptionHandler saTokenExceptionHandler() {
         return new SaTokenExceptionHandler();
+    }
+
+    /**
+     * 将 Sa-Token 的 token、会话和角色缓存统一持久化到 Redisson。
+     *
+     * <p>固定使用 Sa-Token 1.45 的实现，以兼容 Redis 3.2.1。</p>
+     */
+    @Bean
+    @ConditionalOnMissingBean(SaTokenDao.class)
+    SaTokenDao saTokenDao(RedissonClient redisson, RedisInfrastructureProperties redisProperties) {
+        return new NamespacedSaTokenDao(redisson, redisProperties.keyPrefix());
     }
 }

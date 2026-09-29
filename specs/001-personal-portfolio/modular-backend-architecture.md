@@ -15,7 +15,7 @@
 | 模块 | 所有权与职责 | 禁止内容 |
 | --- | --- | --- |
 | `mai-portfolio-dependencies` | 统一第三方与内部模块版本的 BOM | 业务代码、运行时配置 |
-| `mai-portfolio-common` | 已确认跨业务域复用且不依赖框架的公共能力、通用工具与通用模型；目前仅有统一响应模型与通用响应提示 | Controller、Mapper、业务 Entity、单个 Starter 专属类型、未被实际使用的预留工具 |
+| `mai-portfolio-common` | 已确认跨业务域复用且不依赖框架的公共能力、通用工具与通用模型；目前有统一响应模型、通用响应提示与分布式锁抽象 | Controller、Mapper、业务 Entity、单个 Starter 专属类型、未被实际使用的预留工具 |
 | `mai-portfolio-framework/*-starter-*` | Web、校验、日志、安全、持久化、接口文档、对象存储等可复用依赖组件 | Blog、Agent 等业务规则 |
 | `mai-portfolio-module-*-provider` | 所属业务域对其他模块公开的 API、DTO、枚举 | Mapper、DO、Service 实现 |
 | `mai-portfolio-module-*-service` | 所属业务域的 Controller、Service 接口/impl、Mapper、DO 与资源 | 其他业务域的内部实现 |
@@ -36,6 +36,7 @@ mai-portfolio-launch
        ├─ starter-validation
        ├─ starter-api-log
        ├─ starter-security
+       ├─ starter-redis（Redisson、限流、短时数据与分布式锁实现）
        ├─ starter-mybatis
        ├─ starter-datasource
        ├─ starter-flyway
@@ -49,7 +50,7 @@ Blog 与 Agent 不建立横向实现依赖。Agent 只能依赖 Blog Provider �
 
 ## 自动配置约定
 
-Framework 当前按单一基础设施职责拆成 9 个 Starter：`web`、`validation`、`api-log`、`security`、`mybatis`、`datasource`、`flyway`、`openapi` 与 `storage`。其中 `web`、`api-log`、`security`、`mybatis`、`datasource`、`storage` 提供项目默认自动配置；其余 Starter 聚合并沿用对应官方自动配置。项目默认配置使用 Spring Boot `@AutoConfiguration`，在 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 中显式登记，并以 `@ConditionalOnMissingBean` 允许上层覆盖。配置须支持条件启用并在缺失必要属性时快速失败，禁止依靠扫描整个根包发现基础设施 Bean。新增 Starter 必须对应可被多个业务模块复用的依赖组件，不能把业务模块包装成 Starter。
+Framework 当前按单一基础设施职责拆成 10 个 Starter：`web`、`validation`、`api-log`、`security`、`redis`、`mybatis`、`datasource`、`flyway`、`openapi` 与 `storage`。其中 `web`、`api-log`、`security`、`redis`、`mybatis`、`datasource`、`storage` 提供项目默认自动配置；其余 Starter 聚合并沿用对应官方自动配置。Redis Starter 统一持有 Redisson 客户端适配、键命名、原子限流、短时数据与分布式锁实现；`common` 只保留与 Redis 无关的分布式锁接口和异常。项目默认配置使用 Spring Boot `@AutoConfiguration`，在 `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports` 中显式登记，并以 `@ConditionalOnMissingBean` 允许上层覆盖。配置须支持条件启用并在缺失必要属性时快速失败，禁止依靠扫描整个根包发现基础设施 Bean。新增 Starter 必须对应可被多个业务模块复用的依赖组件，不能把业务模块包装成 Starter。
 
 ## 迁移顺序与审核点
 

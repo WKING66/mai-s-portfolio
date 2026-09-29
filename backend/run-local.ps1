@@ -35,6 +35,26 @@ foreach ($name in @('PSQL_HOST', 'PSQL_PORT', 'PSQL_USERNAME', 'PSQL_PASSWORD', 
     [Environment]::SetEnvironmentVariable($name, $settings[$name], 'Process')
 }
 
+$redisDefaults = @{
+    REDIS_HOST = '127.0.0.1'
+    REDIS_PORT = '6379'
+    REDIS_DATABASE = '0'
+    REDIS_CONNECT_TIMEOUT = '3s'
+    REDIS_COMMAND_TIMEOUT = '3s'
+    REDIS_KEY_PREFIX = 'mai-portfolio'
+}
+foreach ($name in $redisDefaults.Keys) {
+    $value = if ($settings.ContainsKey($name) -and -not [string]::IsNullOrWhiteSpace($settings[$name])) {
+        $settings[$name]
+    } else {
+        $redisDefaults[$name]
+    }
+    [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+}
+if ($settings.ContainsKey('REDIS_PASSWORD')) {
+    [Environment]::SetEnvironmentVariable('REDIS_PASSWORD', $settings['REDIS_PASSWORD'], 'Process')
+}
+
 # 开发配置固定连接独立的 portfolio_dev，不读取 .env 中可能存在的其他库名。
 $mediaStorage = if ($settings.ContainsKey('MEDIA_STORAGE') `
     -and -not [string]::IsNullOrWhiteSpace($settings['MEDIA_STORAGE'])) {
