@@ -2,7 +2,8 @@ package dev.amai.portfolio.security;
 
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.interceptor.SaInterceptor;
-import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
+import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureAutoConfiguration;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import dev.amai.portfolio.security.password.Argon2PasswordHasher;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.security.session.NamespacedSaTokenDao;
@@ -14,7 +15,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /** 提供 Sa-Token 注解鉴权与可被业务应用覆盖的密码散列基础设施。 */
-@AutoConfiguration
+@AutoConfiguration(after = RedisInfrastructureAutoConfiguration.class)
 public class SecurityAutoConfiguration implements WebMvcConfigurer {
     /**
      * 启用 {@code @SaCheckLogin}、{@code @SaCheckRole} 等接口级鉴权注解。
@@ -43,7 +44,7 @@ public class SecurityAutoConfiguration implements WebMvcConfigurer {
      */
     @Bean
     @ConditionalOnMissingBean(SaTokenDao.class)
-    SaTokenDao saTokenDao(RedissonClient redisson, RedisInfrastructureProperties redisProperties) {
-        return new NamespacedSaTokenDao(redisson, redisProperties.keyPrefix());
+    SaTokenDao saTokenDao(RedissonClient redisson, RedisKeys keys) {
+        return new NamespacedSaTokenDao(redisson, keys);
     }
 }

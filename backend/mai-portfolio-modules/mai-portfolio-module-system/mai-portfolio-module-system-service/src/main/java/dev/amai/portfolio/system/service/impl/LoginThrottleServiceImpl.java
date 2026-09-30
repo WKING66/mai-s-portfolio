@@ -4,6 +4,7 @@ import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.service.LoginThrottleService;
 import dev.amai.portfolio.redis.FixedWindowRateLimiter;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import org.springframework.stereotype.Service;
@@ -15,9 +16,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class LoginThrottleServiceImpl implements LoginThrottleService {
-    private static final String CHALLENGE_NAMESPACE = "auth:challenge";
-    private static final String LOGIN_NAMESPACE = "auth:login";
-
     private final SecurityProperties security;
     private final FixedWindowRateLimiter rateLimiter;
 
@@ -29,19 +27,19 @@ public class LoginThrottleServiceImpl implements LoginThrottleService {
 
     @Override
     public void acquireChallengePermit(String clientKey) {
-        acquire(CHALLENGE_NAMESPACE, clientKey, security.maxChallengesPerClient(),
+        acquire(RedisKeys.CHALLENGE_RATE_NAMESPACE, clientKey, security.maxChallengesPerClient(),
             security.challengeRateWindow());
     }
 
     @Override
     public void acquireLoginPermit(String clientKey) {
-        acquire(LOGIN_NAMESPACE, clientKey, security.maxLoginAttemptsPerClient(),
+        acquire(RedisKeys.LOGIN_RATE_NAMESPACE, clientKey, security.maxLoginAttemptsPerClient(),
             security.loginAttemptWindow());
     }
 
     @Override
     public void recordLoginSuccess(String clientKey) {
-        rateLimiter.reset(LOGIN_NAMESPACE, clientKey);
+        rateLimiter.reset(RedisKeys.LOGIN_RATE_NAMESPACE, clientKey);
     }
 
     private void acquire(String namespace, String clientKey, int limit,

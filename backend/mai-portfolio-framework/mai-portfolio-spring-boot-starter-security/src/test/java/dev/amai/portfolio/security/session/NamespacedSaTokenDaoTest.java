@@ -6,6 +6,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import cn.dev33.satoken.dao.SaTokenDao;
+import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import org.junit.jupiter.api.Test;
 import org.redisson.api.RBucket;
 import org.redisson.api.RedissonClient;
@@ -21,7 +23,8 @@ class NamespacedSaTokenDaoTest {
             "mai-portfolio:sa-token:portfolio_session:token:abc", StringCodec.INSTANCE))
             .thenReturn(bucket);
         when(bucket.get()).thenReturn("account-1");
-        NamespacedSaTokenDao dao = new NamespacedSaTokenDao(redisson, "mai-portfolio");
+        NamespacedSaTokenDao dao = new NamespacedSaTokenDao(redisson,
+            new RedisKeys(new RedisInfrastructureProperties("mai-portfolio")));
 
         dao.set("portfolio_session:token:abc", "account-1", SaTokenDao.NEVER_EXPIRE);
 

@@ -2,6 +2,8 @@ package dev.amai.portfolio.security.session;
 
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.dao.SaTokenDaoForRedisson;
+import dev.amai.portfolio.redis.define.RedisLuaScripts;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import java.time.Duration;
 import java.util.List;
 import org.redisson.api.RBucket;
@@ -15,28 +17,16 @@ import org.redisson.client.codec.StringCodec;
  * <p>同一 Redis 实例可被多个应用复用，而不会发生 token 或会话键冲突。</p>
  */
 public final class NamespacedSaTokenDao extends SaTokenDaoForRedisson {
-    private static final String UPDATE_KEEP_TTL_SCRIPT = """
-        local ttl = redis.call('PTTL', KEYS[1])
-        if ttl == -2 then
-            return 0
-        end
-        redis.call('SET', KEYS[1], ARGV[1])
-        if ttl >= 0 then
-            redis.call('PEXPIRE', KEYS[1], ttl)
-        end
-        return 1
-        """;
+    private final RedisKeys keys;
 
-    private final String prefix;
-
-    public NamespacedSaTokenDao(RedissonClient redissonClient, String keyPrefix) {
+    public NamespacedSaTokenDao(RedissonClient redissonClient, RedisKeys keys) {
         super(redissonClient);
-        this.prefix = keyPrefix + ":sa-token:";
+        this.keys = keys;
     }
 
     @Override
     public String get(String key) {
-        return bucket(wrap(key)).get();
+        return bucket(keys.saToken(key)).get();
     }
 
     @Override
@@ -44,7 +34,7 @@ public final class NamespacedSaTokenDao extends SaTokenDaoForRedisson {
         if (timeout == 0 || timeout <= SaTokenDao.NOT_VALUE_EXPIRE) {
             return;
         }
-        RBucket<String> bucket = bucket(wrap(key));
+        RBucket<String> bucket = bucket(keys.saToken(key));
         if (timeout == SaTokenDao.NEVER_EXPIRE) {
             bucket.set(value);
             return;
@@ -56,26 +46,26 @@ public final class NamespacedSaTokenDao extends SaTokenDaoForRedisson {
     public void update(String key, String value) {
         redissonClient.getScript(StringCodec.INSTANCE).eval(
             RScript.Mode.READ_WRITE,
-            UPDATE_KEEP_TTL_SCRIPT,
+            RedisLuaScripts.UPDATE_STRING_KEEP_TTL,
             RScript.ReturnType.LONG,
-            List.of(wrap(key)),
+            List.of(keys.saToken(key)),
             value);
     }
 
     @Override
     public void delete(String key) {
-        bucket(wrap(key)).delete();
+        bucket(keys.saToken(key)).delete();
     }
 
     @Override
     public long getTimeout(String key) {
-        long remainingMillis = bucket(wrap(key)).remainTimeToLive();
+        long remainingMillis = bucket(keys.saToken(key)).remainTimeToLive();
         return remainingMillis < 0 ? remainingMillis : remainingMillis / 1_000;
     }
 
     @Override
     public void updateTimeout(String key, long timeout) {
-        RBucket<String> bucket = bucket(wrap(key));
+        RBucket<String> bucket = bucket(keys.saToken(key));
         if (timeout == SaTokenDao.NEVER_EXPIRE) {
             bucket.clearExpire();
             return;
@@ -89,17 +79,9 @@ public final class NamespacedSaTokenDao extends SaTokenDaoForRedisson {
     @Override
     public List<String> searchData(String keyPrefix, String keyword, int start,
             int size, boolean sortType) {
-        return super.searchData(wrap(keyPrefix), keyword, start, size, sortType).stream()
-            .map(this::unwrap)
+        return super.searchData(keys.saToken(keyPrefix), keyword, start, size, sortType).stream()
+            .map(keys::unwrapSaToken)
             .toList();
-    }
-
-    private String wrap(String key) {
-        return prefix + key;
-    }
-
-    private String unwrap(String key) {
-        return key.startsWith(prefix) ? key.substring(prefix.length()) : key;
     }
 
     private RBucket<String> bucket(String key) {

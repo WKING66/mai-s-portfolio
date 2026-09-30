@@ -8,6 +8,7 @@ import dev.amai.portfolio.system.entity.vo.LoginChallengeVo;
 import dev.amai.portfolio.system.service.LoginChallengeService;
 import dev.amai.portfolio.system.service.LoginThrottleService;
 import dev.amai.portfolio.redis.ExpiringStringMap;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.nio.ByteBuffer;
@@ -39,8 +40,6 @@ public class LoginChallengeServiceImpl implements LoginChallengeService {
     private static final int RSA_CIPHERTEXT_BYTES = RSA_BITS / Byte.SIZE;
     private static final int CHALLENGE_ID_BYTES = 24;
     private static final String ALGORITHM_LABEL = "RSA-OAEP-256";
-    private static final String CHALLENGE_NAMESPACE = "auth:login:challenge";
-    private static final String CHALLENGE_ISSUE_LOCK = "auth-login-challenge-issue";
     private static final Duration LOCK_WAIT_TIME = Duration.ofMillis(500);
     private static final Duration LOCK_LEASE_TIME = Duration.ofSeconds(10);
     private static final char PAYLOAD_SEPARATOR = '.';
@@ -76,7 +75,7 @@ public class LoginChallengeServiceImpl implements LoginChallengeService {
         throttle.acquireChallengePermit(clientKey);
         try {
             // 容量检查和写入通过分布式锁串行化，避免多实例并发突破上限。
-            return locks.execute(CHALLENGE_ISSUE_LOCK, LOCK_WAIT_TIME, LOCK_LEASE_TIME,
+            return locks.execute(RedisKeys.LOGIN_CHALLENGE_ISSUE_LOCK_NAME, LOCK_WAIT_TIME, LOCK_LEASE_TIME,
                 () -> createChallenge(clientKey));
         } catch (LockAcquisitionException busy) {
             throw new ApiException(ApiErrorCode.RATE_LIMITED,
@@ -87,7 +86,7 @@ public class LoginChallengeServiceImpl implements LoginChallengeService {
     @Override
     public String consumePassword(String clientKey, String challengeId, String encryptedPassword) {
         // remove() 先于解密：过期、坏密文与重放均不能再次尝试同一把私钥。
-        String payload = challenges.take(CHALLENGE_NAMESPACE, challengeId);
+        String payload = challenges.take(RedisKeys.LOGIN_CHALLENGE_NAMESPACE, challengeId);
         Challenge challenge = decodeChallenge(payload);
         if (challenge == null || !challenge.clientFingerprint().equals(clientFingerprint(clientKey))) {
             throw new ApiException(ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.LOGIN_CHALLENGE_INVALID);
@@ -124,7 +123,7 @@ public class LoginChallengeServiceImpl implements LoginChallengeService {
     }
 
     private LoginChallengeVo createChallenge(String clientKey) {
-        if (challenges.size(CHALLENGE_NAMESPACE) >= security.maxOutstandingChallenges()) {
+        if (challenges.size(RedisKeys.LOGIN_CHALLENGE_NAMESPACE) >= security.maxOutstandingChallenges()) {
             throw new ApiException(ApiErrorCode.RATE_LIMITED,
                 SystemMessageConstants.LOGIN_CHALLENGE_BUSY);
         }
@@ -136,7 +135,7 @@ public class LoginChallengeServiceImpl implements LoginChallengeService {
             random.nextBytes(idBytes);
             String id = Base64.getUrlEncoder().withoutPadding().encodeToString(idBytes);
             Instant expiresAt = Instant.now().plus(security.loginChallengeTtl());
-            challenges.put(CHALLENGE_NAMESPACE, id,
+            challenges.put(RedisKeys.LOGIN_CHALLENGE_NAMESPACE, id,
                 encodeChallenge(clientKey, pair.getPrivate()), security.loginChallengeTtl());
             return new LoginChallengeVo(id,
                 Base64.getEncoder().encodeToString(pair.getPublic().getEncoded()),

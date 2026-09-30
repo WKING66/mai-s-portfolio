@@ -51,8 +51,11 @@ foreach ($name in $redisDefaults.Keys) {
     }
     [Environment]::SetEnvironmentVariable($name, $value, 'Process')
 }
-if ($settings.ContainsKey('REDIS_PASSWORD')) {
+if ($settings.ContainsKey('REDIS_PASSWORD') `
+    -and -not [string]::IsNullOrWhiteSpace($settings['REDIS_PASSWORD'])) {
     [Environment]::SetEnvironmentVariable('REDIS_PASSWORD', $settings['REDIS_PASSWORD'], 'Process')
+} else {
+    [Environment]::SetEnvironmentVariable('REDIS_PASSWORD', $null, 'Process')
 }
 
 # 开发配置固定连接独立的 portfolio_dev，不读取 .env 中可能存在的其他库名。

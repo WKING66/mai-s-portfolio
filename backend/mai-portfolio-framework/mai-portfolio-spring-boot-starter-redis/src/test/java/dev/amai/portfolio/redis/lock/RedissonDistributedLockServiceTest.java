@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 
 import dev.amai.portfolio.common.lock.LockAcquisitionException;
 import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
-import dev.amai.portfolio.redis.support.RedisKeyFactory;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class RedissonDistributedLockServiceTest {
     }
 
     private RedissonDistributedLockService service(RedissonClient redisson) {
-        RedisKeyFactory keys = new RedisKeyFactory(
+        RedisKeys keys = new RedisKeys(
             new RedisInfrastructureProperties("mai-portfolio:test"));
         return new RedissonDistributedLockService(redisson, keys);
     }

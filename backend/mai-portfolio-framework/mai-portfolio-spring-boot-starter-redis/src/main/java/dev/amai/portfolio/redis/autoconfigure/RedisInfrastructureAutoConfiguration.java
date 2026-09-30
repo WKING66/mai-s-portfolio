@@ -6,7 +6,7 @@ import dev.amai.portfolio.redis.FixedWindowRateLimiter;
 import dev.amai.portfolio.redis.lock.RedissonDistributedLockService;
 import dev.amai.portfolio.redis.rate.RedissonFixedWindowRateLimiter;
 import dev.amai.portfolio.redis.store.RedissonExpiringStringMap;
-import dev.amai.portfolio.redis.support.RedisKeyFactory;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -21,25 +21,25 @@ import org.springframework.context.annotation.Bean;
 public class RedisInfrastructureAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
-    RedisKeyFactory redisKeyFactory(RedisInfrastructureProperties properties) {
-        return new RedisKeyFactory(properties);
+    RedisKeys redisKeys(RedisInfrastructureProperties properties) {
+        return new RedisKeys(properties);
     }
 
     @Bean
     @ConditionalOnMissingBean(DistributedLockService.class)
-    DistributedLockService distributedLockService(RedissonClient redisson, RedisKeyFactory keys) {
+    DistributedLockService distributedLockService(RedissonClient redisson, RedisKeys keys) {
         return new RedissonDistributedLockService(redisson, keys);
     }
 
     @Bean
     @ConditionalOnMissingBean(FixedWindowRateLimiter.class)
-    FixedWindowRateLimiter fixedWindowRateLimiter(RedissonClient redisson, RedisKeyFactory keys) {
+    FixedWindowRateLimiter fixedWindowRateLimiter(RedissonClient redisson, RedisKeys keys) {
         return new RedissonFixedWindowRateLimiter(redisson, keys);
     }
 
     @Bean
     @ConditionalOnMissingBean(ExpiringStringMap.class)
-    ExpiringStringMap expiringStringMap(RedissonClient redisson, RedisKeyFactory keys) {
+    ExpiringStringMap expiringStringMap(RedissonClient redisson, RedisKeys keys) {
         return new RedissonExpiringStringMap(redisson, keys);
     }
 }

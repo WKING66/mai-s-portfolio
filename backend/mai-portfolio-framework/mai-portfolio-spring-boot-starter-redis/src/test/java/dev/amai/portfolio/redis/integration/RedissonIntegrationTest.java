@@ -6,10 +6,10 @@ import dev.amai.portfolio.common.lock.DistributedLockService;
 import dev.amai.portfolio.redis.ExpiringStringMap;
 import dev.amai.portfolio.redis.FixedWindowRateLimiter;
 import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import dev.amai.portfolio.redis.lock.RedissonDistributedLockService;
 import dev.amai.portfolio.redis.rate.RedissonFixedWindowRateLimiter;
 import dev.amai.portfolio.redis.store.RedissonExpiringStringMap;
-import dev.amai.portfolio.redis.support.RedisKeyFactory;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -46,7 +46,7 @@ class RedissonIntegrationTest {
         }
         redisson = Redisson.create(config);
         keyPrefix = "mai-portfolio:integration:" + UUID.randomUUID();
-        RedisKeyFactory keys = new RedisKeyFactory(new RedisInfrastructureProperties(keyPrefix));
+        RedisKeys keys = new RedisKeys(new RedisInfrastructureProperties(keyPrefix));
         rateLimiter = new RedissonFixedWindowRateLimiter(redisson, keys);
         expiringMap = new RedissonExpiringStringMap(redisson, keys);
         locks = new RedissonDistributedLockService(redisson, keys);
@@ -75,6 +75,17 @@ class RedissonIntegrationTest {
 
         assertThat(locks.execute("integration-lock", Duration.ofSeconds(1),
             Duration.ofSeconds(5), () -> "locked")).isEqualTo("locked");
+    }
+
+    @Test
+    void excludesExpiredEntriesFromSizeAndConsumption() throws InterruptedException {
+        expiringMap.put("challenge", "expired-challenge", "payload", Duration.ofMillis(100));
+        assertThat(expiringMap.size("challenge")).isEqualTo(1);
+
+        Thread.sleep(150);
+
+        assertThat(expiringMap.size("challenge")).isZero();
+        assertThat(expiringMap.take("challenge", "expired-challenge")).isNull();
     }
 
     private String environmentOrDefault(String name, String defaultValue) {

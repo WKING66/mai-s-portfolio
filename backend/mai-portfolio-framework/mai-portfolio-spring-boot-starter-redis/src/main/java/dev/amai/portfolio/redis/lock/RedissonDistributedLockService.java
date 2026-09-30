@@ -3,7 +3,7 @@ package dev.amai.portfolio.redis.lock;
 import dev.amai.portfolio.common.lock.DistributedLockService;
 import dev.amai.portfolio.common.lock.LockAcquisitionException;
 import dev.amai.portfolio.redis.RedisMessageConstants;
-import dev.amai.portfolio.redis.support.RedisKeyFactory;
+import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -13,12 +13,10 @@ import org.redisson.api.RedissonClient;
 
 /** Redisson 可重入分布式锁实现。 */
 public class RedissonDistributedLockService implements DistributedLockService {
-    private static final String LOCK_NAMESPACE = "lock";
-
     private final RedissonClient redisson;
-    private final RedisKeyFactory keys;
+    private final RedisKeys keys;
 
-    public RedissonDistributedLockService(RedissonClient redisson, RedisKeyFactory keys) {
+    public RedissonDistributedLockService(RedissonClient redisson, RedisKeys keys) {
         this.redisson = redisson;
         this.keys = keys;
     }
@@ -29,7 +27,7 @@ public class RedissonDistributedLockService implements DistributedLockService {
         requirePositive(waitTime);
         requirePositive(leaseTime);
         Objects.requireNonNull(operation, "operation");
-        RLock lock = redisson.getLock(keys.subjectKey(LOCK_NAMESPACE, lockName));
+        RLock lock = redisson.getLock(keys.lock(lockName));
         boolean acquired = false;
         try {
             acquired = lock.tryLock(waitTime.toMillis(), leaseTime.toMillis(), TimeUnit.MILLISECONDS);
