@@ -6,7 +6,7 @@
 
 ## 本地启动
 
-准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。仓库根目录的 `.env`（已被 Git 忽略）需包含 `PSQL_HOST`、`PSQL_PORT`、`PSQL_USERNAME`、`PSQL_PASSWORD`、`REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、可为空的 `REDIS_PASSWORD` 和至少 12 字符的 `OWNER_PASSWORD`；后端开发脚本使用 `dev` 配置，并始终连接独立的 `portfolio_dev` 库，不会使用该文件里的其他库名。首次运行前只对专用开发库执行 Flyway 迁移，不要将此配置指向已有业务库。初始站长密码只在首次建号时哈希保存，后续修改 `.env` 不会重置已存在账号。现有 MySQL→PostgreSQL 开发库迁移记录见 [切库审核点](specs/001-personal-portfolio/postgresql-document-transition.md)。
+准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。仓库根目录的 `.env`（已被 Git 忽略）需包含 `PSQL_HOST`、`PSQL_PORT`、`PSQL_USERNAME`、`PSQL_PASSWORD`、`REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、可为空的 `REDIS_PASSWORD` 和至少 12 字符的 `OWNER_PASSWORD`；后端开发脚本使用 `dev` 配置，并始终连接独立的 `portfolio_dev` 库，不会使用该文件里的其他库名。首次运行前只对专用开发库执行 Flyway 迁移，不要将此配置指向已有业务库。初始站长密码只在首次建号时哈希保存，后续修改 `.env` 不会重置已存在账号。
 
 Redis 由 Redisson 统一接入。项目自有键统一使用 `REDIS_KEY_PREFIX` 命名空间，动态客户端标识先做 SHA-256 摘要；当前承担 Sa-Token 会话、登录限流、一次性登录挑战与分布式锁。登录挑战在 Redis 中按 TTL 保存并原子消费，多实例部署时不会因请求落到另一实例而失效。当前实现只使用 Redis 3.2 可用的 Lua、过期和映射命令，不使用 Redis 6 的 `KEEPTTL`；精确的 Redis 3.2.1 兼容验收仍须连接真实 3.2.1 服务执行。
 
@@ -63,4 +63,8 @@ npm test
 npm run build
 ```
 
-涉及真实 PostgreSQL 的结构测试只有设置 `PSQL_PASSWORD` 等环境变量时才运行，且应始终指向 `portfolio_dev`。完整需求与后续任务见 [任务清单](specs/001-personal-portfolio/tasks.md)；旧版 [本地验收指南](specs/001-personal-portfolio/quickstart.md) 中的 MySQL/Article/Word/PDF 步骤属于历史计划，当前以切库记录与有效任务为准。
+涉及真实 PostgreSQL 的结构测试只有设置 `PSQL_PASSWORD` 等环境变量时才运行，且应始终指向 `portfolio_dev`。已执行的验收与提交检查记录保留在 `docs/testing/`；历史报告描述的是各自执行时的实现和验证范围，不能作为当前功能全部通过的证明。
+
+## 仓库收录范围
+
+仓库保留 `backend/`、`frontend/`、必要的 `docs/`、本说明及环境变量配置模板。AI 工作流目录、需求与计划材料、静态原型、测试样例、初期交接材料及技能锁文件只在维护者本地保留，由 `.gitignore` 排除，不属于运行和构建输入。历史文档中的本地材料路径不代表 GitHub 当前版本提供这些文件。此调整不删除维护者的本地材料，也不改写既有 Git 历史。

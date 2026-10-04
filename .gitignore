@@ -22,3 +22,15 @@ Thumbs.db
 .local-backups/
 .m2/
 .npm/
+
+# 本地 AI 工作流、需求材料、原型与测试样例不进入源码仓库。
+/.agent/
+/.agents/
+/.specify/
+/prototypes/
+/samples/
+/specs/
+/content/
+/skills-lock.json
+/AGENTS.md
+/HANDOFF.md
