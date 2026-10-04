@@ -10,7 +10,7 @@ describe('login', () => {
     vi.stubGlobal('$fetch', fetchMock)
     expect(await getSession()).toEqual(data)
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/session', {
-      method: 'GET', credentials: 'same-origin',
+      method: 'GET', credentials: 'same-origin', retry: 0,
     })
   })
 
@@ -20,12 +20,12 @@ describe('login', () => {
     await logout('test-csrf')
     expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/session', {
       method: 'DELETE', credentials: 'same-origin',
-      headers: { 'X-CSRF-Token': 'test-csrf' },
+      headers: { 'X-CSRF-Token': 'test-csrf' }, retry: 0,
     })
   })
 
   it('does not report success when session or logout fails', async () => {
-    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({ code: 'FORBIDDEN', message: '拒绝访问' }))
+    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({ code: 'FORBIDDEN', message: '拒绝访问', details: [] }))
     await expect(getSession()).rejects.toThrow('拒绝访问')
     await expect(logout('test-csrf')).rejects.toThrow('拒绝访问')
   })

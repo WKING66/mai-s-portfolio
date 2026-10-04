@@ -2,9 +2,6 @@ package dev.amai.portfolio.system.service;
 
 /** 管理登录入口的轻量防滥用边界，避免昂贵的 RSA 解密和密码校验被无限调用。 */
 public interface LoginThrottleService {
-    /** 为指定客户端占用一次登录校验额度；超限时直接拒绝。 */
+    /** 为指定客户端占用一次登录校验额度；成功与失败均计数，窗口到期前不重置。 */
     void acquireLoginPermit(String clientKey);
-
-    /** 登录成功后清除该客户端的失败窗口，避免影响正常管理操作。 */
-    void recordLoginSuccess(String clientKey);
 }

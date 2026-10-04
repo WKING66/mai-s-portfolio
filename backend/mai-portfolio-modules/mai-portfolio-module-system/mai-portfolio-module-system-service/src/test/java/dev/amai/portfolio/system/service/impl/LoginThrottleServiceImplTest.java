@@ -3,6 +3,7 @@ package dev.amai.portfolio.system.service.impl;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
 
 class LoginThrottleServiceImplTest {
     @Test
-    void delegatesSharedWindowCountingAndClearsSuccessfulLoginWindow() {
+    void countsAllAttemptsUntilWindowExpiryWithoutCrossAccountReset() {
         SecurityProperties properties = properties();
         FixedWindowRateLimiter rateLimiter = mock(FixedWindowRateLimiter.class);
         when(rateLimiter.tryAcquire("auth:login", "client-a", 2, Duration.ofMinutes(10)))
@@ -30,8 +31,8 @@ class LoginThrottleServiceImplTest {
             .isInstanceOf(ApiException.class);
         assertThatCode(() -> throttle.acquireLoginPermit("client-b")).doesNotThrowAnyException();
 
-        throttle.recordLoginSuccess("client-a");
-        verify(rateLimiter).reset("auth:login", "client-a");
+        // 窗口恢复只能来自 Redis TTL 到期；业务层没有成功认证后清零的入口。
+        verify(rateLimiter, never()).reset("auth:login", "client-a");
         assertThatCode(() -> throttle.acquireLoginPermit("client-a")).doesNotThrowAnyException();
     }
 

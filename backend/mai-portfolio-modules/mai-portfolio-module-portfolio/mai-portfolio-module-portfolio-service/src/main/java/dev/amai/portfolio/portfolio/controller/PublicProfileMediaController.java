@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import org.springframework.http.ContentDisposition;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -46,7 +47,8 @@ public class PublicProfileMediaController {
                 .contentType(MediaType.parseMediaType(content.contentType()))
                 .contentLength(content.byteSize())
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
-                .header(HttpHeaders.CACHE_CONTROL, "public, max-age=300")
+                // 公开引用可被撤回，每次读取都必须重新授权，不能由缓存继续提供旧字节。
+                .cacheControl(CacheControl.noStore())
                 .body(body);
         } catch (RuntimeException setupFailure) {
             closeAfterSetupFailure(content, setupFailure);

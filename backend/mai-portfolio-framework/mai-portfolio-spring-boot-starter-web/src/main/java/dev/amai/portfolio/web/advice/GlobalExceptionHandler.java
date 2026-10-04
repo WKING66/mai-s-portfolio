@@ -11,9 +11,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -48,6 +52,31 @@ public class GlobalExceptionHandler {
     ResponseEntity<R<Void>> handleUnknownRoute(NoResourceFoundException error) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(R.failure(
             ApiErrorCode.NOT_FOUND.name(), WebMessageConstants.RESOURCE_NOT_FOUND, List.of()));
+    }
+
+    /** 参数绑定在 Controller 调用之前发生，不应被未知系统异常兜底误报为 500。 */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<R<Void>> handleMalformedParameter(MethodArgumentTypeMismatchException error) {
+        return ResponseEntity.badRequest().body(R.failure(
+            ApiErrorCode.MALFORMED_REQUEST.name(), WebMessageConstants.MALFORMED_PARAMETER, List.of()));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<R<Void>> handleUnsupportedMethod(HttpRequestMethodNotSupportedException error) {
+        HttpHeaders headers = new HttpHeaders();
+        if (error.getSupportedHttpMethods() != null) {
+            headers.setAllow(error.getSupportedHttpMethods());
+        }
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).headers(headers).body(R.failure(
+            ApiErrorCode.METHOD_NOT_ALLOWED.name(), WebMessageConstants.METHOD_NOT_ALLOWED, List.of()));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    ResponseEntity<R<Void>> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException error) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setAccept(error.getSupportedMediaTypes());
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).headers(headers).body(R.failure(
+            ApiErrorCode.UNSUPPORTED_MEDIA_TYPE.name(), WebMessageConstants.UNSUPPORTED_MEDIA_TYPE, List.of()));
     }
 
     @ExceptionHandler(Exception.class)

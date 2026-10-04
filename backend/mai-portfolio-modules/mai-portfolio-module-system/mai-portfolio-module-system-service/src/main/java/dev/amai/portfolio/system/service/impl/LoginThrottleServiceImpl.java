@@ -31,11 +31,6 @@ public class LoginThrottleServiceImpl implements LoginThrottleService {
             security.loginAttemptWindow());
     }
 
-    @Override
-    public void recordLoginSuccess(String clientKey) {
-        rateLimiter.reset(RedisKeys.LOGIN_RATE_NAMESPACE, clientKey);
-    }
-
     private void acquire(String namespace, String clientKey, int limit,
             java.time.Duration duration) {
         if (!rateLimiter.tryAcquire(namespace, clientKey, limit, duration)) {

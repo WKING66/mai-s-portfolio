@@ -60,7 +60,8 @@ class RedisAuthFlowTest extends AuthKeyTestSupport {
                 assertThat(json.readTree(request(second, "GET", null, cookie, null).body())
                     .path("data").path("loggedIn").asBoolean()).isFalse();
                 String wrongPassword = LoginTestClient.encryptedLoginBody(json, "owner", "wrong-password");
-                for (int attempt = 0; attempt < 5; attempt++) {
+                // 两次成功登录同样占用窗口；成功认证不得清除之前的尝试计数。
+                for (int attempt = 0; attempt < 3; attempt++) {
                     assertThat(request(first, "POST", wrongPassword, null, null).statusCode()).isEqualTo(401);
                 }
                 assertThat(request(second, "POST", wrongPassword, null, null).statusCode()).isEqualTo(429);

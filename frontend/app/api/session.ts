@@ -1,6 +1,6 @@
 import { LOGIN_MESSAGES } from '../constants/messages'
 import { encryptLoginPassword } from './loginCrypto'
-import type { ApiResponse } from './types'
+import { requestApi } from './request'
 
 export interface SessionResponse {
   loggedIn: boolean
@@ -16,34 +16,31 @@ export async function login(username: string, password: string, publicKey: strin
   }
   // 使用部署配置中的公钥，登录只有一次 POST，不再请求挑战或公钥。
   const encryptedPassword = await encryptLoginPassword(publicKey, password)
-  const session = await $fetch<ApiResponse<SessionResponse>>(SESSION_PATH, {
+  const session = await requestApi<SessionResponse>(SESSION_PATH, {
     method: 'POST',
     credentials: 'same-origin',
     body: { username, encryptedPassword },
-  })
-  if (session.code !== 'OK' || !session.data) {
-    throw new Error(session.message)
+  }, LOGIN_MESSAGES.loginFailed)
+  if (!session.data) {
+    throw new Error(LOGIN_MESSAGES.loginFailed)
   }
   return session.data
 }
 
 /** 页面状态查询不承担授权职责；后台仍由服务端校验。 */
 export async function getSession(): Promise<SessionResponse> {
-  const response = await $fetch<ApiResponse<SessionResponse>>(SESSION_PATH, {
+  const response = await requestApi<SessionResponse>(SESSION_PATH, {
     method: 'GET', credentials: 'same-origin',
-  })
-  if (response.code !== 'OK' || !response.data) {
-    throw new Error(response.message)
+  }, LOGIN_MESSAGES.sessionFailed)
+  if (!response.data) {
+    throw new Error(LOGIN_MESSAGES.sessionFailed)
   }
   return response.data
 }
 
 export async function logout(csrfToken: string): Promise<void> {
-  const response = await $fetch<ApiResponse<null>>(SESSION_PATH, {
+  await requestApi<null>(SESSION_PATH, {
     method: 'DELETE', credentials: 'same-origin',
     headers: { 'X-CSRF-Token': csrfToken },
-  })
-  if (response.code !== 'OK') {
-    throw new Error(response.message)
-  }
+  }, LOGIN_MESSAGES.logoutFailed)
 }

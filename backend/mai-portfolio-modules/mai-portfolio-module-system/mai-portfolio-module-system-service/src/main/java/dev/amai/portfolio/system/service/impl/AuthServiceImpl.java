@@ -83,7 +83,7 @@ public class AuthServiceImpl implements AuthService {
         random.nextBytes(bytes);
         String csrf = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         StpUtil.getSession().set(AuthConstants.CSRF_SESSION_KEY, csrf);
-        throttle.recordLoginSuccess(clientKey);
+        // IP 窗口统计所有尝试；不能因某个账号成功而放行对其他账号的持续猜测。
         LOG.info("User logged in, accountId={}", account.getId());
         return new SessionVo(true, account.getUsername(), csrf);
     }
