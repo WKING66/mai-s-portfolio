@@ -4,11 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.alibaba.druid.pool.DruidDataSource;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import dev.amai.portfolio.system.tag.entity.domain.TagDO;
-import dev.amai.portfolio.system.tag.enums.FeaturedStatus;
-import dev.amai.portfolio.system.tag.enums.TagKind;
-import dev.amai.portfolio.system.tag.enums.TechGroup;
-import dev.amai.portfolio.system.tag.mapper.TagMapper;
+import dev.amai.portfolio.system.entity.domain.TagDO;
+import dev.amai.portfolio.system.enums.FeaturedStatus;
+import dev.amai.portfolio.system.enums.TagKind;
+import dev.amai.portfolio.system.enums.TechGroup;
+import dev.amai.portfolio.system.mapper.TagMapper;
 import java.util.Map;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;

@@ -1,13 +1,13 @@
-package dev.amai.portfolio.system.tag.service.impl;
+package dev.amai.portfolio.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import dev.amai.portfolio.system.tag.api.TaxonomyQueryService;
-import dev.amai.portfolio.system.tag.api.TechTagData;
-import dev.amai.portfolio.system.tag.entity.domain.TagDO;
-import dev.amai.portfolio.system.tag.enums.FeaturedStatus;
-import dev.amai.portfolio.system.tag.enums.TagKind;
-import dev.amai.portfolio.system.tag.enums.TechGroup;
-import dev.amai.portfolio.system.tag.mapper.TagMapper;
+import dev.amai.portfolio.system.api.TaxonomyQueryService;
+import dev.amai.portfolio.system.api.TechTagData;
+import dev.amai.portfolio.system.entity.domain.TagDO;
+import dev.amai.portfolio.system.enums.FeaturedStatus;
+import dev.amai.portfolio.system.enums.TagKind;
+import dev.amai.portfolio.system.enums.TechGroup;
+import dev.amai.portfolio.system.mapper.TagMapper;
 import java.util.List;
 import org.springframework.stereotype.Service;
 

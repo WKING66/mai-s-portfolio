@@ -80,6 +80,8 @@ launch → modules → framework → common → dependencies
 
 ### 包结构约定
 
+本项目补充约束：每个业务模块内部只保留一套 Controller、Service 接口/Impl、Mapper 三层架构，配置、实体、常量、枚举和功能组件按职责归入对应包。不得以子业务名再套一层完整三层目录，例如 `system/tag/service`、`system/tag/mapper`；标签并入 System 后直接放入 `system/service`、`system/mapper` 等现有包。业务需要独立边界时拆为同级 Maven 业务模块，不以包的父子嵌套代替模块划分。下方参考模板中的 DAO 对应当前项目既有的 Mapper 命名，不为套用示例而重命名。
+
 ```
 org.example.project.module.<域>.
 ├── api                         ← 跨模块接口 (provider)

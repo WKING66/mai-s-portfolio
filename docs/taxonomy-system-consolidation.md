@@ -7,8 +7,8 @@
 
 ## 实际改动
 
-1. 原 Taxonomy Provider 的两个契约类迁入 System Provider 的 `dev.amai.portfolio.system.tag.api`：`TaxonomyQueryService`、`TechTagData`。
-2. 原 Taxonomy Service 的十个类迁入 System Service 的 `dev.amai.portfolio.system.tag`，按 `config`、`constant`、`entity/domain`、`enums`、`mapper`、`service`、`service/impl` 保持职责分层。
+1. 原 Taxonomy Provider 的两个契约类迁入 System Provider 的现有 `dev.amai.portfolio.system.api`：`TaxonomyQueryService`、`TechTagData`。
+2. 原 Taxonomy Service 的十个类直接迁入 System Service 现有的 `system.config`、`system.constant`、`system.entity.domain`、`system.enums`、`system.mapper`、`system.service`、`system.service.impl`，不再保留单独的 `tag` 包层级。
 3. 删除 Taxonomy 聚合、Provider、Service 三份 POM，移除聚合、BOM、Launch、Portfolio 中对应依赖。Maven 项目数由 34 减至 31。
 4. Portfolio 只改 `ProfileServiceImpl` 的契约导入与一项废弃 POM 依赖；业务实现、Controller 和公开返回模型不变。
 5. 删除旧模块下的生成产物与空目录；源码迁移有 Git 历史可追溯。
@@ -32,8 +32,14 @@
 
 ## 审核注意与验证边界
 
-- System 按 `tag` 功能包隔离标签实现；Portfolio 通过 System Provider 契约使用标签，不依赖 System Service 内部类型。
+- 标签文件按职责放入 System 现有包；Portfolio 通过 System Provider 契约使用标签，不依赖 System Service 内部类型。
 - 未新增标签管理接口、缓存或其他扩展抽象。
 - 本次未新增并发启动压测；初始化事务锁沿用原实现，不宣称新增测试验证了多实例并发初始化。
 - 未重启用户当前运行的服务。IDE 需重新加载 Maven 项目后重新构建/运行，以移除旧模块的 classpath。
 - 按项目流程提交后等待审核，未合并父分支，未推送远端。
+
+## 审核修正：去除内部子业务层级
+
+- 按维护者要求去掉 `tag` 包层级，12 个标签类归入 System 现有职责目录；跨模块引用与架构测试同步调整，类名和业务行为不变。
+- 在 `AGENTS.md` 和编码规范中记录：每个模块内只维护一套三层架构与配套职责包；需要独立业务边界时拆同级 Maven 模块，禁止内部子业务包再嵌套一套三层结构。
+- 此修正在原功能分支继续提交，父分支不变；Portfolio 仅更新必要的契约导入，不作其他改动。

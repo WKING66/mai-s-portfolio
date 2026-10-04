@@ -12,3 +12,9 @@
 8. 审核通过后才合并回已记录的父分支；推送遵循维护者当轮授权，不自动扩大合并范围。
 
 本项目禁止使用 ponytail 技能。
+
+# 业务模块目录规则
+
+1. 同一业务模块内只维护一套 Controller、Service 接口/Impl、Mapper 三层架构，配置、实体、枚举、常量及功能组件放在对应职责包中。
+2. 禁止在模块内部以子业务包再嵌套一套三层架构，例如 `system/tag/service`、`system/tag/mapper`；并入 System 的标签类直接放入 `system/service`、`system/mapper` 等现有目录。
+3. 需要独立业务边界时，按同级 Maven 业务模块拆分，不通过业务包的父子嵌套替代模块边界。

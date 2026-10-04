@@ -26,21 +26,21 @@ import dev.amai.portfolio.system.service.impl.AuthServiceImpl;
 import dev.amai.portfolio.system.service.impl.PasswordCryptoServiceImpl;
 import dev.amai.portfolio.system.service.impl.OwnerRoleServiceImpl;
 import dev.amai.portfolio.system.service.impl.SystemBootstrapServiceImpl;
-import dev.amai.portfolio.system.tag.api.TaxonomyQueryService;
-import dev.amai.portfolio.system.tag.config.TaxonomyBootstrapRunner;
-import dev.amai.portfolio.system.tag.service.TaxonomyBootstrapService;
-import dev.amai.portfolio.system.tag.service.impl.TaxonomyBootstrapServiceImpl;
-import dev.amai.portfolio.system.tag.service.impl.TaxonomyQueryServiceImpl;
+import dev.amai.portfolio.system.api.TaxonomyQueryService;
+import dev.amai.portfolio.system.config.TaxonomyBootstrapRunner;
+import dev.amai.portfolio.system.service.TaxonomyBootstrapService;
+import dev.amai.portfolio.system.service.impl.TaxonomyBootstrapServiceImpl;
+import dev.amai.portfolio.system.service.impl.TaxonomyQueryServiceImpl;
 import org.junit.jupiter.api.Test;
 
 class ServiceArchitectureTest {
     @Test
     void tagContractsAndImplementationBelongToSystemModule() {
-        assertThat(TaxonomyQueryService.class.getPackageName()).isEqualTo("dev.amai.portfolio.system.tag.api");
+        assertThat(TaxonomyQueryService.class.getPackageName()).isEqualTo("dev.amai.portfolio.system.api");
         assertThat(TaxonomyQueryServiceImpl.class.getPackageName())
-            .isEqualTo("dev.amai.portfolio.system.tag.service.impl");
+            .isEqualTo("dev.amai.portfolio.system.service.impl");
         assertThat(TaxonomyBootstrapRunner.class.getPackageName())
-            .isEqualTo("dev.amai.portfolio.system.tag.config");
+            .isEqualTo("dev.amai.portfolio.system.config");
     }
 
     @Test

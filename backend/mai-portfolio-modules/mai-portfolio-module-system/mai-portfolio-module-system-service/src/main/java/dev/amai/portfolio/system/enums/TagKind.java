@@ -1,4 +1,4 @@
-package dev.amai.portfolio.system.tag.enums;
+package dev.amai.portfolio.system.enums;
 
 public enum TagKind {
     TOPIC(0), TECH(1);

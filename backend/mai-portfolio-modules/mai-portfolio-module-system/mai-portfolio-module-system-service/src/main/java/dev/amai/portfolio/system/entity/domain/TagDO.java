@@ -1,4 +1,4 @@
-package dev.amai.portfolio.system.tag.entity.domain;
+package dev.amai.portfolio.system.entity.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;

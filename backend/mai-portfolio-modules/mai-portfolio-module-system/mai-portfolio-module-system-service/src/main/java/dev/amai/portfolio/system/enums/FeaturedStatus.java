@@ -1,4 +1,4 @@
-package dev.amai.portfolio.system.tag.enums;
+package dev.amai.portfolio.system.enums;
 
 public enum FeaturedStatus {
     STANDARD(0), FEATURED(1);

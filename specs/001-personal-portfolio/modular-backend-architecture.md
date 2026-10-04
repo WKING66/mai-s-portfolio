@@ -12,6 +12,8 @@
 
 后端采用同一 JVM、同一部署单元的 Maven 模块化单体。业务域统一拆成 `provider + service`；Spring Boot Starter 只用于可复用依赖组件与基础设施自动配置，Blog、Agent 等业务域不得包装成 Starter。
 
+每个业务模块内部只保留一套 Controller、Service 接口/Impl、Mapper 三层架构，配置、实体与功能组件按职责放置。禁止在内部子业务包再次嵌套完整三层结构；需要独立业务边界时拆为同级 Maven 业务模块，不以业务包父子层级代替模块边界。
+
 | 模块 | 所有权与职责 | 禁止内容 |
 | --- | --- | --- |
 | `mai-portfolio-dependencies` | 统一第三方与内部模块版本的 BOM | 业务代码、运行时配置 |
@@ -64,7 +66,7 @@ Provider 可以先只包含边界说明，但不得伪造已完成的业务 API�
 
 按维护者确认，仅将 Taxonomy 的共享标签能力并入 System，Portfolio 继续保持独立业务模块。
 
-- System Provider 的 `system.tag.api` 保存 `TaxonomyQueryService` 与 `TechTagData` 跨模块契约。
-- System Service 的 `system.tag` 按功能组织标签初始化、Service 接口/实现、Mapper、DO、枚举与常量，不与账号认证文件混放。
+- System Provider 的现有 `system.api` 保存 `TaxonomyQueryService` 与 `TechTagData` 跨模块契约。
+- System Service 的标签类直接归入现有 `system.config`、`system.constant`、`system.entity.domain`、`system.enums`、`system.mapper`、`system.service` 与 `system.service.impl`，不单独增加 `tag` 包层级。
 - 移除原 Taxonomy 的聚合、Provider、Service 三个 Maven 模块及其依赖声明；Portfolio 仅调整接口导入和废弃依赖，不迁移业务代码。
 - 保留既有类名、`tag` 表、自增主键、初始化事务及 PostgreSQL advisory lock、查询筛选/排序和 HTTP 返回合同，不引入新的业务能力或迁移脚本。

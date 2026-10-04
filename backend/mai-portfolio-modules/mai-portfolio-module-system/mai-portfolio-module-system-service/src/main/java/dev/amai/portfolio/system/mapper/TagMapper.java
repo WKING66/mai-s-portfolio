@@ -1,7 +1,7 @@
-package dev.amai.portfolio.system.tag.mapper;
+package dev.amai.portfolio.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import dev.amai.portfolio.system.tag.entity.domain.TagDO;
+import dev.amai.portfolio.system.entity.domain.TagDO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 

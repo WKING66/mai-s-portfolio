@@ -1,6 +1,6 @@
-package dev.amai.portfolio.system.tag.enums;
+package dev.amai.portfolio.system.enums;
 
-import dev.amai.portfolio.system.tag.constant.TaxonomyMessageConstants;
+import dev.amai.portfolio.system.constant.TaxonomyMessageConstants;
 import java.util.Arrays;
 
 public enum TechGroup {

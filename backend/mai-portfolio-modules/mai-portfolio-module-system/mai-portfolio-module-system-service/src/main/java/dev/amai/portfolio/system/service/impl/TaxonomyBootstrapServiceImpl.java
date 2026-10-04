@@ -1,12 +1,12 @@
-package dev.amai.portfolio.system.tag.service.impl;
+package dev.amai.portfolio.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import dev.amai.portfolio.system.tag.entity.domain.TagDO;
-import dev.amai.portfolio.system.tag.enums.FeaturedStatus;
-import dev.amai.portfolio.system.tag.enums.TagKind;
-import dev.amai.portfolio.system.tag.enums.TechGroup;
-import dev.amai.portfolio.system.tag.mapper.TagMapper;
-import dev.amai.portfolio.system.tag.service.TaxonomyBootstrapService;
+import dev.amai.portfolio.system.entity.domain.TagDO;
+import dev.amai.portfolio.system.enums.FeaturedStatus;
+import dev.amai.portfolio.system.enums.TagKind;
+import dev.amai.portfolio.system.enums.TechGroup;
+import dev.amai.portfolio.system.mapper.TagMapper;
+import dev.amai.portfolio.system.service.TaxonomyBootstrapService;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;

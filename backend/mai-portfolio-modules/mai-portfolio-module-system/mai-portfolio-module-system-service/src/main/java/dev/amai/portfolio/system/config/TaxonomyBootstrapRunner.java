@@ -1,6 +1,6 @@
-package dev.amai.portfolio.system.tag.config;
+package dev.amai.portfolio.system.config;
 
-import dev.amai.portfolio.system.tag.service.TaxonomyBootstrapService;
+import dev.amai.portfolio.system.service.TaxonomyBootstrapService;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

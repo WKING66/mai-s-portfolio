@@ -1,4 +1,4 @@
-package dev.amai.portfolio.system.tag.api;
+package dev.amai.portfolio.system.api;
 
 import java.util.List;
 
