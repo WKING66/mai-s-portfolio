@@ -53,6 +53,7 @@ public class AuthController {
             description = "会话账号不存在或已停用",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = R.class)))
     })
+    @ApiLog
     public R<SessionVo> current() {
         return R.success(sessions.current());
     }

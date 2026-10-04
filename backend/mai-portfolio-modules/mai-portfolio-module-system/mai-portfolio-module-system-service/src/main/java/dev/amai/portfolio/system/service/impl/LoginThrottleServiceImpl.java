@@ -9,6 +9,8 @@ import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+
 /**
  * 登录场景固定窗口限流服务。
  *
@@ -32,7 +34,7 @@ public class LoginThrottleServiceImpl implements LoginThrottleService {
     }
 
     private void acquire(String namespace, String clientKey, int limit,
-            java.time.Duration duration) {
+            Duration duration) {
         if (!rateLimiter.tryAcquire(namespace, clientKey, limit, duration)) {
             throw rateLimited();
         }

@@ -2,7 +2,12 @@ package dev.amai.portfolio.system.auth;
 
 import cn.dev33.satoken.stp.StpInterface;
 import dev.amai.portfolio.system.service.OwnerRoleService;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,6 +26,7 @@ public class AccountRoleProvider implements StpInterface {
 
     @Override
     public List<String> getRoleList(Object loginId, String loginType) {
+        // TODO 走缓存
         // 登录时写入的是数值主键；Sa-Token 回调中的 ID 类型不保证仍为 Long。
         return roles.findRoles(Long.parseLong(loginId.toString()));
     }

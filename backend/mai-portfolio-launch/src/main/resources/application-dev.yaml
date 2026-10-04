@@ -7,13 +7,21 @@ spring:
     druid:
       # 开发库固定为独立的 portfolio_dev，凭据只从仓库根目录被忽略的 .env 注入。
       url: jdbc:postgresql://${PSQL_HOST:127.0.0.1}:${PSQL_PORT:5432}/portfolio_dev
-      username: ${PSQL_USERNAME:postgres}
-      password: ${PSQL_PASSWORD:}
+      username: ${PSQL_USERNAME}
+      password: ${PSQL_PASSWORD}
       initial-size: 0
       min-idle: 1
       max-active: 5
       stat-view-servlet:
         enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:3s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:3s}
   flyway:
     locations: classpath:db/postgresql
 
@@ -23,14 +31,35 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
 
 portfolio:
+  redis:
+    # 所有项目自有 Redis 键统一加前缀，避免与同一实例中的其他应用冲突。
+    key-prefix: ${REDIS_KEY_PREFIX:mai-portfolio}
+    bootstrap:
+      enabled: true
+      initial-password: ${OWNER_PASSWORD}
   media:
     # 本地开发默认连接真实 OSS；单元/回归测试由测试配置显式切回 local。
     storage: ${MEDIA_STORAGE:oss}
+    local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-media}
+    oss:
+      endpoint: ${OSS_ENDPOINT:https://oss-cn-shenzhen.aliyuncs.com}
+      bucket-name: ${OSS_BUCKET_NAME:amai-portfolio}
+      access-key-id: ${OSS_ACCESS_KEY_ID}
+      access-key-secret: ${OSS_ACCESS_KEY_SECRET}
+      connect-timeout: ${OSS_CONNECT_TIMEOUT:5s}
+      socket-timeout: ${OSS_SOCKET_TIMEOUT:30s}
+      max-connections: ${OSS_MAX_CONNECTIONS:20}
   security:
     require-https: false
-    allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:9333}
+    allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:9333,http://127.0.0.1:8080}
+      # 外部 PKCS#8 PEM 文件 URI；不提供内置私钥或临时生成回退。
+    rsa-private-key: ${AUTH_RSA_PRIVATE_KEY_LOCATION:file:F:/secrets/mai-portfolio/auth/private.pem}
+    max-login-attempts-per-client: 5
+    login-attempt-window: 5m
   api-log:
     enabled: ${API_LOG_ENABLED:true}
+    max-payload-length: ${API_LOG_MAX_PAYLOAD_LENGTH:2048}
+    additional-sensitive-fields: []
 
 sa-token:
   cookie:

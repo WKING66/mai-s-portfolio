@@ -33,14 +33,6 @@ spring:
       # 最大生存的时间
       max-evictable-idle-time-millis: 900000
       validation-query: SELECT 1
-  data:
-    redis:
-      host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
-      database: ${REDIS_DATABASE:0}
-      connect-timeout: ${REDIS_CONNECT_TIMEOUT:3s}
-      timeout: ${REDIS_COMMAND_TIMEOUT:3s}
   flyway:
     # 全环境统一读取 PostgreSQL 基线，避免非 dev 环境回退到默认 db/migration。
     locations: classpath:db/postgresql
@@ -54,37 +46,6 @@ mybatis-plus:
 #      logic-delete-field: deleted
 #      logic-not-delete-value: 0
 #      logic-delete-value: 1
-
-
-portfolio:
-  redis:
-    # 所有项目自有 Redis 键统一加前缀，避免与同一实例中的其他应用冲突。
-    key-prefix: ${REDIS_KEY_PREFIX:mai-portfolio}
-  bootstrap:
-    enabled: true
-    initial-password: ${OWNER_PASSWORD:}
-  security:
-    allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:8080}
-    # 外部 PKCS#8 PEM 文件 URI；不提供内置私钥或临时生成回退。
-    rsa-private-key: ${AUTH_RSA_PRIVATE_KEY_LOCATION:}
-    require-https: true
-    max-login-attempts-per-client: 5
-    login-attempt-window: 10m
-  media:
-    storage: ${MEDIA_STORAGE:local}
-    local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-media}
-    oss:
-      endpoint: ${OSS_ENDPOINT:}
-      bucket-name: ${OSS_BUCKET_NAME:}
-      access-key-id: ${OSS_ACCESS_KEY_ID:}
-      access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
-      connect-timeout: ${OSS_CONNECT_TIMEOUT:5s}
-      socket-timeout: ${OSS_SOCKET_TIMEOUT:30s}
-      max-connections: ${OSS_MAX_CONNECTIONS:20}
-  api-log:
-    enabled: ${API_LOG_ENABLED:false}
-    max-payload-length: ${API_LOG_MAX_PAYLOAD_LENGTH:2048}
-    additional-sensitive-fields: []
 
 springdoc:
   api-docs:

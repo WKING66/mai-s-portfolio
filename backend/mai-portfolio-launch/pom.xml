@@ -14,10 +14,10 @@
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-system-service</artifactId>
         </dependency>
-        <dependency>
-            <groupId>dev.amai</groupId>
-            <artifactId>mai-portfolio-module-system-provider</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>dev.amai</groupId>-->
+<!--            <artifactId>mai-portfolio-module-system-provider</artifactId>-->
+<!--        </dependency>-->
         <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-portfolio-service</artifactId>
@@ -34,6 +34,8 @@
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-agent-service</artifactId>
         </dependency>
+
+        <!-- framework starter -->
         <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-spring-boot-starter-datasource</artifactId>
@@ -50,6 +52,8 @@
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-spring-boot-starter-redis</artifactId>
         </dependency>
+
+        <!-- Tester -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
