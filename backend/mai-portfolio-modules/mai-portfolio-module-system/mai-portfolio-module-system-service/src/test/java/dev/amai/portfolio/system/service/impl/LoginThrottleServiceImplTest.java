@@ -35,20 +35,9 @@ class LoginThrottleServiceImplTest {
         assertThatCode(() -> throttle.acquireLoginPermit("client-a")).doesNotThrowAnyException();
     }
 
-    @Test
-    void rejectsChallengeWhenRedisWindowHasNoRemainingPermit() {
-        SecurityProperties properties = properties();
-        FixedWindowRateLimiter rateLimiter = mock(FixedWindowRateLimiter.class);
-        when(rateLimiter.tryAcquire("auth:challenge", "client-a", 2, Duration.ofMinutes(1)))
-            .thenReturn(false);
-        LoginThrottleServiceImpl throttle = new LoginThrottleServiceImpl(properties, rateLimiter);
-
-        assertThatThrownBy(() -> throttle.acquireChallengePermit("client-a"))
-            .isInstanceOf(ApiException.class);
-    }
-
     private SecurityProperties properties() {
-        return new SecurityProperties(List.of("http://localhost"), Duration.ofMinutes(1), 32,
-            2, Duration.ofMinutes(1), 2, Duration.ofMinutes(10));
+        return new SecurityProperties(List.of("http://localhost"),
+            new org.springframework.core.io.ByteArrayResource(new byte[0]), false,
+            2, Duration.ofMinutes(10));
     }
 }

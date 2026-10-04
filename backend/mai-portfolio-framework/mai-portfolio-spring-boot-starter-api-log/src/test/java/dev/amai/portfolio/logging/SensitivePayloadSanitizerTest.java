@@ -29,15 +29,15 @@ class SensitivePayloadSanitizerTest {
 
     @Test
     void redactsLoginPasswordAndSessionTokenAndOmitsBinaryPayload() {
-        assertThat(sanitizer.sanitize("input", new LoginPayload("owner", "challenge-id", "secret-ciphertext")))
-            .contains("owner", "[REDACTED]").doesNotContain("secret-ciphertext", "challenge-id");
+        assertThat(sanitizer.sanitize("input", new LoginPayload("owner", "secret-ciphertext")))
+            .contains("owner", "[REDACTED]").doesNotContain("secret-ciphertext");
         assertThat(sanitizer.sanitize("result", new SessionPayload(true, "owner", "csrf-secret")))
             .contains("owner", "[REDACTED]").doesNotContain("csrf-secret");
         assertThat(sanitizer.sanitize("file", new byte[] {1, 2, 3})).isEqualTo("[omitted]");
         assertThat(sanitizer.sanitize("password", "direct-password")).isEqualTo("[REDACTED]");
-        assertThat(sanitizer.sanitize("challenge", Map.of(
-            "challengeId", "one-time-id", "publicKey", "base64-public-key")))
-            .doesNotContain("one-time-id", "base64-public-key");
+        assertThat(sanitizer.sanitize("credentials", Map.of(
+            "privateKey", "private-key-material", "sessionToken", "full-session-token")))
+            .doesNotContain("private-key-material", "full-session-token");
     }
 
     @Test
@@ -48,7 +48,7 @@ class SensitivePayloadSanitizerTest {
             .hasSizeLessThan(300).endsWith("...[truncated]");
     }
 
-    private record LoginPayload(String username, String challengeId, String encryptedPassword) {
+    private record LoginPayload(String username, String encryptedPassword) {
     }
 
     private record SessionPayload(boolean loggedIn, String username, String csrfToken) {

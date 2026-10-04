@@ -6,6 +6,9 @@ export async function encryptLoginPassword(publicKeyBase64: string, password: st
   if (!globalThis.crypto?.subtle) {
     throw new Error(LOGIN_MESSAGES.cryptoUnavailable)
   }
+  if (!publicKeyBase64.trim()) {
+    throw new Error(LOGIN_MESSAGES.publicKeyMissing)
+  }
   const passwordBytes = new TextEncoder().encode(password)
   if (passwordBytes.length > LOGIN_PASSWORD_MAX_UTF8_BYTES) {
     passwordBytes.fill(0)

@@ -18,7 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named = "PSQL_PASSWORD", matches = ".+")
 @EnabledIfEnvironmentVariable(named = "OWNER_PASSWORD", matches = ".+")
-class ProfileApiTest {
+class ProfileApiTest extends AuthKeyTestSupport {
     @Autowired MockMvc mvc;
 
     @Test

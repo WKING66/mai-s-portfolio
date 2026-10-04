@@ -9,7 +9,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.portfolio.entity.vo.AdminProfileApiVo;
-import dev.amai.portfolio.system.entity.vo.LoginChallengeApiVo;
 import dev.amai.portfolio.portfolio.entity.vo.PublicProfileApiVo;
 import dev.amai.portfolio.system.entity.vo.SessionApiVo;
 import java.util.Arrays;
@@ -30,7 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
 @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named = "PSQL_PASSWORD", matches = ".+")
 @EnabledIfEnvironmentVariable(named = "OWNER_PASSWORD", matches = ".+")
-class OpenApiContractTest {
+class OpenApiContractTest extends AuthKeyTestSupport {
     @Autowired MockMvc mvc;
     @Autowired JsonMapper json;
     @Autowired Environment environment;
@@ -55,8 +54,6 @@ class OpenApiContractTest {
             .map(component -> component.getName()).toList()).isEqualTo(runtimeFields);
         assertThat(Arrays.stream(AdminProfileApiVo.class.getRecordComponents())
             .map(component -> component.getName()).toList()).isEqualTo(runtimeFields);
-        assertThat(Arrays.stream(LoginChallengeApiVo.class.getRecordComponents())
-            .map(component -> component.getName()).toList()).isEqualTo(runtimeFields);
     }
 
     @Test
@@ -69,31 +66,30 @@ class OpenApiContractTest {
         byte[] body = mvc.perform(get("/v3/api-docs"))
             .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
         JsonNode spec = json.readTree(body);
-        JsonNode scheme = spec.path("components").path("securitySchemes").path("ownerSession");
+        JsonNode scheme = spec.path("components").path("securitySchemes").path("userSession");
         assertThat(scheme.path("type").asText()).isEqualTo("apiKey");
         assertThat(scheme.path("in").asText()).isEqualTo("cookie");
         assertThat(scheme.path("name").asText()).isEqualTo(AuthConstants.SESSION_COOKIE_NAME);
         assertThat(scheme.path("name").asText())
             .isEqualTo(environment.getRequiredProperty("sa-token.token-name"));
 
-        JsonNode session = spec.path("paths").path(AuthConstants.ADMIN_SESSION_PATH);
-        JsonNode challenge = spec.path("paths").path(AuthConstants.LOGIN_CHALLENGE_PATH).path("get");
+        JsonNode session = spec.path("paths").path(AuthConstants.AUTH_SESSION_PATH);
+        assertThat(spec.path("paths").has("/api/v1/admin/session")).isFalse();
+        assertThat(spec.path("paths").has(AuthConstants.AUTH_SESSION_PATH + "/challenge")).isFalse();
         JsonNode profile = spec.path("paths").path("/api/v1/public/profile").path("get");
         JsonNode adminProfile = spec.path("paths").path("/api/v1/admin/profile");
         assertThat(session.path("get").path("responses").has("200")).isTrue();
         assertThat(session.path("get").path("responses").has("403")).isTrue();
         assertThat(session.path("post").path("responses").has("401")).isTrue();
-        assertThat(session.path("post").path("responses").has("422")).isTrue();
-        assertThat(challenge.path("responses").has("200")).isTrue();
-        assertThat(challenge.path("responses").has("429")).isTrue();
+        assertThat(session.path("post").path("responses").has("400")).isTrue();
         assertThat(session.path("delete").path("responses").has("401")).isTrue();
         assertThat(session.path("delete").path("responses").has("403")).isTrue();
         assertThat(profile.path("responses").has("200")).isTrue();
         assertThat(adminProfile.path("get").path("responses").has("200")).isTrue();
         assertThat(adminProfile.path("patch").path("responses").has("409")).isTrue();
         assertThat(adminProfile.path("patch").path("responses").has("422")).isTrue();
-        assertThat(adminProfile.path("get").path("security").get(0).has("ownerSession")).isTrue();
-        assertThat(adminProfile.path("patch").path("security").get(0).has("ownerSession")).isTrue();
+        assertThat(adminProfile.path("get").path("security").get(0).has("userSession")).isTrue();
+        assertThat(adminProfile.path("patch").path("security").get(0).has("userSession")).isTrue();
         assertThat(adminProfile.path("patch").path("parameters").get(0).path("name").asText())
             .isEqualTo(AuthConstants.CSRF_HEADER_NAME);
         assertThat(adminProfile.path("patch").path("requestBody").path("content")
@@ -107,18 +103,19 @@ class OpenApiContractTest {
         assertThat(session.path("delete").path("responses").path("403").path("content")
             .path("application/json").path("schema").isMissingNode()).isFalse();
 
-        // 登录/会话查询和公开资料不要求 Cookie；只有受保护的登出操作声明站长会话。
+        // 登录/会话查询和公开资料不要求 Cookie；登出只要求用户会话，不要求 OWNER。
         assertThat(spec.path("security").isMissingNode()).isTrue();
         assertThat(session.path("get").path("security").isMissingNode()).isTrue();
         assertThat(session.path("post").path("security").isMissingNode()).isTrue();
-        assertThat(challenge.path("security").isMissingNode()).isTrue();
         assertThat(profile.path("security").isMissingNode()).isTrue();
-        assertThat(session.path("delete").path("security").get(0).has("ownerSession")).isTrue();
+        assertThat(session.path("delete").path("security").get(0).has("userSession")).isTrue();
         JsonNode csrfHeader = session.path("delete").path("parameters").get(0);
         assertThat(csrfHeader.path("name").asText()).isEqualTo(AuthConstants.CSRF_HEADER_NAME);
         assertThat(csrfHeader.path("required").asBoolean()).isTrue();
 
         JsonNode loginRequest = spec.path("components").path("schemas").path("LoginRequest");
+        assertThat(loginRequest.path("properties").size()).isEqualTo(2);
+        assertThat(loginRequest.path("properties").has("challengeId")).isFalse();
         assertThat(loginRequest.path("properties").has("password")).isFalse();
         assertThat(loginRequest.path("properties").path("encryptedPassword")
             .path("writeOnly").asBoolean()).isTrue();

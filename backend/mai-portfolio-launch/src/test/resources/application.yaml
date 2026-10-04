@@ -1,4 +1,8 @@
 portfolio:
+  bootstrap:
+    # 测试账号及资料初始化只依赖测试配置，不依赖开发配置的目录或缩进。
+    enabled: true
+    initial-password: ${OWNER_PASSWORD}
   redis:
     # 每个测试上下文使用独立命名空间，避免限流计数污染后续回归。
     key-prefix: mai-portfolio:test:${random.uuid}
@@ -7,7 +11,6 @@ portfolio:
     storage: local
   security:
     # 多个安全回归共享同一 Spring 上下文与回环地址，不让测试量触发生产限流阈值。
-    max-challenges-per-client: 256
     max-login-attempts-per-client: 256
 
 spring:

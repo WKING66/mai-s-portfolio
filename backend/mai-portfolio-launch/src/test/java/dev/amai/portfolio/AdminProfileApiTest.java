@@ -28,7 +28,7 @@ import tools.jackson.databind.json.JsonMapper;
 @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named = "PSQL_PASSWORD", matches = ".+")
 @EnabledIfEnvironmentVariable(named = "OWNER_PASSWORD", matches = ".+")
-class AdminProfileApiTest {
+class AdminProfileApiTest extends AuthKeyTestSupport {
     private static final String PROFILE_PATH = "/api/v1/admin/profile";
     private static final String ALLOWED_ORIGIN = "http://127.0.0.1:3000";
 
@@ -114,8 +114,8 @@ class AdminProfileApiTest {
     }
 
     private OwnerSession login() throws Exception {
-        String body = LoginTestClient.encryptedLoginBody(mvc, json, "owner", System.getenv("OWNER_PASSWORD"));
-        var response = mvc.perform(post("/api/v1/admin/session")
+        String body = LoginTestClient.encryptedLoginBody(json, "owner", System.getenv("OWNER_PASSWORD"));
+        var response = mvc.perform(post("/api/v1/auth/session")
                 .header("Origin", ALLOWED_ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isOk()).andReturn().getResponse();

@@ -13,7 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 @SpringBootTest
 @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named = "PSQL_PASSWORD", matches = ".+")
-class SchemaContractTest {
+class SchemaContractTest extends AuthKeyTestSupport {
     @Autowired JdbcTemplate jdbc;
 
     @Test

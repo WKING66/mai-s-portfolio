@@ -28,32 +28,34 @@ import tools.jackson.databind.json.JsonMapper;
 @ExtendWith(OutputCaptureExtension.class)
 @EnabledIfEnvironmentVariable(named = "PSQL_PASSWORD", matches = ".+")
 @EnabledIfEnvironmentVariable(named = "OWNER_PASSWORD", matches = ".+")
-class ApiLoggingTest {
+class ApiLoggingTest extends AuthKeyTestSupport {
     @Autowired MockMvc mvc;
     @Autowired JsonMapper json;
 
     @Test
     void loginLogsInputAndOutputWithoutPasswordOrCsrfToken(CapturedOutput logs) throws Exception {
         String password = System.getenv("OWNER_PASSWORD");
-        String body = LoginTestClient.encryptedLoginBody(mvc, json, "owner", password);
-        byte[] response = mvc.perform(post(AuthConstants.ADMIN_SESSION_PATH)
+        String body = LoginTestClient.encryptedLoginBody(json, "owner", password);
+        var response = mvc.perform(post(AuthConstants.AUTH_SESSION_PATH)
                 .header("Origin", "http://127.0.0.1:3000")
                 .contentType(MediaType.APPLICATION_JSON).content(body))
-            .andExpect(status().isOk()).andReturn().getResponse().getContentAsByteArray();
-        JsonNode session = json.readTree(response).path("data");
+            .andExpect(status().isOk()).andReturn().getResponse();
+        JsonNode session = json.readTree(response.getContentAsByteArray()).path("data");
         String csrf = session.path("csrfToken").asText();
 
         assertThat(logs.getOut())
-            .contains("API request method=POST route=/api/v1/admin/session")
-            .contains("API response method=POST route=/api/v1/admin/session")
+            .contains("API request method=POST route=/api/v1/auth/session")
+            .contains("API response method=POST route=/api/v1/auth/session")
             .contains("[REDACTED]")
-            .doesNotContain(password, csrf);
+            .doesNotContain(password, csrf, json.readTree(body).path("encryptedPassword").asText(),
+                java.util.Base64.getEncoder().encodeToString(KEY_PAIR.getPrivate().getEncoded()),
+                response.getCookie(AuthConstants.SESSION_COOKIE_NAME).getValue());
     }
 
     @Test
     void invalidOriginIsRejectedBeforeCredentialCheck() throws Exception {
-        String body = LoginTestClient.encryptedLoginBody(mvc, json, "owner", System.getenv("OWNER_PASSWORD"));
-        mvc.perform(post(AuthConstants.ADMIN_SESSION_PATH)
+        String body = LoginTestClient.encryptedLoginBody(json, "owner", System.getenv("OWNER_PASSWORD"));
+        mvc.perform(post(AuthConstants.AUTH_SESSION_PATH)
                 .header("Origin", "https://outside.example")
                 .contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isForbidden())

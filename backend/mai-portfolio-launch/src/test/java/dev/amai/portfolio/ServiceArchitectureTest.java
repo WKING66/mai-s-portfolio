@@ -14,14 +14,16 @@ import dev.amai.portfolio.security.password.Argon2PasswordHasher;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.system.auth.AccountRoleProvider;
 import dev.amai.portfolio.system.auth.AdminAuthorization;
+import dev.amai.portfolio.system.auth.AuthenticationInterceptor;
+import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.config.SystemBootstrapRunner;
-import dev.amai.portfolio.system.controller.AdminSessionController;
-import dev.amai.portfolio.system.service.AdminSessionService;
-import dev.amai.portfolio.system.service.LoginChallengeService;
+import dev.amai.portfolio.system.controller.AuthController;
+import dev.amai.portfolio.system.service.AuthService;
+import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.system.service.OwnerRoleService;
 import dev.amai.portfolio.system.service.SystemBootstrapService;
-import dev.amai.portfolio.system.service.impl.AdminSessionServiceImpl;
-import dev.amai.portfolio.system.service.impl.LoginChallengeServiceImpl;
+import dev.amai.portfolio.system.service.impl.AuthServiceImpl;
+import dev.amai.portfolio.system.service.impl.PasswordCryptoServiceImpl;
 import dev.amai.portfolio.system.service.impl.OwnerRoleServiceImpl;
 import dev.amai.portfolio.system.service.impl.SystemBootstrapServiceImpl;
 import dev.amai.portfolio.taxonomy.api.TaxonomyQueryService;
@@ -36,11 +38,11 @@ class ServiceArchitectureTest {
     void servicesAreInterfacesWithDedicatedImplementations() {
         assertService(ProfileService.class, ProfileServiceImpl.class);
         assertService(PortfolioBootstrapService.class, PortfolioBootstrapServiceImpl.class);
-        assertService(AdminSessionService.class, AdminSessionServiceImpl.class);
+        assertService(AuthService.class, AuthServiceImpl.class);
         assertService(OwnerRoleService.class, OwnerRoleServiceImpl.class);
         assertThat(PasswordHasher.class.isAssignableFrom(Argon2PasswordHasher.class)).isTrue();
         assertService(SystemBootstrapService.class, SystemBootstrapServiceImpl.class);
-        assertService(LoginChallengeService.class, LoginChallengeServiceImpl.class);
+        assertService(PasswordCryptoService.class, PasswordCryptoServiceImpl.class);
         assertService(AssetQueryService.class, AssetQueryServiceImpl.class);
         assertService(TaxonomyQueryService.class, TaxonomyQueryServiceImpl.class);
         assertService(TaxonomyBootstrapService.class, TaxonomyBootstrapServiceImpl.class);
@@ -50,10 +52,12 @@ class ServiceArchitectureTest {
     void httpBoundariesDependOnServiceInterfaces() {
         assertThat(ProfileController.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(ProfileService.class);
-        assertThat(AdminSessionController.class.getDeclaredConstructors()[0].getParameterTypes())
-            .containsExactly(AdminSessionService.class);
+        assertThat(AuthController.class.getDeclaredConstructors()[0].getParameterTypes())
+            .containsExactly(AuthService.class);
         assertThat(AdminAuthorization.class.getDeclaredConstructors()[0].getParameterTypes())
             .isEmpty();
+        assertThat(AuthenticationInterceptor.class.getDeclaredConstructors()[0].getParameterTypes())
+            .containsExactly(SecurityProperties.class, AuthService.class);
         assertThat(AccountRoleProvider.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(OwnerRoleService.class);
         assertThat(SystemBootstrapRunner.class.getDeclaredConstructors()[0].getParameterTypes())
@@ -62,6 +66,14 @@ class ServiceArchitectureTest {
             .containsExactly(PortfolioBootstrapService.class);
         assertThat(TaxonomyBootstrapRunner.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(TaxonomyBootstrapService.class);
+    }
+
+    @Test
+    void logoutRequiresLoginRatherThanOwnerRole() throws NoSuchMethodException {
+        var logout = AuthController.class.getDeclaredMethod("logout");
+        assertThat(logout.isAnnotationPresent(cn.dev33.satoken.annotation.SaCheckLogin.class)).isTrue();
+        assertThat(logout.isAnnotationPresent(cn.dev33.satoken.annotation.SaCheckRole.class)).isFalse();
+        assertThat(AuthController.class.isAnnotationPresent(cn.dev33.satoken.annotation.SaCheckRole.class)).isFalse();
     }
 
     private void assertService(Class<?> contract, Class<?> implementation) {

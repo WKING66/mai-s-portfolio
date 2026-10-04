@@ -14,7 +14,7 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named = "PSQL_PASSWORD", matches = ".+")
 @EnabledIfEnvironmentVariable(named = "OWNER_PASSWORD", matches = ".+")
-class BootstrapServiceTest {
+class BootstrapServiceTest extends AuthKeyTestSupport {
     @Autowired JdbcTemplate jdbc;
 
     @Test

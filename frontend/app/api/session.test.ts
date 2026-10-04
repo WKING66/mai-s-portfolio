@@ -1,10 +1,36 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loginOwner } from './session'
+import { getSession, login, logout } from './session'
 
 afterEach(() => vi.unstubAllGlobals())
 
-describe('loginOwner', () => {
-  it('sends only a one-time challenge ID and RSA ciphertext in the login request', async () => {
+describe('login', () => {
+  it('restores session through the common GET endpoint', async () => {
+    const data = { loggedIn: true, username: 'normal', csrfToken: 'test-csrf' }
+    const fetchMock = vi.fn().mockResolvedValue({ code: 'OK', data })
+    vi.stubGlobal('$fetch', fetchMock)
+    expect(await getSession()).toEqual(data)
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/session', {
+      method: 'GET', credentials: 'same-origin',
+    })
+  })
+
+  it('logs any user out through the same endpoint with CSRF', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ code: 'OK', data: null })
+    vi.stubGlobal('$fetch', fetchMock)
+    await logout('test-csrf')
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/session', {
+      method: 'DELETE', credentials: 'same-origin',
+      headers: { 'X-CSRF-Token': 'test-csrf' },
+    })
+  })
+
+  it('does not report success when session or logout fails', async () => {
+    vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({ code: 'FORBIDDEN', message: '拒绝访问' }))
+    await expect(getSession()).rejects.toThrow('拒绝访问')
+    await expect(logout('test-csrf')).rejects.toThrow('拒绝访问')
+  })
+
+  it('uses the configured key and makes only one ciphertext POST', async () => {
     const keyPair = await crypto.subtle.generateKey({
       name: 'RSA-OAEP', modulusLength: 2048,
       publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256',
@@ -14,25 +40,22 @@ describe('loginOwner', () => {
     ))
     let submittedBody: Record<string, string> | undefined
     const fetchMock = vi.fn(async (_url: string, options?: { body?: Record<string, string> }) => {
-      if (!options?.body) {
-        return { code: 'OK', message: '成功', data: {
-          challengeId: 'one-time-id', publicKey, algorithm: 'RSA-OAEP-256',
-          expiresAt: '2026-09-26T10:00:00Z',
-        }, details: [] }
-      }
-      submittedBody = options.body
+      submittedBody = options?.body
       return { code: 'OK', message: '成功', data: {
         loggedIn: true, username: 'owner', csrfToken: 'test-csrf',
       }, details: [] }
     })
     vi.stubGlobal('$fetch', fetchMock)
 
-    const session = await loginOwner('owner', 'only-in-memory-password')
+    const session = await login('owner', 'only-in-memory-password', publicKey)
 
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/session', expect.objectContaining({
+      method: 'POST', credentials: 'same-origin',
+    }))
     expect(session.loggedIn).toBe(true)
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(submittedBody).toBeDefined()
-    expect(Object.keys(submittedBody!)).toEqual(['username', 'challengeId', 'encryptedPassword'])
+    expect(Object.keys(submittedBody!)).toEqual(['username', 'encryptedPassword'])
     expect(JSON.stringify(submittedBody)).not.toContain('only-in-memory-password')
     const encryptedPassword = submittedBody?.encryptedPassword
     if (typeof encryptedPassword !== 'string') {

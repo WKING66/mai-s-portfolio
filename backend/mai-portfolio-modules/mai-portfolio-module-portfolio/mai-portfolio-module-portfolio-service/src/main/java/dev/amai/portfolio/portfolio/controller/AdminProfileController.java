@@ -37,7 +37,7 @@ public class AdminProfileController {
 
     @GetMapping
     @Operation(summary = "读取站长资料", description = "获取可编辑文本和更新时间；头像、简历仅显示已就绪的站内地址",
-        security = @SecurityRequirement(name = AuthConstants.OPENAPI_OWNER_SESSION_SCHEME))
+        security = @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME))
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "资料快照",
             content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdminProfileApiVo.class))),
@@ -54,7 +54,7 @@ public class AdminProfileController {
     @ApiLog
     @Operation(summary = "更新站长公开资料", description = "一次提交全部可编辑文本字段；GitHub 和邮箱可传 null 取消公开。"
         + "须原样带回读取时的 updatedAt，资料已变更则返回 409；不会修改头像、简历或 SEO 配置",
-        security = @SecurityRequirement(name = AuthConstants.OPENAPI_OWNER_SESSION_SCHEME),
+        security = @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME),
         parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER,
             required = true, description = "从已登录会话的 csrfToken 获取"))
     @ApiResponses({

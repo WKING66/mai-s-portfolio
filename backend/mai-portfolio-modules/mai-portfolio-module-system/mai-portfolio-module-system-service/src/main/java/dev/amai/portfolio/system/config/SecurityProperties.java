@@ -3,18 +3,18 @@ package dev.amai.portfolio.system.config;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
 import java.time.Duration;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.io.Resource;
 import org.springframework.validation.annotation.Validated;
 
+/** 固定私钥来自外部 Secret 文件，非开发环境默认要求 HTTPS。 */
 @Validated
 @ConfigurationProperties(prefix = "portfolio.security")
 public record SecurityProperties(@NotEmpty List<String> allowedOrigins,
-                                 @NotNull Duration loginChallengeTtl,
-                                 @Positive int maxOutstandingChallenges,
-                                 @Positive int maxChallengesPerClient,
-                                 @NotNull Duration challengeRateWindow,
+                                 @NotNull Resource rsaPrivateKey,
+                                 boolean requireHttps,
                                  @Positive int maxLoginAttemptsPerClient,
                                  @NotNull Duration loginAttemptWindow) {
 }

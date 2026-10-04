@@ -2,14 +2,10 @@ package dev.amai.portfolio.redis.integration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import dev.amai.portfolio.common.lock.DistributedLockService;
-import dev.amai.portfolio.redis.ExpiringStringMap;
 import dev.amai.portfolio.redis.FixedWindowRateLimiter;
 import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
 import dev.amai.portfolio.redis.define.cache.RedisKeys;
-import dev.amai.portfolio.redis.lock.RedissonDistributedLockService;
 import dev.amai.portfolio.redis.rate.RedissonFixedWindowRateLimiter;
-import dev.amai.portfolio.redis.store.RedissonExpiringStringMap;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
@@ -27,8 +23,6 @@ import org.redisson.config.SingleServerConfig;
 class RedissonIntegrationTest {
     private RedissonClient redisson;
     private FixedWindowRateLimiter rateLimiter;
-    private ExpiringStringMap expiringMap;
-    private DistributedLockService locks;
     private String keyPrefix;
 
     @BeforeEach
@@ -48,8 +42,6 @@ class RedissonIntegrationTest {
         keyPrefix = "mai-portfolio:integration:" + UUID.randomUUID();
         RedisKeys keys = new RedisKeys(new RedisInfrastructureProperties(keyPrefix));
         rateLimiter = new RedissonFixedWindowRateLimiter(redisson, keys);
-        expiringMap = new RedissonExpiringStringMap(redisson, keys);
-        locks = new RedissonDistributedLockService(redisson, keys);
     }
 
     @AfterEach
@@ -61,7 +53,7 @@ class RedissonIntegrationTest {
     }
 
     @Test
-    void supportsAtomicRateLimitOneTimeDataAndDistributedLock() {
+    void supportsAtomicRateLimitAndReset() {
         assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10)))
             .isTrue();
         assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10)))
@@ -69,23 +61,17 @@ class RedissonIntegrationTest {
         assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10)))
             .isFalse();
 
-        expiringMap.put("challenge", "challenge-1", "payload", Duration.ofSeconds(10));
-        assertThat(expiringMap.take("challenge", "challenge-1")).isEqualTo("payload");
-        assertThat(expiringMap.take("challenge", "challenge-1")).isNull();
-
-        assertThat(locks.execute("integration-lock", Duration.ofSeconds(1),
-            Duration.ofSeconds(5), () -> "locked")).isEqualTo("locked");
+        assertThat(rateLimiter.tryAcquire("login", "client-b", 2, Duration.ofSeconds(10))).isTrue();
+        rateLimiter.reset("login", "client-a");
+        assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10))).isTrue();
     }
 
     @Test
-    void excludesExpiredEntriesFromSizeAndConsumption() throws InterruptedException {
-        expiringMap.put("challenge", "expired-challenge", "payload", Duration.ofMillis(100));
-        assertThat(expiringMap.size("challenge")).isEqualTo(1);
-
-        Thread.sleep(150);
-
-        assertThat(expiringMap.size("challenge")).isZero();
-        assertThat(expiringMap.take("challenge", "expired-challenge")).isNull();
+    void permitsAfterWindowExpires() throws InterruptedException {
+        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1))).isTrue();
+        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1))).isFalse();
+        Thread.sleep(1250);
+        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1))).isTrue();
     }
 
     private String environmentOrDefault(String name, String defaultValue) {

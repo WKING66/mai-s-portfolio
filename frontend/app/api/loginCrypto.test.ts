@@ -20,7 +20,11 @@ describe('encryptLoginPassword', () => {
   })
 
   it('rejects passwords too large for RSA-2048 OAEP SHA-256', async () => {
-    await expect(encryptLoginPassword('', 'a'.repeat(LOGIN_PASSWORD_MAX_UTF8_BYTES + 1)))
+    await expect(encryptLoginPassword('unused-key', 'a'.repeat(LOGIN_PASSWORD_MAX_UTF8_BYTES + 1)))
       .rejects.toThrow('190 字节')
+  })
+
+  it('rejects a missing configured public key', async () => {
+    await expect(encryptLoginPassword('', 'valid-password')).rejects.toThrow('尚未配置登录公钥')
   })
 })

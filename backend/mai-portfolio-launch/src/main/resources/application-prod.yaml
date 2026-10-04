@@ -1,0 +1,21 @@
+# TLS 在同机 Nginx 终止，应用只监听回环地址，不能被公网绕过。
+server:
+  address: 127.0.0.1
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      # 仅信任同机代理，不能配置为 .* 或信任公网客户端的转发头。
+      internal-proxies: '127\.0\.0\.1|0:0:0:0:0:0:0:1|::1'
+      protocol-header: X-Forwarded-Proto
+      remote-ip-header: X-Forwarded-For
+
+portfolio:
+  security:
+    require-https: true
+
+sa-token:
+  cookie:
+    secure: true
+    http-only: true
+    same-site: Lax
+    path: /

@@ -27,6 +27,7 @@ portfolio:
     # 本地开发默认连接真实 OSS；单元/回归测试由测试配置显式切回 local。
     storage: ${MEDIA_STORAGE:oss}
   security:
+    require-https: false
     allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:9333}
   api-log:
     enabled: ${API_LOG_ENABLED:true}

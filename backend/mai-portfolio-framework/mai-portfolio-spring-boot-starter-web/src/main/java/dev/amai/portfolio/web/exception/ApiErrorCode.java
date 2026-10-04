@@ -4,7 +4,9 @@ import org.springframework.http.HttpStatus;
 
 public enum ApiErrorCode {
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED),
-    BAD_CREDENTIALS(HttpStatus.UNAUTHORIZED),
+    AUTH_INVALID_CREDENTIAL_PAYLOAD(HttpStatus.BAD_REQUEST),
+    HTTPS_REQUIRED(HttpStatus.FORBIDDEN),
+    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED),
     FORBIDDEN(HttpStatus.FORBIDDEN),
     ORIGIN_INVALID(HttpStatus.FORBIDDEN),
     CSRF_INVALID(HttpStatus.FORBIDDEN),

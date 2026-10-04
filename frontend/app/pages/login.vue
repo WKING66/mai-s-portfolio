@@ -1,26 +1,60 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { loginOwner } from '../../api/session'
-import { LOGIN_MESSAGES } from '../../constants/messages'
+import { getSession, login, logout } from '../api/session'
+import { LOGIN_MESSAGES } from '../constants/messages'
 
-const username = ref('owner')
+const config = useRuntimeConfig()
+definePageMeta({ alias: ['/admin/login'] })
+
+const username = ref('')
 const password = ref('')
 const pending = ref(false)
 const loggedIn = ref(false)
 const errorMessage = ref('')
+const csrfToken = ref<string | null>(null)
 
-useSeoMeta({ title: '站长登录 · 阿霾作品集', robots: 'noindex,nofollow' })
+useSeoMeta({ title: '登录 · 阿霾作品集', robots: 'noindex,nofollow' })
 
 async function submitLogin() {
   if (pending.value) return
   pending.value = true
   errorMessage.value = ''
   try {
-    await loginOwner(username.value, password.value)
-    password.value = ''
-    loggedIn.value = true
+    const session = await login(username.value, password.value, config.public.authRsaPublicKey)
+    loggedIn.value = session.loggedIn
+    csrfToken.value = session.csrfToken
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.loginFailed
+  } finally {
+    password.value = ''
+    pending.value = false
+  }
+}
+// Cookie 由浏览器保管；刷新页面通过通用接口恢复 UI 状态，不读取 HttpOnly Cookie。
+onMounted(async () => {
+  pending.value = true
+  try {
+    const session = await getSession()
+    loggedIn.value = session.loggedIn
+    csrfToken.value = session.csrfToken
+    if (session.username) username.value = session.username
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.sessionFailed
+  } finally {
+    pending.value = false
+  }
+})
+
+async function submitLogout() {
+  if (pending.value || !csrfToken.value) return
+  pending.value = true
+  errorMessage.value = ''
+  try {
+    await logout(csrfToken.value)
+    loggedIn.value = false
+    csrfToken.value = null
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.logoutFailed
   } finally {
     pending.value = false
   }
@@ -30,8 +64,8 @@ async function submitLogin() {
 <template>
   <main class="login-page">
     <form v-if="!loggedIn" class="login-card" @submit.prevent="submitLogin">
-      <h1>站长登录</h1>
-      <p>密码会先在浏览器中用一次性公钥加密，再发送到后端。</p>
+      <h1>登录</h1>
+      <p>密码会先在浏览器中用部署配置中的固定公钥加密，再发送到后端。</p>
       <label for="username">用户名</label>
       <input id="username" v-model.trim="username" name="username" autocomplete="username" required>
       <label for="password">密码</label>
@@ -41,7 +75,9 @@ async function submitLogin() {
     </form>
     <section v-else class="login-card" role="status">
       <h1>已登录</h1>
-      <p>站长会话已建立。管理页面将在对应功能模块完成后接入。</p>
+      <p>{{ username }}，你已登录。可访问的功能由账号权限决定。</p>
+      <p v-if="errorMessage" role="alert" class="error">{{ errorMessage }}</p>
+      <button type="button" :disabled="pending" @click="submitLogout">{{ pending ? '正在注销…' : '注销' }}</button>
       <a href="/">返回首页</a>
     </section>
   </main>

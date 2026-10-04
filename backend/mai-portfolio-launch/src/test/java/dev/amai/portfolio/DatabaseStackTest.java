@@ -23,7 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 @ActiveProfiles("dev")
 @EnabledIfEnvironmentVariable(named = "PSQL_PASSWORD", matches = ".+")
 @Transactional
-class DatabaseStackTest {
+class DatabaseStackTest extends AuthKeyTestSupport {
     @Autowired DataSource dataSource;
     @Autowired JdbcTemplate jdbc;
     @Autowired SmokeTagMapper mapper;

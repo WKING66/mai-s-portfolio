@@ -65,11 +65,9 @@ portfolio:
     initial-password: ${OWNER_PASSWORD:}
   security:
     allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:8080}
-    login-challenge-ttl: 60s
-    max-outstanding-challenges: 128
-    # RSA 生成成本高，按来源限流；32 次/分钟兼顾后台重试和自动化回归。
-    max-challenges-per-client: 32
-    challenge-rate-window: 1m
+    # 外部 PKCS#8 PEM 文件 URI；不提供内置私钥或临时生成回退。
+    rsa-private-key: ${AUTH_RSA_PRIVATE_KEY_LOCATION:}
+    require-https: true
     max-login-attempts-per-client: 5
     login-attempt-window: 10m
   media:
@@ -113,6 +111,7 @@ sa-token:
   is-read-cookie: true
   is-print: false
   cookie:
+    path: /
     http-only: true
     same-site: Lax
     # 非开发环境默认只允许浏览器经 HTTPS 回传会话 Cookie。

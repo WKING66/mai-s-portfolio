@@ -31,7 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 })
 @AutoConfigureMockMvc
 @Import(BootContextSmokeTest.RoleAnnotationProbeController.class)
-class BootContextSmokeTest {
+class BootContextSmokeTest extends AuthKeyTestSupport {
     @Autowired
     private DataSource dataSource;
     @Autowired

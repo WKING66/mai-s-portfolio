@@ -12,14 +12,14 @@ import org.springframework.context.annotation.Configuration;
 @OpenAPIDefinition(info = @Info(
     title = "阿霾个人作品集 API",
     version = "v1",
-    description = "公开资料无需登录；管理接口使用站长会话 Cookie，写操作还需 CSRF 令牌。"
+    description = "公开资料无需登录；账号共用登录会话 Cookie，管理接口还要求 OWNER 角色，写操作还需 CSRF 令牌。"
 ))
 @SecurityScheme(
-    name = AuthConstants.OPENAPI_OWNER_SESSION_SCHEME,
+    name = AuthConstants.OPENAPI_SESSION_SCHEME,
     type = SecuritySchemeType.APIKEY,
     in = SecuritySchemeIn.COOKIE,
     paramName = AuthConstants.SESSION_COOKIE_NAME,
-    description = "由站长登录接口设置的 HttpOnly Cookie；不需要也不能在请求体中传递。"
+    description = "由通用登录接口设置的 HttpOnly Cookie；不需要也不能在请求体中传递。"
 )
 public class OpenApiConfig {
 }

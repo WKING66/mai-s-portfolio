@@ -28,7 +28,8 @@ if ([string]::IsNullOrWhiteSpace($javaRelease) -or -not (Test-Path -LiteralPath 
 [Environment]::SetEnvironmentVariable('PATH',
     ((Join-Path $javaHome 'bin') + [IO.Path]::PathSeparator + $env:PATH), 'Process')
 
-foreach ($name in @('PSQL_HOST', 'PSQL_PORT', 'PSQL_USERNAME', 'PSQL_PASSWORD', 'OWNER_PASSWORD')) {
+foreach ($name in @('PSQL_HOST', 'PSQL_PORT', 'PSQL_USERNAME', 'PSQL_PASSWORD', 'OWNER_PASSWORD',
+    'AUTH_RSA_PRIVATE_KEY_LOCATION')) {
     if (-not $settings.ContainsKey($name) -or [string]::IsNullOrWhiteSpace($settings[$name])) {
         throw ".env 缺少 $name"
     }

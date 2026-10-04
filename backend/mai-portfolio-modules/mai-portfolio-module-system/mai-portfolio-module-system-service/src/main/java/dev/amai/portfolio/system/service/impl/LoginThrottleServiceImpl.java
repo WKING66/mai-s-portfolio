@@ -26,12 +26,6 @@ public class LoginThrottleServiceImpl implements LoginThrottleService {
     }
 
     @Override
-    public void acquireChallengePermit(String clientKey) {
-        acquire(RedisKeys.CHALLENGE_RATE_NAMESPACE, clientKey, security.maxChallengesPerClient(),
-            security.challengeRateWindow());
-    }
-
-    @Override
     public void acquireLoginPermit(String clientKey) {
         acquire(RedisKeys.LOGIN_RATE_NAMESPACE, clientKey, security.maxLoginAttemptsPerClient(),
             security.loginAttemptWindow());

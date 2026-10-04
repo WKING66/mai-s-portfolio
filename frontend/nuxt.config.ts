@@ -5,6 +5,9 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   css: ['~/assets/css/main.css'],
   vite: { plugins: [tailwindcss()] },
+  runtimeConfig: {
+    public: { authRsaPublicKey: '' },
+  },
   routeRules: {
     '/api/v1/**': {
       proxy: `${process.env.NUXT_BACKEND_URL || 'http://127.0.0.1:9333'}/api/v1/**`,

@@ -4,7 +4,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
 /** 仅供 OpenAPI 描述 R<SessionVo> 的具体 data 类型。 */
-@Schema(description = "站长会话接口的统一响应结构")
+@Schema(description = "用户会话接口的统一响应结构")
 public record SessionApiVo(
     @Schema(description = "成功为 OK；失败为稳定错误码", example = "OK") String code,
     @Schema(description = "面向调用方的提示", example = "成功") String message,
