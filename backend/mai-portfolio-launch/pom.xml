@@ -28,10 +28,6 @@
         </dependency>
         <dependency>
             <groupId>dev.amai</groupId>
-            <artifactId>mai-portfolio-module-taxonomy-service</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-blog-service</artifactId>
         </dependency>
         <dependency>

@@ -25,10 +25,9 @@
 
 ```text
 mai-portfolio-launch
-  ├─ mai-portfolio-module-system-service → system-provider
-  ├─ mai-portfolio-module-portfolio-service → portfolio-provider + system/asset/taxonomy-provider
+  ├─ mai-portfolio-module-system-service → system-provider（账号认证与共享标签字典）
+  ├─ mai-portfolio-module-portfolio-service → portfolio-provider + system/asset-provider
   ├─ mai-portfolio-module-asset-service  → asset-provider
-  ├─ mai-portfolio-module-taxonomy-service → taxonomy-provider
   ├─ mai-portfolio-module-blog-service   → blog-provider
   ├─ mai-portfolio-module-agent-service  → agent-provider → blog-provider
   └─ mai-portfolio-framework
@@ -60,3 +59,12 @@ Framework 当前按单一基础设施职责拆成 10 个 Starter：`web`、`vali
 4. 每次模块迁移保持外部 HTTP 合同不变；模块功能完成后按现有流程暂存、审核，再提交合并。
 
 Provider 可以先只包含边界说明，但不得伪造已完成的业务 API；业务代码随对应任务逐项进入 Service。
+
+## 2026-10-04：共享标签并入 System
+
+按维护者确认，仅将 Taxonomy 的共享标签能力并入 System，Portfolio 继续保持独立业务模块。
+
+- System Provider 的 `system.tag.api` 保存 `TaxonomyQueryService` 与 `TechTagData` 跨模块契约。
+- System Service 的 `system.tag` 按功能组织标签初始化、Service 接口/实现、Mapper、DO、枚举与常量，不与账号认证文件混放。
+- 移除原 Taxonomy 的聚合、Provider、Service 三个 Maven 模块及其依赖声明；Portfolio 仅调整接口导入和废弃依赖，不迁移业务代码。
+- 保留既有类名、`tag` 表、自增主键、初始化事务及 PostgreSQL advisory lock、查询筛选/排序和 HTTP 返回合同，不引入新的业务能力或迁移脚本。

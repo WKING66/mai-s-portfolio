@@ -9,7 +9,7 @@
     </parent>
     <artifactId>mai-portfolio-module-system-service</artifactId>
     <name>mai-portfolio-module-system-service</name>
-    <description>账号、会话、角色与鉴权的三层业务实现。</description>
+    <description>账号、会话、角色、鉴权与共享标签字典的三层业务实现。</description>
     <dependencies>
         <dependency>
             <groupId>dev.amai</groupId>

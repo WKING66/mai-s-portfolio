@@ -14,7 +14,6 @@
         <module>mai-portfolio-module-system</module>
         <module>mai-portfolio-module-portfolio</module>
         <module>mai-portfolio-module-asset</module>
-        <module>mai-portfolio-module-taxonomy</module>
         <module>mai-portfolio-module-blog</module>
         <module>mai-portfolio-module-agent</module>
     </modules>

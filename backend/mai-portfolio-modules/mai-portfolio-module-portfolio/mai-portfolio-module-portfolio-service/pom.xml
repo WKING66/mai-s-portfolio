@@ -25,10 +25,6 @@
         </dependency>
         <dependency>
             <groupId>dev.amai</groupId>
-            <artifactId>mai-portfolio-module-taxonomy-provider</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>

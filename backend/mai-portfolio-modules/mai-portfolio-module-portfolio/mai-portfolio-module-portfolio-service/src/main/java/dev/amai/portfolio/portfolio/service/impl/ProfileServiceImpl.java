@@ -11,7 +11,7 @@ import dev.amai.portfolio.portfolio.entity.vo.PublicProfileVo;
 import dev.amai.portfolio.portfolio.entity.vo.TechTagVo;
 import dev.amai.portfolio.portfolio.mapper.SiteConfigMapper;
 import dev.amai.portfolio.portfolio.service.ProfileService;
-import dev.amai.portfolio.taxonomy.api.TaxonomyQueryService;
+import dev.amai.portfolio.system.tag.api.TaxonomyQueryService;
 import dev.amai.portfolio.web.WebMessageConstants;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;

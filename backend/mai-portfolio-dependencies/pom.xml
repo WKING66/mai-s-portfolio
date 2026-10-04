@@ -115,16 +115,6 @@
             </dependency>
             <dependency>
                 <groupId>dev.amai</groupId>
-                <artifactId>mai-portfolio-module-taxonomy-provider</artifactId>
-                <version>${portfolio.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.amai</groupId>
-                <artifactId>mai-portfolio-module-taxonomy-service</artifactId>
-                <version>${portfolio.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>dev.amai</groupId>
                 <artifactId>mai-portfolio-module-blog-provider</artifactId>
                 <version>${portfolio.version}</version>
             </dependency>
