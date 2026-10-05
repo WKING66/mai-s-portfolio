@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ofetch } from 'ofetch'
-import { requestApi } from './request'
+import { ApiRequestError, requestApi } from './request'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -14,6 +14,8 @@ describe('requestApi', () => {
     }))
     await expect(requestApi('/api/v1/auth/session', { method: 'GET' }, '请求失败'))
       .rejects.toThrow(message)
+    await expect(requestApi('/api/v1/auth/session', { method: 'GET' }, '请求失败'))
+      .rejects.toMatchObject({ status, code: 'REJECTED' })
   })
 
   it('uses a safe fallback for network and non-envelope errors', async () => {
@@ -30,5 +32,12 @@ describe('requestApi', () => {
     vi.stubGlobal('$fetch', ofetch.create({}, { fetch }))
     await expect(requestApi('/api/v1/auth/session', { method: 'POST' }, '请求失败')).rejects.toThrow('服务暂时不可用')
     expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('exposes typed status and code without exposing upstream error details', () => {
+    const error = new ApiRequestError('请求失败', 403, 'CSRF_INVALID')
+    expect(error).toBeInstanceOf(Error)
+    expect(error.status).toBe(403)
+    expect(error.code).toBe('CSRF_INVALID')
   })
 })

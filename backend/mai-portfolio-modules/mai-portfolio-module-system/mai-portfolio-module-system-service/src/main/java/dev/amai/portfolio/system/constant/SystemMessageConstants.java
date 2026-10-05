@@ -1,6 +1,7 @@
 package dev.amai.portfolio.system.constant;
 
 public final class SystemMessageConstants {
+    public static final String TAG_KIND_INVALID = "标签选择接口仅支持 TECH 技术标签";
     public static final String ORIGIN_INVALID = "请求来源不允许";
     public static final String BAD_CREDENTIALS = "用户名或密码错误";
     public static final String LOGIN_CIPHERTEXT_INVALID = "登录加密凭据格式无效";

@@ -7,6 +7,9 @@ public final class AuthConstants {
     public static final String ADMIN_PATH_PATTERN = "/api/v1/admin/**";
     public static final String AUTH_PATH_PATTERN = "/api/v1/auth/**";
     public static final String AUTH_SESSION_PATH = "/api/v1/auth/session";
+    public static final String PROJECT_LIST_PATH = "/api/v1/projects";
+    public static final String PROJECT_VIEW_PARAMETER = "view";
+    public static final String PROJECT_MANAGE_VIEW = "MANAGE";
     public static final String CSRF_SESSION_KEY = "csrf";
     public static final String CSRF_HEADER_NAME = "X-CSRF-Token";
 

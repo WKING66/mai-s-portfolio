@@ -32,12 +32,16 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(this)
-            .addPathPatterns(AuthConstants.AUTH_PATH_PATTERN, AuthConstants.ADMIN_PATH_PATTERN)
+            .addPathPatterns(AuthConstants.AUTH_PATH_PATTERN, AuthConstants.ADMIN_PATH_PATTERN,
+                AuthConstants.PROJECT_LIST_PATH)
             .order(-100);
     }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        if (ProjectViewAccess.isPublicProjectRequest(request)) {
+            return true;
+        }
         // 只信任容器重建的安全连接状态，不自行信任客户端提交的转发头。
         if (security.requireHttps() && !request.isSecure()) {
             throw new ApiException(ApiErrorCode.HTTPS_REQUIRED, SystemMessageConstants.LOGIN_HTTPS_REQUIRED);

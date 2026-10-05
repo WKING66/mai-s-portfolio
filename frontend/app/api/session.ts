@@ -6,6 +6,7 @@ export interface SessionResponse {
   loggedIn: boolean
   username: string | null
   csrfToken: string | null
+  roles: string[]
 }
 
 const SESSION_PATH = '/api/v1/auth/session'

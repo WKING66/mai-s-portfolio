@@ -16,6 +16,8 @@ import dev.amai.portfolio.system.service.AuthService;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.system.service.LoginThrottleService;
+import dev.amai.portfolio.system.service.OwnerRoleService;
+import java.util.List;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Locale;
@@ -34,26 +36,29 @@ public class AuthServiceImpl implements AuthService {
     private final SecurityProperties security;
     private final PasswordCryptoService crypto;
     private final LoginThrottleService throttle;
+    private final OwnerRoleService roles;
     private final SecureRandom random = new SecureRandom();
 
     public AuthServiceImpl(UserAccountMapper accounts, PasswordHasher passwords,
             SecurityProperties security, PasswordCryptoService crypto,
-            LoginThrottleService throttle) {
+            LoginThrottleService throttle, OwnerRoleService roles) {
         this.accounts = accounts;
         this.passwords = passwords;
         this.security = security;
         this.crypto = crypto;
         this.throttle = throttle;
+        this.roles = roles;
     }
 
     @Override
     public SessionVo current() {
         if (!StpUtil.isLogin()) {
-            return new SessionVo(false, null, null);
+            return new SessionVo(false, null, null, List.of());
         }
         UserAccountDO account = requireActiveAccount();
         return new SessionVo(true, account.getUsername(),
-            (String) StpUtil.getSession().get(AuthConstants.CSRF_SESSION_KEY));
+            (String) StpUtil.getSession().get(AuthConstants.CSRF_SESSION_KEY),
+            roles.findRoles(account.getId()));
     }
 
     @Override
@@ -85,7 +90,7 @@ public class AuthServiceImpl implements AuthService {
         StpUtil.getSession().set(AuthConstants.CSRF_SESSION_KEY, csrf);
         // IP 窗口统计所有尝试；不能因某个账号成功而放行对其他账号的持续猜测。
         LOG.info("User logged in, accountId={}", account.getId());
-        return new SessionVo(true, account.getUsername(), csrf);
+        return new SessionVo(true, account.getUsername(), csrf, roles.findRoles(account.getId()));
     }
 
     @Override

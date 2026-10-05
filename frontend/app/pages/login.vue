@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { getSession, login, logout } from '../api/session'
+import { login } from '../api/session'
 import { LOGIN_MESSAGES } from '../constants/messages'
+import { useAuthState } from '../composables/useAuthState'
+import { safeReturnPath } from '../api/permissions'
 
 const config = useRuntimeConfig()
 definePageMeta({ alias: ['/admin/login'] })
@@ -9,9 +11,9 @@ definePageMeta({ alias: ['/admin/login'] })
 const username = ref('')
 const password = ref('')
 const pending = ref(false)
-const loggedIn = ref(false)
+const auth = useAuthState()
+const loggedIn = computed(() => auth.state.value.loggedIn)
 const errorMessage = ref('')
-const csrfToken = ref<string | null>(null)
 
 useSeoMeta({ title: '登录 · 阿霾作品集', robots: 'noindex,nofollow' })
 
@@ -21,8 +23,9 @@ async function submitLogin() {
   errorMessage.value = ''
   try {
     const session = await login(username.value, password.value, config.public.authRsaPublicKey)
-    loggedIn.value = session.loggedIn
-    csrfToken.value = session.csrfToken
+    auth.accept(session)
+    await auth.refresh()
+    if (auth.isOwner.value) await navigateTo(safeReturnPath(useRoute().query.returnTo))
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.loginFailed
   } finally {
@@ -34,10 +37,8 @@ async function submitLogin() {
 onMounted(async () => {
   pending.value = true
   try {
-    const session = await getSession()
-    loggedIn.value = session.loggedIn
-    csrfToken.value = session.csrfToken
-    if (session.username) username.value = session.username
+    await auth.refresh()
+    if (auth.state.value.username) username.value = auth.state.value.username
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.sessionFailed
   } finally {
@@ -46,13 +47,11 @@ onMounted(async () => {
 })
 
 async function submitLogout() {
-  if (pending.value || !csrfToken.value) return
+  if (pending.value) return
   pending.value = true
   errorMessage.value = ''
   try {
-    await logout(csrfToken.value)
-    loggedIn.value = false
-    csrfToken.value = null
+    await auth.signOut()
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.logoutFailed
   } finally {
@@ -79,6 +78,7 @@ async function submitLogout() {
       <p v-if="errorMessage" role="alert" class="error">{{ errorMessage }}</p>
       <button type="button" :disabled="pending" @click="submitLogout">{{ pending ? '正在注销…' : '注销' }}</button>
       <a href="/">返回首页</a>
+      <NuxtLink v-if="auth.isOwner.value" to="/admin/projects">管理项目</NuxtLink>
     </section>
   </main>
 </template>

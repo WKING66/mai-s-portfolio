@@ -1,17 +1,20 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useAuthState } from '../composables/useAuthState'
+const auth = useAuthState()
 
 const navigation = [
-  { href: '#about', label: '关于我' },
-  { href: '#stack', label: '技术栈' },
-  { href: '#projects', label: '项目' },
-  { href: '#blog', label: '博客' },
-  { href: '#contact', label: '联系' },
+  { href: '/#about', label: '关于我' },
+  { href: '/#stack', label: '技术栈' },
+  { href: '/projects', label: '项目' },
+  { href: '/#blog', label: '博客' },
+  { href: '/#contact', label: '联系' },
 ]
 
 const theme = ref<'light' | 'dark'>('light')
 
 onMounted(() => {
+  void auth.refresh().catch(() => {})
   const saved = localStorage.getItem('portfolio-theme')
   theme.value = saved === 'dark' || saved === 'light'
     ? saved
@@ -29,7 +32,7 @@ function toggleTheme() {
 <template>
   <header class="site-header sticky top-0 z-30 border-b border-line backdrop-blur-xl">
     <div class="mx-auto flex min-h-[70px] w-full max-w-[1200px] items-center justify-between gap-5 px-4 sm:px-5">
-      <a class="flex shrink-0 items-center gap-2.5 whitespace-nowrap font-extrabold tracking-tight no-underline" href="#about">
+      <a class="flex shrink-0 items-center gap-2.5 whitespace-nowrap font-extrabold tracking-tight no-underline" href="/#about">
         <span class="brand-mark grid size-8 place-items-center rounded-full text-sm font-black" aria-hidden="true">M</span>
         阿霾 · 个人作品集
       </a>
@@ -38,6 +41,7 @@ function toggleTheme() {
           class="hidden whitespace-nowrap text-sm text-muted no-underline transition-colors hover:text-ink md:inline">
           {{ item.label }}
         </a>
+        <NuxtLink v-if="auth.isOwner.value" to="/admin/projects" class="text-sm text-accent">管理项目</NuxtLink>
         <button class="theme-toggle grid size-10 shrink-0 place-items-center rounded-full border border-line"
           type="button" :aria-label="theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'" @click="toggleTheme">
           <span aria-hidden="true">◐</span>

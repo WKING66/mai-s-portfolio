@@ -14,11 +14,15 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class AdminAuthorization implements HandlerInterceptor, WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(this).addPathPatterns(AuthConstants.ADMIN_PATH_PATTERN).order(10);
+        registry.addInterceptor(this)
+            .addPathPatterns(AuthConstants.ADMIN_PATH_PATTERN, AuthConstants.PROJECT_LIST_PATH).order(10);
     }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        if (ProjectViewAccess.isPublicProjectRequest(request)) {
+            return true;
+        }
         StpUtil.checkLogin();
         StpUtil.checkRole(AuthConstants.OWNER_ROLE);
         return true;
