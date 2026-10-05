@@ -5,11 +5,8 @@ export const PROJECT_MESSAGES = {
   saved: '项目已保存。',
   published: '项目已发布。',
   unpublished: '项目已下架，资料仍然保留。',
-  forbidden: '当前账号没有项目管理权限。',
-  verifying: '正在验证访问权限…',
   empty: '暂时没有已发布项目。',
   manageEmpty: '还没有项目，点击“新增项目”开始。',
-  csrf: '安全令牌已更新，请重新提交本次操作。',
   publishIncomplete: '发布需填写标题、摘要、本人贡献和技术标签。',
   invalidLink: '请完整填写有效的 HTTP(S) 外部入口。',
   conflict: '项目已被其他操作修改，请重新读取；当前输入不会自动覆盖。',
@@ -19,6 +16,5 @@ export const PROJECT_MESSAGES = {
 export const PROJECT_PAGE_SIZE = 12
 /** 首页预览四个项目，超出时显示栏目入口。 */
 export const HOME_PROJECT_LIMIT = 4
-export const OWNER_ROLE = 'OWNER'
 export const PROJECT_LIST_PATH = '/api/v1/projects'
 export const ADMIN_PROJECT_PATH = '/api/v1/admin/projects'

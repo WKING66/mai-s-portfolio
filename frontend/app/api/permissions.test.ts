@@ -1,12 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { canManageProjects, safeReturnPath } from './permissions'
+import { accessRedirect, hasAccess, safeReturnPath } from './permissions'
+import { AUTH_ACCESS, type AuthAccess } from '../constants/auth'
 
 describe('project permissions', () => {
+  it('uses one rule for routes, requests and Auth visibility', () => {
+    const owner = { loggedIn: true, roles: ['OWNER'] }
+    const normal = { loggedIn: true, roles: [] }
+    expect(hasAccess(owner, false, AUTH_ACCESS.OWNER)).toBe(false)
+    expect(hasAccess(normal, true, AUTH_ACCESS.AUTHENTICATED)).toBe(true)
+    expect(hasAccess(normal, true, AUTH_ACCESS.OWNER)).toBe(false)
+    expect(hasAccess(owner, true, 'unknown' as AuthAccess)).toBe(false)
+    expect(accessRedirect(owner, true, AUTH_ACCESS.OWNER, '/admin/projects/42')).toBeNull()
+    expect(accessRedirect(normal, true, AUTH_ACCESS.OWNER, '/admin/projects/42')).toBe('/forbidden')
+    expect(accessRedirect({ loggedIn: false, roles: [] }, true, AUTH_ACCESS.OWNER, '/admin/projects/42'))
+      .toBe('/login?returnTo=%2Fadmin%2Fprojects%2F42')
+  })
   it('requires both authentication and the exact OWNER role', () => {
-    expect(canManageProjects({ loggedIn: false, roles: ['OWNER'] })).toBe(false)
-    expect(canManageProjects({ loggedIn: true, roles: [] })).toBe(false)
-    expect(canManageProjects({ loggedIn: true, roles: ['owner'] })).toBe(false)
-    expect(canManageProjects({ loggedIn: true, roles: ['OWNER'] })).toBe(true)
+    expect(hasAccess({ loggedIn: false, roles: ['OWNER'] }, true, AUTH_ACCESS.OWNER)).toBe(false)
+    expect(hasAccess({ loggedIn: true, roles: [] }, true, AUTH_ACCESS.OWNER)).toBe(false)
+    expect(hasAccess({ loggedIn: true, roles: ['owner'] }, true, AUTH_ACCESS.OWNER)).toBe(false)
+    expect(hasAccess({ loggedIn: true, roles: ['OWNER'] }, true, AUTH_ACCESS.OWNER)).toBe(true)
   })
   it.each(['https://evil.test', '//evil.test', '/admin/projects/1?x=1', '/admin/projects/../login', undefined])('rejects unsafe return paths: %s', value => {
     expect(safeReturnPath(value)).toBe('/admin/projects')

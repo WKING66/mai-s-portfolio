@@ -4,8 +4,10 @@ import { login } from '../api/session'
 import { LOGIN_MESSAGES } from '../constants/messages'
 import { useAuthState } from '../composables/useAuthState'
 import { safeReturnPath } from '../api/permissions'
+import { AUTH_ACCESS } from '../constants/auth'
 
 const config = useRuntimeConfig()
+const route = useRoute()
 definePageMeta({ alias: ['/admin/login'] })
 
 const username = ref('')
@@ -25,7 +27,8 @@ async function submitLogin() {
     const session = await login(username.value, password.value, config.public.authRsaPublicKey)
     auth.accept(session)
     await auth.refresh()
-    if (auth.isOwner.value) await navigateTo(safeReturnPath(useRoute().query.returnTo))
+    // 登录后的业务去向复用统一能力规则，不在页面重新解释角色字符串。
+    if (auth.canAccess(AUTH_ACCESS.OWNER)) await navigateTo(safeReturnPath(route.query.returnTo))
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.loginFailed
   } finally {
@@ -106,7 +109,9 @@ async function submitLogout() {
           <p class="mt-1 text-sm text-muted">{{ LOGIN_MESSAGES.accountAccess }}</p>
         </div>
         <p v-if="errorMessage" role="alert" class="login-error rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm">{{ errorMessage }}</p>
-        <NuxtLink v-if="auth.isOwner.value" to="/admin/projects" class="login-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">管理项目 →</NuxtLink>
+        <Auth :access="AUTH_ACCESS.OWNER">
+          <NuxtLink to="/admin/projects" class="login-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">管理项目 →</NuxtLink>
+        </Auth>
         <NuxtLink to="/#about" class="rounded-xl border border-line px-5 py-3 text-center text-sm font-semibold no-underline">返回作品集</NuxtLink>
         <button type="button" :disabled="pending" class="w-fit text-sm text-muted underline underline-offset-4" @click="submitLogout">{{ pending ? '正在注销…' : '注销账号' }}</button>
       </section>

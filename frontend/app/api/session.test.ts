@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getSession, login, logout } from './session'
+import { getSession, login } from './session'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -14,20 +14,9 @@ describe('login', () => {
     })
   })
 
-  it('logs any user out through the same endpoint with CSRF', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ code: 'OK', data: null })
-    vi.stubGlobal('$fetch', fetchMock)
-    await logout('test-csrf')
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/auth/session', {
-      method: 'DELETE', credentials: 'same-origin',
-      headers: { 'X-CSRF-Token': 'test-csrf' }, retry: 0,
-    })
-  })
-
-  it('does not report success when session or logout fails', async () => {
+  it('does not report success when session fails', async () => {
     vi.stubGlobal('$fetch', vi.fn().mockResolvedValue({ code: 'FORBIDDEN', message: '拒绝访问', details: [] }))
     await expect(getSession()).rejects.toThrow('拒绝访问')
-    await expect(logout('test-csrf')).rejects.toThrow('拒绝访问')
   })
 
   it('uses the configured key and makes only one ciphertext POST', async () => {

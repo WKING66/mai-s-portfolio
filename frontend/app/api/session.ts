@@ -1,6 +1,7 @@
 import { LOGIN_MESSAGES } from '../constants/messages'
 import { encryptLoginPassword } from './loginCrypto'
 import { requestApi } from './request'
+import { AUTH_PATHS } from '../constants/auth'
 
 export interface SessionResponse {
   loggedIn: boolean
@@ -9,15 +10,13 @@ export interface SessionResponse {
   roles: string[]
 }
 
-const SESSION_PATH = '/api/v1/auth/session'
-
 export async function login(username: string, password: string, publicKey: string): Promise<SessionResponse> {
   if (!globalThis.crypto?.subtle) {
     throw new Error(LOGIN_MESSAGES.cryptoUnavailable)
   }
   // 使用部署配置中的公钥，登录只有一次 POST，不再请求挑战或公钥。
   const encryptedPassword = await encryptLoginPassword(publicKey, password)
-  const session = await requestApi<SessionResponse>(SESSION_PATH, {
+  const session = await requestApi<SessionResponse>(AUTH_PATHS.session, {
     method: 'POST',
     credentials: 'same-origin',
     body: { username, encryptedPassword },
@@ -30,18 +29,11 @@ export async function login(username: string, password: string, publicKey: strin
 
 /** 页面状态查询不承担授权职责；后台仍由服务端校验。 */
 export async function getSession(): Promise<SessionResponse> {
-  const response = await requestApi<SessionResponse>(SESSION_PATH, {
+  const response = await requestApi<SessionResponse>(AUTH_PATHS.session, {
     method: 'GET', credentials: 'same-origin',
   }, LOGIN_MESSAGES.sessionFailed)
   if (!response.data) {
     throw new Error(LOGIN_MESSAGES.sessionFailed)
   }
   return response.data
-}
-
-export async function logout(csrfToken: string): Promise<void> {
-  await requestApi<null>(SESSION_PATH, {
-    method: 'DELETE', credentials: 'same-origin',
-    headers: { 'X-CSRF-Token': csrfToken },
-  }, LOGIN_MESSAGES.logoutFailed)
 }

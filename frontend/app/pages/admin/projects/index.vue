@@ -1,25 +1,26 @@
 <script setup lang="ts">
-import { getManagedProjects, changeProjectStatus, type AdminProject, type ProjectPage } from '../../../api/projects'
+import { useProjectApi, type AdminProject, type ProjectPage } from '../../../api/projects'
 import { useAuthState } from '../../../composables/useAuthState'
 import { PROJECT_MESSAGES } from '../../../constants/projects'
-import { canManageProjects } from '../../../api/permissions'
-definePageMeta({ middleware: 'owner' })
+import { AUTH_ACCESS, AUTH_MESSAGES } from '../../../constants/auth'
+definePageMeta({ auth: AUTH_ACCESS.OWNER })
 useSeoMeta({ title: '项目管理', robots: 'noindex,nofollow' })
 const auth = useAuthState()
+const { getManagedProjects, changeProjectStatus } = useProjectApi()
 const result = ref<ProjectPage<AdminProject> | null>(null)
 const page = ref(1)
 const status = ref('')
 const pending = ref(false)
 const error = ref('')
 async function load() {
-  if (!auth.isOwner.value || pending.value) return
+  if (pending.value) return
   pending.value = true; error.value = ''
   try { result.value = await getManagedProjects(page.value, status.value) }
   catch (cause) { error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.loadFailed }
   finally { pending.value = false }
 }
 async function transition(project: AdminProject) {
-  if (!auth.isOwner.value || pending.value) return
+  if (pending.value) return
   pending.value = true; error.value = ''
   try { await changeProjectStatus(project.id, project.version, project.status === 'DRAFT') }
   catch (cause) { error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.saveFailed }
@@ -28,15 +29,16 @@ async function transition(project: AdminProject) {
 }
 async function changePage(next: number) { page.value = next; await load() }
 onMounted(load)
-watch(() => auth.state.value, session => {
-  if (!canManageProjects(session)) result.value = null
+// 清除本页拥有的管理资料；具体角色规则只由统一鉴权层解释。
+watch(() => auth.canAccess(AUTH_ACCESS.OWNER), allowed => {
+  if (!allowed) result.value = null
 })
 </script>
 <template>
   <main class="mx-auto max-w-[1200px] px-5 pb-16">
     <AdminNavigation />
-    <p v-if="!auth.isOwner.value" role="status">{{ PROJECT_MESSAGES.verifying }}</p>
-    <template v-else>
+    <Auth :access="AUTH_ACCESS.OWNER">
+      <template #pending><p role="status">{{ AUTH_MESSAGES.verifying }}</p></template>
       <div class="mb-8 flex flex-wrap items-center justify-between gap-4">
         <h1 class="text-3xl font-bold">项目管理</h1>
         <NuxtLink to="/admin/projects/new" class="rounded-lg border border-line px-5 py-3 text-accent">新增项目</NuxtLink>
@@ -48,7 +50,7 @@ watch(() => auth.state.value, session => {
       <div v-else class="mt-6 grid gap-4">
         <article v-for="project in result.items" :key="project.id" class="flex flex-wrap items-center justify-between gap-5 rounded-2xl border border-line p-6">
           <div><h2 class="text-xl font-semibold">{{ project.title || '未命名草稿' }}</h2><p class="mt-2 text-muted">{{ project.status === 'PUBLISHED' ? '已发布' : '草稿' }} · 版本 {{ project.version }} · {{ project.featured ? '首页重点' : '普通项目' }} · 排序 {{ project.sortOrder }}</p></div>
-          <div v-if="auth.isOwner.value" class="flex gap-5">
+          <div class="flex gap-5">
             <NuxtLink :to="'/admin/projects/' + project.id" class="text-accent">编辑项目</NuxtLink>
             <button type="button" :disabled="pending" @click="transition(project)">{{ project.status === 'PUBLISHED' ? '下架' : '发布' }}</button>
           </div>
@@ -59,6 +61,6 @@ watch(() => auth.state.value, session => {
         <span>第 {{ page }} 页 · 共 {{ result.total }} 个项目</span>
         <button v-if="page * result.size < result.total" type="button" :disabled="pending" @click="changePage(page + 1)">下一页</button>
       </nav>
-    </template>
+    </Auth>
   </main>
 </template>

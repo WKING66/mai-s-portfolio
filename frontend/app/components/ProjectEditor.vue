@@ -1,12 +1,10 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { getProject, getProjectTags, saveProject, changeProjectStatus, type ProjectInput, type ProjectTag } from '../api/projects'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { useProjectApi, type ProjectInput, type ProjectTag } from '../api/projects'
 import { PROJECT_MESSAGES } from '../constants/projects'
-import { useAuthState } from '../composables/useAuthState'
-import { canManageProjects } from '../api/permissions'
 
 const props = defineProps<{ projectId?: number }>()
-const auth = useAuthState()
+const { getProject, getProjectTags, saveProject, changeProjectStatus } = useProjectApi()
 const form = reactive<ProjectInput>({
   slug: '', title: '', summary: '', contribution: '', outcome: '', timeLabel: '',
   tagIds: [], links: [], featured: false, sortOrder: 0,
@@ -20,16 +18,10 @@ const error = ref('')
 const notice = ref('')
 const savedForm = ref('')
 const dirty = computed(() => JSON.stringify(form) !== savedForm.value)
-const canOperate = computed(() => auth.isOwner.value && loaded.value && !pending.value)
-// 权限失效或注销后不保留后台资料，不能依赖隐藏模板代替清理。
-watch(() => auth.state.value, session => {
-  if (canManageProjects(session)) return
-  tags.value = []; loaded.value = false
-  Object.assign(form, { version: undefined, slug: '', title: '', summary: '', contribution: '', outcome: '', timeLabel: '', tagIds: [], links: [], featured: false, sortOrder: 0 })
-})
+// 这里只判断表单是否可操作；访问权限交给父级 Auth 和请求拦截器。
+const canOperate = computed(() => loaded.value && !pending.value)
 
 onMounted(async () => {
-  if (!auth.isOwner.value) return
   try {
     tags.value = await getProjectTags()
     if (props.projectId) apply(await getProject(props.projectId))
@@ -37,6 +29,7 @@ onMounted(async () => {
   } catch (cause) { error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.loadFailed }
 })
 function apply(project: Awaited<ReturnType<typeof getProject>>) {
+  // 回填完整快照与版本，409 时不会覆盖用户未保存的输入。
   Object.assign(form, {
     version: project.version, slug: project.slug || '', title: project.title || '',
     summary: project.summary || '', contribution: project.contribution || '', outcome: project.outcome || '',
@@ -59,6 +52,7 @@ async function save() {
   finally { pending.value = false }
 }
 async function transition(publish: boolean) {
+  // 发布/下架只能针对已保存内容；这属于业务限制，不是鉴权规则。
   if (!canOperate.value || dirty.value || !props.projectId || form.version === undefined) return
   pending.value = true; error.value = ''; notice.value = ''
   try {
@@ -83,8 +77,6 @@ function addLink() {
 <template>
   <main class="mx-auto max-w-4xl px-5 pb-16">
     <AdminNavigation />
-    <p v-if="!auth.isOwner.value" role="status">{{ PROJECT_MESSAGES.verifying }}</p>
-    <template v-else>
       <h1 class="mb-6 text-3xl font-bold">{{ projectId ? '编辑项目' : '新增项目' }}</h1>
       <p v-if="error" role="alert" class="mb-5 rounded-xl border border-red-500/60 p-4">{{ error }}</p>
       <p v-if="notice" role="status" class="mb-5 text-accent">{{ notice }}</p>
@@ -121,7 +113,7 @@ function addLink() {
             <button type="button" class="action w-fit" @click="addLink">添加外部入口</button>
           </fieldset>
         </fieldset>
-        <div v-if="auth.isOwner.value" class="flex flex-wrap gap-4">
+        <div class="flex flex-wrap gap-4">
           <button class="action bg-accent/15" type="submit" :disabled="!canOperate">{{ pending ? '处理中…' : '保存项目' }}</button>
           <button v-if="projectId && status === 'DRAFT'" class="action" type="button" :disabled="!canOperate || dirty" @click="transition(true)">发布项目</button>
           <button v-if="projectId && status === 'PUBLISHED'" class="action" type="button" :disabled="!canOperate || dirty" @click="transition(false)">下架项目</button>
@@ -130,7 +122,6 @@ function addLink() {
         </div>
         <p class="text-sm text-muted">当前状态：{{ status === 'PUBLISHED' ? '已发布（保存后立即更新公开卡片）' : '草稿' }} · 版本 {{ form.version ?? '未保存' }}。发布和下架针对已保存内容；修改后请先保存。</p>
       </form>
-    </template>
   </main>
 </template>
 <style scoped>
