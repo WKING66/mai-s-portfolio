@@ -17,7 +17,7 @@
 
 ## 尚未完成的首版范围
 
-1. SEO/GEO 基础：配置正式 origin、SSR canonical/OG/真实结构化数据、robots/sitemap；博客完成后扩充真实公开文章。无域名配置不得伪造正式地址。
+1. SEO/GEO 基础已完成首页与项目部分并真实联调，详见 `docs/testing/portfolio-seo-acceptance-20261005.md`；博客完成后仍须扩充真实公开文章。无域名配置禁止索引且不伪造正式地址。
 2. 普通账号注册：复用既有 RSA、Argon2、账号/状态及 Cookie 会话，固定普通角色；页面及真实匿名注册、登录、受限导出链路。
 3. System 主题标签：TOPIC 查询、创建/必要的编辑及 provider；不跨模块访问 Mapper。
 4. Blog 管理：列表、新建、详情、编辑产生不可变 DocumentVersion、草稿预览、显式发布/重新发布、下架、逐篇下载许可。

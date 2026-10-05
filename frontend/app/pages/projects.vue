@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { usePublicProjects } from '../api/projects'
 import { PROJECT_MESSAGES, PROJECT_PAGE_SIZE } from '../constants/projects'
+import { createProjectStructuredData, getProjectCanonicalPath } from '#shared/utils/seo'
 const route = useRoute()
 const page = computed(() => {
   const value = Number(route.query.page || 1)
@@ -8,7 +9,17 @@ const page = computed(() => {
 })
 const { data, error } = await usePublicProjects(page, PROJECT_PAGE_SIZE)
 const projects = computed(() => data.value?.data)
-useSeoMeta({ title: '项目作品 · 阿霾', description: 'Java 后端与 AI 智能体开发项目，展示本人贡献、技术实践与成果。' })
+const { siteOrigin } = usePortfolioSeo({
+  title: '项目作品 · 阿霾',
+  description: 'Java 后端与 AI 智能体开发项目，展示本人贡献、技术实践与成果。',
+  canonicalPath: () => getProjectCanonicalPath(page.value),
+  // 空的第一页仍是公开栏目；越界空分页不应形成无限可索引地址。
+  available: () => !error.value && Boolean(projects.value && (page.value === 1 || projects.value.items.length > 0)),
+})
+useHead(() => {
+  const structuredData = createProjectStructuredData(siteOrigin, error.value ? null : projects.value ?? null)
+  return { script: structuredData ? [{ key: 'portfolio-projects', type: 'application/ld+json', textContent: JSON.stringify(structuredData) }] : [] }
+})
 </script>
 <template>
   <SiteHeader />

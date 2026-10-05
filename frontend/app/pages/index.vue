@@ -4,6 +4,7 @@ import { usePublicProfile } from '../api/profile'
 import { SITE_MESSAGES } from '../constants/messages'
 import { usePublicProjects } from '../api/projects'
 import { HOME_PROJECT_LIMIT, PROJECT_MESSAGES } from '../constants/projects'
+import { createProfileStructuredData, SEO_SITE_NAME } from '#shared/utils/seo'
 
 const { data: response, error } = await usePublicProfile()
 const profile = computed(() => response.value?.code === 'OK' ? response.value.data : null)
@@ -16,9 +17,15 @@ const focusAreas = [
   { index: '03 / EVALUATION', title: '性能验证', description: '不只追求看起来更好，更要证明改进确实发生。' },
 ]
 
-useSeoMeta({
-  title: '阿霾 · Java 后端与 AI 智能体开发',
-  description: '阿霾的个人作品集，展示 Java 后端、AI 智能体开发方向的项目、技术实践与博客。',
+const { siteOrigin } = usePortfolioSeo({
+  title: () => profile.value ? profile.value.displayName + ' · ' + profile.value.headline : SEO_SITE_NAME,
+  description: () => profile.value?.intro ?? '',
+  canonicalPath: '/',
+  available: () => !error.value && Boolean(profile.value),
+})
+useHead(() => {
+  const structuredData = createProfileStructuredData(siteOrigin, error.value ? null : profile.value)
+  return { script: structuredData ? [{ key: 'portfolio-profile', type: 'application/ld+json', textContent: JSON.stringify(structuredData) }] : [] }
 })
 </script>
 

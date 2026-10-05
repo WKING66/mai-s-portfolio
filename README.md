@@ -49,6 +49,12 @@ npm run dev
 
 传输安全：本地回环 HTTP 仅供开发。请求体中的密码现已用短时 RSA-OAEP 公钥加密，但 HTTP 下公钥及前端脚本都可能被中间人替换，因此这**不能替代 HTTPS**；非本机 HTTP 浏览器通常也不开放 Web Crypto。正式部署的 HTTPS、可信反向代理、安全 Cookie 和文档访问策略待部署阶段确认，当前代码不得直接作为公网安全配置使用。
 
+## SEO 域名配置
+
+正式域名确定后，在 Nuxt 运行进程中设置 `NUXT_PUBLIC_SITE_URL` 为完整 HTTP(S) 根地址（部署使用 HTTPS）。该地址只能包含协议、域名及可选端口，不接受凭据、业务路径、查询或片段；前端不会从请求 Host 推断公开域名。生产构建无需为域名重新编译，运行时读取 Nuxt `runtimeConfig.public.siteUrl`。
+
+此项默认留空：首页和项目页标记 `noindex,nofollow`，不输出 canonical、`og:url` 或结构化数据；`/robots.txt` 禁止抓取，`/sitemap.xml` 返回明确的 `503` 配置未就绪状态。配置有效地址后，这两个公开页面生成规范地址与 Open Graph，首页按真实公开资料生成 ProfilePage/Person；项目页按同一公开列表生成 ItemList/CreativeWork，分页位置与外链取真实响应，每页规范到当前页。站点地图当前仅列首页与项目栏目，不添加尚未实现的博客、项目详情或虚构更新时间。后台、登录和无权限页继续禁止索引；收录、排名和 AI 引用需在部署后验证，不能由本地元数据保证。
+
 ## 检查
 
 ```powershell
