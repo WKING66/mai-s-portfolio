@@ -17,6 +17,8 @@ export const PROJECT_MESSAGES = {
 } as const
 
 export const PROJECT_PAGE_SIZE = 12
+/** 首页预览四个项目，超出时显示栏目入口。 */
+export const HOME_PROJECT_LIMIT = 4
 export const OWNER_ROLE = 'OWNER'
 export const PROJECT_LIST_PATH = '/api/v1/projects'
 export const ADMIN_PROJECT_PATH = '/api/v1/admin/projects'

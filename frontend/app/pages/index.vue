@@ -3,11 +3,11 @@ import { computed } from 'vue'
 import { usePublicProfile } from '../api/profile'
 import { SITE_MESSAGES } from '../constants/messages'
 import { usePublicProjects } from '../api/projects'
-import { PROJECT_MESSAGES } from '../constants/projects'
+import { HOME_PROJECT_LIMIT, PROJECT_MESSAGES } from '../constants/projects'
 
 const { data: response, error } = await usePublicProfile()
 const profile = computed(() => response.value?.code === 'OK' ? response.value.data : null)
-const { data: projectResponse, error: projectError } = await usePublicProjects(1, 3)
+const { data: projectResponse, error: projectError } = await usePublicProjects(1, HOME_PROJECT_LIMIT)
 const selectedProjects = computed(() => projectResponse.value?.data)
 
 const focusAreas = [
@@ -50,12 +50,18 @@ useSeoMeta({
 
         <section id="projects" class="section-space border-t border-line" aria-labelledby="projects-title">
           <SectionHeading id="projects-title" eyebrow="03 / SELECTED WORK" title="项目作品"
-            description="项目会以介绍、技术标签、图片和外部入口呈现，不会上传整个项目文件。" />
+            description="围绕 Java 后端与 AI 智能体开发的项目实践。">
+            <template #actions>
+              <NuxtLink v-if="!projectError && selectedProjects && selectedProjects.total > HOME_PROJECT_LIMIT"
+                to="/projects" data-more-projects class="inline-flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-accent underline underline-offset-4">
+                更多项目 <span aria-hidden="true">↗</span>
+              </NuxtLink>
+            </template>
+          </SectionHeading>
           <p v-if="projectError" role="alert">{{ PROJECT_MESSAGES.loadFailed }}</p>
-          <div v-else-if="selectedProjects?.items.length" class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div v-else-if="selectedProjects?.items.length" class="grid gap-6 md:grid-cols-2">
             <ProjectCard v-for="project in selectedProjects.items" :key="project.id" :project="project" />
           </div>
-          <NuxtLink v-if="selectedProjects && selectedProjects.total > 3" to="/projects" class="mt-8 inline-block font-semibold text-accent underline underline-offset-4">查看更多项目 →</NuxtLink>
           <SurfaceCard v-if="!projectError && !selectedProjects?.items.length" class="project-placeholder grid min-h-[330px] overflow-hidden p-7 md:grid-cols-[1fr_.8fr] md:gap-8 md:p-8">
             <div class="flex flex-col justify-end">
               <span class="mb-4 w-fit rounded-full border border-line px-3 py-1 text-xs text-muted">即将更新</span>

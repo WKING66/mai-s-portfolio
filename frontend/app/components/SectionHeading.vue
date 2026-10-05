@@ -8,6 +8,9 @@ defineProps<{ id?: string; eyebrow: string; title: string; description?: string 
       <span class="eyebrow">{{ eyebrow }}</span>
       <h2 :id="id" class="mt-3 text-[clamp(2.1rem,5vw,4.5rem)] leading-none font-bold tracking-[-.055em]">{{ title }}</h2>
     </div>
-    <p v-if="description" class="max-w-[480px] leading-7 text-muted">{{ description }}</p>
+    <div v-if="description || $slots.actions" class="flex max-w-[480px] flex-col gap-4 md:items-end">
+      <slot name="actions" />
+      <p v-if="description" class="leading-7 text-muted">{{ description }}</p>
+    </div>
   </div>
 </template>

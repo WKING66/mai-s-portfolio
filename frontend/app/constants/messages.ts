@@ -7,6 +7,9 @@ export const SITE_MESSAGES = {
 } as const
 
 export const LOGIN_MESSAGES = {
+  welcome: '欢迎回来，继续探索项目与技术实践。',
+  encryptedSubmission: '密码会在浏览器中加密后提交。',
+  accountAccess: '登录后可使用账号对应的功能。',
   cryptoUnavailable: '当前环境无法安全加密登录密码；请使用本机地址或 HTTPS。',
   publicKeyMissing: '尚未配置登录公钥，请联系站长。',
   passwordTooLong: '密码的 UTF-8 编码不能超过 190 字节。',
