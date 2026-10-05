@@ -1,4 +1,5 @@
 import { AUTH_ACCESS, AUTH_PATHS, AUTH_ROLE, type AuthAccess } from '../constants/auth'
+import { PROFILE_PATHS } from '../constants/profile'
 
 export interface AuthSession {
   loggedIn: boolean
@@ -28,6 +29,6 @@ export function accessRedirect(session: AuthSession, ready: boolean, access: Aut
 }
 
 export function safeReturnPath(value: unknown): string {
-  return typeof value === 'string' && /^\/admin\/projects(?:\/[0-9]+|\/new)?$/.test(value)
+  return typeof value === 'string' && (value === PROFILE_PATHS.page || /^\/admin\/projects(?:\/[0-9]+|\/new)?$/.test(value))
     ? value : AUTH_PATHS.manageProjects
 }

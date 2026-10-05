@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createAuthInterceptor } from './authInterceptor'
+import { createAuthInterceptor } from '../api/authInterceptor'
 import { AUTH_ACCESS, AUTH_MESSAGES, CSRF_HEADER } from '../constants/auth'
-import type { SessionResponse } from './session'
+import type { SessionResponse } from '../api/session'
 
 const owner: SessionResponse = { loggedIn: true, username: 'owner', roles: ['OWNER'], csrfToken: 'test-csrf' }
 const normal: SessionResponse = { loggedIn: true, username: 'normal', roles: [], csrfToken: 'test-normal-csrf' }

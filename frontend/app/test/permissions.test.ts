@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { accessRedirect, hasAccess, safeReturnPath } from './permissions'
+import { accessRedirect, hasAccess, safeReturnPath } from '../api/permissions'
 import { AUTH_ACCESS, type AuthAccess } from '../constants/auth'
 
 describe('project permissions', () => {
@@ -21,10 +21,10 @@ describe('project permissions', () => {
     expect(hasAccess({ loggedIn: true, roles: ['owner'] }, true, AUTH_ACCESS.OWNER)).toBe(false)
     expect(hasAccess({ loggedIn: true, roles: ['OWNER'] }, true, AUTH_ACCESS.OWNER)).toBe(true)
   })
-  it.each(['https://evil.test', '//evil.test', '/admin/projects/1?x=1', '/admin/projects/../login', undefined])('rejects unsafe return paths: %s', value => {
+  it.each(['https://evil.test', '//evil.test', '/admin/projects/1?x=1', '/admin/projects/../login', '/admin/profile?returnTo=https://evil.test', undefined])('rejects unsafe return paths: %s', value => {
     expect(safeReturnPath(value)).toBe('/admin/projects')
   })
-  it.each(['/admin/projects', '/admin/projects/new', '/admin/projects/42'])('retains a valid project route: %s', value => {
+  it.each(['/admin/projects', '/admin/projects/new', '/admin/projects/42', '/admin/profile'])('retains a valid management route: %s', value => {
     expect(safeReturnPath(value)).toBe(value)
   })
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { encryptLoginPassword, LOGIN_PASSWORD_MAX_UTF8_BYTES } from './loginCrypto'
+import { encryptLoginPassword, LOGIN_PASSWORD_MAX_UTF8_BYTES } from '../api/loginCrypto'
 
 describe('encryptLoginPassword', () => {
   it('encrypts with RSA-OAEP SHA-256 and remains decryptable by the matching private key', async () => {

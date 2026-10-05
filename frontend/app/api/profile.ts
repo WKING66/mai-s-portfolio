@@ -1,5 +1,6 @@
 import { useFetch } from '#app'
 import type { ApiResponse } from './types'
+import { PROFILE_PUBLIC_DATA_KEY } from '../constants/profile'
 
 export interface TechTagResponse {
   name: string
@@ -21,5 +22,5 @@ export interface PublicProfileResponse {
 
 export function usePublicProfile() {
   // 公开资料参与服务端渲染；页面只通过此处读取统一 API 响应。
-  return useFetch<ApiResponse<PublicProfileResponse>>('/api/v1/public/profile')
+  return useFetch<ApiResponse<PublicProfileResponse>>('/api/v1/public/profile', { key: PROFILE_PUBLIC_DATA_KEY })
 }

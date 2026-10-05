@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ofetch } from 'ofetch'
-import { ApiRequestError, requestApi } from './request'
+import { ApiRequestError, requestApi } from '../api/request'
 
 afterEach(() => vi.unstubAllGlobals())
 

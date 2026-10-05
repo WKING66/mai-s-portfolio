@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getSession, login } from './session'
+import { getSession, login } from '../api/session'
 
 afterEach(() => vi.unstubAllGlobals())
 
