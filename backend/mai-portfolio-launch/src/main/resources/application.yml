@@ -51,6 +51,12 @@ springdoc:
   api-docs:
     enabled: true
 
+portfolio:
+  security:
+    # 注册与登录分别限流；同一客户端默认每 5 分钟最多提交 5 次注册请求。
+    max-registration-attempts-per-client: ${PORTFOLIO_SECURITY_MAX_REGISTRATION_ATTEMPTS_PER_CLIENT:5}
+    registration-attempt-window: ${PORTFOLIO_SECURITY_REGISTRATION_ATTEMPT_WINDOW:5m}
+
 logging:
   file:
     # 接口审计日志与应用日志统一进入滚动文件；部署时可用 LOG_FILE 覆盖绝对路径。

@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     },
     '/admin/**': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
     '/login': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
+    '/register': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
     '/forbidden': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
   },
   app: {

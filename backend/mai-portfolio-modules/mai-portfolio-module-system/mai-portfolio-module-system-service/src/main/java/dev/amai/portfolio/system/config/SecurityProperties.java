@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Positive;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.core.io.Resource;
 import org.springframework.validation.annotation.Validated;
 
@@ -16,5 +17,7 @@ public record SecurityProperties(@NotEmpty List<String> allowedOrigins,
                                  @NotNull Resource rsaPrivateKey,
                                  boolean requireHttps,
                                  @Positive int maxLoginAttemptsPerClient,
-                                 @NotNull Duration loginAttemptWindow) {
+                                 @NotNull Duration loginAttemptWindow,
+                                 @Positive @DefaultValue("5") int maxRegistrationAttemptsPerClient,
+                                 @NotNull @DefaultValue("5m") Duration registrationAttemptWindow) {
 }

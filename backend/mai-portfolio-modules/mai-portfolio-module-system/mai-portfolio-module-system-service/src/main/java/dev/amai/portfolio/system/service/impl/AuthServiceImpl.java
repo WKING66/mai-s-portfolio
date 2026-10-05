@@ -8,9 +8,12 @@ import dev.amai.portfolio.web.exception.ApiException;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.entity.request.LoginRequest;
+import dev.amai.portfolio.system.entity.request.RegisterRequest;
+import dev.amai.portfolio.system.entity.vo.RegistrationVo;
 import dev.amai.portfolio.system.entity.vo.SessionVo;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.enums.AccountStatus;
+import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.AuthService;
 import dev.amai.portfolio.security.password.PasswordHasher;
@@ -21,15 +24,25 @@ import java.util.List;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Locale;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
     private static final Logger LOG = LoggerFactory.getLogger(AuthServiceImpl.class);
     private static final int CSRF_BYTES = 32;
+    private static final Pattern REGISTER_USERNAME = Pattern.compile("[A-Za-z0-9_-]{3,64}");
+    private static final int REGISTER_MIN_PASSWORD_CHARACTERS = 12;
+    // RSA-2048 OAEP SHA-256 的单条明文上限，保持与 Web Crypto 一致。
+    private static final int REGISTER_MAX_PASSWORD_BYTES = 190;
 
     private final UserAccountMapper accounts;
     private final PasswordHasher passwords;
@@ -98,6 +111,46 @@ public class AuthServiceImpl implements AuthService {
         long accountId = StpUtil.getLoginIdAsLong();
         StpUtil.logout();
         LOG.info("User logged out, accountId={}", accountId);
+    }
+
+    @Override
+    @Transactional
+    public RegistrationVo register(String origin, String clientKey, RegisterRequest input) {
+        // 注册单独计数；复用 Redis 原子限流组件，避免注册防刷影响正常登录。
+        throttle.acquireRegistrationPermit(clientKey);
+        if (origin == null || !security.allowedOrigins().contains(origin)) {
+            throw new ApiException(ApiErrorCode.ORIGIN_INVALID, SystemMessageConstants.ORIGIN_INVALID);
+        }
+        String username = input.username() == null ? "" : input.username().trim();
+        if (!REGISTER_USERNAME.matcher(username).matches()) {
+            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.REGISTER_USERNAME_INVALID);
+        }
+        String password = crypto.decryptPassword(input.encryptedPassword());
+        // 密码不去空格；按 Unicode code point 计数，而非 UTF-16 单元。
+        if (password.codePointCount(0, password.length()) < REGISTER_MIN_PASSWORD_CHARACTERS
+                || password.getBytes(StandardCharsets.UTF_8).length > REGISTER_MAX_PASSWORD_BYTES) {
+            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.REGISTER_PASSWORD_INVALID);
+        }
+        if (accounts.selectCount(Wrappers.<UserAccountDO>lambdaQuery()
+                .apply("LOWER(username) = {0}", username.toLowerCase(Locale.ROOT))) > 0) {
+            throw new ApiException(ApiErrorCode.DATA_CONFLICT, SystemMessageConstants.REGISTER_USERNAME_EXISTS);
+        }
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        UserAccountDO account = new UserAccountDO();
+        account.setUsername(username);
+        account.setType(AccountType.NORMAL.code());
+        account.setStatus(AccountStatus.ENABLED.code());
+        account.setPasswordHash(passwords.encode(password));
+        account.setCreatedAt(now);
+        account.setUpdatedAt(now);
+        try {
+            accounts.insert(account);
+        } catch (DuplicateKeyException conflict) {
+            // 服务端先判重，唯一索引只处理并发竞争；异常越过事务边界后回滚。
+            throw new ApiException(ApiErrorCode.DATA_CONFLICT, SystemMessageConstants.REGISTER_USERNAME_EXISTS);
+        }
+        LOG.info("Normal account registered, accountId={}", account.getId());
+        return new RegistrationVo(username);
     }
 
     @Override

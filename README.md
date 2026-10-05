@@ -8,7 +8,7 @@
 
 准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。仓库根目录的 `.env`（已被 Git 忽略）需包含 `PSQL_HOST`、`PSQL_PORT`、`PSQL_USERNAME`、`PSQL_PASSWORD`、`REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、可为空的 `REDIS_PASSWORD` 和至少 12 字符的 `OWNER_PASSWORD`；后端开发脚本使用 `dev` 配置，并始终连接独立的 `portfolio_dev` 库，不会使用该文件里的其他库名。首次运行前只对专用开发库执行 Flyway 迁移，不要将此配置指向已有业务库。初始站长密码只在首次建号时哈希保存，后续修改 `.env` 不会重置已存在账号。
 
-Redis 由 Redisson 统一接入。项目自有键统一使用 `REDIS_KEY_PREFIX` 命名空间，动态客户端标识先做 SHA-256 摘要；当前承担 Sa-Token 会话、登录限流、一次性登录挑战与分布式锁。登录挑战在 Redis 中按 TTL 保存并原子消费，多实例部署时不会因请求落到另一实例而失效。当前实现只使用 Redis 3.2 可用的 Lua、过期和映射命令，不使用 Redis 6 的 `KEEPTTL`；精确的 Redis 3.2.1 兼容验收仍须连接真实 3.2.1 服务执行。
+Redis 由 Redisson 统一接入。项目自有键统一使用 `REDIS_KEY_PREFIX` 命名空间，动态客户端标识先做 SHA-256 摘要；当前承担 Sa-Token 会话、IP 固定窗口限流与分布式锁。登录使用 `auth:login`、注册使用 `auth:register` 命名空间，两者复用限流组件和 Lua，但各自计数，成功或失败都占用本业务额度。认证使用部署配置中的固定 RSA 公钥，不再签发或消费一次性登录挑战。当前实现只使用 Redis 3.2 可用的 Lua、过期和映射命令，不使用 Redis 6 的 `KEEPTTL`；精确的 Redis 3.2.1 兼容验收仍须连接真实 3.2.1 服务执行。
 
 本地 `dev` 启动默认使用真实私有 OSS，PostgreSQL 只保存 Asset 元数据。根目录 `.env` 须设置 `MEDIA_STORAGE=oss`，并按 `.env.example` 填写完整 HTTPS endpoint、Bucket 和 AccessKey；启动脚本会在配置缺失或 endpoint 不是 HTTPS 根地址时直接失败。`local` 实现只供自动化测试或显式离线排障，字节写入被 Git 忽略的 `.local-media`。AccessKey 不进入前端、接口响应或版本库。两种实现都拒绝覆盖同名对象，业务层后续通过新增 Asset/对象键完成版本更新。
 
@@ -39,15 +39,17 @@ npm ci
 npm run dev
 ```
 
-前端开发地址：<http://127.0.0.1:3000>，站长登录页：<http://127.0.0.1:3000/admin/login>。后端本地 Knife4j 可视化文档：<http://127.0.0.1:9333/doc.html>，原始 OpenAPI 数据：<http://127.0.0.1:9333/v3/api-docs>。当前已验证站长会话、公开资料和站长资料管理接口的文档、认证边界和响应结构；项目、博客与媒体接口将在各自实现时同步补充。正式部署前需同时关闭或保护 Knife4j 页面与 OpenAPI 数据端点。
+前端开发地址：<http://127.0.0.1:3000>，通用登录页：<http://127.0.0.1:3000/login>，普通用户注册页：<http://127.0.0.1:3000/register>。后端本地 Knife4j 可视化文档：<http://127.0.0.1:9333/doc.html>，原始 OpenAPI 数据：<http://127.0.0.1:9333/v3/api-docs>。普通用户和站长共用会话接口，只有有效 OWNER 能访问管理页面和接口；公开阅读不要求登录。正式部署前需同时关闭或保护 Knife4j 页面与 OpenAPI 数据端点。
 
-站长登录协议：`GET /api/v1/admin/session/challenge` 获取 60 秒有效、一次性的 RSA-OAEP SHA-256 公钥与 `challengeId`；前端用 Web Crypto 加密密码后，`POST /api/v1/admin/session` 只提交 `username`、`challengeId`、`encryptedPassword`。旧明文 `password` 字段不再接受。一次性私钥及客户端绑定信息以 TTL 保存在 Redis，提交时先原子消费再解密；重放、过期或 Redis 数据丢失时需重新获取公钥。RSA-2048/OAEP SHA-256 限制密码为最多 190 个 UTF-8 字节。Knife4j 可查看两接口，但不会自动执行浏览器加密；请用前端登录页验证完整流程。
+通用认证协议：前端从 `NUXT_PUBLIC_AUTH_RSA_PUBLIC_KEY` 读取固定 SPKI 公钥，后端从 `AUTH_RSA_PRIVATE_KEY_LOCATION` 读取外部 PKCS#8 RSA-2048 私钥。前端用 Web Crypto 的 RSA-OAEP SHA-256 加密密码，`POST /api/v1/auth/session` 仅提交 `username`、`encryptedPassword`；校验后设置 HttpOnly Cookie，并返回角色和 CSRF 令牌。`GET` 查询会话，`DELETE` 注销且要求 `X-CSRF-Token`。没有挑战、公钥获取接口或客户端 SHA-256 密码摘要。RSA 单次明文上限为 190 个 UTF-8 字节；Knife4j 不自动加密密码，请用登录页验证。
+
+普通用户注册：`POST /api/v1/auth/register` 使用相同的密文请求字段和来源校验，不要求预先登录或 CSRF。用户名去首尾空格后须为 3–64 位 ASCII 字母、数字、下划线或连字符；不区分大小写判重，重复返回 `409`。密码至少 12 个 Unicode 字符（code point）、最多 190 个 UTF-8 字节，密码不去空格。以上规则均由服务端校验；账号固定为启用的 NORMAL，额外的类型/状态/角色字段不能改变这些值。数据库只保存 Argon2id 哈希。注册成功返回用户名，不自动登录；普通账号没有管理权限。注册限流单独使用 `portfolio.security.max-registration-attempts-per-client`（默认 5）和 `registration-attempt-window`（默认 5m），可由对应的 `PORTFOLIO_SECURITY_*` 环境变量覆盖；不会消耗登录额度。当前尚未实现邮件验证、找回密码或个人中心，博客导出仍待博客模块完成。
 
 站长资料管理：登录后调用 `GET /api/v1/admin/profile` 读取当前资料和 `updatedAt`；`PATCH /api/v1/admin/profile` 须提交全部五个可编辑文本字段、原样带回 `updatedAt`，并附上会话中的 `X-CSRF-Token`。GitHub、邮箱传 `null` 或空白可取消公开；过期的 `updatedAt` 返回 `409`，头像、简历和 SEO 配置不会被此接口修改。
 
 本地开发启动成功后，终端会打印 Knife4j 与 OpenAPI 地址。开发后端仅监听 `127.0.0.1`；`portfolio.api-log.enabled` 在 `dev` 环境默认开启，其余环境默认关闭。AOP 只记录显式标注 `@ApiLog` 且已经进入 Controller 的接口调用，记录路由、耗时及截断后的入参/出参；密码、令牌、Cookie、邮箱、Markdown 正文等字段内置脱敏，文件/字节流直接省略。需要额外隐藏业务字段时配置 `portfolio.api-log.additional-sensitive-fields`，单条内容上限由 `portfolio.api-log.max-payload-length` 控制。未标注接口以及鉴权拦截阶段拒绝的请求不经过 Controller AOP。
 
-传输安全：本地回环 HTTP 仅供开发。请求体中的密码现已用短时 RSA-OAEP 公钥加密，但 HTTP 下公钥及前端脚本都可能被中间人替换，因此这**不能替代 HTTPS**；非本机 HTTP 浏览器通常也不开放 Web Crypto。正式部署的 HTTPS、可信反向代理、安全 Cookie 和文档访问策略待部署阶段确认，当前代码不得直接作为公网安全配置使用。
+传输安全：本地回环 HTTP 仅供开发。请求体中的密码用固定 RSA-OAEP 公钥加密，但 HTTP 下公钥及前端脚本都可能被中间人替换，因此这**不能替代 HTTPS**；非本机 HTTP 浏览器通常也不开放 Web Crypto。生产认证拦截器仍要求 HTTPS；可信反向代理、安全 Cookie 和文档访问策略待部署阶段确认，当前开发配置不得直接作为公网安全配置使用。
 
 ## SEO 域名配置
 

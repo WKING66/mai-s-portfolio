@@ -71,7 +71,10 @@ if ($mediaStorage -notin @('local', 'oss')) {
 }
 [Environment]::SetEnvironmentVariable('MEDIA_STORAGE', $mediaStorage, 'Process')
 
-foreach ($name in @('MEDIA_LOCAL_DIRECTORY', 'OSS_ENDPOINT', 'OSS_BUCKET_NAME',
+# 可选配置：注册限流与登录独立，留空时沿用应用默认值。
+foreach ($name in @('PORTFOLIO_SECURITY_MAX_REGISTRATION_ATTEMPTS_PER_CLIENT',
+    'PORTFOLIO_SECURITY_REGISTRATION_ATTEMPT_WINDOW',
+    'MEDIA_LOCAL_DIRECTORY', 'OSS_ENDPOINT', 'OSS_BUCKET_NAME',
     'OSS_ACCESS_KEY_ID', 'OSS_ACCESS_KEY_SECRET', 'OSS_CONNECT_TIMEOUT',
     'OSS_SOCKET_TIMEOUT', 'OSS_MAX_CONNECTIONS')) {
     if ($settings.ContainsKey($name) -and -not [string]::IsNullOrWhiteSpace($settings[$name])) {

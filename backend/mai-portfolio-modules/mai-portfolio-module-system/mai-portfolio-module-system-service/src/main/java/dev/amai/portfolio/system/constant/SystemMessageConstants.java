@@ -12,6 +12,10 @@ public final class SystemMessageConstants {
     public static final String LOGIN_USERNAME_TOO_LONG = "用户名不能超过 64 个字符";
     public static final String LOGIN_CIPHERTEXT_REQUIRED = "加密密码不能为空";
     public static final String ACCOUNT_UNAVAILABLE = "账号不存在或已停用";
+    public static final String REGISTER_USERNAME_INVALID = "用户名须为 3–64 位字母、数字、下划线或连字符";
+    public static final String REGISTER_PASSWORD_INVALID = "密码至少需要 12 个字符，且 UTF-8 长度不能超过 190 字节";
+    public static final String REGISTER_USERNAME_EXISTS = "用户名已被使用";
+    public static final String REGISTER_RATE_LIMITED = "注册尝试过于频繁，请稍后重试";
     public static final String CSRF_INVALID = "缺少有效的写入令牌";
     public static final String OWNER_PASSWORD_TOO_SHORT =
         "OWNER_PASSWORD 至少需要 12 个字符；请只在本地环境文件中设置";

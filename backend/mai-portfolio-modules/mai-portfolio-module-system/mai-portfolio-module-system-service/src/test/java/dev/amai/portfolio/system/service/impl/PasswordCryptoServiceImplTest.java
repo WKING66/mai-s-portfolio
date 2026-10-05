@@ -37,7 +37,8 @@ class PasswordCryptoServiceImplTest {
             + Base64.getEncoder().encodeToString(keys.getPrivate().getEncoded())
             + "\n-----END PRIVATE KEY-----";
         properties = new SecurityProperties(List.of("http://localhost"),
-            new ByteArrayResource(pem.getBytes(StandardCharsets.US_ASCII)), false, 5, Duration.ofMinutes(10));
+            new ByteArrayResource(pem.getBytes(StandardCharsets.US_ASCII)), false, 5,
+            Duration.ofMinutes(10), 5, Duration.ofMinutes(5));
         crypto = new PasswordCryptoServiceImpl(properties);
     }
 
@@ -92,7 +93,7 @@ class PasswordCryptoServiceImplTest {
     void invalidPrivateKeyFailsStartupWithoutExposingMaterial() {
         var invalid = new SecurityProperties(List.of("http://localhost"),
             new ByteArrayResource("invalid-secret-material".getBytes(StandardCharsets.UTF_8)),
-            true, 5, Duration.ofMinutes(10));
+            true, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5));
         assertThatThrownBy(() -> new PasswordCryptoServiceImpl(invalid))
             .isInstanceOf(IllegalStateException.class).hasMessageNotContaining("invalid-secret-material");
     }

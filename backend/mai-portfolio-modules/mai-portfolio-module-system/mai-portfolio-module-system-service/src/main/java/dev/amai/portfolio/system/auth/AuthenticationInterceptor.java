@@ -49,6 +49,10 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         String path = request.getRequestURI().substring(request.getContextPath().length());
         boolean sessionEndpoint = AuthConstants.AUTH_SESSION_PATH.equals(path);
         String method = request.getMethod();
+        if (AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method)) {
+            // 只豁免精确注册路由的登录/CSRF；HTTPS 已校验，来源与额度由服务层核对。
+            return true;
+        }
         if (sessionEndpoint && ("GET".equals(method) || "POST".equals(method))) {
             // GET 在服务中查询匿名/账号状态，POST 通过凭据建立登录态。
             return true;

@@ -5,6 +5,7 @@ import { LOGIN_MESSAGES } from '../constants/messages'
 import { useAuthState } from '../composables/useAuthState'
 import { safeReturnPath } from '../api/permissions'
 import { AUTH_ACCESS } from '../constants/auth'
+import { REGISTRATION_PATHS } from '../constants/registration'
 
 const config = useRuntimeConfig()
 const route = useRoute()
@@ -99,6 +100,7 @@ async function submitLogout() {
         <button type="submit" :disabled="pending" class="login-primary flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3.5 font-semibold">
           {{ pending ? '正在登录…' : '登录' }} <span v-if="!pending" aria-hidden="true">→</span>
         </button>
+        <p class="text-center text-sm text-muted">还没有账号？<NuxtLink :to="REGISTRATION_PATHS.page" class="ml-2 font-semibold text-accent underline underline-offset-4">创建访客账号</NuxtLink></p>
         <p class="border-t border-line pt-5 text-xs leading-6 text-muted">{{ LOGIN_MESSAGES.encryptedSubmission }}<br>{{ LOGIN_MESSAGES.accountAccess }}</p>
       </form>
       <section v-else class="grid gap-6" role="status">

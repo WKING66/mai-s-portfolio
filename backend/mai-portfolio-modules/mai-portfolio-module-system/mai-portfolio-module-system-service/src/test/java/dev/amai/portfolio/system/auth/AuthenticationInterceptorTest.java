@@ -16,6 +16,8 @@ import dev.amai.portfolio.web.exception.ApiException;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -25,7 +27,8 @@ class AuthenticationInterceptorTest {
 
     private AuthenticationInterceptor interceptor(boolean https) {
         return new AuthenticationInterceptor(new SecurityProperties(List.of("https://example.test"),
-            new ByteArrayResource(new byte[0]), https, 5, Duration.ofMinutes(10)), auth);
+            new ByteArrayResource(new byte[0]), https, 5, Duration.ofMinutes(10),
+            5, Duration.ofMinutes(5)), auth);
     }
 
     @Test
@@ -34,6 +37,37 @@ class AuthenticationInterceptorTest {
         request.setContextPath("/portfolio");
         assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
         verifyNoInteractions(auth);
+    }
+
+    @Test
+    void registrationIsPublicOnlyForExactPostAfterHttpsCheck() {
+        var request = new MockHttpServletRequest("POST", "/portfolio/api/v1/auth/register");
+        request.setContextPath("/portfolio");
+        assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
+        assertThatThrownBy(() -> interceptor(true).preHandle(request,
+            new MockHttpServletResponse(), new Object())).isInstanceOfSatisfying(ApiException.class,
+                error -> assertThat(error.code()).isEqualTo(ApiErrorCode.HTTPS_REQUIRED));
+        request.setSecure(true);
+        assertThat(interceptor(true).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
+        verifyNoInteractions(auth);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "GET,/api/v1/auth/register", "HEAD,/api/v1/auth/register",
+        "POST,/api/v1/auth/register/extra", "POST,/api/v1/auth/register/",
+        "PATCH,/api/v1/auth/register"
+    })
+    void registrationExceptionDoesNotPermitOtherMethodsOrNeighboringPaths(String method, String path) {
+        try (var stp = mockStatic(StpUtil.class)) {
+            RuntimeException denied = new RuntimeException("test-login-required");
+            stp.when(StpUtil::checkLogin).thenThrow(denied);
+            var request = new MockHttpServletRequest(method, path);
+            assertThatThrownBy(() -> interceptor(false).preHandle(request,
+                new MockHttpServletResponse(), new Object())).isSameAs(denied);
+            stp.verify(StpUtil::checkLogin);
+            verifyNoInteractions(auth);
+        }
     }
 
     @Test

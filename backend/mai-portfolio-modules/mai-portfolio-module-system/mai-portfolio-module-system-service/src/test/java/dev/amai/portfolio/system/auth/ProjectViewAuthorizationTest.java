@@ -57,6 +57,7 @@ class ProjectViewAuthorizationTest {
 
     private AuthenticationInterceptor interceptor(AuthService auth, boolean https) {
         return new AuthenticationInterceptor(new SecurityProperties(List.of("https://example.test"),
-            new ByteArrayResource(new byte[0]), https, 5, Duration.ofMinutes(5)), auth);
+            new ByteArrayResource(new byte[0]), https, 5, Duration.ofMinutes(5),
+            5, Duration.ofMinutes(5)), auth);
     }
 }
