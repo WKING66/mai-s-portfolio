@@ -12,7 +12,9 @@ export const REGISTRATION_RULES = {
 export const REGISTRATION_MESSAGES = {
   welcome: '创建访客账号，继续探索项目与技术实践。',
   usernameHint: '3–64 位英文字母、数字、下划线或连字符。',
-  passwordHint: '至少 12 个字符，最多 190 字节；密码中的空格会保留。',
+  passwordHint: '至少 12 位，支持字母、数字、下划线及英文标点。',
+  invalidPasswordCharacters: '密码仅支持英文字母、数字、下划线及英文标点符号。',
+  passwordTooLong: '密码过长，请缩短后重试。',
   invalidUsername: '用户名须为 3–64 位英文字母、数字、下划线或连字符。',
   passwordTooShort: '密码至少需要 12 个字符。',
   registerFailed: '注册失败，请稍后重试。',

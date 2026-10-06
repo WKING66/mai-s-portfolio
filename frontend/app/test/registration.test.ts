@@ -6,7 +6,7 @@ import { LOGIN_MESSAGES } from '../constants/messages'
 afterEach(() => vi.unstubAllGlobals())
 
 describe('registration input', () => {
-  it('trims only the username and accepts its ASCII length boundaries', () => {
+  it('trims the username and accepts its ASCII length boundaries', () => {
     expect(validateRegistrationInput('  A_1  ', 'strong-password')).toBe('A_1')
     const username = 'a'.repeat(62) + '_-'
     expect(validateRegistrationInput(username, 'strong-password')).toBe(username)
@@ -18,20 +18,36 @@ describe('registration input', () => {
         .toThrow(REGISTRATION_MESSAGES.invalidUsername)
     })
 
-  it('counts Unicode code points instead of UTF-16 code units', () => {
-    expect(() => validateRegistrationInput('visitor', '🔐'.repeat(11)))
+  it('rejects passwords that become empty after trimming', () => {
+    expect(() => validateRegistrationInput('visitor', ' '.repeat(12)))
       .toThrow(REGISTRATION_MESSAGES.passwordTooShort)
-    expect(validateRegistrationInput('visitor', '🔐'.repeat(12))).toBe('visitor')
-    expect(validateRegistrationInput('visitor', ' '.repeat(12))).toBe('visitor')
   })
 
-  it('enforces the RSA UTF-8 byte boundary, including multibyte passwords', () => {
+  it('enforces the RSA length boundary after trimming', () => {
     expect(validateRegistrationInput('visitor', 'a'.repeat(190))).toBe('visitor')
-    expect(validateRegistrationInput('visitor', '中'.repeat(63) + 'a')).toBe('visitor')
     expect(() => validateRegistrationInput('visitor', 'a'.repeat(191)))
-      .toThrow(LOGIN_MESSAGES.passwordTooLong)
-    expect(() => validateRegistrationInput('visitor', '中'.repeat(64)))
-      .toThrow(LOGIN_MESSAGES.passwordTooLong)
+      .toThrow(REGISTRATION_MESSAGES.passwordTooLong)
+    expect(validateRegistrationInput('visitor', '  ' + 'a'.repeat(190) + '  ')).toBe('visitor')
+  })
+
+  it('checks minimum length after trimming Unicode padding', () => {
+    expect(() => validateRegistrationInput('visitor', ' ABCdefghi90 '))
+      .toThrow(REGISTRATION_MESSAGES.passwordTooShort)
+    expect(validateRegistrationInput('visitor', '\uFEFF\u00A0 test-password-2026 \u3000'))
+      .toBe('visitor')
+  })
+
+  it.each(['internal password', 'test\tpassword-2026', 'test\npassword-2026',
+    'test\u00A0password-2026', 'test\u3000password-2026', 'test\u0000password-2026',
+    '中文密码测试-2026', '🔐test-password', 'test-password！'])
+    ('rejects non-ASCII characters or internal whitespace %j', (password) => {
+      expect(() => validateRegistrationInput('visitor', password))
+        .toThrow(REGISTRATION_MESSAGES.invalidPasswordCharacters)
+    })
+
+  it('accepts letters, numbers, underscores and all visible ASCII punctuation', () => {
+    const visibleAscii = Array.from({ length: 94 }, (_, index) => String.fromCharCode(33 + index)).join('')
+    expect(validateRegistrationInput('visitor', visibleAscii)).toBe('visitor')
   })
 })
 
@@ -50,7 +66,7 @@ describe('registration API', () => {
     ))
   })
 
-  it('makes one anonymous ciphertext POST without logging in or trimming the password', async () => {
+  it('trims password padding before encryption without logging in', async () => {
     let submittedBody: RegisterRequest | undefined
     const data: RegistrationVo = { username: 'visitor-01' }
     const fetchMock = vi.fn(async (_url: string, options?: { body?: RegisterRequest }) => {
@@ -58,7 +74,7 @@ describe('registration API', () => {
       return { code: 'OK', message: '成功', data, details: [] }
     })
     vi.stubGlobal('$fetch', fetchMock)
-    const password = '  🔐test-space-preserved  '
+    const password = '\uFEFF\u00A0  Test_password-2026!  \u3000'
 
     expect(await register('  visitor-01  ', password, publicKey)).toEqual(data)
     expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -71,13 +87,14 @@ describe('registration API', () => {
     const encryptedBytes = Uint8Array.from(atob(submittedBody!.encryptedPassword),
       character => character.charCodeAt(0))
     const decrypted = await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, privateKey, encryptedBytes)
-    expect(new TextDecoder().decode(decrypted)).toBe(password)
+    expect(new TextDecoder().decode(decrypted)).toBe(password.trim())
   })
 
   it.each([
     ['ab', 'strong-password', REGISTRATION_MESSAGES.invalidUsername],
     ['visitor', 'short', REGISTRATION_MESSAGES.passwordTooShort],
-    ['visitor', 'a'.repeat(191), LOGIN_MESSAGES.passwordTooLong],
+    ['visitor', 'internal password', REGISTRATION_MESSAGES.invalidPasswordCharacters],
+    ['visitor', 'a'.repeat(191), REGISTRATION_MESSAGES.passwordTooLong],
   ])('does not send invalid credentials for %s', async (username, password, message) => {
     const fetchMock = vi.fn()
     vi.stubGlobal('$fetch', fetchMock)

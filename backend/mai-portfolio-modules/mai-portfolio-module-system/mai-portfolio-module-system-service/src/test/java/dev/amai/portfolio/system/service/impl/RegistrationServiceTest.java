@@ -48,7 +48,7 @@ class RegistrationServiceTest {
     void createsOnlyEnabledNormalAccountWithArgonHashAndNoSession() {
         String rawPassword = "  test-password  ";
         when(crypto.decryptPassword("cipher")).thenReturn(rawPassword);
-        when(passwords.encode(rawPassword)).thenReturn("argon-hash");
+        when(passwords.encode(rawPassword.trim())).thenReturn("argon-hash");
         try (var stp = mockStatic(cn.dev33.satoken.stp.StpUtil.class)) {
             assertThat(auth.register(ORIGIN, "client", new RegisterRequest("  New_visitor  ", "cipher"))
                 .username()).isEqualTo("New_visitor");
@@ -65,6 +65,34 @@ class RegistrationServiceTest {
         verifyNoInteractions(roles);
         verify(throttle).acquireRegistrationPermit("client");
         verify(throttle, never()).acquireLoginPermit(any());
+        verify(passwords).encode(rawPassword.trim());
+        verify(passwords, never()).encode(rawPassword);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"            ", " \t\nshort\u00A0", " ABCdefghi90 "})
+    void validatesLengthAfterRemovingPasswordPadding(String password) {
+        when(crypto.decryptPassword("cipher")).thenReturn(password);
+        expect(ApiErrorCode.VALIDATION_FAILED, () -> auth.register(ORIGIN, "client",
+            new RegisterRequest("visitor", "cipher")));
+        verifyNoInteractions(accounts, passwords);
+    }
+
+    @Test
+    void removesUnicodePaddingBeforeHashing() {
+        when(crypto.decryptPassword("cipher")).thenReturn("\uFEFF\u00A0  test-password-2026 \u3000\t");
+        auth.register(ORIGIN, "client", new RegisterRequest("visitor", "cipher"));
+        verify(passwords).encode("test-password-2026");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"internal password", "test\tpassword-2026", "test\npassword-2026",
+        "test\u00A0password-2026", "test\u3000password-2026", "test\u0000password-2026"})
+    void rejectsInternalWhitespaceBeforePersistence(String password) {
+        when(crypto.decryptPassword("cipher")).thenReturn(password);
+        expect(ApiErrorCode.VALIDATION_FAILED, () -> auth.register(ORIGIN, "client",
+            new RegisterRequest("visitor", "cipher")));
+        verifyNoInteractions(accounts, passwords);
     }
 
     @Test
@@ -93,15 +121,23 @@ class RegistrationServiceTest {
         verifyNoInteractions(accounts, passwords);
     }
 
-    @Test
-    void unicodePasswordCountsCodePointsNotUtf16Units() {
-        when(crypto.decryptPassword("cipher")).thenReturn("😀".repeat(6));
+    @ParameterizedTest
+    @ValueSource(strings = {"中文密码测试-2026", "😀test-password", "test-password！"})
+    void rejectsNonAsciiCharactersWithoutPersistence(String password) {
+        when(crypto.decryptPassword("cipher")).thenReturn(password);
         expect(ApiErrorCode.VALIDATION_FAILED, () -> auth.register(ORIGIN, "client",
             new RegisterRequest("visitor", "cipher")));
         verifyNoInteractions(accounts, passwords);
-        when(crypto.decryptPassword("cipher")).thenReturn("😀".repeat(12));
+    }
+
+    @Test
+    void acceptsAllVisibleAsciiCharacters() {
+        StringBuilder characters = new StringBuilder();
+        for (char character = 33; character <= 126; character++) characters.append(character);
+        String password = characters.toString();
+        when(crypto.decryptPassword("cipher")).thenReturn(password);
         auth.register(ORIGIN, "client", new RegisterRequest("visitor", "cipher"));
-        verify(passwords).encode("😀".repeat(12));
+        verify(passwords).encode(password);
     }
 
     @Test

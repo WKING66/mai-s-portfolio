@@ -43,7 +43,7 @@ npm run dev
 
 通用认证协议：前端从 `NUXT_PUBLIC_AUTH_RSA_PUBLIC_KEY` 读取固定 SPKI 公钥，后端从 `AUTH_RSA_PRIVATE_KEY_LOCATION` 读取外部 PKCS#8 RSA-2048 私钥。前端用 Web Crypto 的 RSA-OAEP SHA-256 加密密码，`POST /api/v1/auth/session` 仅提交 `username`、`encryptedPassword`；校验后设置 HttpOnly Cookie，并返回角色和 CSRF 令牌。`GET` 查询会话，`DELETE` 注销且要求 `X-CSRF-Token`。没有挑战、公钥获取接口或客户端 SHA-256 密码摘要。RSA 单次明文上限为 190 个 UTF-8 字节；Knife4j 不自动加密密码，请用登录页验证。
 
-普通用户注册：`POST /api/v1/auth/register` 使用相同的密文请求字段和来源校验，不要求预先登录或 CSRF。用户名去首尾空格后须为 3–64 位 ASCII 字母、数字、下划线或连字符；不区分大小写判重，重复返回 `409`。密码至少 12 个 Unicode 字符（code point）、最多 190 个 UTF-8 字节，密码不去空格。以上规则均由服务端校验；账号固定为启用的 NORMAL，额外的类型/状态/角色字段不能改变这些值。数据库只保存 Argon2id 哈希。注册成功返回用户名，不自动登录；普通账号没有管理权限。注册限流单独使用 `portfolio.security.max-registration-attempts-per-client`（默认 5）和 `registration-attempt-window`（默认 5m），可由对应的 `PORTFOLIO_SECURITY_*` 环境变量覆盖；不会消耗登录额度。当前尚未实现邮件验证、找回密码或个人中心，博客导出仍待博客模块完成。
+普通用户注册：`POST /api/v1/auth/register` 使用相同的密文请求字段和来源校验，不要求预先登录或 CSRF。用户名去首尾空格后须为 3–64 位 ASCII 字母、数字、下划线或连字符；不区分大小写判重，重复返回 `409`。密码至少 12 位，仅支持英文字母、数字、下划线及可见 ASCII 英文标点；受 RSA 密文流程限制，上限仍为 190 字节，注册密码先去首尾空白后校验及加密，服务端同样规范化后保存；不允许内部空格、其他空白或控制字符。登录维持实际密码匹配，不改已有账号密码。以上规则均由服务端校验；账号固定为启用的 NORMAL，额外的类型/状态/角色字段不能改变这些值。数据库只保存 Argon2id 哈希。注册成功返回用户名，不自动登录；普通账号没有管理权限。注册限流单独使用 `portfolio.security.max-registration-attempts-per-client`（默认 5）和 `registration-attempt-window`（默认 5m），可由对应的 `PORTFOLIO_SECURITY_*` 环境变量覆盖；不会消耗登录额度。当前尚未实现邮件验证、找回密码或个人中心，博客导出仍待博客模块完成。
 
 站长资料管理：登录后调用 `GET /api/v1/admin/profile` 读取当前资料和 `updatedAt`；`PATCH /api/v1/admin/profile` 须提交全部五个可编辑文本字段、原样带回 `updatedAt`，并附上会话中的 `X-CSRF-Token`。GitHub、邮箱传 `null` 或空白可取消公开；过期的 `updatedAt` 返回 `409`，头像、简历和 SEO 配置不会被此接口修改。
 

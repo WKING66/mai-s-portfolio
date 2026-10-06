@@ -59,11 +59,12 @@ class RegistrationApiTest extends AuthKeyTestSupport {
         assertThat(account.getType()).isEqualTo(AccountType.NORMAL.code());
         assertThat(account.getStatus()).isEqualTo(AccountStatus.ENABLED.code());
         assertThat(account.getPasswordHash()).startsWith("$argon2id$");
-        assertThat(passwords.matches(password, account.getPasswordHash())).isTrue();
-        assertThat(passwords.matches(password.trim(), account.getPasswordHash())).isFalse();
+        assertThat(passwords.matches(password.trim(), account.getPasswordHash())).isTrue();
+        assertThat(passwords.matches(password, account.getPasswordHash())).isFalse();
 
+        String loginBody = LoginTestClient.encryptedLoginBody(json, name, password.trim());
         var login = mvc.perform(post("/api/v1/auth/session").header("Origin", ORIGIN)
-                .contentType(MediaType.APPLICATION_JSON).content(body))
+                .contentType(MediaType.APPLICATION_JSON).content(loginBody))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.roles.length()").value(0)).andReturn();
         var cookie = login.getResponse().getCookie("portfolio_session");
         String csrf = json.readTree(login.getResponse().getContentAsString()).path("data").path("csrfToken").asText();
@@ -125,7 +126,8 @@ class RegistrationApiTest extends AuthKeyTestSupport {
     @Test
     void businessValidationDoesNotInsertAccount() throws Exception {
         String name = uniqueName();
-        for (String password : new String[] {"short", "😀".repeat(6)}) {
+        for (String password : new String[] {"short", "😀".repeat(6), "internal password", "test\tpassword-2026",
+                "中文密码测试-2026", "test-password！"}) {
             String body = LoginTestClient.encryptedLoginBody(json, name, password);
             mvc.perform(post(PATH).header("Origin", ORIGIN).contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));

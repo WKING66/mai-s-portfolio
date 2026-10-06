@@ -67,25 +67,25 @@ async function submitLogout() {
 
 <template>
   <SiteHeader :restore-session="false" />
-  <main class="register-page mx-auto grid w-full max-w-[1200px] items-center gap-12 px-5 py-12 lg:grid-cols-[1.1fr_1fr] lg:gap-20 lg:py-20">
-    <section class="register-intro" aria-labelledby="register-intro-title">
+  <main class="auth-page">
+    <section class="auth-intro" aria-labelledby="auth-intro-title">
       <span class="eyebrow">AMAI / PORTFOLIO</span>
-      <h2 id="register-intro-title" class="mt-5 text-[clamp(2.6rem,5vw,4.6rem)] leading-[1.15] font-bold tracking-[-.055em]">
+      <h2 id="auth-intro-title" class="auth-intro-title">
         从好奇开始，<br><span class="text-accent">一起探索更多。</span>
       </h2>
-      <p class="mt-6 max-w-md leading-8 text-muted">从 Java 后端到 AI 智能体，<br class="hidden sm:block">在项目与实践里，找到值得交流的灵感。</p>
-      <div class="mt-8 flex flex-wrap gap-3" aria-label="技术方向">
-        <span v-for="label in ['Java Backend', 'AI Agents', 'Engineering']" :key="label" class="rounded-full border border-line px-4 py-2 font-mono text-xs text-muted">{{ label }}</span>
+      <p class="auth-intro-copy text-muted">从 Java 后端到 AI 智能体，<br class="hidden sm:block">在项目与实践里，找到值得交流的灵感。</p>
+      <div class="auth-directions flex flex-wrap gap-2" aria-label="技术方向">
+        <span v-for="label in ['Java Backend', 'AI Agents', 'Engineering']" :key="label" class="rounded-full border border-line px-3 py-1.5 font-mono text-xs text-muted">{{ label }}</span>
       </div>
-      <NuxtLink to="/#projects" class="mt-9 inline-flex items-center gap-2 text-sm font-semibold text-accent underline underline-offset-4">先看看项目 <span aria-hidden="true">↗</span></NuxtLink>
+      <NuxtLink to="/#projects" class="auth-project-link inline-flex items-center gap-2 text-sm font-semibold text-accent underline underline-offset-4">先看看项目 <span aria-hidden="true">↗</span></NuxtLink>
     </section>
-    <SurfaceCard as="div" class="register-card w-full px-6 py-8 sm:p-10" :max-tilt="2">
-      <div class="register-mark mb-7 grid size-12 place-items-center rounded-2xl text-lg font-black" aria-hidden="true">M</div>
+    <SurfaceCard as="div" class="auth-card" :max-tilt="2">
+      <div class="auth-mark" aria-hidden="true">M</div>
       <section v-if="!sessionVerified" class="grid gap-6" :aria-busy="pending">
         <h1 class="text-3xl font-bold tracking-tight">创建访客账号</h1>
         <p v-if="pending" role="status" class="text-sm text-muted">正在确认账号状态…</p>
-        <p v-if="errorMessage" role="alert" class="register-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
-        <button v-if="!pending" type="button" class="register-primary rounded-xl px-5 py-3.5 font-semibold" @click="restoreSession">重新确认账号状态</button>
+        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
+        <button v-if="!pending" type="button" class="auth-primary rounded-xl px-5 py-3.5 font-semibold" @click="restoreSession">重新确认账号状态</button>
       </section>
       <section v-else-if="loggedIn" class="grid gap-6" role="status">
         <div>
@@ -93,9 +93,9 @@ async function submitLogout() {
           <h1 class="mt-3 text-3xl font-bold tracking-tight">当前账号已登录</h1>
           <p class="mt-3 leading-7 text-muted">{{ auth.state.value.username }}，{{ REGISTRATION_MESSAGES.signedIn }}</p>
         </div>
-        <p v-if="errorMessage" role="alert" class="register-error rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm">{{ errorMessage }}</p>
+        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm">{{ errorMessage }}</p>
         <Auth :access="AUTH_ACCESS.OWNER">
-          <NuxtLink :to="AUTH_PATHS.manageProjects" class="register-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">管理项目 →</NuxtLink>
+          <NuxtLink :to="AUTH_PATHS.manageProjects" class="auth-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">管理项目 →</NuxtLink>
         </Auth>
         <NuxtLink to="/#about" class="rounded-xl border border-line px-5 py-3 text-center text-sm font-semibold no-underline">返回作品集</NuxtLink>
         <button type="button" :disabled="pending" class="w-fit text-sm text-muted underline underline-offset-4" @click="submitLogout">{{ pending ? '正在注销…' : '注销账号后注册' }}</button>
@@ -105,51 +105,37 @@ async function submitLogout() {
           <span class="eyebrow">WELCOME ABOARD</span>
           <h1 class="mt-3 text-3xl font-bold tracking-tight">注册成功</h1>
           <p class="mt-3 leading-7 text-muted">{{ registeredUsername }}，{{ REGISTRATION_MESSAGES.success }}</p>
-          <p class="mt-3 text-sm leading-6 text-muted">{{ REGISTRATION_MESSAGES.accountAccess }}</p>
+          <p class="auth-welcome text-sm leading-6 text-muted">{{ REGISTRATION_MESSAGES.accountAccess }}</p>
         </div>
-        <NuxtLink :to="AUTH_PATHS.login" class="register-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">前往登录 →</NuxtLink>
+        <NuxtLink :to="AUTH_PATHS.login" class="auth-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">前往登录 →</NuxtLink>
         <NuxtLink to="/#projects" class="rounded-xl border border-line px-5 py-3 text-center text-sm font-semibold no-underline">返回作品集</NuxtLink>
       </section>
       <form v-else class="grid gap-6" :aria-busy="pending" @submit.prevent="submitRegistration">
         <div>
           <span class="eyebrow">WELCOME ABOARD</span>
           <h1 class="mt-3 text-3xl font-bold tracking-tight">创建访客账号</h1>
-          <p class="mt-3 text-sm leading-6 text-muted">{{ REGISTRATION_MESSAGES.welcome }}</p>
+          <p class="auth-welcome text-sm leading-6 text-muted">{{ REGISTRATION_MESSAGES.welcome }}</p>
         </div>
-        <div class="grid gap-5">
+        <div class="auth-fields grid">
           <div>
-            <label for="register-username" class="mb-2 block text-sm font-semibold">用户名</label>
-            <input id="register-username" v-model.trim="username" name="username" autocomplete="username" placeholder="输入用户名" required :minlength="REGISTRATION_RULES.usernameMinLength" :maxlength="REGISTRATION_RULES.usernameMaxLength" pattern="[A-Za-z0-9_\-]+" aria-describedby="register-username-hint" :disabled="pending" class="register-input">
+            <label for="register-username" class="auth-label block text-sm font-semibold">用户名</label>
+            <input id="register-username" v-model.trim="username" name="username" autocomplete="username" placeholder="输入用户名" required :minlength="REGISTRATION_RULES.usernameMinLength" :maxlength="REGISTRATION_RULES.usernameMaxLength" pattern="[A-Za-z0-9_\-]+" aria-describedby="register-username-hint" :disabled="pending" class="auth-input">
             <p id="register-username-hint" class="mt-2 text-xs leading-5 text-muted">{{ REGISTRATION_MESSAGES.usernameHint }}</p>
           </div>
           <div>
-            <label for="register-password" class="mb-2 block text-sm font-semibold">密码</label>
-            <input id="register-password" v-model="password" name="password" type="password" autocomplete="new-password" placeholder="设置密码" required aria-describedby="register-password-hint" :disabled="pending" class="register-input">
+            <label for="register-password" class="auth-label block text-sm font-semibold">密码</label>
+            <input id="register-password" v-model="password" name="password" type="password" autocomplete="new-password" placeholder="设置密码" required aria-describedby="register-password-hint" :disabled="pending" class="auth-input">
             <p id="register-password-hint" class="mt-2 text-xs leading-5 text-muted">{{ REGISTRATION_MESSAGES.passwordHint }}</p>
           </div>
         </div>
-        <p v-if="errorMessage" role="alert" class="register-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
-        <button type="submit" :disabled="pending" class="register-primary flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3.5 font-semibold">
+        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
+        <button type="submit" :disabled="pending" class="auth-primary flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3.5 font-semibold">
           {{ pending ? '正在注册…' : '创建账号' }} <span v-if="!pending" aria-hidden="true">→</span>
         </button>
         <p class="text-center text-sm text-muted">已有账号？<NuxtLink :to="AUTH_PATHS.login" class="ml-2 font-semibold text-accent underline underline-offset-4">前往登录</NuxtLink></p>
-        <p class="border-t border-line pt-5 text-xs leading-6 text-muted">{{ LOGIN_MESSAGES.encryptedSubmission }}<br>{{ REGISTRATION_MESSAGES.accountAccess }}</p>
       </form>
     </SurfaceCard>
   </main>
 </template>
 
-<style scoped>
-.register-page { min-height: calc(100svh - 70px); }
-.register-card { max-width: 480px; justify-self: end; }
-.register-mark { color: #071018; background: linear-gradient(120deg, var(--site-accent), var(--site-accent-secondary)); }
-.register-primary { color: var(--site-bg); background: var(--site-accent); cursor: pointer; transition: filter .2s ease; }
-.register-primary:hover { filter: brightness(1.08); }
-.register-input { display: block; width: 100%; border: 1px solid var(--site-line); border-radius: 12px; background: color-mix(in srgb, var(--site-bg) 65%, transparent); padding: 13px 15px; color: var(--site-text); font: inherit; }
-.register-input::placeholder { color: var(--site-muted); }
-.register-input:focus-visible { outline: 2px solid var(--site-accent); outline-offset: 3px; }
-.register-error { color: light-dark(#a92136, #ffb7c2); }
-button:disabled, input:disabled { opacity: .6; cursor: wait; }
-@media (max-width: 1023px) { .register-intro, .register-card { justify-self: center; width: 100%; max-width: 480px; } }
-@media (prefers-reduced-motion: reduce) { .register-primary { transition: none; } }
-</style>
+<style src="../assets/css/auth-pages.css"></style>

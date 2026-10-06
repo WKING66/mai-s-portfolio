@@ -40,6 +40,10 @@ public class AuthServiceImpl implements AuthService {
     private static final Logger LOG = LoggerFactory.getLogger(AuthServiceImpl.class);
     private static final int CSRF_BYTES = 32;
     private static final Pattern REGISTER_USERNAME = Pattern.compile("[A-Za-z0-9_-]{3,64}");
+    // 与前端 String.trim() 一致：ASCII 空白、Unicode 分隔符、BOM。
+    private static final Pattern REGISTER_PASSWORD_PADDING = Pattern.compile("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$");
+    // 可见 ASCII：英文字母、数字、下划线及英文标点；不允许内部空白或控制字符。
+    private static final Pattern REGISTER_PASSWORD_CHARACTERS = Pattern.compile("[\\x21-\\x7E]+");
     private static final int REGISTER_MIN_PASSWORD_CHARACTERS = 12;
     // RSA-2048 OAEP SHA-256 的单条明文上限，保持与 Web Crypto 一致。
     private static final int REGISTER_MAX_PASSWORD_BYTES = 190;
@@ -125,8 +129,12 @@ public class AuthServiceImpl implements AuthService {
         if (!REGISTER_USERNAME.matcher(username).matches()) {
             throw new ApiException(ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.REGISTER_USERNAME_INVALID);
         }
-        String password = crypto.decryptPassword(input.encryptedPassword());
-        // 密码不去空格；按 Unicode code point 计数，而非 UTF-16 单元。
+        String password = REGISTER_PASSWORD_PADDING.matcher(crypto.decryptPassword(input.encryptedPassword()))
+            .replaceAll("");
+        if (!password.isEmpty() && !REGISTER_PASSWORD_CHARACTERS.matcher(password).matches()) {
+            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.REGISTER_PASSWORD_CHARACTERS_INVALID);
+        }
+        // 注册先去首尾空白，再按 Unicode code point 计数，而非 UTF-16 单元。
         if (password.codePointCount(0, password.length()) < REGISTER_MIN_PASSWORD_CHARACTERS
                 || password.getBytes(StandardCharsets.UTF_8).length > REGISTER_MAX_PASSWORD_BYTES) {
             throw new ApiException(ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.REGISTER_PASSWORD_INVALID);

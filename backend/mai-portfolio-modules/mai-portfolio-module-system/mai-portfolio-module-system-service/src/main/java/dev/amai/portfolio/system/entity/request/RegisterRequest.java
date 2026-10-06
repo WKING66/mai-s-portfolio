@@ -15,7 +15,7 @@ public record RegisterRequest(
     String username,
     @NotBlank(message = SystemMessageConstants.LOGIN_CIPHERTEXT_REQUIRED)
     @Size(max = 512, message = SystemMessageConstants.LOGIN_CIPHERTEXT_INVALID)
-    @Schema(description = "RSA-OAEP SHA-256 加密密码的标准 Base64；原密码至少 12 个 Unicode 字符，"
+    @Schema(description = "RSA-OAEP SHA-256 加密密码的标准 Base64；注册先去首尾空白，仅支持英文字母、数字、下划线及英文标点，密码至少 12 位，"
         + "UTF-8 不超过 190 字节；不接受明文或密码摘要", format = "byte",
         accessMode = Schema.AccessMode.WRITE_ONLY, requiredMode = Schema.RequiredMode.REQUIRED)
     String encryptedPassword
