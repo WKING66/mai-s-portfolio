@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import type { DropdownMenuItem } from '@nuxt/ui'
 import { useAuthState } from '../composables/useAuthState'
 import { useSiteNavigation } from '../composables/useSiteNavigation'
+import { useSiteTheme } from '../composables/useSiteTheme'
 import { LOGIN_MESSAGES } from '../constants/messages'
 import { ACCOUNT_MENU_MESSAGES, SITE_NAVIGATION } from '../constants/navigation'
 
@@ -10,7 +11,7 @@ import { ACCOUNT_MENU_MESSAGES, SITE_NAVIGATION } from '../constants/navigation'
 const props = withDefaults(defineProps<{ restoreSession?: boolean }>(), { restoreSession: true })
 const auth = useAuthState()
 const { activeSection, mobileOpen, selectSection } = useSiteNavigation()
-const theme = ref<'light' | 'dark'>('light')
+const { theme, toggleTheme } = useSiteTheme()
 const sessionError = ref('')
 const mobileItems = computed<DropdownMenuItem[]>(() => SITE_NAVIGATION.map(item => ({
   label: item.label,
@@ -19,28 +20,11 @@ const mobileItems = computed<DropdownMenuItem[]>(() => SITE_NAVIGATION.map(item 
   onSelect: () => selectSection(item.id),
 })))
 
-function applyTheme() {
-  document.documentElement.dataset.theme = theme.value
-  // Nuxt UI/Tailwind 的 dark: 变体与原有 data-theme 令牌同步，不另启第二套主题插件。
-  document.documentElement.classList.toggle('dark', theme.value === 'dark')
-}
-
 onMounted(() => {
   if (props.restoreSession && !auth.ready.value) {
     void auth.refresh().catch(() => { sessionError.value = LOGIN_MESSAGES.sessionFailed })
   }
-  let saved: string | null = null
-  try { saved = localStorage.getItem('portfolio-theme') } catch { /* 浏览器禁用存储时仍可切换主题。 */ }
-  theme.value = saved === 'dark' || saved === 'light'
-    ? saved : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  applyTheme()
 })
-
-function toggleTheme() {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark'
-  applyTheme()
-  try { localStorage.setItem('portfolio-theme', theme.value) } catch { /* 主题持久化失败不影响本次交互。 */ }
-}
 </script>
 
 <template>
@@ -66,7 +50,7 @@ function toggleTheme() {
           :icon="theme === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
           :aria-label="theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'" @click="toggleTheme" />
         <!-- Reka/Nuxt UI 管理焦点、方向键、Escape 和点击外部关闭，不自行实现菜单键盘协议。 -->
-        <UDropdownMenu v-model:open="mobileOpen" :items="mobileItems" :content="{ align: 'end', sideOffset: 12 }"
+        <UDropdownMenu v-model:open="mobileOpen" :modal="false" :items="mobileItems" :content="{ align: 'end', sideOffset: 12 }"
           :ui="{ content: 'w-48 rounded-2xl p-1' }" class="md:hidden">
           <UButton class="rounded-full md:hidden" color="neutral" variant="outline" size="lg"
             icon="i-lucide-menu" :aria-label="ACCOUNT_MENU_MESSAGES.mobileNavigation" />

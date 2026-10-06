@@ -67,7 +67,11 @@ onMounted(reload)
     <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />
     <UAlert v-if="notice" role="status" color="success" variant="subtle" :title="notice" icon="i-lucide-circle-check" />
     <UCard v-if="!loaded">
-      <p v-if="pending" role="status" class="py-8 text-center text-muted">{{ PROFILE_MESSAGES.loading }}</p>
+      <div v-if="pending" role="status" :aria-label="PROFILE_MESSAGES.loading" class="grid min-h-[500px] gap-6">
+        <div class="grid gap-5 md:grid-cols-2"><USkeleton class="h-16 w-full" /><USkeleton class="h-16 w-full" /></div>
+        <USkeleton class="h-56 w-full" />
+        <div class="grid gap-5 md:grid-cols-2"><USkeleton class="h-16 w-full" /><USkeleton class="h-16 w-full" /></div>
+      </div>
       <div v-else class="flex justify-center py-8"><UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" @click="reload">重新读取</UButton></div>
     </UCard>
     <form v-else novalidate class="grid gap-6" @submit.prevent="save">

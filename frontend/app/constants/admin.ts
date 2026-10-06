@@ -50,4 +50,8 @@ export const ADMIN_MESSAGES = {
   slugLocked: '项目曾经发布，标识已固定，不能修改。',
   tagsEmpty: '暂无可选技术标签。发布前需要先配置技术标签。',
   linksEmpty: '尚未添加外部入口；没有真实链接时可以留空。',
+  dateLabel: '项目完成日期（可选）',
+  dateHint: '选择项目完成日期，公开卡片将展示该日期；留空不显示。',
+  legacyDateHint: '现有展示时间不是单个日期，未选择新日期或清除前会原样保留：',
+  clearDate: '清除日期',
 } as const

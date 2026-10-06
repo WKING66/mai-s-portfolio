@@ -2,11 +2,17 @@
 import { onMounted } from 'vue'
 import { useProjectEditor } from '../composables/useProjectEditor'
 import { ADMIN_MESSAGES, ADMIN_PATHS, ADMIN_PROJECT_LIMITS, ADMIN_PROJECT_LINK_TYPES, ADMIN_PROJECT_STATUS } from '../constants/admin'
+import { isProjectDate } from '../utils/projectDate'
 
 const props = defineProps<{ projectId?: number }>()
 const { form, tags, status, previouslyPublished, loaded, operation, pending, error, notice,
   dirty, canOperate, load, reload: reloadProject, save, transition, setTag, addLink, removeLink } = useProjectEditor(props.projectId)
 const linkTypes = ADMIN_PROJECT_LINK_TYPES.map(item => ({ ...item }))
+const completionDate = computed({
+  get: () => isProjectDate(form.timeLabel) ? form.timeLabel : '',
+  set: (value: string) => { form.timeLabel = value },
+})
+const legacyTimeLabel = computed(() => form.timeLabel && !isProjectDate(form.timeLabel) ? form.timeLabel : '')
 
 async function submit() {
   const savedId = await save()
@@ -25,7 +31,10 @@ onMounted(() => load())
     <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />
     <UAlert v-if="notice" role="status" color="success" variant="subtle" :title="notice" icon="i-lucide-circle-check" />
     <UCard v-if="!loaded">
-      <p v-if="pending" role="status" class="py-8 text-center text-muted">{{ ADMIN_MESSAGES.loadingProject }}</p>
+      <div v-if="pending" role="status" :aria-label="ADMIN_MESSAGES.loadingProject" class="grid min-h-[600px] gap-6">
+        <div class="grid gap-5 md:grid-cols-2"><USkeleton class="h-16 w-full" /><USkeleton class="h-16 w-full" /></div>
+        <USkeleton class="h-36 w-full" /><USkeleton class="h-44 w-full" /><USkeleton class="h-12 w-64" />
+      </div>
       <div v-else class="flex justify-center py-8"><UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" @click="reload">重新读取</UButton></div>
     </UCard>
     <form v-else class="grid gap-6" @submit.prevent="submit">
@@ -40,7 +49,14 @@ onMounted(() => load())
           <UFormField label="摘要" name="summary"><UTextarea id="project-summary" v-model="form.summary" :maxlength="ADMIN_PROJECT_LIMITS.content" :rows="3" :disabled="pending" class="w-full" /></UFormField>
           <UFormField label="本人贡献" name="contribution"><UTextarea id="project-contribution" v-model="form.contribution" :maxlength="ADMIN_PROJECT_LIMITS.content" :rows="4" :disabled="pending" class="w-full" /></UFormField>
           <UFormField label="成果（可选）" name="outcome"><UTextarea id="project-outcome" v-model="form.outcome" :maxlength="ADMIN_PROJECT_LIMITS.content" :rows="3" :disabled="pending" class="w-full" /></UFormField>
-          <UFormField label="展示时间（可选）" name="timeLabel"><UInput id="project-time" v-model="form.timeLabel" :maxlength="ADMIN_PROJECT_LIMITS.timeLabel" :disabled="pending" class="w-full sm:max-w-sm" /></UFormField>
+          <UFormField :label="ADMIN_MESSAGES.dateLabel" name="timeLabel" :help="ADMIN_MESSAGES.dateHint">
+            <div class="flex flex-wrap items-center gap-3">
+              <!-- 原生日历由浏览器处理本地化和键盘访问，接口仍提交 YYYY-MM-DD，不修改后端。 -->
+              <UInput id="project-time" v-model="completionDate" type="date" min="0001-01-01" max="9999-12-31" :disabled="pending" class="w-full sm:w-64" />
+              <UButton v-if="form.timeLabel" type="button" variant="ghost" color="neutral" :disabled="pending" @click="form.timeLabel = ''">{{ ADMIN_MESSAGES.clearDate }}</UButton>
+            </div>
+            <p v-if="legacyTimeLabel" class="mt-2 text-sm text-muted">{{ ADMIN_MESSAGES.legacyDateHint }}{{ legacyTimeLabel }}</p>
+          </UFormField>
         </fieldset>
       </AdminEditorSection>
       <AdminEditorSection title="技术与展示" description="标签体现实际使用的技术；首页重点与排序只影响公开展示。">

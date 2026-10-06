@@ -71,7 +71,6 @@ async function submitLogout() {
 </script>
 
 <template>
-  <SiteHeader :restore-session="false" />
   <main class="auth-page">
     <section class="auth-intro" aria-labelledby="auth-intro-title">
       <span class="eyebrow">AMAI / PORTFOLIO</span>

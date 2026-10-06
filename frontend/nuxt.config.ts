@@ -1,4 +1,5 @@
 import { SEO_NOINDEX, SEO_SITE_NAME } from './shared/utils/seo'
+import { THEME_BOOTSTRAP_SCRIPT } from './app/utils/siteTheme'
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-26',
@@ -25,6 +26,7 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'zh-CN' },
       title: SEO_SITE_NAME,
+      script: [{ key: 'site-theme-bootstrap', innerHTML: THEME_BOOTSTRAP_SCRIPT, tagPriority: 'critical' }],
     },
   },
 })

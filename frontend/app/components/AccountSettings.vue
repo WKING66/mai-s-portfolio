@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ACCOUNT_MESSAGES, ACCOUNT_RULES } from '../constants/account'
+import { ACCOUNT_MESSAGES, ACCOUNT_RULES, ACCOUNT_TABS } from '../constants/account'
 import { REGISTRATION_MESSAGES } from '../constants/registration'
 import { useAccountProfile } from '../composables/useAccountProfile'
 import { useAccountApi } from '../api/account'
@@ -9,11 +9,12 @@ const auth = useAuthState()
 const profile = useAccountProfile()
 const api = useAccountApi()
 const config = useRuntimeConfig()
-const nickname = ref('')
+const nickname = ref(profile.state.value?.nickname || '')
+const activeTab = ref('profile')
 const oldPassword = ref('')
 const newPassword = ref('')
 const confirmation = ref('')
-const loading = ref(true)
+const loading = ref(!profile.state.value)
 const saving = ref(false)
 const uploading = ref(false)
 const changingPassword = ref(false)
@@ -22,13 +23,18 @@ const profileError = ref('')
 const passwordError = ref('')
 const notice = ref('')
 const busy = computed(() => saving.value || uploading.value || changingPassword.value)
+const tabs = computed(() => ACCOUNT_TABS.map(item => ({ ...item, disabled: busy.value })))
+watch(activeTab, () => {
+  // 切回资料时移除密码输入，不让隐藏表单长期保留敏感值。
+  oldPassword.value = ''; newPassword.value = ''; confirmation.value = ''; passwordError.value = ''
+})
 const displayName = computed(() => profile.state.value?.nickname || auth.state.value.username || '')
 const avatarSrc = computed(() => profile.state.value?.avatarUrl
   ? profile.state.value.avatarUrl + (profile.state.value.avatarUrl.includes('?') ? '&' : '?')
     + 'rev=' + profile.revision.value : undefined)
 
 async function load() {
-  loading.value = true
+  loading.value = !profile.state.value
   loadError.value = ''
   try {
     await profile.load()
@@ -93,10 +99,14 @@ async function changePassword() {
     <div><span class="eyebrow">MY ACCOUNT</span><h1 class="mt-2 text-3xl font-bold tracking-tight">个人中心</h1><p class="mt-2 text-sm text-muted">管理你的个人资料与账号安全。</p></div>
     <UButton to="/#about" variant="ghost" color="neutral" icon="i-lucide-arrow-left">返回作品集</UButton>
   </header>
-  <p v-if="loading" role="status" class="glass-surface rounded-2xl p-8 text-muted">正在读取个人资料…</p>
+  <div v-if="loading" class="min-h-[570px] max-w-3xl" role="status" aria-label="正在读取个人资料">
+    <USkeleton class="mb-6 h-12 w-full" /><USkeleton class="h-[480px] w-full rounded-xl" />
+  </div>
   <UAlert v-else-if="loadError" color="error" variant="soft" :title="loadError" :actions="[{ label: '重试', onClick: load }]" />
-  <div v-else class="grid items-start gap-6 md:grid-cols-[0.85fr_1.15fr]">
-    <section class="glass-surface rounded-3xl p-6 sm:p-8" aria-labelledby="account-profile-title">
+  <UTabs v-else v-model="activeTab" :items="tabs" variant="link" size="lg" class="w-full max-w-3xl"
+    :ui="{ list: 'justify-start border-b border-line', trigger: 'px-6', content: 'min-h-[520px] pt-6' }">
+    <template #profile>
+    <section class="glass-surface rounded-xl p-6 sm:p-8" aria-labelledby="account-profile-title">
       <div class="mb-6 flex items-center gap-4">
         <UAvatar :src="avatarSrc" :alt="displayName" size="3xl" />
         <div class="min-w-0"><h2 id="account-profile-title" class="truncate text-xl font-bold">{{ displayName }}</h2><p class="mt-1 text-sm text-muted">@{{ auth.state.value.username }}</p></div>
@@ -116,7 +126,9 @@ async function changePassword() {
         <UButton type="submit" :loading="saving" :disabled="busy" size="lg" class="justify-center" icon="i-lucide-save">保存资料</UButton>
       </form>
     </section>
-    <section class="glass-surface rounded-3xl p-6 sm:p-8" aria-labelledby="account-password-title">
+    </template>
+    <template #password>
+    <section class="glass-surface rounded-xl p-6 sm:p-8" aria-labelledby="account-password-title">
       <div class="mb-6 flex items-center gap-3"><span class="flex size-10 items-center justify-center rounded-xl bg-accent/10 text-accent"><UIcon name="i-lucide-shield-check" class="size-5" /></span><div><h2 id="account-password-title" class="text-xl font-bold">账号安全</h2><p class="mt-1 text-sm text-muted">修改成功后，需要重新登录。</p></div></div>
       <form class="grid gap-5" @submit.prevent="changePassword">
         <UFormField label="当前密码" name="oldPassword"><UInput id="account-old-password" v-model="oldPassword" type="password" autocomplete="current-password" required :disabled="busy" size="lg" class="w-full" /></UFormField>
@@ -126,5 +138,6 @@ async function changePassword() {
         <UButton type="submit" :loading="changingPassword" :disabled="busy" size="lg" class="justify-center" icon="i-lucide-key-round">更新密码</UButton>
       </form>
     </section>
-  </div>
+    </template>
+  </UTabs>
 </template>

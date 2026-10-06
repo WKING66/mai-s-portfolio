@@ -26,7 +26,9 @@ onMounted(() => load())
     </UCard>
     <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />
     <UAlert v-if="notice" role="status" color="success" variant="subtle" :title="notice" icon="i-lucide-circle-check" />
-    <UCard v-if="pending && !result"><p role="status" class="py-8 text-center text-muted">{{ ADMIN_MESSAGES.loadingProjects }}</p></UCard>
+    <div v-if="pending && !result" role="status" :aria-label="ADMIN_MESSAGES.loadingProjects" class="grid min-h-[480px] gap-4">
+      <UCard v-for="index in 3" :key="index"><USkeleton class="mb-5 h-6 w-56" /><USkeleton class="mb-3 h-4 w-3/4" /><USkeleton class="h-3 w-40" /></UCard>
+    </div>
     <UCard v-else-if="result && !result.items.length">
       <div class="grid justify-items-center gap-4 py-8 text-center">
         <UIcon name="i-lucide-folder-open" class="size-9 text-muted" aria-hidden="true" />

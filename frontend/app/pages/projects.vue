@@ -22,7 +22,6 @@ useHead(() => {
 })
 </script>
 <template>
-  <SiteHeader />
   <main class="mx-auto min-h-[70vh] max-w-[1200px] px-5 py-16">
     <SectionHeading id="all-projects" eyebrow="PROJECTS" title="项目作品" description="从项目贡献与成果，了解我的技术实践。" />
     <p v-if="error" role="alert">{{ PROJECT_MESSAGES.loadFailed }}</p>

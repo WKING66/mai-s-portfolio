@@ -41,7 +41,7 @@
   --ui-border-muted: var(--site-line);
   --ui-border-accented: color-mix(in srgb, var(--site-accent) 35%, var(--site-line));
   --ui-border-inverted: var(--site-text);
-  --ui-radius: .65rem;
+  --ui-radius: .25rem;
 }
 
 :root[data-theme="dark"] {
@@ -75,7 +75,7 @@
 }
 
 @layer base {
-  html { min-height: 100%; scroll-behavior: smooth; }
+  html { min-height: 100%; scroll-behavior: smooth; scrollbar-gutter: stable; }
   body {
     min-width: 320px;
     min-height: 100svh;

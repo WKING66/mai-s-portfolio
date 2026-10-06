@@ -122,6 +122,15 @@ describe('managed project list interactions', () => {
 })
 
 describe('project editor interactions', () => {
+  it('keeps a legacy time label unchanged when editing unrelated fields', async () => {
+    api.getProject.mockResolvedValueOnce({ ...project, timeLabel: '2024 – 2025' })
+    const editor = useProjectEditor(project.id)
+    await editor.load()
+    editor.form.title = '仅修改标题'
+    await editor.save()
+    expect(api.saveProject).toHaveBeenCalledWith(project.id, expect.objectContaining({ timeLabel: '2024 – 2025' }))
+  })
+
   it('initializes a new draft as clean and enables editing only after the tags have loaded', async () => {
     const editor = useProjectEditor()
     expect(editor.canOperate.value).toBe(false)

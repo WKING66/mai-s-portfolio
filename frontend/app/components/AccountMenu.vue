@@ -67,18 +67,18 @@ const items = computed<DropdownMenuItem[][]>(() => {
 </script>
 
 <template>
-  <div class="relative shrink-0">
+  <div class="relative w-10 shrink-0 sm:w-36">
     <!-- 首次恢复时保持稳定的账户按钮，避免先闪现登录/管理入口后又替换。 -->
     <UButton v-if="!auth.ready.value" data-account-entry color="neutral" variant="outline"
-      size="lg" class="account-entry rounded-full" disabled :loading="true"
+      size="lg" class="account-entry h-10 w-full rounded-full" disabled icon="i-lucide-user-round"
       :aria-label="ACCOUNT_MENU_MESSAGES.verifying">
-      <span class="hidden sm:inline">{{ ACCOUNT_MENU_MESSAGES.account }}</span>
+      <USkeleton class="hidden h-3 w-16 sm:inline-block" />
     </UButton>
-    <UDropdownMenu v-else-if="loggedIn" v-model:open="open" :items="items" size="lg"
+    <UDropdownMenu v-else-if="loggedIn" v-model:open="open" :modal="false" :items="items" size="lg"
       :content="{ align: 'end', sideOffset: 12, collisionPadding: 12 }"
       :ui="{ content: 'z-50 w-60 rounded-2xl p-1 shadow-xl', item: 'rounded-lg', label: 'py-3' }">
       <UButton data-account-entry color="neutral" variant="outline" size="lg"
-        class="account-entry max-w-40 rounded-full" :disabled="pending" :loading="pending"
+        class="account-entry h-10 w-full rounded-full" :disabled="pending" :loading="pending"
         :aria-label="displayName + '，' + ACCOUNT_MENU_MESSAGES.account" trailing-icon="i-lucide-chevron-down">
         <template #leading><UAvatar :src="avatarUrl" :alt="displayName" size="2xs" class="account-avatar" /></template>
         <span class="hidden max-w-20 truncate sm:inline">{{ displayName }}</span>
@@ -88,8 +88,8 @@ const items = computed<DropdownMenuItem[][]>(() => {
       </template>
     </UDropdownMenu>
     <UButton v-else data-account-entry :to="AUTH_PATHS.login" color="neutral" variant="outline"
-      icon="i-lucide-user-round" size="lg" class="account-entry rounded-full">
-      {{ ACCOUNT_MENU_MESSAGES.login }}
+      icon="i-lucide-user-round" size="lg" class="account-entry h-10 w-full justify-center rounded-full" :aria-label="ACCOUNT_MENU_MESSAGES.login">
+      <span class="hidden sm:inline">{{ ACCOUNT_MENU_MESSAGES.login }}</span>
     </UButton>
     <p v-if="error && !open" role="status" class="sr-only">{{ error }}</p>
   </div>

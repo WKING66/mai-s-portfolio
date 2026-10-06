@@ -15,8 +15,7 @@ const activePage = computed(() => {
 
 <template>
   <div>
-    <SiteHeader />
-    <main class="mx-auto w-full max-w-[1200px] px-4 pt-8 pb-16 sm:px-5 sm:pt-12">
+    <main class="mx-auto min-h-[calc(100svh-71px)] w-full max-w-[1200px] px-4 pt-8 pb-16 sm:px-5 sm:pt-12">
       <Auth :access="AUTH_ACCESS.OWNER">
         <!-- 统一在框架内挂载业务组件，权限撤销时销毁管理快照和未保存表单。 -->
         <nav class="mb-8 flex flex-wrap gap-2 border-b border-line pb-5" aria-label="作品集管理导航">

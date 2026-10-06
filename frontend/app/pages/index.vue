@@ -31,7 +31,6 @@ useHead(() => {
 
 <template>
   <div class="min-h-screen font-sans text-ink">
-    <SiteHeader />
     <main class="mx-auto w-full max-w-[1200px] px-4 sm:px-5">
       <p v-if="error" class="mt-10 rounded-2xl border border-accent/40 p-6" role="status">
         {{ SITE_MESSAGES.profileLoadFailed }}

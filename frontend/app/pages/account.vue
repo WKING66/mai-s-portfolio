@@ -6,11 +6,10 @@ useSeoMeta({ title: '个人中心 · 阿霾作品集', robots: 'noindex,nofollow
 </script>
 
 <template>
-  <SiteHeader />
-  <main class="mx-auto min-h-[calc(100svh-71px)] max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
+  <main class="mx-auto min-h-[calc(100svh-71px)] w-full max-w-[1200px] px-4 py-8 sm:px-5 sm:py-12">
     <Auth>
       <AccountSettings />
-      <template #pending><p role="status" class="text-muted">正在确认账号状态…</p></template>
+      <template #pending><div class="min-h-[600px]" role="status" aria-label="正在确认账号状态"><USkeleton class="mb-8 h-20 w-64" /><USkeleton class="h-[480px] w-full max-w-3xl rounded-xl" /></div></template>
     </Auth>
   </main>
 </template>

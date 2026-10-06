@@ -12,6 +12,11 @@ export const ACCOUNT_RULES = {
   avatarTypes: ['image/png', 'image/jpeg'],
 } as const
 
+export const ACCOUNT_TABS = [
+  { label: '个人信息', value: 'profile', slot: 'profile', icon: 'i-lucide-user-round' },
+  { label: '密码修改', value: 'password', slot: 'password', icon: 'i-lucide-key-round' },
+] as const
+
 export const ACCOUNT_MESSAGES = {
   loadFailed: '个人资料加载失败，请重试。',
   saveFailed: '个人资料保存失败，请重试。',
