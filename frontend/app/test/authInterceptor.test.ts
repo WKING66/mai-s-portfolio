@@ -26,8 +26,9 @@ function fixture(initial = owner, isClient = true, initiallyReady = true) {
 
 function deferred<T>() {
   let resolve!: (value: T) => void
-  const promise = new Promise<T>(done => { resolve = done })
-  return { promise, resolve }
+  let reject!: (error: unknown) => void
+  const promise = new Promise<T>((done, fail) => { resolve = done; reject = fail })
+  return { promise, resolve, reject }
 }
 
 afterEach(() => vi.unstubAllGlobals())
@@ -124,6 +125,52 @@ describe('auth request and session interceptor', () => {
     await expect(api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')).rejects.toThrow()
     expect(api.state()).toEqual(anonymous)
     expect(api.navigate).toHaveBeenCalledWith('/login?returnTo=%2Fadmin%2Fprojects%2F42')
+  })
+
+  it.each([normal, owner])('does not navigate a new login when an old 403 recovery succeeds', async (newSession) => {
+    const recovery = deferred<ReturnType<typeof envelope>>()
+    const fetch = vi.fn().mockRejectedValueOnce(rejected(403, 'FORBIDDEN'))
+      .mockReturnValueOnce(recovery.promise)
+    vi.stubGlobal('$fetch', fetch)
+    const api = fixture()
+    const reading = api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')
+    // 首个请求的 403 已进入查询；包括相同用户名的重新登录，都必须使旧查询失效。
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    api.accept(newSession)
+    recovery.resolve(envelope({ ...owner, roles: [] }))
+    await expect(reading).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+    expect(api.state()).toEqual(newSession)
+    expect(api.navigate).not.toHaveBeenCalled()
+  })
+
+  it('does not navigate or restore an old account after logout during 403 recovery', async () => {
+    const recovery = deferred<ReturnType<typeof envelope>>()
+    const fetch = vi.fn().mockRejectedValueOnce(rejected(403, 'FORBIDDEN'))
+      .mockReturnValueOnce(recovery.promise).mockResolvedValueOnce(envelope(null))
+    vi.stubGlobal('$fetch', fetch)
+    const api = fixture()
+    const reading = api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    await api.signOut()
+    recovery.resolve(envelope(owner))
+    await expect(reading).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+    expect(api.state()).toEqual(anonymous)
+    expect(api.navigate).not.toHaveBeenCalled()
+  })
+
+  it('does not clear or navigate a new login when an old 403 recovery fails', async () => {
+    const recovery = deferred<ReturnType<typeof envelope>>()
+    const fetch = vi.fn().mockRejectedValueOnce(rejected(403, 'FORBIDDEN'))
+      .mockReturnValueOnce(recovery.promise)
+    vi.stubGlobal('$fetch', fetch)
+    const api = fixture()
+    const reading = api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2))
+    api.accept(normal)
+    recovery.reject(rejected(403, 'ACCOUNT_DISABLED'))
+    await expect(reading).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })
+    expect(api.state()).toEqual(normal)
+    expect(api.navigate).not.toHaveBeenCalled()
   })
 
   it('shows unrelated 403 and conflicts locally without automatic write retries', async () => {

@@ -33,7 +33,7 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(this)
             .addPathPatterns(AuthConstants.AUTH_PATH_PATTERN, AuthConstants.ADMIN_PATH_PATTERN,
-                AuthConstants.PROJECT_LIST_PATH)
+                AuthConstants.PROJECT_LIST_PATH, AuthConstants.ACCOUNT_PATH_PATTERN)
             .order(-100);
     }
 

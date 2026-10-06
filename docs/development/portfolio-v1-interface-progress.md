@@ -15,6 +15,9 @@
 |统一项目列表|GET `/api/v1/projects?view=PUBLIC\|MANAGE`|已实现，公开与管理投影、权限、分页已联调|
 |项目新建、读取、编辑|POST `/api/v1/admin/projects`；GET/PATCH `/api/v1/admin/projects/{id}`|已实现并联调|
 |项目发布、下架|POST `/api/v1/admin/projects/{id}/publish\|unpublish`|已实现并联调|
+|本人资料读取/昵称修改|GET/PUT `/api/v1/account/profile`|普通用户/站长共用，账号菜单与个人中心同步，完成待审核；见 account-center-ui-acceptance-20261006|
+|本人头像上传/读取|POST/GET `/api/v1/account/avatar`|本轮明确新增的头像范围；真实私有 OSS 联调通过，不等于通用项目媒体上传已实现|
+|本人修改密码|PUT `/api/v1/account/password`|验证原密码、新密码沿用注册规则，成功撤销现有会话；错误原密码不注销，已真实联调|
 
 普通注册本轮完成待审核：后端最终 31 模块 install 成功（124 总计、84 执行、40 跳过、零失败），真实基础设施补测 14/14 通过，真实 UI 在同一个 5 分钟窗口内证明注册额度耗尽不影响正常登录。SC-022 的文章许可导出仍未实现，T069/SC-022 不能整体标为完成。
 
@@ -35,8 +38,12 @@ PostgreSQL 唯一主库，DocumentVersion 是不可变 Markdown 事实来源；�
 
 上传、媒体绑定、网络图片抓取、图片包归档和第二阶段检索/智能体明确暂缓。含这些范围的历史任务不能因正文接口完成而整项标为完成。
 
+本轮用户新增个人中心头像上传，范围仅限登录账号本人头像；上述通用项目媒体、文章图片归档等暂缓边界不因此解除。账号下拉菜单与管理页现已采用 Nuxt UI，权限由共享状态、Auth、路由/请求拦截器统一处理，不写入 localStorage。详见 `docs/testing/account-center-ui-acceptance-20261006.md`。
+
 ## Git 状态
 
 功能按独立 feature 分支推进并提交/推送；未经审核不合并父分支或 main。资料管理分支父分支为 `feature/frontend-auth-interceptors`，此前功能分支尚未视为已批准合并。维护者本地非敏感代码允许提交；开发配置和凭据保持本地。
 
 本轮注册分支 `feature/visitor-registration` 的父分支为 `feature/portfolio-seo`，起点 `4827830`；完成验证并提交/推送后停止交审核，不自动合并或继续下一业务功能。
+
+个人中心与界面修复分支为 `feature/account-center-ui`，父分支 `feature/visitor-registration`，起点 `20d50d4`。本轮提交后停止供审核，不默认 main 为父分支，不自动合并。

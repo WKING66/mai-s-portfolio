@@ -1,0 +1,16 @@
+{
+  "properties": [
+    {
+      "name": "portfolio.asset.avatar.max-bytes",
+      "type": "java.lang.Integer",
+      "defaultValue": 2097152,
+      "description": "Maximum uploaded and re-encoded avatar bytes; must not exceed 2 MiB."
+    },
+    {
+      "name": "portfolio.asset.avatar.max-dimension",
+      "type": "java.lang.Integer",
+      "defaultValue": 2048,
+      "description": "Maximum avatar width or height, checked before decoding; must not exceed 2048 pixels."
+    }
+  ]
+}

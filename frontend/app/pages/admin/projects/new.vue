@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { AUTH_ACCESS, AUTH_MESSAGES } from '../../../constants/auth'
+import { AUTH_ACCESS } from '../../../constants/auth'
+import { ADMIN_MESSAGES, ADMIN_PATHS } from '../../../constants/admin'
+
 definePageMeta({ auth: AUTH_ACCESS.OWNER })
-useSeoMeta({ title: '新增项目', robots: 'noindex,nofollow' })
+useSeoMeta({ title: ADMIN_MESSAGES.newProjectTitle, robots: 'noindex,nofollow' })
 </script>
+
 <template>
-  <Auth :access="AUTH_ACCESS.OWNER">
-    <!-- 权限撤销会卸载编辑器，连同表单、标签及版本快照一起销毁。 -->
+  <AdminShell :title="ADMIN_MESSAGES.newProjectTitle" :description="ADMIN_MESSAGES.projectEditorDescription">
+    <template #actions><UButton :to="ADMIN_PATHS.projects" color="neutral" variant="outline" icon="i-lucide-arrow-left">返回列表</UButton></template>
     <ProjectEditor />
-    <template #pending><p role="status">{{ AUTH_MESSAGES.verifying }}</p></template>
-  </Auth>
+  </AdminShell>
 </template>

@@ -21,6 +21,10 @@
         </dependency>
         <dependency>
             <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-module-asset-provider</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-spring-boot-starter-web</artifactId>
         </dependency>
         <dependency>

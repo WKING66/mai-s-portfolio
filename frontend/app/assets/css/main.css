@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "@nuxt/ui";
 
 @theme inline {
   --font-sans: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
@@ -22,6 +23,25 @@
   --site-accent: #156cb3;
   --site-accent-secondary: #0c997a;
   --site-shadow: 0 24px 80px rgb(22 43 62 / 12%);
+
+  /* Nuxt UI 与作品集共用色彩源；data-theme 切换也影响弹出菜单、输入框和管理卡片。 */
+  --ui-primary: var(--site-accent);
+  --ui-text-dimmed: var(--site-muted);
+  --ui-text-muted: var(--site-muted);
+  --ui-text-toned: var(--site-text);
+  --ui-text: var(--site-text);
+  --ui-text-highlighted: var(--site-text);
+  --ui-text-inverted: var(--site-bg);
+  --ui-bg: var(--site-surface-strong);
+  --ui-bg-muted: color-mix(in srgb, var(--site-accent) 5%, var(--site-surface-strong));
+  --ui-bg-elevated: color-mix(in srgb, var(--site-accent) 8%, var(--site-surface-strong));
+  --ui-bg-accented: color-mix(in srgb, var(--site-accent) 13%, var(--site-surface-strong));
+  --ui-bg-inverted: var(--site-text);
+  --ui-border: var(--site-line);
+  --ui-border-muted: var(--site-line);
+  --ui-border-accented: color-mix(in srgb, var(--site-accent) 35%, var(--site-line));
+  --ui-border-inverted: var(--site-text);
+  --ui-radius: .65rem;
 }
 
 :root[data-theme="dark"] {
@@ -55,19 +75,32 @@
 }
 
 @layer base {
-  html { scroll-behavior: smooth; }
+  html { min-height: 100%; scroll-behavior: smooth; }
   body {
     min-width: 320px;
+    min-height: 100svh;
     margin: 0;
+    position: relative;
+    isolation: isolate;
     color: var(--site-text);
     background-color: var(--site-bg);
+    transition: background-color .35s ease, color .35s ease;
+  }
+  #__nuxt { min-height: 100svh; }
+  /* 独立固定背景层不随页面长度缩放或平铺，短管理页和长首页共用连续光效。 */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -8%;
+    z-index: -1;
+    pointer-events: none;
     background-image:
       radial-gradient(circle at 8% 9%, color-mix(in srgb, var(--site-accent) 17%, transparent), transparent 34rem),
       radial-gradient(circle at 88% 26%, color-mix(in srgb, var(--site-accent-secondary) 10%, transparent), transparent 30rem),
       radial-gradient(circle at 50% 25%, color-mix(in srgb, var(--site-accent) 7%, transparent), transparent 21rem);
     background-size: 125% 125%, 135% 135%, auto;
+    background-repeat: no-repeat;
     animation: ambient-flow 22s ease-in-out infinite alternate;
-    transition: background-color .35s ease, color .35s ease;
   }
   a:focus-visible, button:focus-visible, summary:focus-visible {
     outline: 2px solid var(--site-accent);
@@ -96,5 +129,5 @@
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  body { animation: none; }
+  body::before { animation: none; }
 }

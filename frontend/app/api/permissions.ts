@@ -29,6 +29,6 @@ export function accessRedirect(session: AuthSession, ready: boolean, access: Aut
 }
 
 export function safeReturnPath(value: unknown): string {
-  return typeof value === 'string' && (value === PROFILE_PATHS.page || /^\/admin\/projects(?:\/[0-9]+|\/new)?$/.test(value))
+  return typeof value === 'string' && (value === AUTH_PATHS.account || value === PROFILE_PATHS.page || /^\/admin\/projects(?:\/[0-9]+|\/new)?$/.test(value))
     ? value : AUTH_PATHS.manageProjects
 }

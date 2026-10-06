@@ -79,6 +79,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public SessionVo login(String origin, String clientKey, LoginRequest input) {
         // 在执行 RSA 解密和 Argon2 校验前占用额度，失败尝试也会进入固定窗口。
         throttle.acquireLoginPermit(clientKey);
@@ -89,8 +90,10 @@ public class AuthServiceImpl implements AuthService {
         }
         String password = crypto.decryptPassword(input.encryptedPassword());
         // PostgreSQL 默认区分大小写；查询语义须与 LOWER(username) 唯一索引一致。
+        // 与本人改密共用账号行锁：不能让已经验证旧密码的并发登录在会话撤销后再创建会话。
         UserAccountDO account = accounts.selectOne(Wrappers.<UserAccountDO>lambdaQuery()
-            .apply("LOWER(username) = {0}", input.username().toLowerCase(Locale.ROOT)));
+            .apply("LOWER(username) = {0}", input.username().toLowerCase(Locale.ROOT))
+            .last("FOR UPDATE"));
         if (account == null || !passwords.matches(password, account.getPasswordHash())) {
             LOG.warn("User login rejected, reason=BAD_CREDENTIALS");
             throw new ApiException(ApiErrorCode.AUTH_INVALID_CREDENTIALS, SystemMessageConstants.BAD_CREDENTIALS);

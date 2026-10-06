@@ -25,7 +25,7 @@ function anonymousSession(): SessionResponse {
  */
 export function createAuthInterceptor(context: AuthContext) {
   let revision = 0
-  let refreshing: Promise<void> | null = null
+  let refreshing: Promise<boolean> | null = null
 
   function accept(session: SessionResponse) {
     revision += 1
@@ -48,14 +48,20 @@ export function createAuthInterceptor(context: AuthContext) {
     context.setSession(normalized)
   }
 
-  /** 共享同一在途查询；旧查询不能覆盖后来登录或注销的新状态。 */
-  function refresh(): Promise<void> {
+  /** 共享同一在途查询；返回是否实际恢复了本世代，旧查询不能影响新登录或注销。 */
+  function refresh(): Promise<boolean> {
     if (refreshing) return refreshing
     const startedAt = revision
     const pending = getSession().then(session => {
-      if (revision === startedAt) restore(session)
+      if (revision !== startedAt) return false
+      restore(session)
+      return true
     }).catch(error => {
-      if (revision === startedAt) clear()
+      // 旧查询失败也必须显式标为过期，否则等待它的 403 分支仍会导航新账户。
+      if (revision !== startedAt) {
+        throw new ApiRequestError(AUTH_MESSAGES.sessionChanged, null, AUTH_ERROR_CODES.sessionChanged)
+      }
+      clear()
       throw error
     }).finally(() => {
       if (refreshing === pending) refreshing = null
@@ -103,9 +109,13 @@ export function createAuthInterceptor(context: AuthContext) {
         await redirect(access)
       } else if (error.status === 403) {
         try {
-          await refresh()
+          if (!await refresh()) {
+            throw new ApiRequestError(AUTH_MESSAGES.sessionChanged, null, AUTH_ERROR_CODES.sessionChanged)
+          }
         } catch (refreshError) {
-          await redirect(access)
+          if (!(refreshError instanceof ApiRequestError && refreshError.code === AUTH_ERROR_CODES.sessionChanged)) {
+            await redirect(access)
+          }
           throw refreshError
         }
         await redirect(access)
@@ -131,5 +141,6 @@ export function createAuthInterceptor(context: AuthContext) {
     clear()
   }
 
-  return { accept, clear, refresh, canAccess, request, signOut }
+  // 加密等请求发送前的异步准备也需绑定此会话，避免使用切换后的账号提交旧表单。
+  return { accept, clear, refresh, canAccess, request, signOut, sessionRevision: () => revision }
 }

@@ -10,6 +10,7 @@ export const AUTH_PATHS = {
   login: '/login',
   forbidden: '/forbidden',
   manageProjects: '/admin/projects',
+  account: '/account',
   session: '/api/v1/auth/session',
   apiPrefix: '/api/v1/',
 } as const

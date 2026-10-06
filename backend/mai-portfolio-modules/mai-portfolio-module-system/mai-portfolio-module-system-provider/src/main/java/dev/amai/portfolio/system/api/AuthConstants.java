@@ -8,6 +8,8 @@ public final class AuthConstants {
     public static final String AUTH_PATH_PATTERN = "/api/v1/auth/**";
     public static final String AUTH_SESSION_PATH = "/api/v1/auth/session";
     public static final String AUTH_REGISTER_PATH = "/api/v1/auth/register";
+    public static final String ACCOUNT_PATH = "/api/v1/account";
+    public static final String ACCOUNT_PATH_PATTERN = ACCOUNT_PATH + "/**";
     public static final String PROJECT_LIST_PATH = "/api/v1/projects";
     public static final String PROJECT_VIEW_PARAMETER = "view";
     public static final String PROJECT_MANAGE_VIEW = "MANAGE";

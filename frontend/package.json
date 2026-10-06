@@ -10,6 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nuxt/ui": "4.11.3",
+    "@iconify-json/lucide": "1.2.98",
     "nuxt": "4.5.2"
   },
   "devDependencies": {

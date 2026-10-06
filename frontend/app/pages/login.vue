@@ -4,8 +4,9 @@ import { login } from '../api/session'
 import { LOGIN_MESSAGES } from '../constants/messages'
 import { useAuthState } from '../composables/useAuthState'
 import { safeReturnPath } from '../api/permissions'
-import { AUTH_ACCESS } from '../constants/auth'
+import { AUTH_ACCESS, AUTH_PATHS } from '../constants/auth'
 import { REGISTRATION_PATHS } from '../constants/registration'
+import { ACCOUNT_MESSAGES } from '../constants/account'
 
 const config = useRuntimeConfig()
 const route = useRoute()
@@ -28,8 +29,13 @@ async function submitLogin() {
     const session = await login(username.value, password.value, config.public.authRsaPublicKey)
     auth.accept(session)
     await auth.refresh()
+    if (!auth.canAccess(AUTH_ACCESS.AUTHENTICATED)) throw new Error(LOGIN_MESSAGES.sessionFailed)
     // 登录后的业务去向复用统一能力规则，不在页面重新解释角色字符串。
-    if (auth.canAccess(AUTH_ACCESS.OWNER)) await navigateTo(safeReturnPath(route.query.returnTo))
+    if (typeof route.query.returnTo === 'string' || auth.canAccess(AUTH_ACCESS.OWNER)) {
+      await navigateTo(safeReturnPath(route.query.returnTo))
+    } else {
+      await navigateTo(AUTH_PATHS.account)
+    }
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.loginFailed
   } finally {
@@ -81,6 +87,7 @@ async function submitLogout() {
     <SurfaceCard as="div" class="auth-card" :max-tilt="2">
       <div class="auth-mark" aria-hidden="true">M</div>
       <form v-if="!loggedIn" class="grid gap-6" :aria-busy="pending" @submit.prevent="submitLogin">
+        <UAlert v-if="route.query.passwordChanged === '1'" color="success" variant="soft" :title="ACCOUNT_MESSAGES.passwordChanged" role="status" />
         <div>
           <span class="eyebrow">WELCOME BACK</span>
           <h1 class="mt-3 text-3xl font-bold tracking-tight">登录你的账号</h1>

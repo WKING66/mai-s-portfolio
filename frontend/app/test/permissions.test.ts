@@ -24,7 +24,7 @@ describe('project permissions', () => {
   it.each(['https://evil.test', '//evil.test', '/admin/projects/1?x=1', '/admin/projects/../login', '/admin/profile?returnTo=https://evil.test', undefined])('rejects unsafe return paths: %s', value => {
     expect(safeReturnPath(value)).toBe('/admin/projects')
   })
-  it.each(['/admin/projects', '/admin/projects/new', '/admin/projects/42', '/admin/profile'])('retains a valid management route: %s', value => {
+  it.each(['/admin/projects', '/admin/projects/new', '/admin/projects/42', '/admin/profile', '/account'])('retains a valid authenticated route: %s', value => {
     expect(safeReturnPath(value)).toBe(value)
   })
 })

@@ -41,6 +41,15 @@ class SensitivePayloadSanitizerTest {
     }
 
     @Test
+    void redactsBothPasswordChangeCiphertexts() {
+        String safe = sanitizer.sanitize("request", Map.of(
+            "oldEncryptedPassword", "old-password-cipher",
+            "newEncryptedPassword", "new-password-cipher"));
+        assertThat(safe).contains("oldEncryptedPassword", "newEncryptedPassword", "[REDACTED]")
+            .doesNotContain("old-password-cipher", "new-password-cipher");
+    }
+
+    @Test
     void capsLongPayloads() {
         SensitivePayloadSanitizer limited = new SensitivePayloadSanitizer(JsonMapper.builder().build(),
             new ApiLogProperties(true, 256, List.of()));

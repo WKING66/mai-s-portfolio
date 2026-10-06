@@ -1,131 +1,92 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { useProjectApi, type ProjectInput, type ProjectTag } from '../api/projects'
-import { PROJECT_MESSAGES } from '../constants/projects'
+import { onMounted } from 'vue'
+import { useProjectEditor } from '../composables/useProjectEditor'
+import { ADMIN_MESSAGES, ADMIN_PATHS, ADMIN_PROJECT_LIMITS, ADMIN_PROJECT_LINK_TYPES, ADMIN_PROJECT_STATUS } from '../constants/admin'
 
 const props = defineProps<{ projectId?: number }>()
-const { getProject, getProjectTags, saveProject, changeProjectStatus } = useProjectApi()
-const form = reactive<ProjectInput>({
-  slug: '', title: '', summary: '', contribution: '', outcome: '', timeLabel: '',
-  tagIds: [], links: [], featured: false, sortOrder: 0,
-})
-const tags = ref<ProjectTag[]>([])
-const status = ref<'DRAFT' | 'PUBLISHED'>('DRAFT')
-const previouslyPublished = ref(false)
-const loaded = ref(false)
-const pending = ref(false)
-const error = ref('')
-const notice = ref('')
-const savedForm = ref('')
-const dirty = computed(() => JSON.stringify(form) !== savedForm.value)
-// 这里只判断表单是否可操作；访问权限交给父级 Auth 和请求拦截器。
-const canOperate = computed(() => loaded.value && !pending.value)
+const { form, tags, status, previouslyPublished, loaded, operation, pending, error, notice,
+  dirty, canOperate, load, reload: reloadProject, save, transition, setTag, addLink, removeLink } = useProjectEditor(props.projectId)
+const linkTypes = ADMIN_PROJECT_LINK_TYPES.map(item => ({ ...item }))
 
-onMounted(async () => {
-  try {
-    tags.value = await getProjectTags()
-    if (props.projectId) apply(await getProject(props.projectId))
-    loaded.value = true
-  } catch (cause) { error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.loadFailed }
-})
-function apply(project: Awaited<ReturnType<typeof getProject>>) {
-  // 回填完整快照与版本，409 时不会覆盖用户未保存的输入。
-  Object.assign(form, {
-    version: project.version, slug: project.slug || '', title: project.title || '',
-    summary: project.summary || '', contribution: project.contribution || '', outcome: project.outcome || '',
-    timeLabel: project.timeLabel || '', tagIds: project.tags.map(tag => tag.id),
-    links: project.links.map(link => ({ ...link })), featured: project.featured, sortOrder: project.sortOrder,
-  })
-  status.value = project.status
-  previouslyPublished.value = project.publishedAt !== null
-  savedForm.value = JSON.stringify(form)
+async function submit() {
+  const savedId = await save()
+  if (savedId !== null && !props.projectId) await navigateTo(ADMIN_PATHS.projects + '/' + savedId)
 }
-async function save() {
-  if (!canOperate.value) return
-  pending.value = true; error.value = ''; notice.value = ''
-  try {
-    const project = await saveProject(props.projectId || null, { ...form })
-    apply(project)
-    notice.value = PROJECT_MESSAGES.saved
-    if (!props.projectId) await navigateTo('/admin/projects/' + project.id)
-  } catch (cause) { error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.saveFailed }
-  finally { pending.value = false }
-}
-async function transition(publish: boolean) {
-  // 发布/下架只能针对已保存内容；这属于业务限制，不是鉴权规则。
-  if (!canOperate.value || dirty.value || !props.projectId || form.version === undefined) return
-  pending.value = true; error.value = ''; notice.value = ''
-  try {
-    apply(await changeProjectStatus(props.projectId, form.version, publish))
-    notice.value = publish ? PROJECT_MESSAGES.published : PROJECT_MESSAGES.unpublished
-  } catch (cause) { error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.saveFailed }
-  finally { pending.value = false }
-}
+
 async function reload() {
-  if (!props.projectId || !canOperate.value) return
-  pending.value = true
-  try { apply(await getProject(props.projectId)); error.value = '' }
-  catch (cause) { error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.loadFailed }
-  finally { pending.value = false }
+  await reloadProject(() => window.confirm(ADMIN_MESSAGES.discardProjectConfirm))
 }
-function addLink() {
-  if (!canOperate.value) return
-  form.links.push({ type: 'CODE', label: '', url: '', visible: true, sortOrder: form.links.length })
-}
+
+onMounted(() => load())
 </script>
 
 <template>
-  <main class="mx-auto max-w-4xl px-5 pb-16">
-    <AdminNavigation />
-      <h1 class="mb-6 text-3xl font-bold">{{ projectId ? '编辑项目' : '新增项目' }}</h1>
-      <p v-if="error" role="alert" class="mb-5 rounded-xl border border-red-500/60 p-4">{{ error }}</p>
-      <p v-if="notice" role="status" class="mb-5 text-accent">{{ notice }}</p>
-      <form v-if="loaded" class="grid gap-5" @submit.prevent="save">
+  <div class="grid gap-6" :aria-busy="pending">
+    <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />
+    <UAlert v-if="notice" role="status" color="success" variant="subtle" :title="notice" icon="i-lucide-circle-check" />
+    <UCard v-if="!loaded">
+      <p v-if="pending" role="status" class="py-8 text-center text-muted">{{ ADMIN_MESSAGES.loadingProject }}</p>
+      <div v-else class="flex justify-center py-8"><UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" @click="reload">重新读取</UButton></div>
+    </UCard>
+    <form v-else class="grid gap-6" @submit.prevent="submit">
+      <AdminEditorSection title="项目内容" description="草稿可以逐步完善；发布需填写标题、摘要、本人贡献，并选择技术标签。">
         <fieldset :disabled="pending" class="grid gap-5">
-          <label>项目标识（slug）<input id="project-slug" v-model="form.slug" maxlength="160" :readonly="previouslyPublished" class="field" placeholder="my-agent-project"></label>
-          <label>项目标题<input id="project-title" v-model="form.title" maxlength="200" class="field"></label>
-          <label>摘要<textarea id="project-summary" v-model="form.summary" maxlength="16000" rows="3" class="field" /></label>
-          <label>本人贡献<textarea id="project-contribution" v-model="form.contribution" maxlength="16000" rows="4" class="field" /></label>
-          <label>成果（可选）<textarea id="project-outcome" v-model="form.outcome" maxlength="16000" rows="3" class="field" /></label>
-          <label>展示时间（可选）<input id="project-time" v-model="form.timeLabel" maxlength="100" class="field"></label>
-          <fieldset class="rounded-xl border border-line p-5">
-            <legend class="px-2 font-semibold">技术标签</legend>
-            <div class="flex flex-wrap gap-4">
-              <label v-for="tag in tags" :key="tag.id" class="flex items-center gap-2">
-                <input v-model="form.tagIds" type="checkbox" :value="tag.id" :data-tag-id="tag.id">{{ tag.name }}
-              </label>
-            </div>
-          </fieldset>
-          <div class="flex flex-wrap items-center gap-6">
-            <label><input id="project-featured" v-model="form.featured" type="checkbox"> 首页重点</label>
-            <label>排序（越小越靠前）<input id="project-sort" v-model.number="form.sortOrder" type="number" min="0" step="1" class="field"></label>
+          <div class="grid gap-5 md:grid-cols-2">
+            <UFormField label="项目标识（slug）" name="slug" :help="previouslyPublished ? ADMIN_MESSAGES.slugLocked : '用于项目唯一标识，建议使用简短英文与连字符。'">
+              <UInput id="project-slug" v-model="form.slug" :maxlength="ADMIN_PROJECT_LIMITS.slug" :readonly="previouslyPublished" :disabled="pending" class="w-full" placeholder="my-agent-project" />
+            </UFormField>
+            <UFormField label="项目标题" name="title"><UInput id="project-title" v-model="form.title" :maxlength="ADMIN_PROJECT_LIMITS.title" :disabled="pending" class="w-full" /></UFormField>
           </div>
-          <fieldset class="grid gap-4 rounded-xl border border-line p-5">
-            <legend class="px-2 font-semibold">外部入口（可选）</legend>
-            <div v-for="(link, index) in form.links" :key="index" class="grid gap-3 rounded-lg border border-line p-4">
-              <label>入口类型<select v-model="link.type" class="field"><option value="CODE">代码仓库</option><option value="DEMO">在线演示</option><option value="DOCUMENTATION">文档</option><option value="OTHER">其他</option></select></label>
-              <label>名称<input v-model="link.label" maxlength="100" class="field"></label>
-              <label>地址<input v-model="link.url" type="url" maxlength="2048" class="field" placeholder="https://"></label>
-              <label>外链排序<input v-model.number="link.sortOrder" type="number" min="0" class="field"></label>
-              <label><input v-model="link.visible" type="checkbox"> 向访客展示</label>
-              <button type="button" class="action" @click="form.links.splice(index, 1)">移除入口</button>
-            </div>
-            <button type="button" class="action w-fit" @click="addLink">添加外部入口</button>
-          </fieldset>
+          <UFormField label="摘要" name="summary"><UTextarea id="project-summary" v-model="form.summary" :maxlength="ADMIN_PROJECT_LIMITS.content" :rows="3" :disabled="pending" class="w-full" /></UFormField>
+          <UFormField label="本人贡献" name="contribution"><UTextarea id="project-contribution" v-model="form.contribution" :maxlength="ADMIN_PROJECT_LIMITS.content" :rows="4" :disabled="pending" class="w-full" /></UFormField>
+          <UFormField label="成果（可选）" name="outcome"><UTextarea id="project-outcome" v-model="form.outcome" :maxlength="ADMIN_PROJECT_LIMITS.content" :rows="3" :disabled="pending" class="w-full" /></UFormField>
+          <UFormField label="展示时间（可选）" name="timeLabel"><UInput id="project-time" v-model="form.timeLabel" :maxlength="ADMIN_PROJECT_LIMITS.timeLabel" :disabled="pending" class="w-full sm:max-w-sm" /></UFormField>
         </fieldset>
-        <div class="flex flex-wrap gap-4">
-          <button class="action bg-accent/15" type="submit" :disabled="!canOperate">{{ pending ? '处理中…' : '保存项目' }}</button>
-          <button v-if="projectId && status === 'DRAFT'" class="action" type="button" :disabled="!canOperate || dirty" @click="transition(true)">发布项目</button>
-          <button v-if="projectId && status === 'PUBLISHED'" class="action" type="button" :disabled="!canOperate || dirty" @click="transition(false)">下架项目</button>
-          <button v-if="projectId" class="action" type="button" :disabled="!canOperate" @click="reload">重新读取</button>
-          <NuxtLink to="/admin/projects" class="action">返回列表</NuxtLink>
+      </AdminEditorSection>
+      <AdminEditorSection title="技术与展示" description="标签体现实际使用的技术；首页重点与排序只影响公开展示。">
+        <fieldset :disabled="pending" class="grid gap-6">
+          <fieldset>
+            <legend class="mb-3 text-sm font-medium">技术标签</legend>
+            <div v-if="tags.length" class="flex flex-wrap gap-x-6 gap-y-4">
+              <UCheckbox v-for="tag in tags" :key="tag.id" :model-value="form.tagIds.includes(tag.id)" :data-tag-id="tag.id" :label="tag.name" :disabled="pending" @update:model-value="setTag(tag.id, $event === true)" />
+            </div>
+            <p v-else class="text-sm text-muted">{{ ADMIN_MESSAGES.tagsEmpty }}</p>
+          </fieldset>
+          <div class="grid items-start gap-5 sm:grid-cols-2">
+            <UCheckbox id="project-featured" v-model="form.featured" label="首页重点" description="纳入首页重点项目展示，首页仍最多展示四张卡片。" :disabled="pending" />
+            <UFormField label="排序（越小越靠前）" name="sortOrder"><UInput id="project-sort" v-model.number="form.sortOrder" type="number" :min="0" :step="1" :disabled="pending" class="w-full" /></UFormField>
+          </div>
+        </fieldset>
+      </AdminEditorSection>
+      <AdminEditorSection title="外部入口（可选）" description="仅填写真实 HTTP(S) 链接，关闭展示后访客不会看到该入口。">
+        <fieldset :disabled="pending" class="grid gap-4">
+          <p v-if="!form.links.length" class="text-sm text-muted">{{ ADMIN_MESSAGES.linksEmpty }}</p>
+          <div v-for="(link, index) in form.links" :key="index" class="grid gap-4 rounded-xl border border-line p-4 sm:p-5">
+            <div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold">外部入口 {{ index + 1 }}</h3><UButton type="button" color="error" variant="ghost" size="sm" icon="i-lucide-trash-2" :disabled="pending" :aria-label="'移除外部入口 ' + (index + 1)" @click="removeLink(index)">移除入口</UButton></div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <UFormField label="入口类型" :name="'links.' + index + '.type'"><USelect v-model="link.type" :items="linkTypes" :disabled="pending" class="w-full" /></UFormField>
+              <UFormField label="名称" :name="'links.' + index + '.label'"><UInput :model-value="link.label ?? ''" :maxlength="ADMIN_PROJECT_LIMITS.linkLabel" :disabled="pending" class="w-full" @update:model-value="link.label = $event" /></UFormField>
+            </div>
+            <UFormField label="地址" :name="'links.' + index + '.url'"><UInput v-model="link.url" type="url" :maxlength="ADMIN_PROJECT_LIMITS.linkUrl" placeholder="https://" :disabled="pending" class="w-full" /></UFormField>
+            <div class="grid items-center gap-4 sm:grid-cols-2">
+              <UFormField label="外链排序" :name="'links.' + index + '.sortOrder'"><UInput v-model.number="link.sortOrder" type="number" :min="0" :step="1" :disabled="pending" class="w-full" /></UFormField>
+              <UCheckbox :model-value="link.visible === true" label="向访客展示" :disabled="pending" @update:model-value="link.visible = $event === true" />
+            </div>
+          </div>
+          <UButton type="button" color="neutral" variant="outline" icon="i-lucide-plus" class="w-fit" :disabled="pending" @click="addLink">添加外部入口</UButton>
+        </fieldset>
+      </AdminEditorSection>
+      <UCard>
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div class="flex flex-wrap items-center gap-2"><UBadge :color="status === ADMIN_PROJECT_STATUS.PUBLISHED ? 'success' : 'neutral'" variant="subtle">{{ status === ADMIN_PROJECT_STATUS.PUBLISHED ? '已发布' : '草稿' }}</UBadge><span class="text-sm text-muted">版本 {{ form.version ?? '未保存' }}</span></div>
+          <div class="flex flex-wrap gap-3">
+            <UButton type="submit" icon="i-lucide-save" :disabled="!canOperate" :loading="operation === 'save'">保存项目</UButton>
+            <UButton v-if="projectId" type="button" color="neutral" variant="outline" :disabled="!canOperate || dirty" :loading="operation === 'publish' || operation === 'unpublish'" @click="transition(status === ADMIN_PROJECT_STATUS.DRAFT)">{{ status === ADMIN_PROJECT_STATUS.DRAFT ? '发布项目' : '下架项目' }}</UButton>
+            <UButton v-if="projectId" type="button" color="neutral" variant="ghost" icon="i-lucide-refresh-cw" :disabled="pending" :loading="operation === 'load'" @click="reload">重新读取</UButton>
+          </div>
         </div>
-        <p class="text-sm text-muted">当前状态：{{ status === 'PUBLISHED' ? '已发布（保存后立即更新公开卡片）' : '草稿' }} · 版本 {{ form.version ?? '未保存' }}。发布和下架针对已保存内容；修改后请先保存。</p>
-      </form>
-  </main>
+        <p role="status" class="mt-4 text-sm leading-6 text-muted">{{ dirty ? ADMIN_MESSAGES.projectDirty : projectId ? ADMIN_MESSAGES.projectClean : ADMIN_MESSAGES.newProjectClean }}</p>
+      </UCard>
+    </form>
+  </div>
 </template>
-<style scoped>
-.field { display: block; width: 100%; margin-top: .5rem; padding: .75rem; border: 1px solid var(--site-line); border-radius: .6rem; background: var(--site-surface); color: var(--site-text); }
-.action { padding: .65rem 1rem; border: 1px solid var(--site-line); border-radius: .6rem; }
-button:disabled { opacity: .5; cursor: not-allowed; }
-</style>
