@@ -10,9 +10,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@nuxt/ui": "4.11.3",
     "@iconify-json/lucide": "1.2.98",
-    "nuxt": "4.5.2"
+    "@nuxt/ui": "4.11.3",
+    "@pinia/nuxt": "1.0.2",
+    "nuxt": "4.5.2",
+    "pinia": "4.0.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

@@ -197,7 +197,7 @@ describe('project editor interactions', () => {
     await editor.save()
     expect(api.saveProject).toHaveBeenLastCalledWith(project.id, expect.objectContaining({ version: project.version }))
     await editor.reload(() => true)
-    expect(api.getProject).toHaveBeenCalledWith(project.id)
+    expect(api.getProject).toHaveBeenCalledWith(project.id, true)
   })
 
   it('prevents publishing dirty contents and uses the saved version after a successful save', async () => {

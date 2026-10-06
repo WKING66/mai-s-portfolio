@@ -34,6 +34,24 @@ function deferred<T>() {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('auth request and session interceptor', () => {
+  it('does not query a session already provided by login or an earlier initialization', async () => {
+    const fetch = vi.fn()
+    vi.stubGlobal('$fetch', fetch)
+    const api = fixture(anonymous, true, false)
+    api.accept(owner)
+    await api.ensureSession()
+    await api.ensureSession()
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('restores once at startup and reuses an anonymous snapshot too', async () => {
+    const fetch = vi.fn().mockResolvedValue(envelope(anonymous))
+    vi.stubGlobal('$fetch', fetch)
+    const api = fixture(anonymous, true, false)
+    await Promise.all([api.ensureSession(), api.ensureSession()])
+    await api.ensureSession()
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
   it.each([
     [anonymous, true, '/login?returnTo=%2Fadmin%2Fprojects%2F42'],
     [normal, true, '/forbidden'],
@@ -109,14 +127,14 @@ describe('auth request and session interceptor', () => {
     expect(api.navigate).not.toHaveBeenCalled()
   })
 
-  it('refreshes a revoked role and redirects without claiming logout', async () => {
+  it('revokes the session and redirects to login after a role is removed', async () => {
     vi.stubGlobal('$fetch', vi.fn().mockRejectedValueOnce(rejected(403, 'FORBIDDEN'))
-      .mockResolvedValueOnce(envelope({ ...owner, roles: [] })))
+      .mockResolvedValueOnce(envelope({ ...owner, roles: [] })).mockResolvedValueOnce(envelope(null)))
     const api = fixture()
     await expect(api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')).rejects.toThrow()
-    expect(api.state().loggedIn).toBe(true)
+    expect(api.state()).toEqual(anonymous)
     expect(api.canAccess(AUTH_ACCESS.OWNER)).toBe(false)
-    expect(api.navigate).toHaveBeenCalledWith('/forbidden')
+    expect(api.navigate).toHaveBeenCalledWith('/login?returnTo=%2Fadmin%2Fprojects%2F42')
   })
 
   it('fails closed when permission refresh rejects a disabled account', async () => {
@@ -125,6 +143,30 @@ describe('auth request and session interceptor', () => {
     await expect(api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')).rejects.toThrow()
     expect(api.state()).toEqual(anonymous)
     expect(api.navigate).toHaveBeenCalledWith('/login?returnTo=%2Fadmin%2Fprojects%2F42')
+  })
+
+  it('discards revoked UI permissions even if the server logout fails', async () => {
+    vi.stubGlobal('$fetch', vi.fn().mockRejectedValueOnce(rejected(403, 'FORBIDDEN'))
+      .mockResolvedValueOnce(envelope({ ...owner, roles: [] })).mockRejectedValueOnce(rejected(500, 'INTERNAL_ERROR')))
+    const api = fixture()
+    await expect(api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')).rejects.toThrow()
+    expect(api.state()).toEqual(anonymous)
+    expect(api.navigate).toHaveBeenCalledWith('/login?returnTo=%2Fadmin%2Fprojects%2F42')
+  })
+
+  it('does not clear a newer login while revocation logout is in flight', async () => {
+    const deletion = deferred<ReturnType<typeof envelope>>()
+    const fetch = vi.fn().mockRejectedValueOnce(rejected(403, 'FORBIDDEN'))
+      .mockResolvedValueOnce(envelope({ ...owner, roles: [] })).mockReturnValueOnce(deletion.promise)
+    vi.stubGlobal('$fetch', fetch)
+    const api = fixture()
+    const reading = api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(3))
+    api.accept(normal)
+    deletion.reject(rejected(401, 'UNAUTHENTICATED'))
+    await expect(reading).rejects.toThrow()
+    expect(api.state()).toEqual(normal)
+    expect(api.navigate).not.toHaveBeenCalled()
   })
 
   it.each([normal, owner])('does not navigate a new login when an old 403 recovery succeeds', async (newSession) => {
@@ -175,13 +217,13 @@ describe('auth request and session interceptor', () => {
 
   it('shows unrelated 403 and conflicts locally without automatic write retries', async () => {
     const fetch = vi.fn().mockRejectedValueOnce(rejected(403, 'POLICY_DENIED'))
-      .mockResolvedValueOnce(envelope(owner)).mockRejectedValueOnce(rejected(409, 'DATA_CONFLICT'))
+      .mockRejectedValueOnce(rejected(409, 'DATA_CONFLICT'))
     vi.stubGlobal('$fetch', fetch)
     const api = fixture()
     await expect(api.request('/api/v1/projects', {}, AUTH_ACCESS.OWNER, '失败')).rejects.toMatchObject({ code: 'POLICY_DENIED' })
     await expect(api.request('/api/v1/admin/projects/42', { method: 'PATCH' }, AUTH_ACCESS.OWNER, '失败')).rejects.toMatchObject({ status: 409 })
     expect(api.navigate).not.toHaveBeenCalled()
-    expect(fetch).toHaveBeenCalledTimes(3)
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('deduplicates concurrent session recovery', async () => {

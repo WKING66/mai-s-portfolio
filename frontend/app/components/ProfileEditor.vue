@@ -24,14 +24,14 @@ function apply(profile: AdminProfileVo) {
   loaded.value = true
 }
 
-async function reload() {
+async function reload(force = true) {
   if (pending.value) return
   if (dirty.value && !window.confirm(PROFILE_MESSAGES.discardConfirm)) return
   operation.value = 'load'
   error.value = ''
   notice.value = ''
   try {
-    apply(await getProfile())
+    apply(await getProfile(force))
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : PROFILE_MESSAGES.loadFailed
   } finally {
@@ -59,7 +59,7 @@ async function save() {
   }
 }
 
-onMounted(reload)
+onMounted(() => reload(false))
 </script>
 <template>
   <div class="grid gap-6" :aria-busy="pending">
@@ -72,7 +72,7 @@ onMounted(reload)
         <USkeleton class="h-56 w-full" />
         <div class="grid gap-5 md:grid-cols-2"><USkeleton class="h-16 w-full" /><USkeleton class="h-16 w-full" /></div>
       </div>
-      <div v-else class="flex justify-center py-8"><UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" @click="reload">重新读取</UButton></div>
+      <div v-else class="flex justify-center py-8"><UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" @click="reload()">重新读取</UButton></div>
     </UCard>
     <form v-else novalidate class="grid gap-6" @submit.prevent="save">
       <AdminEditorSection title="公开身份" description="昵称、职业定位和介绍将用于公开首页与搜索引擎元数据。">
@@ -95,7 +95,7 @@ onMounted(reload)
           <p role="status" class="text-sm text-muted">{{ dirty ? PROFILE_MESSAGES.unsaved : PROFILE_MESSAGES.clean }}</p>
           <div class="flex flex-wrap gap-3">
             <UButton type="submit" icon="i-lucide-save" :disabled="!canSave" :loading="operation === 'save'">保存资料</UButton>
-            <UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :disabled="pending" :loading="operation === 'load'" @click="reload">重新读取</UButton>
+            <UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :disabled="pending" :loading="operation === 'load'" @click="reload()">重新读取</UButton>
           </div>
         </div>
       </UCard>

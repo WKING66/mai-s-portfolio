@@ -14,9 +14,12 @@ onMounted(initialize)
 
 <template>
   <UApp>
-    <!-- 页头不随页面卸载，账户状态、主题与导航尺寸不会在路由切换时重置。 -->
-    <SiteHeader :restore-session="!authPage" />
-    <NuxtLoadingIndicator :height="2" color="var(--site-accent)" />
-    <NuxtPage />
+    <!-- 普通选择器统一不锁背景滚动，避免重复补偿滚动条造成整页抖动。 -->
+    <UTheme :props="{ select: { content: { bodyLock: false, position: 'popper' } } }">
+      <!-- 页头不随页面卸载，账户状态、主题与导航尺寸不会在路由切换时重置。 -->
+      <SiteHeader :restore-session="!authPage" />
+      <NuxtLoadingIndicator :height="2" color="var(--site-accent)" />
+      <NuxtPage />
+    </UTheme>
   </UApp>
 </template>

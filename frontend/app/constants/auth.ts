@@ -19,6 +19,7 @@ export const AUTH_ROLE = { OWNER: 'OWNER' } as const
 export const CSRF_HEADER = 'X-CSRF-Token'
 
 export const AUTH_ERROR_CODES = {
+  forbidden: 'FORBIDDEN',
   csrfInvalid: 'CSRF_INVALID',
   clientForbidden: 'CLIENT_FORBIDDEN',
   sessionChanged: 'AUTH_SESSION_CHANGED',

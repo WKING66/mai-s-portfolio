@@ -35,7 +35,7 @@ export function useProjectEditor(projectId?: number) {
     savedForm.value = JSON.stringify(form)
   }
 
-  async function load() {
+  async function load(force = false) {
     if (pending.value) return
     operation.value = 'load'
     error.value = ''
@@ -44,7 +44,7 @@ export function useProjectEditor(projectId?: number) {
       // 初次失败同样允许重试；两个只读请求完成后才启用编辑器。
       const currentProjectId = savedProjectId.value
       const [loadedTags, project] = await Promise.all([
-        getProjectTags(), currentProjectId ? getProject(currentProjectId) : Promise.resolve(null),
+        getProjectTags(), currentProjectId ? (force ? getProject(currentProjectId, true) : getProject(currentProjectId)) : Promise.resolve(null),
       ])
       tags.value = loadedTags
       if (project) apply(project)
@@ -82,7 +82,7 @@ export function useProjectEditor(projectId?: number) {
 
   async function reload(confirmDiscard: () => boolean) {
     if (pending.value || (dirty.value && !confirmDiscard())) return
-    await load()
+    await load(true)
   }
 
   async function transition(publish: boolean) {

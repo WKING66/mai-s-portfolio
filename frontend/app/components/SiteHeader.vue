@@ -22,7 +22,7 @@ const mobileItems = computed<DropdownMenuItem[]>(() => SITE_NAVIGATION.map(item 
 
 onMounted(() => {
   if (props.restoreSession && !auth.ready.value) {
-    void auth.refresh().catch(() => { sessionError.value = LOGIN_MESSAGES.sessionFailed })
+    void auth.ensureSession().catch(() => { sessionError.value = LOGIN_MESSAGES.sessionFailed })
   }
 })
 </script>

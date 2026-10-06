@@ -5,7 +5,7 @@ import { ADMIN_MESSAGES, ADMIN_PATHS, ADMIN_PROJECT_FILTERS, ADMIN_PROJECT_STATU
 import { PROJECT_MESSAGES } from '../constants/projects'
 
 const { result, filter, pending, changingProjectId, error, notice, canPrevious, canNext,
-  load, transition, changePage, changeFilter } = useAdminProjectList()
+  load, reload, transition, changePage, changeFilter } = useAdminProjectList()
 // UI 的 items 类型为可变数组；复制常量，组件内部不能改写共享选项。
 const filters = ADMIN_PROJECT_FILTERS.map(item => ({ ...item }))
 const emptyMessage = computed(() => result.value && result.value.page > 1
@@ -21,7 +21,7 @@ onMounted(() => load())
         <UFormField label="状态筛选" name="project-status-filter">
           <USelect id="project-status-filter" :model-value="filter" :items="filters" :disabled="pending" class="w-44" @update:model-value="changeFilter" />
         </UFormField>
-        <UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :disabled="pending" :loading="pending && changingProjectId === null" @click="load()">重新读取</UButton>
+        <UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :disabled="pending" :loading="pending && changingProjectId === null" @click="reload()">重新读取</UButton>
       </div>
     </UCard>
     <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />

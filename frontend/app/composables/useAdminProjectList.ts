@@ -16,7 +16,7 @@ export function useAdminProjectList() {
   const canPrevious = computed(() => !!result.value && result.value.page > 1)
   const canNext = computed(() => !!result.value && result.value.page * result.value.size < result.value.total)
 
-  async function load(nextPage = requestedPage.value, nextFilter = filter.value) {
+  async function load(nextPage = requestedPage.value, nextFilter = filter.value, force = false) {
     if (pending.value) return
     pending.value = true
     error.value = ''
@@ -24,7 +24,8 @@ export function useAdminProjectList() {
     filter.value = nextFilter
     result.value = null
     try {
-      result.value = await getManagedProjects(nextPage, nextFilter === 'ALL' ? '' : nextFilter)
+      const status = nextFilter === 'ALL' ? '' : nextFilter
+      result.value = await (force ? getManagedProjects(nextPage, status, true) : getManagedProjects(nextPage, status))
     } catch (cause) {
       error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.loadFailed
     } finally {
@@ -66,6 +67,8 @@ export function useAdminProjectList() {
     await load(1, nextFilter)
   }
 
+  function reload() { return load(requestedPage.value, filter.value, true) }
+
   return { result, filter, pending, changingProjectId, error, notice, canPrevious, canNext,
-    load, transition, changePage, changeFilter }
+    load, reload, transition, changePage, changeFilter }
 }

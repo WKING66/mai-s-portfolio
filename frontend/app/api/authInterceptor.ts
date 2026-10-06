@@ -74,6 +74,11 @@ export function createAuthInterceptor(context: AuthContext) {
     return hasAccess(context.session(), context.ready(), access)
   }
 
+  /** 启动时恢复一次；登录已提供完整快照，普通切页不得强制查会话。 */
+  function ensureSession(): Promise<boolean> {
+    return context.ready() ? Promise.resolve(true) : refresh()
+  }
+
   async function redirect(access: AuthAccess) {
     const target = accessRedirect(context.session(), context.ready(), access, context.currentPath())
     if (target) await context.navigate(target)
@@ -107,7 +112,7 @@ export function createAuthInterceptor(context: AuthContext) {
       if (error.status === 401) {
         clear()
         await redirect(access)
-      } else if (error.status === 403) {
+      } else if (error.status === 403 && (error.code === AUTH_ERROR_CODES.csrfInvalid || error.code === AUTH_ERROR_CODES.forbidden)) {
         try {
           if (!await refresh()) {
             throw new ApiRequestError(AUTH_MESSAGES.sessionChanged, null, AUTH_ERROR_CODES.sessionChanged)
@@ -117,6 +122,14 @@ export function createAuthInterceptor(context: AuthContext) {
             await redirect(access)
           }
           throw refreshError
+        }
+        // 确认角色已撤销后退出并重新登录；一般业务 403 不误踢用户。
+        if (error.code === AUTH_ERROR_CODES.forbidden && !canAccess(access) && context.session().loggedIn) {
+          const beforeLogout = revision
+          try { await signOut() } catch (logoutError) {
+            if (revision !== beforeLogout + 1) throw logoutError
+            clear() // UI 必须失效；不声称失败的服务端注销已经成功。
+          }
         }
         await redirect(access)
         if (canAccess(access) && error.code === AUTH_ERROR_CODES.csrfInvalid) {
@@ -142,5 +155,5 @@ export function createAuthInterceptor(context: AuthContext) {
   }
 
   // 加密等请求发送前的异步准备也需绑定此会话，避免使用切换后的账号提交旧表单。
-  return { accept, clear, refresh, canAccess, request, signOut, sessionRevision: () => revision }
+  return { accept, clear, refresh, ensureSession, canAccess, request, signOut, sessionRevision: () => revision }
 }

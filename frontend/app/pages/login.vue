@@ -28,7 +28,6 @@ async function submitLogin() {
   try {
     const session = await login(username.value, password.value, config.public.authRsaPublicKey)
     auth.accept(session)
-    await auth.refresh()
     if (!auth.canAccess(AUTH_ACCESS.AUTHENTICATED)) throw new Error(LOGIN_MESSAGES.sessionFailed)
     // 登录后的业务去向复用统一能力规则，不在页面重新解释角色字符串。
     if (typeof route.query.returnTo === 'string' || auth.canAccess(AUTH_ACCESS.OWNER)) {
@@ -47,7 +46,7 @@ async function submitLogin() {
 onMounted(async () => {
   pending.value = true
   try {
-    await auth.refresh()
+    await auth.ensureSession()
     if (auth.state.value.username) username.value = auth.state.value.username
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : LOGIN_MESSAGES.sessionFailed

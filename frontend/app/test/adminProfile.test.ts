@@ -1,13 +1,16 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { AUTH_ACCESS } from '../constants/auth'
 
 const { request } = vi.hoisted(() => ({ request: vi.fn() }))
-vi.mock('../composables/useAuthState', () => ({ useAuthState: () => ({ request }) }))
+vi.mock('../composables/useAuthState', () => ({ useAuthState: () => ({ request, canAccess: () => true }) }))
+vi.mock('#app', () => ({ useNuxtApp: () => ({}) }))
 
 import { useAdminProfileApi, type AdminProfileVo, type UpdateProfileRequest } from '../api/adminProfile'
 import { PROFILE_MESSAGES, PROFILE_PATHS } from '../constants/profile'
 
 afterEach(() => request.mockReset())
+beforeEach(() => setActivePinia(createPinia()))
 
 const profile: AdminProfileVo = {
   displayName: '阿霾', headline: 'Java 与 AI', intro: '项目复盘',

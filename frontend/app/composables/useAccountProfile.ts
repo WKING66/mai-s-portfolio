@@ -1,4 +1,6 @@
-import { useState, useNuxtApp, type NuxtApp } from '#app'
+import { useNuxtApp, type NuxtApp } from '#app'
+import { storeToRefs } from 'pinia'
+import { useAccountStore } from '../stores/account'
 import { useAuthState } from './useAuthState'
 import { useAccountApi, type AccountProfileVo } from '../api/account'
 import { ACCOUNT_MESSAGES } from '../constants/account'
@@ -11,10 +13,8 @@ export function useAccountProfile() {
   const auth = useAuthState()
   const api = useAccountApi()
   const app = useNuxtApp()
-  const state = useState<AccountProfileVo | null>('account-profile', () => null)
-  const revision = useState<number>('account-profile-revision', () => 0)
-  const error = useState<string>('account-profile-error', () => '')
-  const pending = useState<boolean>('account-profile-pending', () => false)
+  const account = useAccountStore(app.$pinia)
+  const { profile: state, profileRevision: revision, profileError: error, profilePending: pending } = storeToRefs(account)
 
   function accept(profile: AccountProfileVo) {
     if (auth.canAccess(AUTH_ACCESS.AUTHENTICATED) && profile.username === auth.state.value.username) {
@@ -24,10 +24,7 @@ export function useAccountProfile() {
     }
   }
   function clear() {
-    revision.value += 1
-    state.value = null
-    error.value = ''
-    pending.value = false
+    account.clearProfile()
   }
   async function load() {
     if (!import.meta.client || !auth.canAccess(AUTH_ACCESS.AUTHENTICATED)) return

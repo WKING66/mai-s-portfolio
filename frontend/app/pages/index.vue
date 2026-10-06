@@ -6,9 +6,13 @@ import { usePublicProjects } from '../api/projects'
 import { HOME_PROJECT_LIMIT, PROJECT_MESSAGES } from '../constants/projects'
 import { createProfileStructuredData, SEO_SITE_NAME } from '#shared/utils/seo'
 
-const { data: response, error } = await usePublicProfile()
+// 两个公开查询并行，且 SSR 快照在水合时复用，不受账户恢复请求影响。
+const [profileResponse, projectsResponse] = await Promise.all([
+  usePublicProfile(), usePublicProjects(1, HOME_PROJECT_LIMIT),
+])
+const { data: response, error } = profileResponse
 const profile = computed(() => response.value?.code === 'OK' ? response.value.data : null)
-const { data: projectResponse, error: projectError } = await usePublicProjects(1, HOME_PROJECT_LIMIT)
+const { data: projectResponse, error: projectError } = projectsResponse
 const selectedProjects = computed(() => projectResponse.value?.data)
 
 const focusAreas = [

@@ -18,11 +18,11 @@ const loggedIn = computed(() => auth.state.value.loggedIn)
 
 useSeoMeta({ title: '注册 · 阿霾作品集', robots: 'noindex,nofollow' })
 
-async function restoreSession() {
+async function restoreSession(force = false) {
   pending.value = true
   errorMessage.value = ''
   try {
-    await auth.refresh()
+    await (force ? auth.refresh() : auth.ensureSession())
     sessionVerified.value = true
   } catch (error) {
     sessionVerified.value = false
@@ -32,7 +32,7 @@ async function restoreSession() {
   }
 }
 
-onMounted(restoreSession)
+onMounted(() => restoreSession())
 
 async function submitRegistration() {
   // 会话确认后才允许注册；已登录用户不能在此页面静默切换账号。
@@ -84,7 +84,7 @@ async function submitLogout() {
         <h1 class="text-3xl font-bold tracking-tight">创建访客账号</h1>
         <p v-if="pending" role="status" class="text-sm text-muted">正在确认账号状态…</p>
         <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
-        <button v-if="!pending" type="button" class="auth-primary rounded-xl px-5 py-3.5 font-semibold" @click="restoreSession">重新确认账号状态</button>
+        <button v-if="!pending" type="button" class="auth-primary rounded-xl px-5 py-3.5 font-semibold" @click="restoreSession(true)">重新确认账号状态</button>
       </section>
       <section v-else-if="loggedIn" class="grid gap-6" role="status">
         <div>

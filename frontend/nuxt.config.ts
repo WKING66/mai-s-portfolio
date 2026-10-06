@@ -4,7 +4,7 @@ import { THEME_BOOTSTRAP_SCRIPT } from './app/utils/siteTheme'
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-26',
   devtools: { enabled: false },
-  modules: ['@nuxt/ui'],
+  modules: ['@nuxt/ui', '@pinia/nuxt'],
   // 复用已有主题和系统字体，不引入远程字体请求或第二套主题状态。
   ui: { fonts: false, colorMode: false },
   icon: { serverBundle: { collections: ['lucide'] } },

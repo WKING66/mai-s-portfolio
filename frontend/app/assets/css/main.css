@@ -75,7 +75,8 @@
 }
 
 @layer base {
-  html { min-height: 100%; scroll-behavior: smooth; scrollbar-gutter: stable; }
+  /* 刷新交给浏览器即时恢复，不用全局 smooth 把恢复滚动变成回到顶部再动画。 */
+  html { min-height: 100%; scroll-behavior: auto; scrollbar-gutter: stable; }
   body {
     min-width: 320px;
     min-height: 100svh;
