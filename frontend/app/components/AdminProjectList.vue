@@ -24,8 +24,8 @@ onMounted(() => load())
         <UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" :disabled="pending" :loading="pending && changingProjectId === null" @click="reload()">重新读取</UButton>
       </div>
     </UCard>
-    <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />
-    <UAlert v-if="notice" role="status" color="success" variant="subtle" :title="notice" icon="i-lucide-circle-check" />
+    <UAlert v-if="error" role="alert" color="error" variant="soft" :title="error" icon="i-lucide-circle-alert" />
+    <UAlert v-if="notice" role="status" color="success" variant="soft" :title="notice" icon="i-lucide-circle-check" />
     <div v-if="pending && !result" role="status" :aria-label="ADMIN_MESSAGES.loadingProjects" class="grid min-h-[480px] gap-4">
       <UCard v-for="index in 3" :key="index"><USkeleton class="mb-5 h-6 w-56" /><USkeleton class="mb-3 h-4 w-3/4" /><USkeleton class="h-3 w-40" /></UCard>
     </div>

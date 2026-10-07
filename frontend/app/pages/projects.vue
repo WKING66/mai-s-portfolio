@@ -24,7 +24,7 @@ useHead(() => {
 <template>
   <main class="mx-auto min-h-[70vh] max-w-[1200px] px-5 py-16">
     <SectionHeading id="all-projects" eyebrow="PROJECTS" title="项目作品" description="从项目贡献与成果，了解我的技术实践。" />
-    <p v-if="error" role="alert">{{ PROJECT_MESSAGES.loadFailed }}</p>
+    <UAlert v-if="error" role="alert" color="error" variant="soft" :title="PROJECT_MESSAGES.loadFailed" icon="i-lucide-circle-alert" />
     <p v-else-if="!projects?.items.length" role="status">{{ PROJECT_MESSAGES.empty }}</p>
     <div v-else class="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       <ProjectCard v-for="project in projects.items" :key="project.id" :project="project" />

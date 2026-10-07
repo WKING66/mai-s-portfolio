@@ -45,7 +45,6 @@ onMounted(() => {
           {{ item.label }}
         </NuxtLink>
         <AccountMenu />
-        <span v-if="sessionError" role="status" class="sr-only">{{ sessionError }}</span>
         <UButton class="theme-toggle rounded-full" color="neutral" variant="outline" size="lg"
           :icon="theme === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
           :aria-label="theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'" @click="toggleTheme" />
@@ -57,6 +56,9 @@ onMounted(() => {
         </UDropdownMenu>
       </nav>
     </div>
+    <!-- 会话恢复失败使用可见反馈，不撑高导航，避免打断当前锚点位置。 -->
+    <UAlert v-if="sessionError" role="alert" color="error" variant="soft" :title="sessionError" icon="i-lucide-circle-alert"
+      class="absolute top-full right-4 z-50 mt-3 w-80 max-w-[calc(100vw-2rem)] shadow-lg" :ui="{ title: 'break-words' }" />
   </header>
 </template>
 

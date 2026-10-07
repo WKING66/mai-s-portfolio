@@ -64,8 +64,8 @@ onMounted(() => reload(false))
 <template>
   <div class="grid gap-6" :aria-busy="pending">
     <UAlert role="status" color="neutral" variant="subtle" :title="PROFILE_MESSAGES.mediaHint" icon="i-lucide-info" />
-    <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />
-    <UAlert v-if="notice" role="status" color="success" variant="subtle" :title="notice" icon="i-lucide-circle-check" />
+    <UAlert v-if="error" role="alert" color="error" variant="soft" :title="error" icon="i-lucide-circle-alert" />
+    <UAlert v-if="notice" role="status" color="success" variant="soft" :title="notice" icon="i-lucide-circle-check" />
     <UCard v-if="!loaded">
       <div v-if="pending" role="status" :aria-label="PROFILE_MESSAGES.loading" class="grid min-h-[500px] gap-6">
         <div class="grid gap-5 md:grid-cols-2"><USkeleton class="h-16 w-full" /><USkeleton class="h-16 w-full" /></div>

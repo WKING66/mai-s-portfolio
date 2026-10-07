@@ -83,7 +83,7 @@ async function submitLogout() {
       <section v-if="!sessionVerified" class="grid gap-6" :aria-busy="pending">
         <h1 class="text-3xl font-bold tracking-tight">创建访客账号</h1>
         <p v-if="pending" role="status" class="text-sm text-muted">正在确认账号状态…</p>
-        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
+        <UAlert v-if="errorMessage" role="alert" color="error" variant="soft" :title="errorMessage" icon="i-lucide-circle-alert" />
         <button v-if="!pending" type="button" class="auth-primary rounded-xl px-5 py-3.5 font-semibold" @click="restoreSession(true)">重新确认账号状态</button>
       </section>
       <section v-else-if="loggedIn" class="grid gap-6" role="status">
@@ -92,7 +92,7 @@ async function submitLogout() {
           <h1 class="mt-3 text-3xl font-bold tracking-tight">当前账号已登录</h1>
           <p class="mt-3 leading-7 text-muted">{{ auth.state.value.username }}，{{ REGISTRATION_MESSAGES.signedIn }}</p>
         </div>
-        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm">{{ errorMessage }}</p>
+        <UAlert v-if="errorMessage" role="alert" color="error" variant="soft" :title="errorMessage" icon="i-lucide-circle-alert" />
         <Auth :access="AUTH_ACCESS.OWNER">
           <NuxtLink :to="AUTH_PATHS.manageProjects" class="auth-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">管理项目 →</NuxtLink>
         </Auth>
@@ -103,7 +103,7 @@ async function submitLogout() {
         <div>
           <span class="eyebrow">WELCOME ABOARD</span>
           <h1 class="mt-3 text-3xl font-bold tracking-tight">注册成功</h1>
-          <p class="mt-3 leading-7 text-muted">{{ registeredUsername }}，{{ REGISTRATION_MESSAGES.success }}</p>
+          <UAlert class="mt-3" role="status" color="success" variant="soft" :title="registeredUsername + '，' + REGISTRATION_MESSAGES.success" icon="i-lucide-circle-check" />
           <p class="auth-welcome text-sm leading-6 text-muted">{{ REGISTRATION_MESSAGES.accountAccess }}</p>
         </div>
         <NuxtLink :to="AUTH_PATHS.login" class="auth-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">前往登录 →</NuxtLink>
@@ -127,7 +127,7 @@ async function submitLogout() {
             <p id="register-password-hint" class="mt-2 text-xs leading-5 text-muted">{{ REGISTRATION_MESSAGES.passwordHint }}</p>
           </div>
         </div>
-        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
+        <UAlert v-if="errorMessage" role="alert" color="error" variant="soft" :title="errorMessage" icon="i-lucide-circle-alert" />
         <button type="submit" :disabled="pending" class="auth-primary flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3.5 font-semibold">
           {{ pending ? '正在注册…' : '创建账号' }} <span v-if="!pending" aria-hidden="true">→</span>
         </button>

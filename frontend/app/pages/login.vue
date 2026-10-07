@@ -85,7 +85,7 @@ async function submitLogout() {
     <SurfaceCard as="div" class="auth-card" :max-tilt="2">
       <div class="auth-mark" aria-hidden="true">M</div>
       <form v-if="!loggedIn" class="grid gap-6" :aria-busy="pending" @submit.prevent="submitLogin">
-        <UAlert v-if="route.query.passwordChanged === '1'" color="success" variant="soft" :title="ACCOUNT_MESSAGES.passwordChanged" role="status" />
+        <UAlert v-if="route.query.passwordChanged === '1'" color="success" variant="soft" :title="ACCOUNT_MESSAGES.passwordChanged" role="status" icon="i-lucide-circle-check" />
         <div>
           <span class="eyebrow">WELCOME BACK</span>
           <h1 class="mt-3 text-3xl font-bold tracking-tight">登录你的账号</h1>
@@ -101,7 +101,7 @@ async function submitLogout() {
             <input id="password" v-model="password" name="password" type="password" autocomplete="current-password" placeholder="输入密码" required :disabled="pending" class="auth-input">
           </div>
         </div>
-        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 px-4 py-3 text-sm leading-6">{{ errorMessage }}</p>
+        <UAlert v-if="errorMessage" role="alert" color="error" variant="soft" :title="errorMessage" icon="i-lucide-circle-alert" />
         <button type="submit" :disabled="pending" class="auth-primary flex w-full items-center justify-center gap-3 rounded-xl px-5 py-3.5 font-semibold">
           {{ pending ? '正在登录…' : '登录' }} <span v-if="!pending" aria-hidden="true">→</span>
         </button>
@@ -114,7 +114,7 @@ async function submitLogout() {
           <p class="mt-3 leading-7 text-muted">{{ auth.state.value.username || username }}，你已登录。</p>
           <p class="mt-1 text-sm text-muted">{{ LOGIN_MESSAGES.accountAccess }}</p>
         </div>
-        <p v-if="errorMessage" role="alert" class="auth-error rounded-xl border border-red-500/30 bg-red-500/5 p-4 text-sm">{{ errorMessage }}</p>
+        <UAlert v-if="errorMessage" role="alert" color="error" variant="soft" :title="errorMessage" icon="i-lucide-circle-alert" />
         <Auth :access="AUTH_ACCESS.OWNER">
           <NuxtLink to="/admin/projects" class="auth-primary rounded-xl px-5 py-3.5 text-center font-semibold no-underline">管理项目 →</NuxtLink>
         </Auth>

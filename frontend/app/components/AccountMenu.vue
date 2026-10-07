@@ -84,14 +84,16 @@ const items = computed<DropdownMenuItem[][]>(() => {
         <span class="hidden max-w-20 truncate sm:inline">{{ displayName }}</span>
       </UButton>
       <template #content-bottom>
-        <p v-if="error" role="alert" class="max-w-60 border-t border-line px-3 py-2 text-xs leading-5 text-red-500">{{ error }}</p>
+        <UAlert v-if="error" role="alert" color="error" variant="soft" :title="error" icon="i-lucide-circle-alert" class="mt-1" :ui="{ title: 'break-words' }" />
       </template>
     </UDropdownMenu>
     <UButton v-else data-account-entry :to="AUTH_PATHS.login" color="neutral" variant="outline"
       icon="i-lucide-user-round" size="lg" class="account-entry h-10 w-full justify-center rounded-full" :aria-label="ACCOUNT_MENU_MESSAGES.login">
       <span class="hidden sm:inline">{{ ACCOUNT_MENU_MESSAGES.login }}</span>
     </UButton>
-    <p v-if="error && !open" role="status" class="sr-only">{{ error }}</p>
+    <!-- 注销选择会关闭菜单；失败仍需可见，不能只用屏幕阅读器提示或撑高导航。 -->
+    <UAlert v-if="error && !open" role="alert" color="error" variant="soft" :title="error" icon="i-lucide-circle-alert"
+      class="absolute top-full right-0 z-50 mt-3 w-72 max-w-[calc(100vw-2rem)] shadow-lg" :ui="{ title: 'break-words' }" />
   </div>
 </template>
 

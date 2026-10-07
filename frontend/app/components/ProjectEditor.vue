@@ -36,8 +36,8 @@ onMounted(() => load())
 
 <template>
   <div class="grid gap-6" :aria-busy="pending">
-    <UAlert v-if="error" role="alert" color="error" variant="subtle" :title="error" icon="i-lucide-circle-alert" />
-    <UAlert v-if="notice" role="status" color="success" variant="subtle" :title="notice" icon="i-lucide-circle-check" />
+    <UAlert v-if="error" role="alert" color="error" variant="soft" :title="error" icon="i-lucide-circle-alert" />
+    <UAlert v-if="notice" role="status" color="success" variant="soft" :title="notice" icon="i-lucide-circle-check" />
     <UCard v-if="!loaded">
       <div v-if="pending" role="status" :aria-label="ADMIN_MESSAGES.loadingProject" class="grid min-h-[600px] gap-6">
         <div class="grid gap-5 md:grid-cols-2"><USkeleton class="h-16 w-full" /><USkeleton class="h-16 w-full" /></div>

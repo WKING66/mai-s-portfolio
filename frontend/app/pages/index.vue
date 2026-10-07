@@ -36,9 +36,7 @@ useHead(() => {
 <template>
   <div class="min-h-screen font-sans text-ink">
     <main class="mx-auto w-full max-w-[1200px] px-4 sm:px-5">
-      <p v-if="error" class="mt-10 rounded-2xl border border-accent/40 p-6" role="status">
-        {{ SITE_MESSAGES.profileLoadFailed }}
-      </p>
+      <UAlert v-if="error" class="mt-10" role="alert" color="error" variant="soft" :title="SITE_MESSAGES.profileLoadFailed" icon="i-lucide-circle-alert" />
       <template v-else-if="profile">
         <ProfileHero :profile="profile" />
 
@@ -68,7 +66,7 @@ useHead(() => {
               </NuxtLink>
             </template>
           </SectionHeading>
-          <p v-if="projectError" role="alert">{{ PROJECT_MESSAGES.loadFailed }}</p>
+          <UAlert v-if="projectError" role="alert" color="error" variant="soft" :title="PROJECT_MESSAGES.loadFailed" icon="i-lucide-circle-alert" />
           <div v-else-if="selectedProjects?.items.length" class="grid gap-6 md:grid-cols-2">
             <ProjectCard v-for="project in selectedProjects.items" :key="project.id" :project="project" />
           </div>

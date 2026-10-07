@@ -27,7 +27,6 @@
 .auth-input:focus-visible { outline: 2px solid var(--site-accent); outline-offset: 3px; }
 .auth-primary { padding-block: 11px; color: var(--site-bg); background: var(--site-accent); cursor: pointer; transition: filter .2s ease; }
 .auth-primary:hover { filter: brightness(1.08); }
-.auth-error { margin: 0; padding: 10px 12px; line-height: 1.5; color: light-dark(#a92136, #ffb7c2); overflow-wrap: anywhere; }
 .auth-page button:disabled, .auth-page input:disabled { opacity: .6; cursor: wait; }
 /* 窄屏优先完整表单，不再把装饰介绍堆叠到表单上方。 */
 @media (max-width: 899px) {
