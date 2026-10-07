@@ -2,6 +2,7 @@ package dev.amai.portfolio.portfolio.constant;
 
 /** 项目提示集中管理；不回显 SQL、内部对象键或异常详情。 */
 public final class ProjectMessageConstants {
+    public static final String INVALID_COVER = "请选择已上传且就绪的项目图片，不能使用头像或其他私有资源";
     public static final String NOT_FOUND = "项目不存在";
     public static final String INVALID_QUERY = "项目视图、状态或分页参数不正确";
     public static final String INVALID_FIELDS = "项目字段、长度、排序或版本号不正确";

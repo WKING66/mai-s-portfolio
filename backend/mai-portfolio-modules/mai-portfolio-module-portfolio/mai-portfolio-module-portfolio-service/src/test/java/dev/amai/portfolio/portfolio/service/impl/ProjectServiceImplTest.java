@@ -14,6 +14,8 @@ import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.mapper.ProjectLinkMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectTagMapper;
+import dev.amai.portfolio.portfolio.mapper.ProjectMediaMapper;
+import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.api.TechTagOptionData;
 import dev.amai.portfolio.web.exception.ApiException;
@@ -29,7 +31,9 @@ class ProjectServiceImplTest {
     private final ProjectLinkMapper links = mock(ProjectLinkMapper.class);
     private final ProjectTagMapper tags = mock(ProjectTagMapper.class);
     private final TaxonomyQueryService taxonomy = mock(TaxonomyQueryService.class);
-    private final ProjectServiceImpl service = new ProjectServiceImpl(projects, links, tags, taxonomy);
+    private final ProjectMediaMapper media = mock(ProjectMediaMapper.class);
+    private final AssetQueryService assets = mock(AssetQueryService.class);
+    private final ProjectServiceImpl service = new ProjectServiceImpl(projects, links, tags, taxonomy, media, assets);
 
     @BeforeEach
     void catalog() {
@@ -72,6 +76,16 @@ class ProjectServiceImplTest {
     }
 
     @Test
+    void invalidOrPrivateCoverCannotWriteProjectOrRelations() {
+        var request = input(List.of(1L), List.of());
+        var withCover = new ProjectRequest(request.version(), request.slug(), request.title(), request.summary(),
+            request.contribution(), request.outcome(), request.timeLabel(), request.tagIds(), request.links(),
+            request.featured(), request.sortOrder(), 19L);
+        assertThatThrownBy(() -> service.create(withCover)).hasMessage(ProjectMessageConstants.INVALID_COVER);
+        verifyNoInteractions(projects, links, tags, media);
+    }
+
+    @Test
     void staleVersionCannotAlterRelations() {
         ProjectDO project = new ProjectDO();
         project.setId(1L);
@@ -79,11 +93,11 @@ class ProjectServiceImplTest {
         when(projects.selectById(1L)).thenReturn(project);
         assertThatThrownBy(() -> service.unpublish(1L, new ProjectVersionRequest(1L)))
             .hasMessage(ProjectMessageConstants.CONFLICT);
-        verifyNoInteractions(links, tags);
+        verifyNoInteractions(links, tags, media);
     }
 
     private ProjectRequest input(List<Long> tagIds, List<ProjectLinkRequest> inputLinks) {
         return new ProjectRequest(null, "test-project", "测试", "摘要", "贡献", null, null,
-            tagIds, inputLinks, false, 0);
+            tagIds, inputLinks, false, 0, null);
     }
 }

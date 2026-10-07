@@ -12,6 +12,11 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import dev.amai.portfolio.asset.config.AvatarUploadProperties;
+import dev.amai.portfolio.asset.api.AssetType;
+import dev.amai.portfolio.asset.api.AssetUploadRequest;
+import dev.amai.portfolio.asset.api.ImageUploadPurpose;
+import dev.amai.portfolio.asset.component.AssetUploadComponentImpl;
+import dev.amai.portfolio.asset.component.ImageUploadComponentImpl;
 import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
 import dev.amai.portfolio.asset.enums.MediaStatus;
 import dev.amai.portfolio.asset.mapper.MediaAssetMapper;
@@ -46,7 +51,8 @@ class ImageAssetUploadServiceImplTest {
     private final ObjectStorage storage = mock(ObjectStorage.class);
     private final TestTransactionManager manager = new TestTransactionManager();
     private final ImageAssetUploadServiceImpl service = new ImageAssetUploadServiceImpl(
-        assets, storage, new AvatarUploadProperties(2097152, 2048), manager);
+        new ImageUploadComponentImpl(new AssetUploadComponentImpl(assets, storage, manager),
+            new AvatarUploadProperties(2097152, 2048)));
 
     @BeforeAll
     static void initializeMybatisLambdaMetadata() {
@@ -91,6 +97,41 @@ class ImageAssetUploadServiceImplTest {
         assertThat(row.getValue().getSourceType()).isEqualTo(2);
         assertThat(manager.commits).isEqualTo(2);
         verify(storage, never()).delete(any());
+    }
+
+    @Test
+    void sameComponentsUploadProjectCoversWithIndependentLimitsAndNamespace() throws Exception {
+        var images = new ImageUploadComponentImpl(new AssetUploadComponentImpl(assets, storage, manager),
+            new AvatarUploadProperties(2097152, 2048));
+        assertThat(images.maxBytes(ImageUploadPurpose.PROJECT_COVER)).isEqualTo(8388608);
+        assertThat(images.upload(image("png", 2049, 1), "image/png", ImageUploadPurpose.PROJECT_COVER)).isEqualTo(19L);
+        var request = ArgumentCaptor.forClass(ObjectStorageWriteRequest.class);
+        verify(storage).store(request.capture());
+        assertThat(request.getValue().objectKey()).matches("project/covers/[0-9a-f-]{36}\\.png");
+    }
+
+    @Test
+    void generalUploadComponentSupportsValidatedDocumentsWithoutImageMetadata() throws Exception {
+        var component = new AssetUploadComponentImpl(assets, storage, manager);
+        component.upload(new AssetUploadRequest(AssetType.DOCUMENT, "document/imports", "note.md",
+            "text/markdown", "# validated note".getBytes(java.nio.charset.StandardCharsets.UTF_8), null, null));
+        var row = ArgumentCaptor.forClass(MediaAssetDO.class);
+        verify(assets).insert(row.capture());
+        assertThat(row.getValue().getAssetType()).isEqualTo(1);
+        assertThat(row.getValue().getWidth()).isNull();
+        var request = ArgumentCaptor.forClass(ObjectStorageWriteRequest.class);
+        verify(storage).store(request.capture());
+        assertThat(request.getValue().objectKey()).matches("document/imports/[0-9a-f-]{36}\\.md");
+        assertThat(manager.commits).isEqualTo(2);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"../escape", "/absolute", "bad prefix", "a//b"})
+    void rejectsUnsafeNamespacesBeforePersistence(String prefix) {
+        var component = new AssetUploadComponentImpl(assets, storage, manager);
+        assertThatThrownBy(() -> component.upload(new AssetUploadRequest(AssetType.DOCUMENT, prefix,
+            "note.md", "text/markdown", new byte[] {1}, null, null))).isInstanceOf(ApiException.class);
+        verifyNoInteractions(assets, storage);
     }
 
     @Test

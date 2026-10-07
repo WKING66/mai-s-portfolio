@@ -3,6 +3,11 @@ package dev.amai.portfolio.portfolio.service.impl;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import dev.amai.portfolio.portfolio.constant.ProjectConstants;
+import dev.amai.portfolio.asset.api.AssetQueryService;
+import dev.amai.portfolio.asset.api.ImageUploadPurpose;
+import dev.amai.portfolio.portfolio.entity.domain.ProjectMediaDO;
+import dev.amai.portfolio.portfolio.entity.vo.ProjectCoverVo;
+import dev.amai.portfolio.portfolio.mapper.ProjectMediaMapper;
 import dev.amai.portfolio.portfolio.constant.ProjectMessageConstants;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectDO;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectLinkDO;
@@ -53,13 +58,17 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectLinkMapper links;
     private final ProjectTagMapper tags;
     private final TaxonomyQueryService taxonomy;
+    private final ProjectMediaMapper media;
+    private final AssetQueryService assets;
 
     public ProjectServiceImpl(ProjectMapper projects, ProjectLinkMapper links,
-            ProjectTagMapper tags, TaxonomyQueryService taxonomy) {
+            ProjectTagMapper tags, TaxonomyQueryService taxonomy, ProjectMediaMapper media, AssetQueryService assets) {
         this.projects = projects;
         this.links = links;
         this.tags = tags;
         this.taxonomy = taxonomy;
+        this.media = media;
+        this.assets = assets;
     }
 
     @Override
@@ -196,6 +205,10 @@ public class ProjectServiceImpl implements ProjectService {
             throw invalid(ProjectMessageConstants.INVALID_SLUG);
         }
         validateTagIds(request.tagIds() == null ? List.of() : request.tagIds());
+        if (request.coverMediaId() != null && (request.coverMediaId() < 1
+                || !assets.isReadyImageForPurpose(request.coverMediaId(), ImageUploadPurpose.PROJECT_COVER))) {
+            throw invalid(ProjectMessageConstants.INVALID_COVER);
+        }
         List<ProjectLinkRequest> inputLinks = request.links() == null ? List.of() : request.links();
         if (inputLinks.size() > ProjectConstants.MAX_ASSOCIATIONS) throw invalid(ProjectMessageConstants.INVALID_LINKS);
         Set<String> seen = new HashSet<>();
@@ -231,6 +244,18 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     private void replaceRelations(Long id, ProjectRequest request) {
+        // 封面与文本版本同事务更新；只移除引用，不删除对象或其他图集关系。
+        media.delete(Wrappers.<ProjectMediaDO>lambdaQuery().eq(ProjectMediaDO::getProjectId, id)
+            .eq(ProjectMediaDO::getRole, ProjectConstants.COVER_ROLE));
+        if (request.coverMediaId() != null) {
+            ProjectMediaDO cover = new ProjectMediaDO();
+            cover.setProjectId(id);
+            cover.setMediaId(request.coverMediaId());
+            cover.setRole(ProjectConstants.COVER_ROLE);
+            cover.setAltText(clean(request.title()));
+            cover.setSortOrder(0);
+            media.insert(cover);
+        }
         links.delete(Wrappers.<ProjectLinkDO>lambdaQuery().eq(ProjectLinkDO::getProjectId, id));
         tags.delete(Wrappers.<ProjectTagDO>lambdaQuery().eq(ProjectTagDO::getProjectId, id));
         for (Long tagId : request.tagIds() == null ? List.<Long>of() : request.tagIds()) {
@@ -255,6 +280,9 @@ public class ProjectServiceImpl implements ProjectService {
     private List<ProjectItemVo> projectViews(List<ProjectDO> records, ProjectView view) {
         if (records.isEmpty()) return List.of();
         List<Long> ids = records.stream().map(ProjectDO::getId).toList();
+        Map<Long, ProjectMediaDO> covers = media.selectList(Wrappers.<ProjectMediaDO>lambdaQuery()
+            .in(ProjectMediaDO::getProjectId, ids).eq(ProjectMediaDO::getRole, ProjectConstants.COVER_ROLE))
+            .stream().collect(Collectors.toMap(ProjectMediaDO::getProjectId, Function.identity()));
         var allLinks = links.selectList(Wrappers.<ProjectLinkDO>lambdaQuery().in(ProjectLinkDO::getProjectId, ids)
             .orderByAsc(ProjectLinkDO::getSortOrder, ProjectLinkDO::getId));
         var allTags = tags.selectList(Wrappers.<ProjectTagDO>lambdaQuery().in(ProjectTagDO::getProjectId, ids)
@@ -268,6 +296,11 @@ public class ProjectServiceImpl implements ProjectService {
             .collect(Collectors.groupingBy(ProjectTagDO::getProjectId));
         List<ProjectItemVo> result = new ArrayList<>();
         for (ProjectDO project : records) {
+            ProjectMediaDO cover = covers.get(project.getId());
+            ProjectCoverVo coverVo = cover == null ? null : new ProjectCoverVo(cover.getMediaId(),
+                view == ProjectView.PUBLIC ? "/api/v1/projects/" + project.getId() + "/cover?v=" + cover.getMediaId()
+                    : "/api/v1/admin/assets/images/" + cover.getMediaId(),
+                cover.getAltText() == null ? project.getTitle() : cover.getAltText());
             var projectLinks = linksByProject.getOrDefault(project.getId(), List.of()).stream()
                 .filter(link -> view == ProjectView.MANAGE || link.getIsVisible() == 1)
                 .map(link -> new ProjectLinkVo(ProjectLinkType.fromCode(link.getLinkType()).name(),
@@ -279,13 +312,13 @@ public class ProjectServiceImpl implements ProjectService {
                 result.add(new PublicProjectVo(project.getId(), project.getSlug(), project.getTitle(),
                     project.getSummary(), project.getContribution(), project.getOutcome(), project.getTimeLabel(),
                     projectTags, projectLinks.stream()
-                        .map(link -> new PublicProjectLinkVo(link.type(), link.label(), link.url())).toList()));
+                        .map(link -> new PublicProjectLinkVo(link.type(), link.label(), link.url())).toList(), coverVo));
             } else {
                 result.add(new AdminProjectVo(project.getId(), project.getSlug(), project.getTitle(),
                     project.getSummary(), project.getContribution(), project.getOutcome(), project.getTimeLabel(),
                     projectTags, projectLinks, ProjectStatus.fromCode(project.getStatus()).name(),
                     project.getIsFeatured() == 1, project.getSortOrder(), project.getVersion(),
-                    project.getPublishedAt(), project.getUpdatedAt()));
+                    project.getPublishedAt(), project.getUpdatedAt(), coverVo));
             }
         }
         return result;

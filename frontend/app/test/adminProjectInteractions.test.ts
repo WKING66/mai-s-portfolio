@@ -5,7 +5,7 @@ import { PROJECT_MESSAGES } from '../constants/projects'
 
 const api = vi.hoisted(() => ({
   getManagedProjects: vi.fn(), getProject: vi.fn(), getProjectTags: vi.fn(),
-  saveProject: vi.fn(), changeProjectStatus: vi.fn(),
+  saveProject: vi.fn(), changeProjectStatus: vi.fn(), uploadProjectCover: vi.fn(),
 }))
 vi.mock('../api/projects', () => ({ useProjectApi: () => api }))
 
@@ -122,6 +122,45 @@ describe('managed project list interactions', () => {
 })
 
 describe('project editor interactions', () => {
+  it('uploads a cover without binding it until save and does not delete the object on removal', async () => {
+    api.uploadProjectCover.mockResolvedValue({ id: 19, previewUrl: '/api/v1/admin/assets/images/19' })
+    const editor = useProjectEditor(project.id)
+    await editor.load()
+    await editor.uploadCover(new File(['image'], 'cover.png', { type: 'image/png' }))
+    expect(editor.form.coverMediaId).toBe(19)
+    expect(editor.coverPreview.value).toBe('/api/v1/admin/assets/images/19')
+    expect(editor.dirty.value).toBe(true)
+    expect(api.saveProject).not.toHaveBeenCalled()
+    await editor.save()
+    expect(api.saveProject).toHaveBeenCalledWith(project.id, expect.objectContaining({ coverMediaId: 19 }))
+    editor.removeCover()
+    expect(editor.form.coverMediaId).toBeNull()
+    expect(editor.coverPreview.value).toBeNull()
+  })
+
+  it('retains the existing cover and dirty inputs when an upload fails', async () => {
+    api.getProject.mockResolvedValueOnce({ ...project, cover: { assetId: 12, url: '/preview/12', alt: null } })
+    api.uploadProjectCover.mockRejectedValueOnce(new Error(PROJECT_MESSAGES.coverFailed))
+    const editor = useProjectEditor(project.id)
+    await editor.load()
+    editor.form.title = '保留未保存标题'
+    await editor.uploadCover(new File(['image'], 'cover.png', { type: 'image/png' }))
+    expect(editor.form.coverMediaId).toBe(12)
+    expect(editor.coverPreview.value).toBe('/preview/12')
+    expect(editor.form.title).toBe('保留未保存标题')
+    expect(editor.pending.value).toBe(false)
+    expect(editor.error.value).toBe(PROJECT_MESSAGES.coverFailed)
+  })
+
+  it('rejects unsupported or oversized covers without making a request', async () => {
+    const editor = useProjectEditor(project.id)
+    await editor.load()
+    await editor.uploadCover(new File(['svg'], 'cover.svg', { type: 'image/svg+xml' }))
+    await editor.uploadCover(new File([new Uint8Array(8388609)], 'large.png', { type: 'image/png' }))
+    expect(api.uploadProjectCover).not.toHaveBeenCalled()
+    expect(editor.error.value).toBe(PROJECT_MESSAGES.coverInvalid)
+  })
+
   it('keeps a legacy time label unchanged when editing unrelated fields', async () => {
     api.getProject.mockResolvedValueOnce({ ...project, timeLabel: '2024 – 2025' })
     const editor = useProjectEditor(project.id)

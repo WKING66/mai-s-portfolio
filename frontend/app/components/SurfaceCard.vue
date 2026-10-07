@@ -4,14 +4,27 @@ withDefaults(defineProps<{
   maxTilt?: number
 }>(), { as: 'article', maxTilt: 10 })
 
+let pointerBox: DOMRect | null = null
+let pointerScrollX = 0
+let pointerScrollY = 0
+function onPointerEnter(event: PointerEvent) {
+  // 始终以进入时的未倾斜平面计算，避免旋转后的包围盒反馈造成抖动和越界放大。
+  pointerBox = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  pointerScrollX = window.scrollX
+  pointerScrollY = window.scrollY
+}
+
 function onPointerMove(event: PointerEvent, maxTilt: number) {
   if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches
     || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
 
   const card = event.currentTarget as HTMLElement
-  const box = card.getBoundingClientRect()
-  const x = (event.clientX - box.left) / box.width
-  const y = (event.clientY - box.top) / box.height
+  const box = pointerBox || card.getBoundingClientRect()
+  // 滚动只同步基准位置，不重新使用倾斜后的包围盒，避免光效和倾角漂移。
+  const scrollX = pointerBox ? window.scrollX - pointerScrollX : 0
+  const scrollY = pointerBox ? window.scrollY - pointerScrollY : 0
+  const x = Math.max(0, Math.min(1, (event.clientX - box.left + scrollX) / Math.max(1, box.width)))
+  const y = Math.max(0, Math.min(1, (event.clientY - box.top + scrollY) / Math.max(1, box.height)))
   card.style.setProperty('--tilt-x', `${(0.5 - y) * maxTilt}deg`)
   card.style.setProperty('--tilt-y', `${(x - 0.5) * maxTilt}deg`)
   card.style.setProperty('--spot-x', `${x * 100}%`)
@@ -20,6 +33,7 @@ function onPointerMove(event: PointerEvent, maxTilt: number) {
 }
 
 function onPointerLeave(event: PointerEvent) {
+  pointerBox = null
   const card = event.currentTarget as HTMLElement
   for (const property of ['--tilt-x', '--tilt-y', '--spot-x', '--spot-y', '--glow']) {
     card.style.removeProperty(property)
@@ -31,6 +45,7 @@ function onPointerLeave(event: PointerEvent) {
   <component
     :is="as"
     class="surface-card glass-surface"
+    @pointerenter="onPointerEnter"
     @pointermove="onPointerMove($event, maxTilt)"
     @pointerleave="onPointerLeave"
   >

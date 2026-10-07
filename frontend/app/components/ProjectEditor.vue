@@ -3,10 +3,18 @@ import { onMounted } from 'vue'
 import { useProjectEditor } from '../composables/useProjectEditor'
 import { ADMIN_MESSAGES, ADMIN_PATHS, ADMIN_PROJECT_LIMITS, ADMIN_PROJECT_LINK_TYPES, ADMIN_PROJECT_STATUS } from '../constants/admin'
 import { isProjectDate } from '../utils/projectDate'
+import { PROJECT_MESSAGES } from '../constants/projects'
 
 const props = defineProps<{ projectId?: number }>()
 const { form, tags, status, previouslyPublished, loaded, operation, pending, error, notice,
-  dirty, canOperate, load, reload: reloadProject, save, transition, setTag, addLink, removeLink } = useProjectEditor(props.projectId)
+  dirty, canOperate, load, reload: reloadProject, save, transition, setTag, addLink, removeLink,
+  coverPreview, uploadCover, removeCover } = useProjectEditor(props.projectId)
+async function selectCover(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (file) await uploadCover(file)
+  input.value = '' // 同一文件失败后也允许重新选择。
+}
 const linkTypes = ADMIN_PROJECT_LINK_TYPES.map(item => ({ ...item }))
 const completionDate = computed({
   get: () => isProjectDate(form.timeLabel) ? form.timeLabel : '',
@@ -38,6 +46,21 @@ onMounted(() => load())
       <div v-else class="flex justify-center py-8"><UButton type="button" color="neutral" variant="outline" icon="i-lucide-refresh-cw" @click="reload">重新读取</UButton></div>
     </UCard>
     <form v-else class="grid gap-6" @submit.prevent="submit">
+      <AdminEditorSection :title="PROJECT_MESSAGES.coverLabel" :description="PROJECT_MESSAGES.coverHint">
+        <div class="grid gap-4">
+          <img v-if="coverPreview" :src="coverPreview" :alt="form.title || PROJECT_MESSAGES.coverLabel"
+            class="max-h-64 w-full rounded-lg border border-line object-contain" data-cover-preview>
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-line px-4 py-2 text-sm font-medium"
+              :class="pending ? 'pointer-events-none opacity-50' : ''">
+              <UIcon name="i-lucide-image-plus" />{{ PROJECT_MESSAGES.coverUpload }}
+              <input id="project-cover" type="file" accept="image/png,image/jpeg" class="sr-only" :disabled="!canOperate" @change="selectCover">
+            </label>
+            <UButton v-if="coverPreview" type="button" color="neutral" variant="outline" :disabled="!canOperate" @click="removeCover">{{ PROJECT_MESSAGES.coverRemove }}</UButton>
+            <span v-if="operation === 'upload'" role="status" class="text-sm text-muted">{{ PROJECT_MESSAGES.coverUploading }}</span>
+          </div>
+        </div>
+      </AdminEditorSection>
       <AdminEditorSection title="项目内容" description="草稿可以逐步完善；发布需填写标题、摘要、本人贡献，并选择技术标签。">
         <fieldset :disabled="pending" class="grid gap-5">
           <div class="grid gap-5 md:grid-cols-2">

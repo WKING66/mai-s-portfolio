@@ -2,6 +2,7 @@ package dev.amai.portfolio.asset.service.impl;
 
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetType;
+import dev.amai.portfolio.asset.api.ImageUploadPurpose;
 import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
 import dev.amai.portfolio.asset.enums.MediaAssetType;
 import dev.amai.portfolio.asset.enums.MediaStatus;
@@ -32,5 +33,14 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             case IMAGE -> MediaAssetType.IMAGE.code();
             case DOCUMENT -> MediaAssetType.DOCUMENT.code();
         };
+    }
+
+    @Override
+    public boolean isReadyImageForPurpose(Long assetId, ImageUploadPurpose purpose) {
+        if (assetId == null || assetId < 1 || purpose == null) return false;
+        MediaAssetDO asset = mediaAssets.selectById(assetId);
+        return asset != null && asset.getStatus() == MediaStatus.READY.code()
+            && asset.getAssetType() == MediaAssetType.IMAGE.code() && asset.getStorageKey() != null
+            && asset.getStorageKey().startsWith(purpose.prefix() + "/");
     }
 }

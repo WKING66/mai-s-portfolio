@@ -15,6 +15,7 @@ export interface ProjectLink {
 export interface PublicProject {
   id: number; slug: string | null; title: string; summary: string; contribution: string
   outcome: string | null; timeLabel: string | null; tags: ProjectTag[]; links: Pick<ProjectLink, 'type' | 'label' | 'url'>[]
+  cover?: { assetId: number; url: string; alt: string | null } | null
 }
 export interface AdminProject extends PublicProject {
   links: ProjectLink[]
@@ -25,6 +26,7 @@ export interface ProjectPage<T> { view: 'PUBLIC' | 'MANAGE'; page: number; size:
 export interface ProjectInput {
   version?: number; slug: string; title: string; summary: string; contribution: string; outcome: string
   timeLabel: string; tagIds: number[]; links: ProjectLink[]; featured: boolean; sortOrder: number
+  coverMediaId?: number | null
 }
 
 export function usePublicProjects(page: MaybeRefOrGetter<number>, size: number) {
@@ -93,5 +95,11 @@ export function useProjectApi() {
       method: 'POST', body: { version },
     }))
   }
-  return { getManagedProjects, getProject, getProjectTags, saveProject, changeProjectStatus }
+  async function uploadProjectCover(file: File) {
+    const body = new FormData()
+    body.append('file', file)
+    // 不手写 Content-Type，浏览器生成 multipart boundary；复用 OWNER/CSRF/错误拦截。
+    return projectRequest<{ id: number; previewUrl: string }>('/api/v1/admin/assets/images', { method: 'POST', body })
+  }
+  return { getManagedProjects, getProject, getProjectTags, saveProject, changeProjectStatus, uploadProjectCover }
 }

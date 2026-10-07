@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 只管理介绍与关联，不接受源码文件或媒体上传。 */
+/** 只管理介绍与关联；图片先经统一文件入口上传，再随版本快照绑定，禁止项目源码上传。 */
 @RestController
 @RequestMapping("/api/v1/admin/projects")
 @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -55,7 +55,7 @@ public class AdminProjectController {
     @PatchMapping("/{id}")
     @ApiLog
     @Operation(summary = "保存项目完整快照",
-        description = "须带回 version。标签与外链完整替换；已发布项目保存立即生效且仍须满足发布条件。首次发布后标识固定。",
+        description = "须带回 version。标签、外链、封面完整替换；coverMediaId=null 移除封面引用，不删除文件。已发布项目保存立即生效且仍须满足发布条件。首次发布后标识固定。",
         parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
     public R<AdminProjectVo> update(@PathVariable Long id, @RequestBody ProjectRequest request) {
         return R.success(projects.update(id, request));

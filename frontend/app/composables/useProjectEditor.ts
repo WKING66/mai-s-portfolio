@@ -1,21 +1,22 @@
 import { computed, reactive, ref } from 'vue'
 import { useProjectApi, type AdminProject, type ProjectInput, type ProjectTag } from '../api/projects'
 import { ADMIN_PROJECT_DEFAULT_LINK_TYPE, ADMIN_PROJECT_STATUS } from '../constants/admin'
-import { PROJECT_MESSAGES } from '../constants/projects'
+import { PROJECT_MESSAGES, PROJECT_COVER_MAX_BYTES } from '../constants/projects'
 
 /** 编辑器维护完整版本快照；失败时保留输入，不绕过统一请求拦截器。 */
 export function useProjectEditor(projectId?: number) {
-  const { getProject, getProjectTags, saveProject, changeProjectStatus } = useProjectApi()
+  const { getProject, getProjectTags, saveProject, changeProjectStatus, uploadProjectCover } = useProjectApi()
+  const coverPreview = ref<string | null>(null)
   const savedProjectId = ref(projectId ?? null)
   const form = reactive<ProjectInput>({
     slug: '', title: '', summary: '', contribution: '', outcome: '', timeLabel: '',
-    tagIds: [], links: [], featured: false, sortOrder: 0,
+    tagIds: [], links: [], featured: false, sortOrder: 0, coverMediaId: null,
   })
   const tags = ref<ProjectTag[]>([])
   const status = ref<AdminProject['status']>(ADMIN_PROJECT_STATUS.DRAFT)
   const previouslyPublished = ref(false)
   const loaded = ref(false)
-  const operation = ref<'load' | 'save' | 'publish' | 'unpublish' | null>(null)
+  const operation = ref<'load' | 'save' | 'publish' | 'unpublish' | 'upload' | null>(null)
   const pending = computed(() => operation.value !== null)
   const error = ref('')
   const notice = ref('')
@@ -29,8 +30,10 @@ export function useProjectEditor(projectId?: number) {
       summary: project.summary, contribution: project.contribution, outcome: project.outcome ?? '',
       timeLabel: project.timeLabel ?? '', tagIds: project.tags.map(tag => tag.id),
       links: project.links.map(link => ({ ...link })), featured: project.featured, sortOrder: project.sortOrder,
+      coverMediaId: project.cover?.assetId ?? null,
     })
     status.value = project.status
+    coverPreview.value = project.cover?.url ?? null
     previouslyPublished.value = project.publishedAt !== null
     savedForm.value = JSON.stringify(form)
   }
@@ -116,6 +119,31 @@ export function useProjectEditor(projectId?: number) {
     if (canOperate.value) form.links.splice(index, 1)
   }
 
+  async function uploadCover(file: File) {
+    if (!canOperate.value) return
+    error.value = ''; notice.value = ''
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size === 0 || file.size > PROJECT_COVER_MAX_BYTES) {
+      error.value = PROJECT_MESSAGES.coverInvalid
+      return
+    }
+    operation.value = 'upload'
+    try {
+      const uploaded = await uploadProjectCover(file)
+      form.coverMediaId = uploaded.id
+      coverPreview.value = uploaded.previewUrl
+      notice.value = PROJECT_MESSAGES.coverUploaded
+    } catch (cause) {
+      // 上传失败保留之前的封面和其他未保存输入，不伪装为成功、不清空整个表单。
+      error.value = cause instanceof Error ? cause.message : PROJECT_MESSAGES.coverFailed
+    } finally { operation.value = null }
+  }
+
+  function removeCover() {
+    if (!canOperate.value) return
+    form.coverMediaId = null
+    coverPreview.value = null
+  }
+
   return { form, tags, status, previouslyPublished, loaded, operation, pending, error, notice,
-    dirty, canOperate, load, reload, save, transition, setTag, addLink, removeLink }
+    dirty, canOperate, load, reload, save, transition, setTag, addLink, removeLink, coverPreview, uploadCover, removeCover }
 }

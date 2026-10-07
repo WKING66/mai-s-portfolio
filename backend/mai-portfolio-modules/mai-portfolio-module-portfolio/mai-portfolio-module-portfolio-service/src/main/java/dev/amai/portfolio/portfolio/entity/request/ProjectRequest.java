@@ -16,5 +16,6 @@ public record ProjectRequest(
     @Schema(description = "技术标签 ID 完整集合，最多 50 个、不重复；只能来自 TECH 标签选择接口") List<Long> tagIds,
     @Schema(description = "外部入口完整集合，最多 50 个；不接收源码文件或媒体上传") List<ProjectLinkRequest> links,
     @Schema(description = "是否重点展示；缺省为 false") Boolean featured,
-    @Schema(description = "手动排序，非负整数、升序；缺省为 0", minimum = "0") Integer sortOrder
+    @Schema(description = "手动排序，非负整数、升序；缺省为 0", minimum = "0") Integer sortOrder,
+    @Schema(description = "封面上传接口返回的 READY 项目图片 ID；null 移除关联，不删除 OSS 对象", minimum = "1") Long coverMediaId
 ) { }

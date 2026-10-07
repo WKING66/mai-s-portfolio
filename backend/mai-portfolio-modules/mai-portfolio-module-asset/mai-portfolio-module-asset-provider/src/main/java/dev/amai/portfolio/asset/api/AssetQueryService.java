@@ -4,4 +4,7 @@ package dev.amai.portfolio.asset.api;
 public interface AssetQueryService {
     /** 判断资产是否已就绪且类型一致；公开 URL 由拥有发布语义的业务域生成。 */
     boolean isReady(Long assetId, AssetType expectedType);
+
+    /** 校验用途隔离；不能把其他用户的私有头像 ID 作为公开项目封面绑定。 */
+    boolean isReadyImageForPurpose(Long assetId, ImageUploadPurpose purpose);
 }
