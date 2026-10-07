@@ -1,5 +1,6 @@
 import { SEO_NOINDEX, SEO_SITE_NAME } from './shared/utils/seo'
 import { THEME_BOOTSTRAP_SCRIPT } from './app/utils/siteTheme'
+import { SCROLL_RESTORATION_BOOTSTRAP_SCRIPT } from './app/utils/scrollPosition'
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-26',
@@ -26,7 +27,11 @@ export default defineNuxtConfig({
     head: {
       htmlAttrs: { lang: 'zh-CN' },
       title: SEO_SITE_NAME,
-      script: [{ key: 'site-theme-bootstrap', innerHTML: THEME_BOOTSTRAP_SCRIPT, tagPriority: 'critical' }],
+      script: [
+        { key: 'site-theme-bootstrap', innerHTML: THEME_BOOTSTRAP_SCRIPT, tagPriority: 'critical' },
+        // 必须先于 Nuxt 客户端启动执行，否则首次刷新已绘制顶部，路由兜底只能晚些跳回。
+        { key: 'site-scroll-restoration', innerHTML: SCROLL_RESTORATION_BOOTSTRAP_SCRIPT, tagPriority: 'critical' },
+      ],
     },
   },
 })

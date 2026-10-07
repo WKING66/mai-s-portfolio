@@ -32,11 +32,8 @@ describe('Nuxt router startup and scrolling', () => {
     expect(runtime.app.hooks.hookOnce).not.toHaveBeenCalled()
   })
 
-  it('resolves an initial fragment immediately instead of leaving a refreshed page at the top', () => {
-    const element = { id: 'contact' }
-    vi.stubGlobal('document', { getElementById: () => element })
-    vi.stubGlobal('getComputedStyle', () => ({ scrollMarginTop: '96px' }))
-    expect(scroll('/', '#contact', [])).toEqual({ el: element, top: 96, behavior: 'instant' })
+  it('leaves initial fragment restoration to the synchronous head bootstrap instead of scrolling again', () => {
+    expect(scroll('/', '#contact', [])).toBe(false)
     expect(runtime.app.hooks.hookOnce).not.toHaveBeenCalled()
   })
 
