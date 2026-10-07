@@ -1,5 +1,8 @@
 import type { RouterConfig } from '@nuxt/schema'
-import { useNuxtApp } from '#app'
+// 路由选项参与 Nuxt 启动，不能从 #app 聚合入口导入：它会反向加载布局/路由规则，
+// 在 dev 原生 ESM 中形成初始化循环，阻断整个客户端水合（生产打包可能掩盖问题）。
+// 与 Nuxt 自身的 router.options 一样，只导入需要的运行时入口。
+import { useNuxtApp } from '#app/nuxt'
 import { navigationScroll } from './utils/scrollPosition'
 
 export default <RouterConfig>{

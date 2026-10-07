@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { navigationScroll } from '../utils/scrollPosition'
 
-describe('browser-owned refresh and route scrolling', () => {
+describe('immediate refresh restoration and route scrolling', () => {
   const homepage = { path: '/', hash: '#projects' }
-  it.each(['#projects', '#blog', ''])('does not reset scroll on initial load %s', hash => {
-    expect(navigationScroll({ path: '/', hash }, { path: '/', hash: '', matched: [] }, { left: 0, top: 1300 }, false)).toBe(false)
+  it.each(['#projects', '#blog', ''])('restores saved scroll immediately on initial load %s', hash => {
+    expect(navigationScroll({ path: '/', hash }, { path: '/', hash: '', matched: [] }, { left: 0, top: 1300 }, false)).toEqual({ left: 0, top: 1300, behavior: 'instant' })
+  })
+  it('restores the initial fragment without smooth animation or a session dependency', () => {
+    expect(navigationScroll(homepage, { path: '/', hash: '', matched: [] }, null, false)).toEqual({ el: '#projects', behavior: 'instant' })
+    expect(navigationScroll({ path: '/', hash: '' }, { path: '/', hash: '', matched: [] }, null, false)).toBe(false)
   })
   it('uses immediate saved history position instead of a smooth animation', () => {
     expect(navigationScroll(homepage, { ...homepage, matched: [{}] }, { left: 0, top: 1200 }, false)).toEqual({ left: 0, top: 1200, behavior: 'instant' })

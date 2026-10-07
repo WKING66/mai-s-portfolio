@@ -2,6 +2,8 @@
 
 日期：2026-10-07。在待审核功能分支 `feature/account-center-ui` 继续修复，父分支仍为 `feature/visitor-registration`（原起点 `20d50d4`）；本次基于 `0a092cc`。没有合并父分支或 main，没有使用 ponytail。
 
+> 后续修正：本文是当时独立端口/账号的历史验收记录，不能代表维护者默认开发环境。本轮在 3000 dev 复现启动依赖循环和刷新锚点丢失，已修复；当前默认环境结果及新的初始滚动策略以 [默认端口验收](default-port-auth-navigation-20261007.md) 为准。
+
 ## 本次需求与实现边界
 
 - 普通下拉选择器打开/选择时不得使页面横向抖动。检查现有两个 USelect 和两个菜单；普通选择器通过 Nuxt UI 的 UTheme 统一设置 `content.bodyLock=false`，账号/移动导航菜单保留 `modal=false`。不修改第三方组件源码，不用全局覆盖 padding 隐藏问题。
