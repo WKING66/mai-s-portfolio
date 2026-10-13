@@ -1,0 +1,27 @@
+%% Generated from docs/architecture/document-import-export.md; edit that document first.
+flowchart TD
+    ast[遍历 Markdown AST] --> kind{引用形式}
+    kind -->|代码块或普通网络超链接| untouched[保持正文，不抓取]
+    kind -->|resource 引用| old[只在当前文档旧版本中查找并复用]
+    kind -->|asset 引用| owned[校验 READY、用途及当前上传者]
+    kind -->|本地图片或附件路径| local[规范化路径并查本次上传映射]
+    kind -->|网络图片| rights{本次明确确认使用权}
+    rights -->|否| invalid[INVALID，保留来源和稳定 key]
+    rights -->|是| remote[逐跳 URI 和 DNS 校验、限时限量抓取]
+    local -->|路径合法且文件存在| upload[统一 Asset 文件校验与归档]
+    local -->|路径无效或缺少文件| invalid
+    remote --> upload
+    owned -->|校验通过| ready[READY，绑定 Asset ID]
+    owned -->|未就绪、类型或归属错误| invalid
+    old -->|存在且类型匹配| result[生成本版本资源关系]
+    old -->|缺失或类型不匹配| invalid
+    old -->|失败网络图片且本次授权重试| remote
+    upload -->|成功| ready
+    upload -->|输入或业务无效| invalid
+    remote -->|网络读取失败| failed[FETCH_FAILED，保留来源和稳定 key]
+    upload -->|存储等服务故障| failed
+    ready --> result
+    invalid --> result
+    failed --> result
+    result --> normalize[正文规范化为 resource 引用]
+    normalize --> draft[允许保存不完整草稿]

@@ -3,6 +3,7 @@ package dev.amai.portfolio.web;
 /** Web 协议层的通用提示，不包含任何业务域语义。 */
 public final class WebMessageConstants {
     public static final String VALIDATION_FAILED = "请求参数不合法";
+    public static final String PAYLOAD_TOO_LARGE = "请求文件或消息体超过服务器接收上限";
     public static final String MALFORMED_REQUEST = "请求体格式不正确";
     public static final String MALFORMED_PARAMETER = "请求参数格式不正确";
     public static final String METHOD_NOT_ALLOWED = "请求方法不支持";

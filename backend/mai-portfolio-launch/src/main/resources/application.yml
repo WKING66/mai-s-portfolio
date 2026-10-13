@@ -8,6 +8,16 @@ spring:
   profiles:
     # 本地默认使用 dev；部署时必须通过 SPRING_PROFILES_ACTIVE 显式切换环境配置。
     active: ${SPRING_PROFILES_ACTIVE:dev}
+  mvc:
+    async:
+      request-timeout: ${BLOG_EXPORT_TIMEOUT:120s}
+  task:
+    execution:
+      pool:
+        # 复用 Boot 的 MVC 异步执行器，限制导出并发与排队，不另建线程池。
+        core-size: 4
+        max-size: 8
+        queue-capacity: 16
   servlet:
     # 文件上传相关配置项
     multipart:
@@ -50,6 +60,15 @@ mybatis-plus:
 springdoc:
   api-docs:
     enabled: true
+
+portfolio:
+  media:
+    # 私有 Bucket 的签名直连地址有效期；浏览器到期前重新查询业务 API。
+    signed-url-ttl: ${MEDIA_SIGNED_URL_TTL:1h}
+  security:
+    # 注册与登录分别限流；同一客户端默认每 5 分钟最多提交 5 次注册请求。
+    max-registration-attempts-per-client: ${PORTFOLIO_SECURITY_MAX_REGISTRATION_ATTEMPTS_PER_CLIENT:5}
+    registration-attempt-window: ${PORTFOLIO_SECURITY_REGISTRATION_ATTEMPT_WINDOW:5m}
 
 logging:
   file:

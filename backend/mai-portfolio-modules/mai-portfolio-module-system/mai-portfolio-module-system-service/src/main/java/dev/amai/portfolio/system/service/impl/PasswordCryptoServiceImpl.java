@@ -1,5 +1,6 @@
 package dev.amai.portfolio.system.service.impl;
 
+import dev.amai.portfolio.system.constant.PasswordCipherConstants;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
@@ -25,9 +26,9 @@ import org.springframework.stereotype.Service;
 /** 启动时加载固定私钥，每次解密创建独立 Cipher，避免并发复用非线程安全对象。 */
 @Service
 public class PasswordCryptoServiceImpl implements PasswordCryptoService {
-    private static final int RSA_BITS = 2048;
-    private static final int CIPHERTEXT_BYTES = RSA_BITS / Byte.SIZE;
-    private static final int CIPHERTEXT_BASE64_LENGTH = 344;
+    private static final int RSA_BITS = PasswordCipherConstants.RSA_BITS;
+    private static final int CIPHERTEXT_BYTES = PasswordCipherConstants.CIPHERTEXT_BYTES;
+    private static final int CIPHERTEXT_BASE64_LENGTH = 4 * ((CIPHERTEXT_BYTES + 2) / 3);
     private static final int MAX_KEY_FILE_BYTES = 16 * 1024;
     private static final OAEPParameterSpec OAEP_SHA256 = new OAEPParameterSpec(
         "SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT);

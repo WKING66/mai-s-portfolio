@@ -1,0 +1,9 @@
+{
+  "kind": "isolated Edge Chromium diagnostic; iPad gen7 emulation, not iPad9 hardware",
+  "article": "数据结构与算法",
+  "viewport": { "width": 1080, "height": 810 },
+  "before": { "scrollY": 78401, "maxScroll": 78518, "headingTop": 419.546875 },
+  "disableContentVisibility": { "scrollY": 78518, "maxScroll": 78518, "headingTop": 302.546875 },
+  "explicitMeasuredIntrinsicSize": { "scrollY": 78518, "maxScroll": 78518, "headingTop": 302.546875 },
+  "note": "The last heading cannot reach top margin 97px because the document ends earlier. Close-focus deferral alone did not remove the 117px difference and was reverted. These are diagnostic isolation runs, not final production acceptance."
+}

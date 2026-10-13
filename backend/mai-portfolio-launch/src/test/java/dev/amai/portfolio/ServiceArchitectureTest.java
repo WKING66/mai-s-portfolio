@@ -1,19 +1,17 @@
 package dev.amai.portfolio;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.service.impl.AssetQueryServiceImpl;
 import dev.amai.portfolio.portfolio.config.PortfolioBootstrapRunner;
 import dev.amai.portfolio.portfolio.controller.ProfileController;
 import dev.amai.portfolio.portfolio.service.PortfolioBootstrapService;
-import dev.amai.portfolio.portfolio.service.ProfileService;
+import dev.amai.portfolio.portfolio.service.SiteProfileService;
 import dev.amai.portfolio.portfolio.service.impl.PortfolioBootstrapServiceImpl;
-import dev.amai.portfolio.portfolio.service.impl.ProfileServiceImpl;
+import dev.amai.portfolio.portfolio.service.impl.SiteProfileServiceImpl;
 import dev.amai.portfolio.security.password.Argon2PasswordHasher;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.system.auth.AccountRoleProvider;
-import dev.amai.portfolio.system.auth.AdminAuthorization;
 import dev.amai.portfolio.system.auth.AuthenticationInterceptor;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.config.SystemBootstrapRunner;
@@ -45,7 +43,7 @@ class ServiceArchitectureTest {
 
     @Test
     void servicesAreInterfacesWithDedicatedImplementations() {
-        assertService(ProfileService.class, ProfileServiceImpl.class);
+        assertService(SiteProfileService.class, SiteProfileServiceImpl.class);
         assertService(PortfolioBootstrapService.class, PortfolioBootstrapServiceImpl.class);
         assertService(AuthService.class, AuthServiceImpl.class);
         assertService(OwnerRoleService.class, OwnerRoleServiceImpl.class);
@@ -60,13 +58,11 @@ class ServiceArchitectureTest {
     @Test
     void httpBoundariesDependOnServiceInterfaces() {
         assertThat(ProfileController.class.getDeclaredConstructors()[0].getParameterTypes())
-            .containsExactly(ProfileService.class);
+            .containsExactly(SiteProfileService.class);
         assertThat(AuthController.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(AuthService.class);
-        assertThat(AdminAuthorization.class.getDeclaredConstructors()[0].getParameterTypes())
-            .isEmpty();
         assertThat(AuthenticationInterceptor.class.getDeclaredConstructors()[0].getParameterTypes())
-            .containsExactly(SecurityProperties.class, AuthService.class);
+            .containsExactly(dev.amai.portfolio.system.auth.RequestSecurityPolicy.class, AuthService.class);
         assertThat(AccountRoleProvider.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(OwnerRoleService.class);
         assertThat(SystemBootstrapRunner.class.getDeclaredConstructors()[0].getParameterTypes())

@@ -17,13 +17,13 @@ class SchemaContractTest extends AuthKeyTestSupport {
     @Autowired JdbcTemplate jdbc;
 
     @Test
-    void allFifteenBusinessTablesUseIdentityPrimaryKeys() {
+    void allSixteenBusinessTablesUseIdentityPrimaryKeys() {
         List<String> tables = jdbc.queryForList("""
             SELECT tablename FROM pg_tables
             WHERE schemaname = current_schema() AND tablename <> 'flyway_schema_history'
             """, String.class);
         assertThat(tables).containsExactlyInAnyOrder(
-            "user_account", "site_config", "project", "project_link", "tag", "media_asset",
+            "user_account", "user_profile", "site_config", "project", "project_link", "tag", "media_asset",
             "project_tag", "project_media", "document", "document_version", "blog_post",
             "document_version_asset", "document_version_tag", "document_import_job",
             "document_processing_task");
@@ -32,7 +32,7 @@ class SchemaContractTest extends AuthKeyTestSupport {
             WHERE table_schema = current_schema() AND column_name = 'id'
               AND data_type = 'bigint' AND is_identity = 'YES'
             """, Integer.class);
-        assertThat(count).isEqualTo(15);
+        assertThat(count).isEqualTo(16);
         Integer primaryKeys = jdbc.queryForObject("""
             SELECT COUNT(*) FROM information_schema.table_constraints c
             JOIN information_schema.key_column_usage k
@@ -40,7 +40,8 @@ class SchemaContractTest extends AuthKeyTestSupport {
             WHERE c.table_schema = current_schema() AND c.constraint_type = 'PRIMARY KEY'
               AND k.column_name = 'id'
             """, Integer.class);
-        assertThat(primaryKeys).isEqualTo(15);
+        // V2 的 user_profile 与 V1 的 15 张业务表一样使用 id 主键。
+        assertThat(primaryKeys).isEqualTo(16);
         List<String> uniqueIndexes = jdbc.queryForList("""
             SELECT indexname FROM pg_indexes
             WHERE schemaname = current_schema()
@@ -71,12 +72,13 @@ class SchemaContractTest extends AuthKeyTestSupport {
             SELECT COUNT(*) FROM information_schema.referential_constraints
             WHERE constraint_schema = current_schema()
             """, Integer.class);
-        assertThat(foreignKeys).isEqualTo(20);
+        // V1 定义 20 个外键，V4 新增上传者外键；V2 的资料关联由服务层校验。
+        assertThat(foreignKeys).isEqualTo(21);
         Integer businessChecks = jdbc.queryForObject("""
             SELECT COUNT(*) FROM pg_constraint
             WHERE connamespace = current_schema()::regnamespace AND contype = 'c'
             """, Integer.class);
-        assertThat(businessChecks).isZero();
+        assertThat(businessChecks).isEqualTo(1);
     }
 
     @Test

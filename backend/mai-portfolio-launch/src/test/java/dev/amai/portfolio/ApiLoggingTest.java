@@ -64,10 +64,10 @@ class ApiLoggingTest extends AuthKeyTestSupport {
 
     @Test
     void endpointWithoutApiLogAnnotationIsNotLogged(CapturedOutput logs) throws Exception {
-        mvc.perform(get("/api/v1/public/profile"))
+        mvc.perform(get("/api/v1/profile"))
             .andExpect(status().isOk());
 
         assertThat(logs.getOut())
-            .doesNotContain("API request method=GET route=/api/v1/public/profile");
+            .doesNotContain("API request method=GET route=/api/v1/profile");
     }
 }

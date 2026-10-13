@@ -1,0 +1,75 @@
+{
+  "rows": [
+    {
+      "width": 1440,
+      "loadedMs": 3448,
+      "tasks": [
+        {
+          "start": 1365.4000000953674,
+          "duration": 511
+        },
+        {
+          "start": 1877.2000000476837,
+          "duration": 166
+        }
+      ],
+      "nodes": 22395,
+      "heapMB": 42.01403045654297,
+      "layoutMs": 654.0989999999999
+    },
+    {
+      "width": 1440,
+      "cycle": 0,
+      "heapAfterGC": 22.722518920898438,
+      "nodes": 10640
+    },
+    {
+      "width": 1440,
+      "cycle": 1,
+      "heapAfterGC": 45.8189697265625,
+      "nodes": 32664
+    },
+    {
+      "width": 1440,
+      "cycle": 2,
+      "heapAfterGC": 66.94845199584961,
+      "nodes": 54437
+    },
+    {
+      "width": 390,
+      "loadedMs": 3199,
+      "tasks": [
+        {
+          "start": 1357.1000001430511,
+          "duration": 490
+        },
+        {
+          "start": 1847.4000000953674,
+          "duration": 152
+        }
+      ],
+      "nodes": 22403,
+      "heapMB": 41.85746765136719,
+      "layoutMs": 645.518
+    },
+    {
+      "width": 390,
+      "cycle": 0,
+      "heapAfterGC": 29.761383056640625,
+      "nodes": 20424
+    },
+    {
+      "width": 390,
+      "cycle": 1,
+      "heapAfterGC": 52.84368133544922,
+      "nodes": 42448
+    },
+    {
+      "width": 390,
+      "cycle": 2,
+      "heapAfterGC": 73.93866348266602,
+      "nodes": 64221
+    }
+  ],
+  "errors": []
+}

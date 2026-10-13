@@ -17,6 +17,7 @@ public class UserAccountDO {
     private Integer type;
     private String passwordHash;
     private Integer status;
+    private long credentialVersion;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

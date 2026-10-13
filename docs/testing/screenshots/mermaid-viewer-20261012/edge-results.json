@@ -1,0 +1,181 @@
+{
+  "rows": [
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "light",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.792381,
+        "x": 214.185,
+        "y": 16
+      },
+      "fullscreenAfterDrag": {
+        "scale": 1.72861,
+        "x": 333.059,
+        "y": -21.1439
+      }
+    },
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "dark",
+      "viewport": {
+        "width": 1280,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.792381,
+        "x": 214.185,
+        "y": 16
+      },
+      "fullscreenAfterDrag": {
+        "scale": 1.72861,
+        "x": 333.059,
+        "y": -21.1439
+      }
+    },
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "light",
+      "viewport": {
+        "width": 810,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.792381,
+        "x": 207.685,
+        "y": 16
+      },
+      "fullscreenAfterDrag": {
+        "scale": 1.72861,
+        "x": 98.0594,
+        "y": -21.1439
+      }
+    },
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "dark",
+      "viewport": {
+        "width": 810,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.792381,
+        "x": 207.685,
+        "y": 16
+      },
+      "fullscreenAfterDrag": {
+        "scale": 1.72861,
+        "x": 98.0594,
+        "y": -21.1439
+      }
+    },
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "light",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.742788,
+        "x": 16,
+        "y": 20.1899
+      },
+      "fullscreenAfterDrag": {
+        "scale": 1.00707,
+        "x": 38.1401,
+        "y": 158.267
+      }
+    },
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "dark",
+      "viewport": {
+        "width": 390,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.742788,
+        "x": 16,
+        "y": 20.1899
+      },
+      "fullscreenAfterDrag": {
+        "scale": 1.00707,
+        "x": 38.1401,
+        "y": 158.267
+      }
+    },
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "light",
+      "viewport": {
+        "width": 320,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.574519,
+        "x": 16,
+        "y": 20.1887
+      },
+      "fullscreenAfterDrag": {
+        "scale": 0.801546,
+        "x": 45.8892,
+        "y": 200.223
+      }
+    },
+    {
+      "engine": "edge",
+      "browser": "153.0.4234.48",
+      "theme": "dark",
+      "viewport": {
+        "width": 320,
+        "height": 900
+      },
+      "dpr": 1,
+      "simulated": true,
+      "path": "/design-showcase#mermaid-reading",
+      "initial": {
+        "scale": 0.574519,
+        "x": 16,
+        "y": 20.1887
+      },
+      "fullscreenAfterDrag": {
+        "scale": 0.801546,
+        "x": 45.8892,
+        "y": 200.223
+      }
+    }
+  ],
+  "errors": []
+}

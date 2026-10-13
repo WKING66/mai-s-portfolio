@@ -124,8 +124,13 @@ public final class AcceptanceFixtures {
                 // 不使用 IF NOT EXISTS：拒绝覆盖已有验收环境或其他人的状态。
                 statement.execute("CREATE SCHEMA " + SCHEMA);
                 statement.execute("SET LOCAL search_path TO " + SCHEMA);
-                statement.execute(Files.readString(Path.of(
-                    "backend/mai-portfolio-launch/src/main/resources/db/postgresql/V1__portfolio_and_document_core.sql")));
+                try (var migrations = Files.list(Path.of("backend/mai-portfolio-launch/src/main/resources/db/postgresql"))) {
+                    for (Path migration : migrations.filter(path -> path.getFileName().toString().matches("V[0-9]+__.*\\\\.sql"))
+                            .sorted(java.util.Comparator.comparingInt(path ->
+                                Integer.parseInt(path.getFileName().toString().split("__")[0].substring(1)))).toList()) {
+                        statement.execute(Files.readString(migration));
+                    }
+                }
                 statement.executeUpdate("INSERT INTO site_config (display_name, headline, intro, github_url, email, seo_title, seo_description, updated_at) "
                     + "SELECT display_name, headline, intro, github_url, email, seo_title, seo_description, updated_at FROM public.site_config");
                 statement.executeUpdate("INSERT INTO tag (kind,name,normalized_name,slug,group_code,logo_key,is_featured,sort_order) "
@@ -153,8 +158,8 @@ public final class AcceptanceFixtures {
             try {
                 var storage = new AliyunOssObjectStorage(client, settings.get("OSS_BUCKET_NAME"));
                 try (var insert = database.prepareStatement("INSERT INTO media_asset "
-                        + "(asset_type,storage_key,source_type,original_filename,mime_type,byte_size,status,created_at,updated_at) "
-                        + "VALUES (?,?,0,?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")) {
+                        + "(asset_type,storage_key,source_type,original_filename,mime_type,byte_size,status,created_at,updated_at,usage) "
+                        + "VALUES (?,?,0,?,?,?,1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP,?)")) {
                     for (String name : new String[] {"avatar.png", "resume.pdf", "private.png"}) {
                         boolean document = name.endsWith("pdf");
                         byte[] content = document ? resume : image;
@@ -166,6 +171,7 @@ public final class AcceptanceFixtures {
                         insert.setString(3, name);
                         insert.setString(4, type);
                         insert.setLong(5, content.length);
+                        insert.setString(6, document ? "ATTACHMENT" : "IMAGE");
                         insert.executeUpdate();
                     }
                 }

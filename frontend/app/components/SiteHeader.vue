@@ -1,64 +1,77 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
+import type { DropdownMenuItem } from '@nuxt/ui'
+import { useAuthState } from '../composables/useAuthState'
+import { useSiteNavigation } from '../composables/useSiteNavigation'
+import { useSiteTheme } from '../composables/useSiteTheme'
+import { LOGIN_MESSAGES } from '../constants/messages'
+import { ACCOUNT_MENU_MESSAGES, SITE_NAVIGATION } from '../constants/navigation'
+import { useFeedback } from '../composables/useFeedback'
+const header = useTemplateRef<HTMLElement>('header')
+let headerObserver: ResizeObserver | undefined
+onMounted(() => {
+  // 内容换行、字体缩放和浏览器缩放均使用实测高度；不按设备型号分支。
+  headerObserver = new ResizeObserver(entries => { const height = entries[0]?.borderBoxSize[0]?.blockSize; if (height && header.value?.isConnected) document.documentElement.style.setProperty('--site-header-height', height + 'px') })
+  if (header.value) headerObserver.observe(header.value)
+})
+onBeforeUnmount(() => { headerObserver?.disconnect(); document.documentElement.style.removeProperty('--site-header-height') })
 
-const navigation = [
-  { href: '#about', label: '关于我' },
-  { href: '#stack', label: '技术栈' },
-  { href: '#projects', label: '项目' },
-  { href: '#blog', label: '博客' },
-  { href: '#contact', label: '联系' },
-]
-
-const theme = ref<'light' | 'dark'>('light')
+// 登录/注册页自行恢复会话，其余页面共用这一次查询；NuxtLink 跳转不重置权限状态。
+const props = withDefaults(defineProps<{ restoreSession?: boolean }>(), { restoreSession: true })
+const auth = useAuthState()
+const feedback = useFeedback()
+const { activeSection, mobileOpen, selectSection } = useSiteNavigation()
+const { theme, toggleTheme } = useSiteTheme()
+const mobileItems = computed<DropdownMenuItem[]>(() => SITE_NAVIGATION.map(item => ({
+  label: item.label,
+  to: item.href,
+  active: activeSection.value === item.id,
+  onSelect: () => selectSection(item.id),
+})))
 
 onMounted(() => {
-  const saved = localStorage.getItem('portfolio-theme')
-  theme.value = saved === 'dark' || saved === 'light'
-    ? saved
-    : window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-  document.documentElement.dataset.theme = theme.value
+  if (props.restoreSession && !auth.ready.value) {
+    void auth.ensureSession().catch(cause => feedback.error(cause, LOGIN_MESSAGES.sessionFailed))
+  }
 })
-
-function toggleTheme() {
-  theme.value = theme.value === 'dark' ? 'light' : 'dark'
-  document.documentElement.dataset.theme = theme.value
-  localStorage.setItem('portfolio-theme', theme.value)
-}
 </script>
 
 <template>
-  <header class="site-header sticky top-0 z-30 border-b border-line backdrop-blur-xl">
-    <div class="mx-auto flex min-h-[70px] w-full max-w-[1200px] items-center justify-between gap-5 px-4 sm:px-5">
-      <a class="flex shrink-0 items-center gap-2.5 whitespace-nowrap font-extrabold tracking-tight no-underline" href="#about">
-        <span class="brand-mark grid size-8 place-items-center rounded-full text-sm font-black" aria-hidden="true">M</span>
-        阿霾 · 个人作品集
-      </a>
-      <nav class="flex items-center gap-2 sm:gap-5" aria-label="主导航">
-        <a v-for="item in navigation" :key="item.href" :href="item.href"
-          class="hidden whitespace-nowrap text-sm text-muted no-underline transition-colors hover:text-ink md:inline">
+  <header ref="header" class="site-header sticky top-0 z-30 border-b border-line">
+    <div class="site-container flex min-h-18 flex-wrap items-center justify-between gap-3 py-3 sm:gap-5">
+      <NuxtLink class="flex shrink-0 items-center gap-2.5 whitespace-nowrap font-extrabold tracking-tight no-underline"
+        to="/#about" @click="selectSection('about')">
+        <span class="brand-mark grid size-8 place-items-center rounded-lg text-sm font-semibold" aria-hidden="true">M</span>
+        <span class="hidden sm:inline">阿霾 · 个人作品集</span><span class="sm:hidden">阿霾</span>
+      </NuxtLink>
+      <nav class="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4" aria-label="主导航">
+        <NuxtLink v-for="item in SITE_NAVIGATION" :key="item.id" :to="item.href"
+          :aria-current="activeSection === item.id ? 'location' : undefined"
+          :data-nav-section="item.id"
+          class="site-nav-link hidden whitespace-nowrap text-sm no-underline transition-colors md:inline"
+          :class="activeSection === item.id ? 'text-accent font-semibold' : 'text-muted hover:text-ink'"
+          @click="selectSection(item.id)">
           {{ item.label }}
-        </a>
-        <button class="theme-toggle grid size-10 shrink-0 place-items-center rounded-full border border-line"
-          type="button" :aria-label="theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'" @click="toggleTheme">
-          <span aria-hidden="true">◐</span>
-        </button>
-        <details class="mobile-menu relative md:hidden">
-          <summary class="cursor-pointer list-none rounded-full border border-line px-3 py-2 text-sm">菜单</summary>
-          <div class="menu-panel absolute top-[calc(100%+12px)] right-0 grid min-w-[190px] rounded-2xl border border-line p-2 shadow-xl">
-            <a v-for="item in navigation" :key="item.href" :href="item.href" class="rounded-lg px-3 py-2 text-sm no-underline hover:text-accent">{{ item.label }}</a>
-          </div>
-        </details>
+        </NuxtLink>
+        <AccountMenu />
+        <UButton class="theme-toggle" color="neutral" variant="outline" size="lg"
+          :icon="theme === 'dark' ? 'i-lucide-sun' : 'i-lucide-moon'"
+          :aria-label="theme === 'dark' ? '切换为浅色主题' : '切换为深色主题'" @click="toggleTheme" />
+        <!-- Reka/Nuxt UI 管理焦点、方向键、Escape 和点击外部关闭，不自行实现菜单键盘协议。 -->
+        <UDropdownMenu v-model:open="mobileOpen" :modal="false" :items="mobileItems" :content="{ align: 'end', sideOffset: 12 }"
+          :ui="{ content: 'w-48 rounded-lg p-1' }" class="md:hidden">
+          <UButton class="rounded-lg md:hidden" color="neutral" variant="outline" size="lg"
+            icon="i-lucide-menu" :aria-label="ACCOUNT_MENU_MESSAGES.mobileNavigation" />
+        </UDropdownMenu>
       </nav>
     </div>
   </header>
 </template>
 
 <style scoped>
-.site-header { background: color-mix(in srgb, var(--site-bg) 78%, transparent); }
-.brand-mark { background: linear-gradient(135deg, var(--site-accent), var(--site-accent-secondary)); color: #071018; }
-.theme-toggle { background: var(--site-surface); cursor: pointer; transition: transform .2s ease; }
-.theme-toggle:hover { transform: translateY(-2px); }
-.menu-panel { background: var(--site-surface-strong); }
-.mobile-menu summary::-webkit-details-marker { display: none; }
-@media (prefers-reduced-motion: reduce) { .theme-toggle { transition: none; } .theme-toggle:hover { transform: none; } }
+.site-header { background: var(--site-bg); }
+.brand-mark { background: var(--site-accent); color: var(--site-inverted); }
+.site-nav-link { position: relative; padding-block: 8px; }
+.site-nav-link[aria-current="location"]::after { content: ""; position: absolute; height: 2px; inset-inline: 0; bottom: 0; border-radius: 2px; background: var(--site-accent); }
+.theme-toggle { background: var(--site-surface); cursor: pointer; }
 </style>

@@ -16,6 +16,8 @@ import dev.amai.portfolio.web.exception.ApiException;
 import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -23,9 +25,34 @@ import org.springframework.mock.web.MockHttpServletResponse;
 class AuthenticationInterceptorTest {
     private final AuthService auth = mock(AuthService.class);
 
+    @cn.dev33.satoken.annotation.SaCheckLogin
+    static class LoginEndpoint { public void read() { } }
+    static class MixedEndpoint {
+        public void publicRead() { }
+        @cn.dev33.satoken.annotation.SaCheckRole(AuthConstants.OWNER_ROLE)
+        public void editRead() { }
+    }
+
+    @Test void protectedReadsFollowAnnotationsRatherThanAdminPathWhilePublicReadStaysAnonymous() throws Exception {
+        try (var stp = mockStatic(StpUtil.class)) {
+            var response = new MockHttpServletResponse();
+            var publicHandler = new org.springframework.web.method.HandlerMethod(new MixedEndpoint(),
+                MixedEndpoint.class.getMethod("publicRead"));
+            assertThat(interceptor(false).preHandle(new MockHttpServletRequest("GET", "/api/v1/profile"), response, publicHandler)).isTrue();
+            verifyNoInteractions(auth);
+            stp.verifyNoInteractions();
+            var protectedHandler = new org.springframework.web.method.HandlerMethod(new MixedEndpoint(),
+                MixedEndpoint.class.getMethod("editRead"));
+            assertThat(interceptor(false).preHandle(new MockHttpServletRequest("GET", "/api/v1/projects/1"), response, protectedHandler)).isTrue();
+            stp.verify(StpUtil::checkLogin);
+            verify(auth).checkActiveAccount();
+        }
+    }
+
     private AuthenticationInterceptor interceptor(boolean https) {
-        return new AuthenticationInterceptor(new SecurityProperties(List.of("https://example.test"),
-            new ByteArrayResource(new byte[0]), https, 5, Duration.ofMinutes(10)), auth);
+        return new AuthenticationInterceptor(new RequestSecurityPolicy(new SecurityProperties(List.of("https://example.test"),
+            new ByteArrayResource(new byte[0]), https, 5, Duration.ofMinutes(10),
+            5, Duration.ofMinutes(5))), auth);
     }
 
     @Test
@@ -34,6 +61,36 @@ class AuthenticationInterceptorTest {
         request.setContextPath("/portfolio");
         assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
         verifyNoInteractions(auth);
+    }
+
+    @Test
+    void registrationIsPublicOnlyForExactPostAfterHttpsCheck() {
+        var request = new MockHttpServletRequest("POST", "/portfolio/api/v1/auth/register");
+        request.setContextPath("/portfolio");
+        assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
+        assertThatThrownBy(() -> interceptor(true).preHandle(request,
+            new MockHttpServletResponse(), new Object())).isInstanceOfSatisfying(ApiException.class,
+                error -> assertThat(error.code()).isEqualTo(ApiErrorCode.HTTPS_REQUIRED));
+        request.setSecure(true);
+        assertThat(interceptor(true).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
+        verifyNoInteractions(auth);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "POST,/api/v1/auth/register/extra", "POST,/api/v1/auth/register/",
+        "PATCH,/api/v1/auth/register"
+    })
+    void registrationExceptionDoesNotPermitOtherMethodsOrNeighboringPaths(String method, String path) {
+        try (var stp = mockStatic(StpUtil.class)) {
+            RuntimeException denied = new RuntimeException("test-login-required");
+            stp.when(StpUtil::checkLogin).thenThrow(denied);
+            var request = new MockHttpServletRequest(method, path);
+            assertThatThrownBy(() -> interceptor(false).preHandle(request,
+                new MockHttpServletResponse(), new Object())).isSameAs(denied);
+            stp.verify(StpUtil::checkLogin);
+            verifyNoInteractions(auth);
+        }
     }
 
     @Test
@@ -53,7 +110,7 @@ class AuthenticationInterceptorTest {
             SaSession session = new SaSession("test-session");
             session.set(AuthConstants.CSRF_SESSION_KEY, "test-csrf");
             stp.when(StpUtil::getSession).thenReturn(session);
-            var request = new MockHttpServletRequest("PATCH", "/api/v1/admin/profile");
+            var request = new MockHttpServletRequest("PATCH", "/api/v1/profile");
             assertThatThrownBy(() -> interceptor(false).preHandle(
                 request, new MockHttpServletResponse(), new Object()))
                 .isInstanceOfSatisfying(ApiException.class,

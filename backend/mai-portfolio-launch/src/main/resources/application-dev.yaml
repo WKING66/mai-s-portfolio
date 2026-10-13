@@ -7,8 +7,8 @@ spring:
     druid:
       # 开发库固定为独立的 portfolio_dev，凭据只从仓库根目录被忽略的 .env 注入。
       url: jdbc:postgresql://${PSQL_HOST:127.0.0.1}:${PSQL_PORT:5432}/portfolio_dev
-      username: ${PSQL_USERNAME}
-      password: ${PSQL_PASSWORD}
+      username: ${PSQL_USERNAME:postgres}
+      password: ${PSQL_PASSWORD:123456}
       initial-size: 0
       min-idle: 1
       max-active: 5
@@ -18,7 +18,7 @@ spring:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:123456}
       database: ${REDIS_DATABASE:0}
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:3s}
       timeout: ${REDIS_COMMAND_TIMEOUT:3s}
@@ -34,9 +34,6 @@ portfolio:
   redis:
     # 所有项目自有 Redis 键统一加前缀，避免与同一实例中的其他应用冲突。
     key-prefix: ${REDIS_KEY_PREFIX:mai-portfolio}
-    bootstrap:
-      enabled: true
-      initial-password: ${OWNER_PASSWORD}
   media:
     # 本地开发默认连接真实 OSS；单元/回归测试由测试配置显式切回 local。
     storage: ${MEDIA_STORAGE:oss}

@@ -54,4 +54,11 @@ class GlobalExceptionHandlerTest {
             return body;
         }
     }
+    @org.junit.jupiter.api.Test
+    void multipartParserLimitHasExplicit413Envelope() {
+        var response = new GlobalExceptionHandler().handlePayloadTooLarge(
+            new org.springframework.web.multipart.MaxUploadSizeExceededException(128L * 1024 * 1024));
+        org.assertj.core.api.Assertions.assertThat(response.getStatusCode().value()).isEqualTo(413);
+        org.assertj.core.api.Assertions.assertThat(response.getBody().code()).isEqualTo("PAYLOAD_TOO_LARGE");
+    }
 }

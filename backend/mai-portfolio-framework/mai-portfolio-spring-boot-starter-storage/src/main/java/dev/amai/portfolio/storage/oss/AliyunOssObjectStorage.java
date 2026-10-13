@@ -16,6 +16,11 @@ import dev.amai.portfolio.storage.ObjectStorageKeyValidator;
 import dev.amai.portfolio.storage.ObjectStorageWriteRequest;
 import dev.amai.portfolio.storage.StoredObject;
 import dev.amai.portfolio.storage.StoredObjectContent;
+import dev.amai.portfolio.storage.StoredObjectAccessUrl;
+import dev.amai.portfolio.storage.autoconfigure.MediaStorageProperties;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -23,7 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-/** 阿里云私有 OSS 实现，不生成公开 URL，也不把凭据传给调用方。 */
+/** 阿里云私有 OSS 实现；返回临时签名地址供浏览器直连，不传输 AccessKey。 */
 public final class AliyunOssObjectStorage implements ObjectStorage {
     private static final System.Logger LOG = System.getLogger(AliyunOssObjectStorage.class.getName());
     private static final int COPY_BUFFER_SIZE = 8192;
@@ -33,13 +38,41 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
 
     private final OSS client;
     private final String bucketName;
+    private final Duration signedUrlTtl;
 
     public AliyunOssObjectStorage(OSS client, String bucketName) {
+        this(client, bucketName, MediaStorageProperties.DEFAULT_SIGNED_URL_TTL);
+    }
+
+    public AliyunOssObjectStorage(OSS client, String bucketName, Duration signedUrlTtl) {
         this.client = Objects.requireNonNull(client);
         if (bucketName == null || bucketName.isBlank()) {
             throw new IllegalArgumentException(StorageMessageConstants.OSS_CONFIGURATION_INCOMPLETE);
         }
         this.bucketName = bucketName.trim();
+        this.signedUrlTtl = Objects.requireNonNull(signedUrlTtl);
+        if (signedUrlTtl.isZero() || signedUrlTtl.isNegative()) {
+            throw new IllegalArgumentException(StorageMessageConstants.ACCESS_URL_TTL_INVALID);
+        }
+    }
+
+    @Override
+    public StoredObjectAccessUrl accessUrl(String objectKey) {
+        String key = ObjectStorageKeyValidator.validate(objectKey);
+        Instant expiresAt = Instant.ofEpochMilli(
+                Instant.now()
+                .plus(signedUrlTtl)
+                .toEpochMilli()
+        );
+        try {
+            var url = client.generatePresignedUrl(bucketName, key, Date.from(expiresAt));
+            if (url == null || !"https".equalsIgnoreCase(url.getProtocol())) {
+                throw new ObjectStorageException(StorageMessageConstants.ACCESS_URL_FAILED);
+            }
+            return new StoredObjectAccessUrl(url.toExternalForm(), expiresAt);
+        } catch (OSSException | ClientException error) {
+            throw new ObjectStorageException(StorageMessageConstants.ACCESS_URL_FAILED, error);
+        }
     }
 
     @Override
@@ -58,9 +91,7 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
             return new StoredObject(request.objectKey(), request.byteSize(), result.getETag());
         } catch (OSSException error) {
             throw translate(error, request.objectKey(), StorageMessageConstants.WRITE_FAILED);
-        } catch (ClientException error) {
-            throw new ObjectStorageException(StorageMessageConstants.WRITE_FAILED, error);
-        } catch (IOException error) {
+        } catch (ClientException | IOException error) {
             throw new ObjectStorageException(StorageMessageConstants.WRITE_FAILED, error);
         } finally {
             deleteStagedContent(stagedContent);

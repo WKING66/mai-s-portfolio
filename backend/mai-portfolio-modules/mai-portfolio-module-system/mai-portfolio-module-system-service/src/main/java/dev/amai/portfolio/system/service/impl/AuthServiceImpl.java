@@ -1,63 +1,87 @@
 package dev.amai.portfolio.system.service.impl;
 
-import cn.dev33.satoken.stp.StpUtil;
-import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.component.NewPasswordPolicy;
+import dev.amai.portfolio.system.component.AuthRequestValidator;
+import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.entity.request.LoginRequest;
+import dev.amai.portfolio.system.entity.request.RegisterRequest;
+import dev.amai.portfolio.system.entity.vo.RegistrationVo;
 import dev.amai.portfolio.system.entity.vo.SessionVo;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.enums.AccountStatus;
+import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.AuthService;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.system.service.LoginThrottleService;
-import java.security.SecureRandom;
-import java.util.Base64;
+import dev.amai.portfolio.system.service.OwnerRoleService;
+import java.util.List;
 import java.util.Locale;
-
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class AuthServiceImpl implements AuthService {
     private static final Logger LOG = LoggerFactory.getLogger(AuthServiceImpl.class);
-    private static final int CSRF_BYTES = 32;
+    private static final Pattern REGISTER_USERNAME = Pattern.compile("[A-Za-z0-9_-]{3,64}");
 
     private final UserAccountMapper accounts;
     private final PasswordHasher passwords;
     private final SecurityProperties security;
     private final PasswordCryptoService crypto;
     private final LoginThrottleService throttle;
-    private final SecureRandom random = new SecureRandom();
+    private final OwnerRoleService roles;
+    private final AccountAuthenticationService authentication;
+    private final NewPasswordPolicy newPasswords;
+    private final AuthRequestValidator requests;
+    private final TransactionTemplate transactions;
 
     public AuthServiceImpl(UserAccountMapper accounts, PasswordHasher passwords,
             SecurityProperties security, PasswordCryptoService crypto,
-            LoginThrottleService throttle) {
+            LoginThrottleService throttle, OwnerRoleService roles,
+            AccountAuthenticationService authentication,
+            NewPasswordPolicy newPasswords, AuthRequestValidator requests,
+            PlatformTransactionManager transactionManager) {
         this.accounts = accounts;
         this.passwords = passwords;
         this.security = security;
         this.crypto = crypto;
         this.throttle = throttle;
+        this.roles = roles;
+        this.authentication = authentication;
+        this.newPasswords = newPasswords;
+        this.requests = requests;
+        this.transactions = new TransactionTemplate(transactionManager);
     }
 
     @Override
     public SessionVo current() {
-        if (!StpUtil.isLogin()) {
-            return new SessionVo(false, null, null);
+        UserAccountDO account = authentication.findCurrentAccount().orElse(null);
+        if (account == null) {
+            return new SessionVo(false, null, null, List.of());
         }
-        UserAccountDO account = requireActiveAccount();
         return new SessionVo(true, account.getUsername(),
-            (String) StpUtil.getSession().get(AuthConstants.CSRF_SESSION_KEY));
+            authentication.csrfToken(),
+            roles.findRoles(account.getId()));
     }
 
     @Override
     public SessionVo login(String origin, String clientKey, LoginRequest input) {
+        // 参数/来源/限流校验先于事务，非法请求不应依赖数据库连接。
+        requests.validate(input);
         // 在执行 RSA 解密和 Argon2 校验前占用额度，失败尝试也会进入固定窗口。
         throttle.acquireLoginPermit(clientKey);
         // 登录页面通过同源代理访问；显式核对 Origin，防止跨站表单建立受害者会话。
@@ -66,50 +90,74 @@ public class AuthServiceImpl implements AuthService {
             throw new ApiException(ApiErrorCode.ORIGIN_INVALID, SystemMessageConstants.ORIGIN_INVALID);
         }
         String password = crypto.decryptPassword(input.encryptedPassword());
+        String username = input.username().trim().toLowerCase(Locale.ROOT);
+        return transactions.execute(status -> authenticateLocked(username, password));
+    }
+
+    private SessionVo authenticateLocked(String username, String password) {
         // PostgreSQL 默认区分大小写；查询语义须与 LOWER(username) 唯一索引一致。
+        // 与改密共用账号行锁，令牌必须绑定与所验证密码一致的已持久化凭据版本。
         UserAccountDO account = accounts.selectOne(Wrappers.<UserAccountDO>lambdaQuery()
-            .apply("LOWER(username) = {0}", input.username().toLowerCase(Locale.ROOT)));
+            .apply("LOWER(username) = {0}", username)
+            .last("FOR UPDATE"));
         if (account == null || !passwords.matches(password, account.getPasswordHash())) {
             LOG.warn("User login rejected, reason=BAD_CREDENTIALS");
             throw new ApiException(ApiErrorCode.AUTH_INVALID_CREDENTIALS, SystemMessageConstants.BAD_CREDENTIALS);
         }
-        if (account.getStatus() != AccountStatus.ENABLED.code()) {
-            LOG.warn("User login rejected, reason=FORBIDDEN, accountId={}", account.getId());
-            throw new ApiException(ApiErrorCode.FORBIDDEN, SystemMessageConstants.ACCOUNT_UNAVAILABLE);
-        }
-        StpUtil.login(account.getId());
-        // 每次登录重新生成随机令牌，只在该会话中校验后续写请求。
-        byte[] bytes = new byte[CSRF_BYTES];
-        random.nextBytes(bytes);
-        String csrf = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        StpUtil.getSession().set(AuthConstants.CSRF_SESSION_KEY, csrf);
+        String csrf = authentication.startSession(account);
         // IP 窗口统计所有尝试；不能因某个账号成功而放行对其他账号的持续猜测。
         LOG.info("User logged in, accountId={}", account.getId());
-        return new SessionVo(true, account.getUsername(), csrf);
+        return new SessionVo(true, account.getUsername(), csrf, roles.findRoles(account.getId()));
     }
 
     @Override
     public void logout() {
-        long accountId = StpUtil.getLoginIdAsLong();
-        StpUtil.logout();
+        long accountId = authentication.logout();
         LOG.info("User logged out, accountId={}", accountId);
     }
 
     @Override
-    public void checkActiveAccount() {
-        requireActiveAccount();
+    public RegistrationVo register(String origin, String clientKey, RegisterRequest input) {
+        requests.validate(input);
+        // 注册单独计数；复用 Redis 原子限流组件，避免注册防刷影响正常登录。
+        throttle.acquireRegistrationPermit(clientKey);
+        if (origin == null || !security.allowedOrigins().contains(origin)) {
+            throw new ApiException(ApiErrorCode.ORIGIN_INVALID, SystemMessageConstants.ORIGIN_INVALID);
+        }
+        String username = input.username().trim();
+        if (!REGISTER_USERNAME.matcher(username).matches()) {
+            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.REGISTER_USERNAME_INVALID);
+        }
+        String password = newPasswords.normalize(crypto.decryptPassword(input.encryptedPassword()));
+        return transactions.execute(status -> createAccount(username, password));
     }
 
-    /** 每次受保护请求读取当前状态；角色变更由独立的 OWNER 授权检查处理。 */
-    private UserAccountDO requireActiveAccount() {
-        StpUtil.checkLogin();
-        UserAccountDO account = accounts.selectById(StpUtil.getLoginIdAsLong());
-        if (account == null) {
-            StpUtil.logout();
+    private RegistrationVo createAccount(String username, String password) {
+        if (accounts.selectCount(Wrappers.<UserAccountDO>lambdaQuery()
+                .apply("LOWER(username) = {0}", username.toLowerCase(Locale.ROOT))) > 0) {
+            throw new ApiException(ApiErrorCode.DATA_CONFLICT, SystemMessageConstants.REGISTER_USERNAME_EXISTS);
         }
-        if (account == null || account.getStatus() != AccountStatus.ENABLED.code()) {
-            throw new ApiException(ApiErrorCode.FORBIDDEN, SystemMessageConstants.ACCOUNT_UNAVAILABLE);
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        UserAccountDO account = new UserAccountDO();
+        account.setUsername(username);
+        account.setType(AccountType.NORMAL.code());
+        account.setStatus(AccountStatus.ENABLED.code());
+        account.setPasswordHash(passwords.encode(password));
+        account.setCreatedAt(now);
+        account.setUpdatedAt(now);
+        try {
+            accounts.insert(account);
+        } catch (DuplicateKeyException conflict) {
+            // 服务端先判重，唯一索引只处理并发竞争；异常越过事务边界后回滚。
+            throw new ApiException(ApiErrorCode.DATA_CONFLICT, SystemMessageConstants.REGISTER_USERNAME_EXISTS);
         }
-        return account;
+        LOG.info("Normal account registered, accountId={}", account.getId());
+        return new RegistrationVo(username);
     }
+
+    @Override
+    public void checkActiveAccount() {
+        authentication.currentAccount();
+    }
+
 }

@@ -133,9 +133,9 @@ class AuthSecurityTest extends AuthKeyTestSupport {
             .path("data").path("csrfToken").asText();
         mvc.perform(get("/api/v1/auth/session").cookie(cookie))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.loggedIn").value(true));
-        mvc.perform(get("/api/v1/admin/profile").cookie(cookie))
+        mvc.perform(get("/api/v1/tags").cookie(cookie))
             .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
-        mvc.perform(patch("/api/v1/admin/profile").cookie(cookie)
+        mvc.perform(patch("/api/v1/profile").cookie(cookie)
                 .header("X-CSRF-Token", csrf).contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isForbidden());
         mvc.perform(delete("/api/v1/auth/session").cookie(cookie))
@@ -149,7 +149,7 @@ class AuthSecurityTest extends AuthKeyTestSupport {
             .andExpect(status().isOk());
         mvc.perform(get("/api/v1/auth/session").cookie(cookie))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.loggedIn").value(false));
-        mvc.perform(get("/api/v1/admin/profile").cookie(cookie)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/tags").cookie(cookie)).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -170,7 +170,7 @@ class AuthSecurityTest extends AuthKeyTestSupport {
                 .contentType(MediaType.APPLICATION_JSON).content(body))
             .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
         mvc.perform(get("/api/v1/auth/session").cookie(cookie)).andExpect(status().isForbidden());
-        mvc.perform(get("/api/v1/admin/profile").cookie(cookie)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/tags").cookie(cookie)).andExpect(status().isForbidden());
         mvc.perform(delete("/api/v1/auth/session").cookie(cookie).header("X-CSRF-Token", csrf))
             .andExpect(status().isOk());
     }
@@ -189,13 +189,13 @@ class AuthSecurityTest extends AuthKeyTestSupport {
         Cookie cookie = login.getResponse().getCookie("portfolio_session");
         String csrf = json.readTree(login.getResponse().getContentAsString())
             .path("data").path("csrfToken").asText();
-        mvc.perform(get("/api/v1/admin/profile").cookie(cookie)).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/tags").cookie(cookie)).andExpect(status().isOk());
         owner.setType(AccountType.NORMAL.code());
         accounts.updateById(owner);
         mvc.perform(get("/api/v1/auth/session").cookie(cookie))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.loggedIn").value(true));
-        mvc.perform(get("/api/v1/admin/profile").cookie(cookie)).andExpect(status().isForbidden());
-        mvc.perform(patch("/api/v1/admin/profile").cookie(cookie).header("X-CSRF-Token", csrf)
+        mvc.perform(get("/api/v1/tags").cookie(cookie)).andExpect(status().isForbidden());
+        mvc.perform(patch("/api/v1/profile").cookie(cookie).header("X-CSRF-Token", csrf)
                 .contentType(MediaType.APPLICATION_JSON).content("{}")).andExpect(status().isForbidden());
         owner.setStatus(AccountStatus.DISABLED.code());
         accounts.updateById(owner);
@@ -231,11 +231,12 @@ class AuthSecurityTest extends AuthKeyTestSupport {
         Cookie cookie = login.getResponse().getCookie("portfolio_session");
         // 仅删除本事务新建的测试账号，结束时回滚，不删除真实用户。
         accounts.deleteById(normal.getId());
-        mvc.perform(get("/api/v1/auth/session").cookie(cookie))
-            .andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("FORBIDDEN"));
+        // 已删除账号在认证边界自动注销，会话查询直接返回匿名。
         mvc.perform(get("/api/v1/auth/session").cookie(cookie))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.loggedIn").value(false));
-        mvc.perform(get("/api/v1/admin/profile").cookie(cookie)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/auth/session").cookie(cookie))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.loggedIn").value(false));
+        mvc.perform(get("/api/v1/tags").cookie(cookie)).andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -252,7 +253,8 @@ class AuthSecurityTest extends AuthKeyTestSupport {
                 .content("{\"username\":\"owner\",\"encryptedPassword\":\"not-base64\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIAL_PAYLOAD"));
-        mvc.perform(get("/api/v1/auth/session/challenge")).andExpect(status().isUnauthorized());
+        // 挑战接口已删除，不能将旧路由复活为认证能力。
+        mvc.perform(get("/api/v1/auth/session/challenge")).andExpect(status().isNotFound());
         mvc.perform(get("/api/auth/public-key")).andExpect(status().isNotFound());
     }
 

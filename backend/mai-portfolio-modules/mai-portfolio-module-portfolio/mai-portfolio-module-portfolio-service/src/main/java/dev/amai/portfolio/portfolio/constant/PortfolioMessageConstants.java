@@ -3,7 +3,6 @@ package dev.amai.portfolio.portfolio.constant;
 /** 作品集域的校验与业务提示。 */
 public final class PortfolioMessageConstants {
     public static final String PROFILE_NOT_INITIALIZED = "站点公开资料未正确初始化";
-    public static final String PROFILE_MEDIA_NOT_FOUND = "公开媒体不存在";
     public static final String PROFILE_NAME_REQUIRED = "昵称不能为空";
     public static final String PROFILE_HEADLINE_REQUIRED = "职业定位不能为空";
     public static final String PROFILE_INTRO_REQUIRED = "个人介绍不能为空";

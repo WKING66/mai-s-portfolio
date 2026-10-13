@@ -124,4 +124,36 @@ class AliyunOssObjectStorageTest {
             .hasMessageContaining("实际对象字节数与声明值不一致");
         verifyNoInteractions(client);
     }
+    @Test
+    void signingReturnsSdkUrlAndExactExpiryWithoutAnyDownloadOrMetadataRequest() throws Exception {
+        OSS client = mock(OSS.class);
+        var signed = new java.net.URI("https://oss.test/image?OSSAccessKeyId=test&Signature=secret").toURL();
+        when(client.generatePresignedUrl(org.mockito.ArgumentMatchers.eq(BUCKET),
+            org.mockito.ArgumentMatchers.eq("images/object.png"), any(java.util.Date.class))).thenReturn(signed);
+        var storage = new AliyunOssObjectStorage(client, BUCKET, java.time.Duration.ofMinutes(10));
+        var before = java.time.Instant.now();
+        var access = storage.accessUrl("images/object.png");
+        var expiry = ArgumentCaptor.forClass(java.util.Date.class);
+        verify(client).generatePresignedUrl(org.mockito.ArgumentMatchers.eq(BUCKET),
+            org.mockito.ArgumentMatchers.eq("images/object.png"), expiry.capture());
+        assertThat(access.url()).isEqualTo(signed.toExternalForm());
+        assertThat(access.expiresAt()).isEqualTo(expiry.getValue().toInstant());
+        assertThat(access.expiresAt()).isBetween(before.plusSeconds(599), java.time.Instant.now().plusSeconds(601));
+        org.mockito.Mockito.verifyNoMoreInteractions(client);
+    }
+
+    @Test
+    void signingFailureAndUnsafeUrlStayWithinStorageBoundary() throws Exception {
+        OSS client = mock(OSS.class);
+        when(client.generatePresignedUrl(any(String.class), any(String.class), any(java.util.Date.class)))
+            .thenThrow(new com.aliyun.oss.ClientException("secret-vendor-message"));
+        var storage = new AliyunOssObjectStorage(client, BUCKET);
+        assertThatThrownBy(() -> storage.accessUrl("images/object.png")).isInstanceOf(ObjectStorageException.class)
+            .hasMessage("资源访问地址生成失败");
+        when(client.generatePresignedUrl(any(String.class), any(String.class), any(java.util.Date.class)))
+            .thenReturn(new java.net.URI("http://oss.test/image").toURL());
+        assertThatThrownBy(() -> storage.accessUrl("images/object.png")).isInstanceOf(ObjectStorageException.class);
+        assertThatThrownBy(() -> new AliyunOssObjectStorage(client, BUCKET, java.time.Duration.ZERO))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
 }

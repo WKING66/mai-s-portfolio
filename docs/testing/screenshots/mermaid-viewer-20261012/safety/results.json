@@ -1,0 +1,87 @@
+{
+  "ssr": "一致的客户端占位",
+  "deviceType": "Edge 设备模拟；非真实手机",
+  "rows": [
+    {
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "browser": "153.0.4234.48",
+      "orientation": "Landscape",
+      "theme": "light",
+      "path": "/design-showcase#mermaid-reading",
+      "counts": {
+        "chapterTree": 5,
+        "mermaidRender": 6
+      }
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "browser": "153.0.4234.48",
+      "orientation": "Landscape",
+      "theme": "dark",
+      "path": "/design-showcase#mermaid-reading",
+      "counts": {
+        "chapterTree": 5,
+        "mermaidRender": 12
+      }
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "dpr": 1,
+      "browser": "153.0.4234.48",
+      "orientation": "Landscape",
+      "theme": "light",
+      "path": "/design-showcase#mermaid-reading",
+      "counts": {
+        "chapterTree": 5,
+        "mermaidRender": 12,
+        "mermaidCacheHit": 6
+      }
+    },
+    {
+      "width": 390,
+      "height": 900,
+      "dpr": 1,
+      "browser": "153.0.4234.48",
+      "orientation": "Portrait",
+      "theme": "light",
+      "path": "/design-showcase#mermaid-reading",
+      "counts": {
+        "chapterTree": 5,
+        "mermaidRender": 6
+      }
+    },
+    {
+      "width": 390,
+      "height": 900,
+      "dpr": 1,
+      "browser": "153.0.4234.48",
+      "orientation": "Portrait",
+      "theme": "dark",
+      "path": "/design-showcase#mermaid-reading",
+      "counts": {
+        "chapterTree": 5,
+        "mermaidRender": 12
+      }
+    },
+    {
+      "width": 390,
+      "height": 900,
+      "dpr": 1,
+      "browser": "153.0.4234.48",
+      "orientation": "Portrait",
+      "theme": "light",
+      "path": "/design-showcase#mermaid-reading",
+      "counts": {
+        "chapterTree": 5,
+        "mermaidRender": 12,
+        "mermaidCacheHit": 6
+      }
+    }
+  ],
+  "errors": []
+}

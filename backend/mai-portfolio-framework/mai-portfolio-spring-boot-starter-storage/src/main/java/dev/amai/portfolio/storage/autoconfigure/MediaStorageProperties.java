@@ -8,13 +8,18 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /** 对象存储配置；AccessKey 仅从服务端环境变量绑定。 */
 @ConfigurationProperties(prefix = "portfolio.media")
 public record MediaStorageProperties(MediaStorageType storage, Path localDirectory,
-                                     Oss oss) {
+                                     Oss oss, Duration signedUrlTtl) {
+    public static final Duration DEFAULT_SIGNED_URL_TTL = Duration.ofHours(1);
     private static final Path DEFAULT_LOCAL_DIRECTORY = Path.of(".local-media");
 
     public MediaStorageProperties {
         storage = storage == null ? MediaStorageType.LOCAL : storage;
         localDirectory = localDirectory == null ? DEFAULT_LOCAL_DIRECTORY : localDirectory;
         oss = oss == null ? new Oss(null, null, null, null, null, null, 0) : oss;
+        signedUrlTtl = signedUrlTtl == null ? DEFAULT_SIGNED_URL_TTL : signedUrlTtl;
+        if (signedUrlTtl.isZero() || signedUrlTtl.isNegative()) {
+            throw new IllegalArgumentException(dev.amai.portfolio.storage.StorageMessageConstants.ACCESS_URL_TTL_INVALID);
+        }
     }
 
     /** OSS 客户端连接参数；超时值为 null 或非正数时使用安全默认值。 */

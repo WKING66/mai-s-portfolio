@@ -17,6 +17,8 @@ import java.util.regex.Pattern;
 public final class RedisKeys {
     /** 登录尝试限流窗口，TTL 来自安全配置。 */
     public static final String LOGIN_RATE_NAMESPACE = "auth:login";
+    /** 注册尝试的独立窗口；注册失败或防刷不能消耗正常登录额度。 */
+    public static final String REGISTRATION_RATE_NAMESPACE = "auth:register";
 
     private static final Pattern NAMESPACE_PATTERN = Pattern.compile("[a-z0-9][a-z0-9:-]{0,95}");
     private final String keyPrefix;

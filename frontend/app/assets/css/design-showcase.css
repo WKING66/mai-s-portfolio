@@ -1,0 +1,55 @@
+/* 与网站共享 token 来源，候选预览通过样板根节点的主题属性隔离。 */
+.design-showcase {
+  font-family: var(--font-sans);
+  color: var(--ui-text);
+  background: var(--showcase-canvas);
+  color-scheme: light;
+  min-height: 100svh;
+  overflow-wrap: anywhere;
+}
+.design-showcase[data-showcase-theme="dark"] { color-scheme: dark; }
+/* Solid 主色按钮的 hover 保持文字对比度；其余变体继续使用官方状态样式。 */
+.design-showcase :is(button, a).bg-primary:where(:hover, :active):not(:disabled):not([aria-disabled="true"]) {
+  background-color: var(--showcase-primary-hover);
+}
+.design-showcase :where(section[id], article [id]) { scroll-margin-top: 6rem; }
+.design-showcase :where(button, a, input, textarea, summary, [role="textbox"], [role="combobox"]):focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 3px;
+}
+.showcase-container { width: 100%; min-width: 0; max-width: var(--site-width); margin-inline: auto; padding-inline: var(--site-gutter); }
+.showcase-header { background: var(--showcase-canvas); border-bottom: 1px solid var(--ui-border); }
+.showcase-section { padding-block: 4rem; border-top: 1px solid var(--ui-border); }
+.showcase-kicker { font-family: var(--font-mono); font-size: .6875rem; font-weight: 600; letter-spacing: .14em; color: var(--ui-primary); }
+.showcase-title { font-size: clamp(2.5rem, 5vw, 4.5rem); line-height: 1.15; font-weight: 650; letter-spacing: -.045em; }
+.showcase-section-title { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 600; letter-spacing: -.025em; }
+.showcase-article { max-width: var(--site-reading-width); margin-inline: auto; font-size: 1.0625rem; line-height: 1.85; }
+.showcase-article :where(p) { line-height: inherit; }
+.showcase-editor-body { font-size: 1rem; line-height: 1.8; overflow-wrap: anywhere; }
+.showcase-editor-body pre { max-width: 100%; overflow-x: auto; white-space: pre; }
+.showcase-sidebar { border-left: 1px solid var(--ui-border); padding-left: 1.5rem; }
+.showcase-swatch { aspect-ratio: 2; border-radius: .5rem; border: 1px solid var(--ui-border); }
+.showcase-skip { position: absolute; left: 1rem; top: -5rem; z-index: 60; }
+.showcase-skip:focus { top: 1rem; }
+.showcase-splitter-frame { height: 680px; }
+.showcase-resize-handle { display: flex; width: 12px; flex-shrink: 0; align-items: center; justify-content: center; background: var(--ui-bg-muted); cursor: col-resize; touch-action: none; }
+.showcase-resize-handle:hover, .showcase-resize-handle[data-state="drag"], .showcase-resize-handle:focus-visible { background: var(--ui-bg-accented); outline: 2px solid var(--ui-primary); outline-offset: -2px; }
+.showcase-editor-scroll, .showcase-preview-scroll { scrollbar-gutter: stable; overscroll-behavior: contain; }
+.showcase-editor-body table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.showcase-editor-body :is(th, td) { border: 1px solid var(--ui-border); padding: .5rem; vertical-align: top; }
+.showcase-editor-body th { background: var(--ui-bg-muted); }
+.showcase-preview-scroll .markdown-preview { font-size: 1rem; line-height: 1.8; }
+@media (prefers-reduced-motion: reduce) { .design-showcase *, .design-showcase *::before, .design-showcase *::after { transition-duration: 0s !important; animation-duration: 0s !important; } }
+@media (max-width: 1023px) {
+  .showcase-sidebar { order: -1; border-left: 0; border-bottom: 1px solid var(--ui-border); padding: 0 0 1.5rem; }
+  .showcase-toc { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .showcase-toc > p { width: 100%; }
+  .showcase-toc a { margin: 0; }
+  .showcase-resize-handle { display: none; }
+  .showcase-edit-panel, .showcase-preview-panel { flex: 1 1 100% !important; }
+  .showcase-workspace[data-mobile-view="edit"] .showcase-preview-panel, .showcase-workspace[data-mobile-view="preview"] .showcase-edit-panel { display: none; }
+  .showcase-splitter-frame { height: 640px; }
+}
+@media (max-width: 639px) {
+  .showcase-section { padding-block: 2.5rem; }
+}

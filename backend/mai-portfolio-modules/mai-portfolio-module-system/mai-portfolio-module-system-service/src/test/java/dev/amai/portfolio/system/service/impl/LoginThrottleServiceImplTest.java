@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,9 +37,48 @@ class LoginThrottleServiceImplTest {
         assertThatCode(() -> throttle.acquireLoginPermit("client-a")).doesNotThrowAnyException();
     }
 
+    @Test
+    void registrationUsesIndependentNamespaceLimitAndWindow() {
+        FixedWindowRateLimiter rateLimiter = mock(FixedWindowRateLimiter.class);
+        when(rateLimiter.tryAcquire("auth:register", "client-a", 3, Duration.ofMinutes(5)))
+            .thenReturn(true);
+        when(rateLimiter.tryAcquire("auth:login", "client-a", 2, Duration.ofMinutes(10)))
+            .thenReturn(true);
+        LoginThrottleServiceImpl throttle = new LoginThrottleServiceImpl(properties(), rateLimiter);
+
+        assertThatCode(() -> throttle.acquireRegistrationPermit("client-a")).doesNotThrowAnyException();
+        assertThatCode(() -> throttle.acquireLoginPermit("client-a")).doesNotThrowAnyException();
+
+        verify(rateLimiter).tryAcquire("auth:register", "client-a", 3, Duration.ofMinutes(5));
+        verify(rateLimiter).tryAcquire("auth:login", "client-a", 2, Duration.ofMinutes(10));
+    }
+
+    @Test
+    void registrationExhaustionDoesNotBlockLoginOrOtherClients() {
+        FixedWindowRateLimiter rateLimiter = mock(FixedWindowRateLimiter.class);
+        when(rateLimiter.tryAcquire("auth:register", "client-a", 3, Duration.ofMinutes(5)))
+            .thenReturn(true, true, true, false);
+        when(rateLimiter.tryAcquire("auth:register", "client-b", 3, Duration.ofMinutes(5)))
+            .thenReturn(true);
+        when(rateLimiter.tryAcquire("auth:login", "client-a", 2, Duration.ofMinutes(10)))
+            .thenReturn(true);
+        LoginThrottleServiceImpl throttle = new LoginThrottleServiceImpl(properties(), rateLimiter);
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            throttle.acquireRegistrationPermit("client-a");
+        }
+        assertThatThrownBy(() -> throttle.acquireRegistrationPermit("client-a"))
+            .isInstanceOf(ApiException.class);
+        assertThatCode(() -> throttle.acquireLoginPermit("client-a")).doesNotThrowAnyException();
+        assertThatCode(() -> throttle.acquireRegistrationPermit("client-b")).doesNotThrowAnyException();
+
+        verify(rateLimiter, times(4)).tryAcquire("auth:register", "client-a", 3, Duration.ofMinutes(5));
+        verify(rateLimiter, never()).reset("auth:register", "client-a");
+    }
+
     private SecurityProperties properties() {
         return new SecurityProperties(List.of("http://localhost"),
             new org.springframework.core.io.ByteArrayResource(new byte[0]), false,
-            2, Duration.ofMinutes(10));
+            2, Duration.ofMinutes(10), 3, Duration.ofMinutes(5));
     }
 }
