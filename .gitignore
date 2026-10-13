@@ -32,7 +32,6 @@ Thumbs.db
 /specs/
 /content/
 /skills-lock.json
-/AGENTS.md
 /HANDOFF.md
 
 # 本地集成/验收工具与阶段材料不属于交付源码。
