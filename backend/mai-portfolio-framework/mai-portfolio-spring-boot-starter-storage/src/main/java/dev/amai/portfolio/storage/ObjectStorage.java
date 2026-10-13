@@ -10,6 +10,9 @@ public interface ObjectStorage {
 
     StoredObjectContent open(String objectKey);
 
+    /** 浏览器直连对象存储；不读取或代理对象字节。 */
+    StoredObjectAccessUrl accessUrl(String objectKey);
+
     boolean exists(String objectKey);
 
     void delete(String objectKey);

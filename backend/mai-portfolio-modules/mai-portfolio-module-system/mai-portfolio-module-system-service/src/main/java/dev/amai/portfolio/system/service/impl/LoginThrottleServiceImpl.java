@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 
 /**
- * 登录场景固定窗口限流服务。
+ * 登录与注册场景的固定窗口限流服务，分别使用命名空间和安全配置。
  *
  * <p>计数由 Redis Lua 脚本原子维护，所有应用实例共享同一窗口。</p>
  */
@@ -30,17 +30,20 @@ public class LoginThrottleServiceImpl implements LoginThrottleService {
     @Override
     public void acquireLoginPermit(String clientKey) {
         acquire(RedisKeys.LOGIN_RATE_NAMESPACE, clientKey, security.maxLoginAttemptsPerClient(),
-            security.loginAttemptWindow());
+            security.loginAttemptWindow(), SystemMessageConstants.LOGIN_RATE_LIMITED);
+    }
+
+    @Override
+    public void acquireRegistrationPermit(String clientKey) {
+        acquire(RedisKeys.REGISTRATION_RATE_NAMESPACE, clientKey,
+            security.maxRegistrationAttemptsPerClient(), security.registrationAttemptWindow(),
+            SystemMessageConstants.REGISTER_RATE_LIMITED);
     }
 
     private void acquire(String namespace, String clientKey, int limit,
-            Duration duration) {
+            Duration duration, String message) {
         if (!rateLimiter.tryAcquire(namespace, clientKey, limit, duration)) {
-            throw rateLimited();
+            throw new ApiException(ApiErrorCode.RATE_LIMITED, message);
         }
-    }
-
-    private ApiException rateLimited() {
-        return new ApiException(ApiErrorCode.RATE_LIMITED, SystemMessageConstants.LOGIN_RATE_LIMITED);
     }
 }

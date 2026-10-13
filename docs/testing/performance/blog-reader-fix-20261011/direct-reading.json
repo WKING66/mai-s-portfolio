@@ -1,0 +1,81 @@
+{
+  "rows": [
+    {
+      "width": 1440,
+      "loadedMs": 10542,
+      "navigation": {
+        "responseStart": 4704,
+        "domInteractive": 4921.899999856949,
+        "loadEventEnd": 4998.199999809265
+      },
+      "tasks": [
+        {
+          "start": 5412.599999904633,
+          "duration": 139
+        }
+      ],
+      "nodes": 22364,
+      "heapMB": 40.96829605102539,
+      "layoutMs": 761.835
+    },
+    {
+      "width": 1440,
+      "cycle": 0,
+      "heapAfterGC": 26.45379638671875,
+      "nodes": 16116
+    },
+    {
+      "width": 1440,
+      "cycle": 1,
+      "heapAfterGC": 32.3660888671875,
+      "nodes": 22301
+    },
+    {
+      "width": 1440,
+      "cycle": 2,
+      "heapAfterGC": 32.583980560302734,
+      "nodes": 22301
+    },
+    {
+      "width": 390,
+      "loadedMs": 5410,
+      "navigation": {
+        "responseStart": 496.7999999523163,
+        "domInteractive": 701.7999999523163,
+        "loadEventEnd": 750.1999998092651
+      },
+      "tasks": [
+        {
+          "start": 527.7999999523163,
+          "duration": 61
+        },
+        {
+          "start": 1164.5,
+          "duration": 134
+        }
+      ],
+      "nodes": 22368,
+      "heapMB": 40.724761962890625,
+      "layoutMs": 764.616
+    },
+    {
+      "width": 390,
+      "cycle": 0,
+      "heapAfterGC": 25.919849395751953,
+      "nodes": 15740
+    },
+    {
+      "width": 390,
+      "cycle": 1,
+      "heapAfterGC": 32.31372833251953,
+      "nodes": 22305
+    },
+    {
+      "width": 390,
+      "cycle": 2,
+      "heapAfterGC": 32.52582931518555,
+      "nodes": 22305
+    }
+  ],
+  "errors": []
+}

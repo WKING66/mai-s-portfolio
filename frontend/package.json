@@ -4,16 +4,34 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev --host 127.0.0.1",
+    "dev:lan": "nuxt dev --host 0.0.0.0 --port 3000",
     "typecheck": "nuxt typecheck",
     "build": "nuxt build",
     "preview": "nuxt preview --host 127.0.0.1",
+    "preview:lan": "nuxt preview --host 0.0.0.0 --port 3000",
     "test": "vitest run"
   },
   "dependencies": {
-    "nuxt": "4.5.2"
+    "@comark/nuxt": "0.7.0",
+    "@iconify-json/lucide": "1.2.98",
+    "@nuxt/ui": "4.11.3",
+    "@pinia/nuxt": "1.0.2",
+    "@tiptap/core": "3.31.4",
+    "@tiptap/extension-table": "3.31.4",
+    "@vueuse/core": "14.4.0",
+    "comark": "0.7.0",
+    "dompurify": "3.4.16",
+    "htmlparser2": "12.0.0",
+    "katex": "0.17.0",
+    "mermaid": "12.1.0",
+    "nuxt": "4.5.2",
+    "pinia": "4.0.3",
+    "reka-ui": "2.10.5",
+    "shiki": "4.5.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",
+    "@types/node": "24.19.2",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.2",
     "vitest": "3.2.4",

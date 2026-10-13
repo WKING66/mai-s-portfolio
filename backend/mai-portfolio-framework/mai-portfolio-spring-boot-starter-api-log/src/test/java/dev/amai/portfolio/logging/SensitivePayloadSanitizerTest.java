@@ -41,11 +41,31 @@ class SensitivePayloadSanitizerTest {
     }
 
     @Test
+    void redactsBothPasswordChangeCiphertexts() {
+        String safe = sanitizer.sanitize("request", Map.of(
+            "oldEncryptedPassword", "old-password-cipher",
+            "newEncryptedPassword", "new-password-cipher"));
+        assertThat(safe).contains("oldEncryptedPassword", "newEncryptedPassword", "[REDACTED]")
+            .doesNotContain("old-password-cipher", "new-password-cipher");
+    }
+
+    @Test
     void capsLongPayloads() {
         SensitivePayloadSanitizer limited = new SensitivePayloadSanitizer(JsonMapper.builder().build(),
             new ApiLogProperties(true, 256, List.of()));
         assertThat(limited.sanitize("note", "x".repeat(1000)))
             .hasSizeLessThan(300).endsWith("...[truncated]");
+    }
+
+    @Test
+    void redactsSignedUrlsInObjectsArraysAndRootWithoutMutatingOrdinaryLinks() {
+        for (String key : List.of("Signature", "OSSAccessKeyId", "x-oss-signature", "x-oss-credential", "security-token")) {
+            String signed = "https://oss.test/file?" + key + "=bearer-secret";
+            Map<String, Object> input = Map.of("resourceUrl", signed, "links", List.of(signed, "https://github.com/me"));
+            assertThat(sanitizer.sanitize("result", input)).doesNotContain("bearer-secret").contains("github.com/me", "[REDACTED]");
+            assertThat(sanitizer.sanitize("url", signed)).isEqualTo("[REDACTED]");
+            assertThat(input.get("resourceUrl")).isEqualTo(signed);
+        }
     }
 
     private record LoginPayload(String username, String encryptedPassword) {

@@ -1,0 +1,5483 @@
+{
+  "kind": "Playwright device emulation in actual Edge Chromium, NOT physical hardware; preset UA may describe Safari",
+  "browser": "153.0.4234.48",
+  "completed": true,
+  "configurations": [
+    "iPhone 16 Pro landscape",
+    "iPhone 16 Pro Max",
+    "iPhone 16 Pro Max landscape",
+    "Moto G4",
+    "Moto G4 landscape",
+    "Pixel 7",
+    "Pixel 7 landscape",
+    "Pixel 8",
+    "Pixel 8 landscape",
+    "Galaxy Tab S4",
+    "Galaxy Tab S4 landscape",
+    "iPad (gen 7)",
+    "iPad (gen 7) landscape",
+    "Generic Android wide viewport (not Mate60Pro hardware)",
+    "Generic Android wide landscape (not Mate60Pro hardware)"
+  ],
+  "missing": [],
+  "unavailablePresets": [
+    "Moto G Power",
+    "iPad 9",
+    "Huawei Mate60Pro"
+  ],
+  "ipadNote": "gen7 810×1080@2 is a similar CSS viewport; NOT an iPad9 physical test",
+  "rows": [
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "iphone-16-pro-landscape-light-home.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "iphone-16-pro-landscape-light-list.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "iphone-16-pro-landscape-light-article.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "iphone-16-pro-landscape-light-directory.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "iphone-16-pro-landscape-light-code.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "iphone-16-pro-landscape-light-mermaid.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "iphone-16-pro-landscape-light-login.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "iphone-16-pro-landscape-dark-home.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "iphone-16-pro-landscape-dark-list.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "iphone-16-pro-landscape-dark-article.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "iphone-16-pro-landscape-dark-directory.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "iphone-16-pro-landscape-dark-code.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "iphone-16-pro-landscape-dark-mermaid.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 756,
+        "height": 352
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "iphone-16-pro-landscape-dark-login.png",
+      "viewport": {
+        "width": 756,
+        "height": 352
+      },
+      "cssClientWidth": 756,
+      "scrollWidth": 756,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "iphone-16-pro-max-light-home.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "iphone-16-pro-max-light-list.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "iphone-16-pro-max-light-article.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "iphone-16-pro-max-light-directory.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "iphone-16-pro-max-light-code.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "iphone-16-pro-max-light-mermaid.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "iphone-16-pro-max-light-login.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "iphone-16-pro-max-dark-home.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "iphone-16-pro-max-dark-list.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "iphone-16-pro-max-dark-article.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "iphone-16-pro-max-dark-directory.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "iphone-16-pro-max-dark-code.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "iphone-16-pro-max-dark-mermaid.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 440,
+        "height": 763
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "iphone-16-pro-max-dark-login.png",
+      "viewport": {
+        "width": 440,
+        "height": 763
+      },
+      "cssClientWidth": 440,
+      "scrollWidth": 440,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "iphone-16-pro-max-landscape-light-home.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "iphone-16-pro-max-landscape-light-list.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "iphone-16-pro-max-landscape-light-article.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "iphone-16-pro-max-landscape-light-directory.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "iphone-16-pro-max-landscape-light-code.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "iphone-16-pro-max-landscape-light-mermaid.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "iphone-16-pro-max-landscape-light-login.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "iphone-16-pro-max-landscape-dark-home.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "iphone-16-pro-max-landscape-dark-list.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "iphone-16-pro-max-landscape-dark-article.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "iphone-16-pro-max-landscape-dark-directory.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "iphone-16-pro-max-landscape-dark-code.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "iphone-16-pro-max-landscape-dark-mermaid.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPhone 16 Pro Max landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 838,
+        "height": 390
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "iphone-16-pro-max-landscape-dark-login.png",
+      "viewport": {
+        "width": 838,
+        "height": 390
+      },
+      "cssClientWidth": 838,
+      "scrollWidth": 838,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "moto-g4-light-home.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "moto-g4-light-list.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "moto-g4-light-article.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "moto-g4-light-directory.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "moto-g4-light-code.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "moto-g4-light-mermaid.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "moto-g4-light-login.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "moto-g4-dark-home.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "moto-g4-dark-list.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "moto-g4-dark-article.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "moto-g4-dark-directory.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "moto-g4-dark-code.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "moto-g4-dark-mermaid.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 360,
+        "height": 640
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "moto-g4-dark-login.png",
+      "viewport": {
+        "width": 360,
+        "height": 640
+      },
+      "cssClientWidth": 360,
+      "scrollWidth": 360,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "moto-g4-landscape-light-home.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "moto-g4-landscape-light-list.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "moto-g4-landscape-light-article.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "moto-g4-landscape-light-directory.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "moto-g4-landscape-light-code.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "moto-g4-landscape-light-mermaid.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "moto-g4-landscape-light-login.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "moto-g4-landscape-dark-home.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "moto-g4-landscape-dark-list.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "moto-g4-landscape-dark-article.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "moto-g4-landscape-dark-directory.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "moto-g4-landscape-dark-code.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "moto-g4-landscape-dark-mermaid.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Moto G4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 640,
+        "height": 360
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "moto-g4-landscape-dark-login.png",
+      "viewport": {
+        "width": 640,
+        "height": 360
+      },
+      "cssClientWidth": 640,
+      "scrollWidth": 640,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 7.0; Moto G (4)) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-7-light-home.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-7-light-list.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-7-light-article.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-7-light-directory.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-7-light-code.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-7-light-mermaid.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-7-light-login.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-7-dark-home.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-7-dark-list.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-7-dark-article.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-7-dark-directory.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-7-dark-code.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-7-dark-mermaid.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-7-dark-login.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-7-landscape-light-home.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-7-landscape-light-list.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-7-landscape-light-article.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-7-landscape-light-directory.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-7-landscape-light-code.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-7-landscape-light-mermaid.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-7-landscape-light-login.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-7-landscape-dark-home.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-7-landscape-dark-list.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-7-landscape-dark-article.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-7-landscape-dark-directory.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-7-landscape-dark-code.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-7-landscape-dark-mermaid.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 7 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-7-landscape-dark-login.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-8-light-home.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-8-light-list.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-8-light-article.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-8-light-directory.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 839,
+        "height": 412
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate",
+      "screenshot": "pixel-8-light-rotate.png",
+      "viewport": {
+        "width": 839,
+        "height": 412
+      },
+      "cssClientWidth": 839,
+      "scrollWidth": 839,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate-back",
+      "screenshot": "pixel-8-light-rotate-back.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-8-light-code.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-8-light-mermaid.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-8-light-login.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-8-dark-home.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-8-dark-list.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-8-dark-article.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-8-dark-directory.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 839,
+        "height": 412
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate",
+      "screenshot": "pixel-8-dark-rotate.png",
+      "viewport": {
+        "width": 839,
+        "height": 412
+      },
+      "cssClientWidth": 839,
+      "scrollWidth": 839,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate-back",
+      "screenshot": "pixel-8-dark-rotate-back.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-8-dark-code.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-8-dark-mermaid.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 412,
+        "height": 839
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-8-dark-login.png",
+      "viewport": {
+        "width": 412,
+        "height": 839
+      },
+      "cssClientWidth": 412,
+      "scrollWidth": 412,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-8-landscape-light-home.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-8-landscape-light-list.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-8-landscape-light-article.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-8-landscape-light-directory.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-8-landscape-light-code.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-8-landscape-light-mermaid.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-8-landscape-light-login.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/",
+      "state": "home",
+      "screenshot": "pixel-8-landscape-dark-home.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "pixel-8-landscape-dark-list.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "pixel-8-landscape-dark-article.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "pixel-8-landscape-dark-directory.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "pixel-8-landscape-dark-code.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "pixel-8-landscape-dark-mermaid.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Pixel 8 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 863,
+        "height": 360
+      },
+      "requestedDpr": 2.625,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "pixel-8-landscape-dark-login.png",
+      "viewport": {
+        "width": 863,
+        "height": 360
+      },
+      "cssClientWidth": 863,
+      "scrollWidth": 863,
+      "dpr": 2.625,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Mobile Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/",
+      "state": "home",
+      "screenshot": "galaxy-tab-s4-light-home.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "galaxy-tab-s4-light-list.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "galaxy-tab-s4-light-article.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "galaxy-tab-s4-light-directory.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "galaxy-tab-s4-light-code.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "galaxy-tab-s4-light-mermaid.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "galaxy-tab-s4-light-login.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/",
+      "state": "home",
+      "screenshot": "galaxy-tab-s4-dark-home.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "galaxy-tab-s4-dark-list.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "galaxy-tab-s4-dark-article.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "galaxy-tab-s4-dark-directory.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "galaxy-tab-s4-dark-code.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "galaxy-tab-s4-dark-mermaid.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "requestedDpr": 2.25,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "galaxy-tab-s4-dark-login.png",
+      "viewport": {
+        "width": 712,
+        "height": 1138
+      },
+      "cssClientWidth": 712,
+      "scrollWidth": 712,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/",
+      "state": "home",
+      "screenshot": "galaxy-tab-s4-landscape-light-home.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "galaxy-tab-s4-landscape-light-list.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "galaxy-tab-s4-landscape-light-article.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "galaxy-tab-s4-landscape-light-directory.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "galaxy-tab-s4-landscape-light-code.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "galaxy-tab-s4-landscape-light-mermaid.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "galaxy-tab-s4-landscape-light-login.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/",
+      "state": "home",
+      "screenshot": "galaxy-tab-s4-landscape-dark-home.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "galaxy-tab-s4-landscape-dark-list.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "galaxy-tab-s4-landscape-dark-article.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "galaxy-tab-s4-landscape-dark-directory.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "galaxy-tab-s4-landscape-dark-code.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "galaxy-tab-s4-landscape-dark-mermaid.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "Galaxy Tab S4 landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "requestedDpr": 2.25,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "galaxy-tab-s4-landscape-dark-login.png",
+      "viewport": {
+        "width": 1138,
+        "height": 712
+      },
+      "cssClientWidth": 1138,
+      "scrollWidth": 1138,
+      "dpr": 2.25,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Linux; Android 8.1.0; SM-T837A) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.7922.34 Safari/537.36"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/",
+      "state": "home",
+      "screenshot": "ipad--gen-7--light-home.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "ipad--gen-7--light-list.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "ipad--gen-7--light-article.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "ipad--gen-7--light-directory.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate",
+      "screenshot": "ipad--gen-7--light-rotate.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate-back",
+      "screenshot": "ipad--gen-7--light-rotate-back.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "ipad--gen-7--light-code.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "ipad--gen-7--light-mermaid.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "ipad--gen-7--light-login.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/",
+      "state": "home",
+      "screenshot": "ipad--gen-7--dark-home.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "ipad--gen-7--dark-list.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "ipad--gen-7--dark-article.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "ipad--gen-7--dark-directory.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate",
+      "screenshot": "ipad--gen-7--dark-rotate.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "rotate-back",
+      "screenshot": "ipad--gen-7--dark-rotate-back.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "ipad--gen-7--dark-code.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "ipad--gen-7--dark-mermaid.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "requestedDpr": 2,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "ipad--gen-7--dark-login.png",
+      "viewport": {
+        "width": 810,
+        "height": 1080
+      },
+      "cssClientWidth": 810,
+      "scrollWidth": 810,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/",
+      "state": "home",
+      "screenshot": "ipad--gen-7--landscape-light-home.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "ipad--gen-7--landscape-light-list.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "ipad--gen-7--landscape-light-article.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "ipad--gen-7--landscape-light-directory.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "ipad--gen-7--landscape-light-code.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "ipad--gen-7--landscape-light-mermaid.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "ipad--gen-7--landscape-light-login.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/",
+      "state": "home",
+      "screenshot": "ipad--gen-7--landscape-dark-home.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "ipad--gen-7--landscape-dark-list.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "ipad--gen-7--landscape-dark-article.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "ipad--gen-7--landscape-dark-directory.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "ipad--gen-7--landscape-dark-code.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "ipad--gen-7--landscape-dark-mermaid.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "iPad (gen 7) landscape",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "requestedDpr": 2,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "ipad--gen-7--landscape-dark-login.png",
+      "viewport": {
+        "width": 1080,
+        "height": 810
+      },
+      "cssClientWidth": 1080,
+      "scrollWidth": 1080,
+      "dpr": 2,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (iPad; CPU OS 12_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--light-home.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--light-list.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--light-article.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--light-directory.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--light-code.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--light-mermaid.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--light-login.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--dark-home.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--dark-list.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--dark-article.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--dark-directory.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--dark-code.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--dark-mermaid.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide viewport (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Portrait",
+      "requestedViewport": {
+        "width": 420,
+        "height": 900
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "generic-android-wide-viewport--not-mate60pro-hardware--dark-login.png",
+      "viewport": {
+        "width": 420,
+        "height": 900
+      },
+      "cssClientWidth": 420,
+      "scrollWidth": 420,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--light-home.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--light-list.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--light-article.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--light-directory.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--light-code.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--light-mermaid.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": "light",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--light-login.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "light",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/",
+      "state": "home",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--dark-home.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog",
+      "state": "list",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--dark-list.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "article",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--dark-article.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "directory",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--dark-directory.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/blog/blog-import-ui-qa-20261009-17:14",
+      "state": "code",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--dark-code.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/design-showcase",
+      "state": "mermaid",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--dark-mermaid.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": "dark",
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    },
+    {
+      "device": "Generic Android wide landscape (not Mate60Pro hardware)",
+      "simulated": true,
+      "browser": "Microsoft Edge 153.0.4234.48",
+      "orientation": "Landscape",
+      "requestedViewport": {
+        "width": 900,
+        "height": 420
+      },
+      "requestedDpr": 3,
+      "path": "/login",
+      "state": "login",
+      "screenshot": "generic-android-wide-landscape--not-mate60pro-hardware--dark-login.png",
+      "viewport": {
+        "width": 900,
+        "height": 420
+      },
+      "cssClientWidth": 900,
+      "scrollWidth": 900,
+      "dpr": 3,
+      "theme": "dark",
+      "localTheme": null,
+      "touch": 1,
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.0.0 Safari/537.36 Edg/153.0.0.0"
+    }
+  ],
+  "failures": [],
+  "errors": []
+}

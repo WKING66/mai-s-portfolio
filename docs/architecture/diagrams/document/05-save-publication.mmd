@@ -1,0 +1,12 @@
+%% Generated from docs/architecture/document-import-export.md; edit that document first.
+flowchart TD
+    input[编辑器输入与当前锁版本] --> prepare[校验并准备规范正文和资源]
+    prepare --> cas{事务内 CAS 锁版本匹配}
+    cas -->|否| conflict[409 DATA_CONFLICT，补偿本次新资产]
+    cas -->|是| saved[追加不可变 DocumentVersion，切换 current 指针]
+    saved --> same[Blog 公开版本指针保持原值]
+    same --> action{站长后续操作}
+    action -->|发布| check[校验 slug、标题、正文与全部资源]
+    check --> publish[推进锁并切换 published 指针，状态 PUBLISHED]
+    action -->|下架| unpublish[推进锁并改为 DRAFT，保留版本和资源]
+    action -->|继续编辑| input

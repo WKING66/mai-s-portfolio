@@ -1,8 +1,11 @@
 package dev.amai.portfolio.system.auth;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.annotation.SaCheckRole;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import dev.amai.portfolio.system.api.AuthConstants;
-import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.service.AuthService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
@@ -21,30 +24,38 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Component
 public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConfigurer {
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");
-    private final SecurityProperties security;
+    private final RequestSecurityPolicy transport;
     private final AuthService auth;
 
-    public AuthenticationInterceptor(SecurityProperties security, AuthService auth) {
-        this.security = security;
+    public AuthenticationInterceptor(RequestSecurityPolicy transport, AuthService auth) {
+        this.transport = transport;
         this.auth = auth;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(this)
-            .addPathPatterns(AuthConstants.AUTH_PATH_PATTERN, AuthConstants.ADMIN_PATH_PATTERN)
+            .addPathPatterns(AuthConstants.API_PATH_PATTERN)
             .order(-100);
     }
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        // 只信任容器重建的安全连接状态，不自行信任客户端提交的转发头。
-        if (security.requireHttps() && !request.isSecure()) {
-            throw new ApiException(ApiErrorCode.HTTPS_REQUIRED, SystemMessageConstants.LOGIN_HTTPS_REQUIRED);
-        }
+
         String path = request.getRequestURI().substring(request.getContextPath().length());
         boolean sessionEndpoint = AuthConstants.AUTH_SESSION_PATH.equals(path);
         String method = request.getMethod();
+        boolean credentialsEndpoint = sessionEndpoint && ("GET".equals(method) || "POST".equals(method))
+            || AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method);
+        // 角色/页面路径不再决定领域分类；接口注解及写操作决定是否进入认证边界。
+        boolean protectedEndpoint = !SAFE_METHODS.contains(method) || requiresSession(handler);
+        if (!credentialsEndpoint && !protectedEndpoint) return true;
+        // 只信任容器重建的连接状态，不自行信任客户端转发头。
+        transport.requireSecureTransport(request);
+        if (AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method)) {
+            // 只豁免精确注册路由的登录/CSRF；HTTPS 已校验，来源与额度由服务层核对。
+            return true;
+        }
         if (sessionEndpoint && ("GET".equals(method) || "POST".equals(method))) {
             // GET 在服务中查询匿名/账号状态，POST 通过凭据建立登录态。
             return true;
@@ -64,5 +75,13 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
             }
         }
         return true;
+    }
+
+    private boolean requiresSession(Object handler) {
+        if (!(handler instanceof HandlerMethod method)) return false;
+        return AnnotatedElementUtils.hasAnnotation(method.getMethod(), SaCheckLogin.class)
+            || AnnotatedElementUtils.hasAnnotation(method.getBeanType(), SaCheckLogin.class)
+            || AnnotatedElementUtils.hasAnnotation(method.getMethod(), SaCheckRole.class)
+            || AnnotatedElementUtils.hasAnnotation(method.getBeanType(), SaCheckRole.class);
     }
 }

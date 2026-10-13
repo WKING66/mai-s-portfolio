@@ -1,0 +1,46 @@
+[
+  {
+    "label": "before",
+    "width": 1440,
+    "enterMs": 554,
+    "taskMs": 620,
+    "layoutMs": 418,
+    "scriptMs": 6,
+    "idleTaskMs": 17,
+    "initialImages": 38,
+    "articleRequests": 1,
+    "heapMB": 6.17,
+    "errors": [],
+    "tasks": [
+      {
+        "start": 607.2000000476837,
+        "duration": 422
+      }
+    ],
+    "articleNodes": 2017,
+    "lazyImages": 0,
+    "naturalImageMB": 0
+  },
+  {
+    "label": "before",
+    "width": 390,
+    "enterMs": 565,
+    "taskMs": 650,
+    "layoutMs": 430,
+    "scriptMs": 13,
+    "idleTaskMs": 7,
+    "initialImages": 38,
+    "articleRequests": 1,
+    "heapMB": 6.16,
+    "errors": [],
+    "tasks": [
+      {
+        "start": 586.8999998569489,
+        "duration": 436
+      }
+    ],
+    "articleNodes": 2017,
+    "lazyImages": 0,
+    "naturalImageMB": 0
+  }
+]

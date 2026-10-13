@@ -1,0 +1,2599 @@
+{
+  "label": "before-sustained",
+  "browser": "153.0.4234.48",
+  "article": {
+    "slug": "blog-import-ui-qa-20261009-17:14",
+    "characters": 56183,
+    "resources": 38
+  },
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "video": false,
+  "profiler": false,
+  "input": "隔离可见 Edge，Playwright 驱动真实 wheel/click；非维护者人工验收",
+  "frameNote": "rAF gap 是主线程帧回调间隔，不等价于 GPU FPS；Trace 单独记录合成/Raster",
+  "rows": [
+    {
+      "name": "home-wheel",
+      "responseMs": 1432,
+      "duration": 1692.7999999523163,
+      "frames": 238,
+      "rafP95": 10.700000000000273,
+      "rafMax": 54.5,
+      "rafGapsOver33": 1,
+      "tasks": [],
+      "loaf": [
+        {
+          "start": 414.2999999523163,
+          "duration": 148.70000004768372,
+          "blocking": 61.6,
+          "scripts": [
+            {
+              "function": "",
+              "forcedLayout": 0,
+              "duration": 22.90000009536743
+            },
+            {
+              "function": "",
+              "forcedLayout": 0,
+              "duration": 101.5
+            }
+          ]
+        },
+        {
+          "start": 567.7999999523163,
+          "duration": 381.2000000476837,
+          "blocking": 0,
+          "scripts": [
+            {
+              "function": "",
+              "forcedLayout": 0,
+              "duration": 5.700000047683716
+            }
+          ]
+        },
+        {
+          "start": 1684.0999999046326,
+          "duration": 54.700000047683716,
+          "blocking": 0,
+          "scripts": []
+        }
+      ],
+      "updates": {},
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 0,
+      "parses": {},
+      "resizes": {},
+      "bodySizeWrites": 0,
+      "heapMB": 8.461360931396484,
+      "nodes": 1705,
+      "layoutMs": 3.7079999999999997,
+      "styleMs": 37.844,
+      "scriptingMs": 41.406,
+      "trace": {
+        "Layout": {
+          "count": 14,
+          "durationMs": 3.493
+        },
+        "UpdateLayoutTree": {
+          "count": 157,
+          "durationMs": 37.902
+        },
+        "Paint": {
+          "count": 518,
+          "durationMs": 83.068
+        },
+        "RasterTask": {
+          "count": 485,
+          "durationMs": 48.57
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 230,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 42,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 3,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 279,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 68.74,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 68.636,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 68.633,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 68.615,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "RunTask",
+          "ms": 50.021,
+          "pid": 39532,
+          "tid": 72068
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 50.018,
+          "pid": 39532,
+          "tid": 72068
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 50.014,
+          "pid": 39532,
+          "tid": 72068
+        },
+        {
+          "name": "SimpleWatcher::OnHandleReady",
+          "ms": 50.011,
+          "pid": 39532,
+          "tid": 72068
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 49.989,
+          "pid": 39532,
+          "tid": 72068
+        },
+        {
+          "name": "RunTask",
+          "ms": 49.816,
+          "pid": 39532,
+          "tid": 36080
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 49.802,
+          "pid": 39532,
+          "tid": 36080
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 49.797,
+          "pid": 39532,
+          "tid": 36080
+        }
+      ]
+    },
+    {
+      "name": "first-reading",
+      "responseMs": 3049,
+      "duration": 3576.699999809265,
+      "frames": 350,
+      "rafP95": 30.399999999999636,
+      "rafMax": 139.30000000000018,
+      "rafGapsOver33": 17,
+      "tasks": [
+        {
+          "start": 3448.0999999046326,
+          "duration": 73
+        },
+        {
+          "start": 3521.5,
+          "duration": 69
+        },
+        {
+          "start": 3717.399999856949,
+          "duration": 95
+        },
+        {
+          "start": 4137.299999952316,
+          "duration": 52
+        },
+        {
+          "start": 4277.899999856949,
+          "duration": 75
+        },
+        {
+          "start": 4461.199999809265,
+          "duration": 53
+        },
+        {
+          "start": 4942,
+          "duration": 68
+        }
+      ],
+      "loaf": [
+        {
+          "start": 3447.0999999046326,
+          "duration": 140.79999995231628,
+          "blocking": 89.7,
+          "scripts": [
+            {
+              "function": "",
+              "forcedLayout": 5.8,
+              "duration": 68.60000014305115
+            },
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 10.900000095367432
+            },
+            {
+              "function": "a",
+              "forcedLayout": 17.5,
+              "duration": 17.59999990463257
+            }
+          ]
+        },
+        {
+          "start": 3717.199999809265,
+          "duration": 92.80000019073486,
+          "blocking": 42.6,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 25.700000047683716
+            }
+          ]
+        },
+        {
+          "start": 4136.699999809265,
+          "duration": 50.90000009536743,
+          "blocking": 0.6,
+          "scripts": []
+        },
+        {
+          "start": 4277.699999809265,
+          "duration": 74.70000004768372,
+          "blocking": 24.4,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 31.399999856948853
+            }
+          ]
+        },
+        {
+          "start": 4461,
+          "duration": 52.5,
+          "blocking": 2.4,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 12.300000190734863
+            }
+          ]
+        },
+        {
+          "start": 4942,
+          "duration": 65.69999980926514,
+          "blocking": 15.7,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 16.199999809265137
+            }
+          ]
+        }
+      ],
+      "updates": {
+        "CheckboxRoot": 1,
+        "CheckboxIndicator": 1,
+        "BlogRenderer": 2,
+        "BlogToc": 3,
+        "USlideover": 3,
+        "[slug]": 1,
+        "BlogChapter": 106,
+        "BlogCodeBlock": 10,
+        "USelect": 10,
+        "SelectRoot": 10,
+        "SelectTrigger": 10,
+        "SelectValue": 20,
+        "SelectPortal": 10,
+        "ProsePre": 10,
+        "SelectContent": 10,
+        "SelectItem": 60,
+        "CollectionItem": 60,
+        "SelectItemText": 60,
+        "SelectItemIndicator": 60,
+        "DialogContent": 2,
+        "BlogTocTree": 1
+      },
+      "mounts": {
+        "CheckboxIndicator": 1,
+        "CheckboxRoot": 1,
+        "Label": 1,
+        "UCheckbox": 1,
+        "[slug]": 1,
+        "BlogTocTree": 1,
+        "DialogTrigger": 1,
+        "DialogPortal": 1,
+        "DialogRoot": 1,
+        "USlideover": 1,
+        "BlogToc": 1,
+        "BlogRenderer": 1,
+        "Markdown": 1,
+        "MarkdownDocument": 1,
+        "BlogChapter": 117,
+        "AsyncComponentWrapper": 117,
+        "DialogOverlay": 1,
+        "DialogContent": 1,
+        "ProseH1": 1,
+        "ProseP": 545,
+        "ProseStrong": 515,
+        "ProseA": 5,
+        "BlogLink": 6,
+        "ProseLi": 282,
+        "ProseOl": 79,
+        "ProseH2": 10,
+        "ProseH3": 63,
+        "ProseEm": 2,
+        "SelectValue": 10,
+        "SelectTrigger": 10,
+        "SelectPortal": 10,
+        "SelectRoot": 10,
+        "USelect": 10,
+        "ProsePre": 10,
+        "BlogCodeBlock": 10,
+        "SelectContent": 10,
+        "SelectItemText": 60,
+        "SelectItemIndicator": 60,
+        "CollectionItem": 60,
+        "SelectItem": 60,
+        "SelectGroup": 10,
+        "SelectProvider": 10,
+        "ProseH4": 43,
+        "ReusableTemplate.define": 76,
+        "ReusableTemplate.reuse": 38,
+        "ProseImg": 38,
+        "BlogImage": 38,
+        "BlogMath": 110,
+        "ProseUl": 10,
+        "ProseBlockquote": 52,
+        "ProseHr": 3,
+        "ProseTh": 70,
+        "ProseTr": 92,
+        "ProseThead": 13,
+        "ProseTd": 345,
+        "ProseTbody": 13,
+        "ProseTable": 13,
+        "ProseCode": 16
+      },
+      "unmounts": {
+        "index": 1
+      },
+      "headingReads": 234,
+      "parses": {
+        "markdownParse": 1,
+        "highlightRequest": 10,
+        "shikiTokenize": 10,
+        "katexRender": 128,
+        "chapterTree": 1
+      },
+      "resizes": {
+        "other": 1,
+        "chapter": 60,
+        "toc": 2
+      },
+      "bodySizeWrites": 85,
+      "heapMB": 36.001670837402344,
+      "nodes": 23184,
+      "layoutMs": 705.072,
+      "styleMs": 267.52500000000003,
+      "facts": {
+        "headings": 123,
+        "bodyNodes": 7696,
+        "codes": 10,
+        "math": 110,
+        "images": 38,
+        "tables": 13,
+        "largest": {
+          "title": "数据结构与算法",
+          "nodes": 7694
+        }
+      },
+      "scriptingMs": 591.131,
+      "trace": {
+        "Layout": {
+          "count": 95,
+          "durationMs": 703.911
+        },
+        "UpdateLayoutTree": {
+          "count": 222,
+          "durationMs": 267.092
+        },
+        "Paint": {
+          "count": 143,
+          "durationMs": 58.683
+        },
+        "RasterTask": {
+          "count": 406,
+          "durationMs": 20.919
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 254,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 240,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 28,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 634,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 552.84,
+          "pid": 52044,
+          "tid": 9000
+        },
+        {
+          "name": "RunTask",
+          "ms": 255.007,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 254.922,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 254.917,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "ThreadPool_RunTask",
+          "ms": 224.265,
+          "pid": 64860,
+          "tid": 62408
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 224.242,
+          "pid": 64860,
+          "tid": 62408
+        },
+        {
+          "name": "RunTask",
+          "ms": 95.887,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 95.734,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 95.732,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ProxyMain::BeginMainFrame",
+          "ms": 95.728,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 92.568,
+          "pid": 52044,
+          "tid": 9000
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 92.561,
+          "pid": 52044,
+          "tid": 9000
+        }
+      ]
+    },
+    {
+      "name": "steady-wheel",
+      "responseMs": 3122,
+      "duration": 3387,
+      "frames": 537,
+      "rafP95": 6.200000000000728,
+      "rafMax": 24.30000000000109,
+      "rafGapsOver33": 0,
+      "tasks": [],
+      "loaf": [],
+      "updates": {
+        "BlogToc": 18,
+        "BlogTocTree": 18,
+        "USlideover": 18,
+        "DialogContent": 18,
+        "BlogImage": 1
+      },
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 1521,
+      "parses": {},
+      "resizes": {
+        "chapter": 16,
+        "toc": 13
+      },
+      "bodySizeWrites": 1,
+      "heapMB": 37.16025161743164,
+      "nodes": 23184,
+      "layoutMs": 31.039000000000037,
+      "styleMs": 19.049999999999955,
+      "scriptingMs": 99.264,
+      "trace": {
+        "Layout": {
+          "count": 52,
+          "durationMs": 30.511
+        },
+        "UpdateLayoutTree": {
+          "count": 62,
+          "durationMs": 19.067
+        },
+        "Paint": {
+          "count": 90,
+          "durationMs": 62.443
+        },
+        "RasterTask": {
+          "count": 237,
+          "durationMs": 152.627
+        },
+        "Decode Image": {
+          "count": 4,
+          "durationMs": 20.162
+        },
+        "ImageDecodeTask": {
+          "count": 4,
+          "durationMs": 57.651
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 102,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 49,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 1,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 560,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 39.119,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 39.114,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 39.11,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "Scheduler::RunTask",
+          "ms": 39.103,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "GpuChannel::ExecuteDeferredRequest",
+          "ms": 39.096,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "GPUTask",
+          "ms": 39.089,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "RendererRasterWorker",
+          "ms": 39.069,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "CommandBuffer::Flush",
+          "ms": 39.066,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "CommandBufferStub::OnAsyncFlush",
+          "ms": 39.066,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "CommandBufferService:PutChanged",
+          "ms": 39.057,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "RasterDecoderImpl::DoEndRasterCHROMIUM",
+          "ms": 38,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "RasterDecoderImpl::DoEndRasterCHROMIUM::Flush",
+          "ms": 37.991,
+          "pid": 39532,
+          "tid": 23116
+        }
+      ]
+    },
+    {
+      "name": "fast-down-up",
+      "responseMs": 668,
+      "duration": 931.2000000476837,
+      "frames": 146,
+      "rafP95": 6.400000000001455,
+      "rafMax": 18.30000000000109,
+      "rafGapsOver33": 0,
+      "tasks": [],
+      "loaf": [],
+      "updates": {
+        "BlogToc": 11,
+        "BlogTocTree": 11,
+        "USlideover": 11,
+        "DialogContent": 11,
+        "BlogImage": 2
+      },
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 936,
+      "parses": {},
+      "resizes": {
+        "chapter": 11,
+        "toc": 8
+      },
+      "bodySizeWrites": 1,
+      "heapMB": 38.51569366455078,
+      "nodes": 23187,
+      "layoutMs": 19.663999999999902,
+      "styleMs": 11.184000000000028,
+      "scriptingMs": 47.325,
+      "trace": {
+        "Layout": {
+          "count": 25,
+          "durationMs": 19.305
+        },
+        "UpdateLayoutTree": {
+          "count": 23,
+          "durationMs": 11.182
+        },
+        "Paint": {
+          "count": 45,
+          "durationMs": 46.616
+        },
+        "RasterTask": {
+          "count": 175,
+          "durationMs": 118.396
+        },
+        "Decode Image": {
+          "count": 1,
+          "durationMs": 9.31
+        },
+        "ImageDecodeTask": {
+          "count": 1,
+          "durationMs": 21.138
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 47,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 18,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 154,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "ThreadPool_RunTask",
+          "ms": 21.614,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 21.61,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "TaskGraphRunner::RunTask",
+          "ms": 21.159,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "GpuImageDecodeTaskImpl::RunOnWorkerThread",
+          "ms": 21.153,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "ImageDecodeTask",
+          "ms": 21.138,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "GpuImageDecodeCache::DecodeImage",
+          "ms": 21.129,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "ThreadPool_RunTask",
+          "ms": 19.35,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 19.347,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "Decode LazyPixelRef",
+          "ms": 13.691,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "RunTask",
+          "ms": 12.129,
+          "pid": 39532,
+          "tid": 43916
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 12.126,
+          "pid": 39532,
+          "tid": 43916
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 12.121,
+          "pid": 39532,
+          "tid": 43916
+        }
+      ]
+    },
+    {
+      "name": "whole-article-down-up",
+      "responseMs": 18239,
+      "duration": 18501.39999985695,
+      "frames": 2887,
+      "rafP95": 6.200000000000728,
+      "rafMax": 78.89999999999782,
+      "rafGapsOver33": 9,
+      "tasks": [],
+      "loaf": [
+        {
+          "start": 11628.899999856949,
+          "duration": 56.700000047683716,
+          "blocking": 0,
+          "scripts": []
+        },
+        {
+          "start": 16182,
+          "duration": 51.89999985694885,
+          "blocking": 0,
+          "scripts": []
+        },
+        {
+          "start": 17457.89999985695,
+          "duration": 76.79999995231628,
+          "blocking": 0,
+          "scripts": []
+        },
+        {
+          "start": 24733.89999985695,
+          "duration": 78.5,
+          "blocking": 0,
+          "scripts": []
+        },
+        {
+          "start": 26511,
+          "duration": 51.5,
+          "blocking": 0,
+          "scripts": []
+        }
+      ],
+      "updates": {
+        "BlogToc": 172,
+        "BlogTocTree": 172,
+        "USlideover": 172,
+        "DialogContent": 172,
+        "BlogImage": 34
+      },
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 15210,
+      "parses": {},
+      "resizes": {
+        "chapter": 159,
+        "toc": 130
+      },
+      "bodySizeWrites": 22,
+      "heapMB": 40.15114974975586,
+      "nodes": 23157,
+      "layoutMs": 239.14900000000006,
+      "styleMs": 138.93699999999998,
+      "scriptingMs": 788.905,
+      "trace": {
+        "Layout": {
+          "count": 423,
+          "durationMs": 233.736
+        },
+        "UpdateLayoutTree": {
+          "count": 475,
+          "durationMs": 139.001
+        },
+        "Paint": {
+          "count": 772,
+          "durationMs": 756.138
+        },
+        "RasterTask": {
+          "count": 3294,
+          "durationMs": 1121.019
+        },
+        "Decode Image": {
+          "count": 37,
+          "durationMs": 69.252
+        },
+        "ImageDecodeTask": {
+          "count": 47,
+          "durationMs": 79.674
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 1551,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 383,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 74,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 3056,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "ThreadPool_RunTask",
+          "ms": 206.349,
+          "pid": 64860,
+          "tid": 27956
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 206.322,
+          "pid": 64860,
+          "tid": 27956
+        },
+        {
+          "name": "RunTask",
+          "ms": 98.347,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 98.23,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 98.227,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 98.206,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "RunTask",
+          "ms": 72.942,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 72.939,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 72.936,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "Scheduler::RunTask",
+          "ms": 72.929,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "GpuChannel::ExecuteDeferredRequest",
+          "ms": 72.923,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "GPUTask",
+          "ms": 72.92,
+          "pid": 39532,
+          "tid": 23116
+        }
+      ]
+    },
+    {
+      "name": "collapse",
+      "responseMs": 101,
+      "duration": 364.59999990463257,
+      "frames": 49,
+      "rafP95": 12,
+      "rafMax": 60.70000000000073,
+      "rafGapsOver33": 1,
+      "tasks": [
+        {
+          "start": 29559,
+          "duration": 59
+        }
+      ],
+      "loaf": [
+        {
+          "start": 29553.5,
+          "duration": 66.29999995231628,
+          "blocking": 10.6,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 20.600000143051147
+            }
+          ]
+        }
+      ],
+      "updates": {
+        "BlogRenderer": 1,
+        "BlogToc": 1,
+        "BlogTocTree": 1,
+        "USlideover": 1,
+        "BlogChapter": 1,
+        "DialogContent": 1
+      },
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 2,
+      "parses": {},
+      "resizes": {
+        "other": 1,
+        "chapter": 1,
+        "toc": 1
+      },
+      "bodySizeWrites": 0,
+      "heapMB": 45.3975715637207,
+      "nodes": 23172,
+      "layoutMs": 1.0069999999999801,
+      "styleMs": 38.01900000000003,
+      "scriptingMs": 26.316,
+      "trace": {
+        "Layout": {
+          "count": 4,
+          "durationMs": 1.029
+        },
+        "UpdateLayoutTree": {
+          "count": 29,
+          "durationMs": 38.129
+        },
+        "Paint": {
+          "count": 3,
+          "durationMs": 1.056
+        },
+        "RasterTask": {
+          "count": 6,
+          "durationMs": 3.138
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 25,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 12,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 62,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 59.97,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 59.8,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 59.796,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "UpdateLayoutTree",
+          "ms": 35.533,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "EventDispatch",
+          "ms": 20.695,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "v8.callFunction",
+          "ms": 20.649,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 17.285,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 17.262,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 17.258,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 17.247,
+          "pid": 52044,
+          "tid": 7036
+        }
+      ]
+    },
+    {
+      "name": "expand",
+      "responseMs": 147,
+      "duration": 399.89999985694885,
+      "frames": 44,
+      "rafP95": 30.400000000001455,
+      "rafMax": 60.70000000000073,
+      "rafGapsOver33": 2,
+      "tasks": [
+        {
+          "start": 29969,
+          "duration": 55
+        }
+      ],
+      "loaf": [
+        {
+          "start": 29892.89999985695,
+          "duration": 61.299999952316284,
+          "blocking": 0,
+          "scripts": []
+        },
+        {
+          "start": 29965.699999809265,
+          "duration": 63.30000019073486,
+          "blocking": 9.9,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 17
+            }
+          ]
+        }
+      ],
+      "updates": {
+        "BlogRenderer": 1,
+        "BlogToc": 1,
+        "BlogTocTree": 1,
+        "USlideover": 1,
+        "BlogChapter": 1,
+        "DialogContent": 1
+      },
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 351,
+      "parses": {},
+      "resizes": {
+        "other": 1,
+        "chapter": 2,
+        "toc": 2
+      },
+      "bodySizeWrites": 0,
+      "heapMB": 33.93170928955078,
+      "nodes": 23168,
+      "layoutMs": 10.104000000000113,
+      "styleMs": 63.14399999999998,
+      "scriptingMs": 25.123,
+      "trace": {
+        "Layout": {
+          "count": 3,
+          "durationMs": 10.069
+        },
+        "UpdateLayoutTree": {
+          "count": 11,
+          "durationMs": 63.148
+        },
+        "Paint": {
+          "count": 3,
+          "durationMs": 4.076
+        },
+        "RasterTask": {
+          "count": 12,
+          "durationMs": 0.651
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 2,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 10,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 66,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 57.259,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 57.237,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 57.233,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 57.218,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 55.797,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 55.706,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 55.704,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 35.908,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 35.856,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 35.853,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "MajorGC",
+          "ms": 35.587,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "V8.GCFinalizeMCReduceMemory",
+          "ms": 35.49,
+          "pid": 52044,
+          "tid": 7036
+        }
+      ]
+    },
+    {
+      "name": "toc-last",
+      "responseMs": 91,
+      "duration": 353.2999999523163,
+      "frames": 55,
+      "rafP95": 12.099999999998545,
+      "rafMax": 12.200000000000728,
+      "rafGapsOver33": 0,
+      "tasks": [],
+      "loaf": [],
+      "updates": {
+        "[slug]": 1,
+        "BlogToc": 2,
+        "BlogTocTree": 2,
+        "USlideover": 2,
+        "DialogContent": 2,
+        "BlogRenderer": 1
+      },
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 2,
+      "parses": {},
+      "resizes": {
+        "chapter": 1,
+        "toc": 1
+      },
+      "bodySizeWrites": 0,
+      "heapMB": 35.243587493896484,
+      "nodes": 23172,
+      "layoutMs": 2.734000000000014,
+      "styleMs": 7.160999999999973,
+      "scriptingMs": 14.323,
+      "trace": {
+        "Layout": {
+          "count": 4,
+          "durationMs": 2.687
+        },
+        "UpdateLayoutTree": {
+          "count": 56,
+          "durationMs": 7.18
+        },
+        "Paint": {
+          "count": 8,
+          "durationMs": 10.322
+        },
+        "RasterTask": {
+          "count": 24,
+          "durationMs": 3.064
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 6,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 3,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 1,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 59,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 20.3,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 20.138,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 20.135,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 20.113,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "RunTask",
+          "ms": 17.169,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 17.133,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 17.128,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 17.11,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 11.05,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 11.025,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 11.022,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ProxyMain::BeginMainFrame",
+          "ms": 11.018,
+          "pid": 52044,
+          "tid": 7036
+        }
+      ]
+    },
+    {
+      "name": "toc-rapid",
+      "responseMs": 448,
+      "duration": 706.2999999523163,
+      "frames": 106,
+      "rafP95": 12.099999999998545,
+      "rafMax": 24.399999999997817,
+      "rafGapsOver33": 0,
+      "tasks": [],
+      "loaf": [],
+      "updates": {
+        "BlogToc": 11,
+        "BlogTocTree": 11,
+        "USlideover": 11,
+        "DialogContent": 11,
+        "[slug]": 5,
+        "BlogRenderer": 5
+      },
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 595,
+      "parses": {},
+      "resizes": {
+        "chapter": 5,
+        "toc": 5
+      },
+      "bodySizeWrites": 0,
+      "heapMB": 34.14280700683594,
+      "nodes": 23191,
+      "layoutMs": 22.29700000000001,
+      "styleMs": 48.925,
+      "scriptingMs": 57.699,
+      "trace": {
+        "Layout": {
+          "count": 17,
+          "durationMs": 22.059
+        },
+        "UpdateLayoutTree": {
+          "count": 148,
+          "durationMs": 48.963
+        },
+        "Paint": {
+          "count": 39,
+          "durationMs": 35.008
+        },
+        "RasterTask": {
+          "count": 138,
+          "durationMs": 29.108
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 77,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 17,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 30,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 131,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 23.242,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 23.223,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 23.221,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ProxyMain::BeginMainFrame",
+          "ms": 23.218,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 19.644,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "RunTask",
+          "ms": 19.359,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 19.333,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 19.33,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ProxyMain::BeginMainFrame",
+          "ms": 19.326,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 19.3,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 19.297,
+          "pid": 64860,
+          "tid": 63000
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 19.276,
+          "pid": 64860,
+          "tid": 63000
+        }
+      ]
+    },
+    {
+      "name": "code-theme",
+      "responseMs": 376,
+      "duration": 637.9000000953674,
+      "frames": 57,
+      "rafP95": 54.400000000001455,
+      "rafMax": 121.20000000000073,
+      "rafGapsOver33": 3,
+      "tasks": [
+        {
+          "start": 31464.199999809265,
+          "duration": 99
+        },
+        {
+          "start": 31856.199999809265,
+          "duration": 51
+        }
+      ],
+      "loaf": [
+        {
+          "start": 31464.199999809265,
+          "duration": 117.20000004768372,
+          "blocking": 67,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 49.9,
+              "duration": 86.20000004768372
+            },
+            {
+              "function": "",
+              "forcedLayout": 1,
+              "duration": 7.700000047683716
+            }
+          ]
+        },
+        {
+          "start": 31599.699999809265,
+          "duration": 100.80000019073486,
+          "blocking": 0,
+          "scripts": [
+            {
+              "function": "b",
+              "forcedLayout": 0,
+              "duration": 5.200000047683716
+            }
+          ]
+        }
+      ],
+      "updates": {
+        "SelectTrigger": 2,
+        "SelectValue": 3,
+        "SelectPortal": 2,
+        "SelectContent": 5,
+        "DismissableLayer": 3,
+        "SelectPopperPosition": 3,
+        "PopperContent": 8,
+        "SelectGroup": 9,
+        "SelectItem": 60,
+        "CollectionItem": 60,
+        "SelectItemText": 64,
+        "SelectItemIndicator": 64,
+        "BlogToc": 1,
+        "BlogTocTree": 1,
+        "USlideover": 1,
+        "DialogContent": 1,
+        "BlogCodeBlock": 1,
+        "USelect": 1,
+        "SelectRoot": 1,
+        "SelectContentImpl": 2,
+        "CollectionSlot": 2,
+        "FocusScope": 2,
+        "ProsePre": 1,
+        "SelectProvider": 1
+      },
+      "mounts": {
+        "SelectItemText": 12,
+        "SelectItemIndicator": 12,
+        "CollectionItem": 12,
+        "SelectItem": 12,
+        "SelectGroup": 2,
+        "PopperContent": 1,
+        "SelectPopperPosition": 1,
+        "DismissableLayer": 1,
+        "FocusScope": 1,
+        "CollectionSlot": 1,
+        "SelectContentImpl": 1,
+        "SelectValue": 1,
+        "SelectProvider": 1
+      },
+      "unmounts": {
+        "SelectItemText": 12,
+        "SelectItemIndicator": 12,
+        "CollectionItem": 12,
+        "SelectItem": 12,
+        "SelectGroup": 2,
+        "SelectProvider": 1,
+        "SelectValue": 1,
+        "PopperContent": 1,
+        "SelectPopperPosition": 1,
+        "DismissableLayer": 1,
+        "FocusScope": 1,
+        "CollectionSlot": 1,
+        "SelectContentImpl": 1
+      },
+      "headingReads": 236,
+      "parses": {},
+      "resizes": {
+        "chapter": 4,
+        "toc": 3,
+        "other": 2
+      },
+      "bodySizeWrites": 0,
+      "heapMB": 36.21804428100586,
+      "nodes": 23545,
+      "layoutMs": 7.950000000000124,
+      "styleMs": 127.00499999999992,
+      "scriptingMs": 88.13,
+      "trace": {
+        "Layout": {
+          "count": 16,
+          "durationMs": 7.86
+        },
+        "UpdateLayoutTree": {
+          "count": 80,
+          "durationMs": 127.284
+        },
+        "Paint": {
+          "count": 64,
+          "durationMs": 44.505
+        },
+        "RasterTask": {
+          "count": 141,
+          "durationMs": 17.349
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 39,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 51,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 33,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 106,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 105.548,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 105.545,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 105.542,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "Scheduler::RunTask",
+          "ms": 105.535,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "GpuChannel::ExecuteDeferredRequest",
+          "ms": 105.53,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "GPUTask",
+          "ms": 105.525,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "RendererRasterWorker",
+          "ms": 105.516,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "CommandBuffer::Flush",
+          "ms": 105.513,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "CommandBufferStub::OnAsyncFlush",
+          "ms": 105.513,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "CommandBufferService:PutChanged",
+          "ms": 105.505,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "RasterDecoderImpl::DoEndRasterCHROMIUM",
+          "ms": 100.682,
+          "pid": 39532,
+          "tid": 23116
+        },
+        {
+          "name": "RasterDecoderImpl::DoEndRasterCHROMIUM::Flush",
+          "ms": 100.67,
+          "pid": 39532,
+          "tid": 23116
+        }
+      ]
+    },
+    {
+      "name": "leave",
+      "responseMs": 264,
+      "duration": 524.3999998569489,
+      "frames": 50,
+      "rafP95": 12,
+      "rafMax": 181.89999999999782,
+      "rafGapsOver33": 2,
+      "tasks": [
+        {
+          "start": 32131.5,
+          "duration": 185
+        }
+      ],
+      "loaf": [
+        {
+          "start": 32131.5,
+          "duration": 187.19999980926514,
+          "blocking": 137,
+          "scripts": [
+            {
+              "function": "",
+              "forcedLayout": 4.2,
+              "duration": 185
+            }
+          ]
+        }
+      ],
+      "updates": {
+        "index": 1
+      },
+      "mounts": {
+        "index": 1
+      },
+      "unmounts": {
+        "ProseH1": 1,
+        "ProseP": 545,
+        "ProseStrong": 515,
+        "ProseA": 5,
+        "BlogLink": 6,
+        "ProseLi": 282,
+        "ProseOl": 79,
+        "ProseH2": 10,
+        "ProseH3": 63,
+        "BlogChapter": 117,
+        "AsyncComponentWrapper": 117,
+        "ProseEm": 2,
+        "SelectValue": 10,
+        "SelectTrigger": 10,
+        "SelectItemText": 60,
+        "SelectItemIndicator": 60,
+        "CollectionItem": 60,
+        "SelectItem": 60,
+        "SelectGroup": 10,
+        "SelectProvider": 10,
+        "SelectContent": 10,
+        "SelectPortal": 10,
+        "SelectRoot": 10,
+        "USelect": 10,
+        "ProsePre": 10,
+        "BlogCodeBlock": 10,
+        "ProseH4": 43,
+        "ReusableTemplate.define": 76,
+        "ReusableTemplate.reuse": 38,
+        "ProseImg": 38,
+        "BlogImage": 38,
+        "BlogMath": 110,
+        "ProseUl": 10,
+        "ProseBlockquote": 52,
+        "ProseHr": 3,
+        "ProseTh": 70,
+        "ProseTr": 92,
+        "ProseThead": 13,
+        "ProseTd": 345,
+        "ProseTbody": 13,
+        "ProseTable": 13,
+        "ProseCode": 16,
+        "MarkdownDocument": 1,
+        "Markdown": 1,
+        "BlogTocTree": 1,
+        "DialogTrigger": 1,
+        "DialogOverlay": 1,
+        "DialogContent": 1,
+        "DialogPortal": 1,
+        "DialogRoot": 1,
+        "USlideover": 1,
+        "BlogToc": 1,
+        "BlogRenderer": 1,
+        "CheckboxIndicator": 1,
+        "CheckboxRoot": 1,
+        "Label": 1,
+        "UCheckbox": 1,
+        "[slug]": 1
+      },
+      "headingReads": 0,
+      "parses": {},
+      "resizes": {},
+      "bodySizeWrites": 0,
+      "heapMB": 39.016937255859375,
+      "nodes": 23584,
+      "layoutMs": 9.274999999999922,
+      "styleMs": 15.446999999999989,
+      "scriptingMs": 9.024,
+      "trace": {
+        "Layout": {
+          "count": 4,
+          "durationMs": 9.218
+        },
+        "UpdateLayoutTree": {
+          "count": 27,
+          "durationMs": 15.472
+        },
+        "Paint": {
+          "count": 2,
+          "durationMs": 0.454
+        },
+        "RasterTask": {
+          "count": 9,
+          "durationMs": 11.141
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 2,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 31,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 2,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 88,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 185.072,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "BlinkScheduler_PerformMicrotaskCheckpoint",
+          "ms": 184.997,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 43.192,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 43.167,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 43.164,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 43.151,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadPool_RunTask",
+          "ms": 10.605,
+          "pid": 52044,
+          "tid": 62892
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 10.601,
+          "pid": 52044,
+          "tid": 62892
+        }
+      ]
+    },
+    {
+      "name": "return",
+      "responseMs": 2077,
+      "duration": 2343.800000190735,
+      "frames": 160,
+      "rafP95": 48.5,
+      "rafMax": 90.90000000000146,
+      "rafGapsOver33": 17,
+      "tasks": [
+        {
+          "start": 32626,
+          "duration": 63
+        },
+        {
+          "start": 33179.799999952316,
+          "duration": 87
+        },
+        {
+          "start": 33295.199999809265,
+          "duration": 64
+        },
+        {
+          "start": 33521.799999952316,
+          "duration": 52
+        },
+        {
+          "start": 33744.299999952316,
+          "duration": 54
+        },
+        {
+          "start": 33823.09999990463,
+          "duration": 56
+        },
+        {
+          "start": 33919.699999809265,
+          "duration": 64
+        }
+      ],
+      "loaf": [
+        {
+          "start": 32620.099999904633,
+          "duration": 87.59999990463257,
+          "blocking": 31.7,
+          "scripts": [
+            {
+              "function": "",
+              "forcedLayout": 0,
+              "duration": 5.5
+            },
+            {
+              "function": "",
+              "forcedLayout": 0.2,
+              "duration": 60.200000047683716
+            },
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 6.199999809265137
+            },
+            {
+              "function": "a",
+              "forcedLayout": 11,
+              "duration": 11.099999904632568
+            }
+          ]
+        },
+        {
+          "start": 33173.39999985695,
+          "duration": 91.79999995231628,
+          "blocking": 35.7,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 50.39999985694885
+            }
+          ]
+        },
+        {
+          "start": 33288.89999985695,
+          "duration": 68.79999995231628,
+          "blocking": 12.7,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 36.5
+            }
+          ]
+        },
+        {
+          "start": 33521.5,
+          "duration": 50.89999985694885,
+          "blocking": 0.7,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 22.90000009536743
+            }
+          ]
+        },
+        {
+          "start": 33743.39999985695,
+          "duration": 53.299999952316284,
+          "blocking": 3.1,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 24.5
+            }
+          ]
+        },
+        {
+          "start": 33823,
+          "duration": 54.09999990463257,
+          "blocking": 4,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 33.10000014305115
+            }
+          ]
+        },
+        {
+          "start": 33918.09999990463,
+          "duration": 64.70000004768372,
+          "blocking": 13.5,
+          "scripts": [
+            {
+              "function": "n",
+              "forcedLayout": 0,
+              "duration": 44.10000014305115
+            }
+          ]
+        }
+      ],
+      "updates": {
+        "CheckboxRoot": 1,
+        "CheckboxIndicator": 1,
+        "BlogRenderer": 2,
+        "BlogToc": 3,
+        "USlideover": 3,
+        "[slug]": 1,
+        "BlogChapter": 106,
+        "BlogCodeBlock": 10,
+        "USelect": 10,
+        "SelectRoot": 10,
+        "SelectTrigger": 10,
+        "SelectValue": 20,
+        "SelectPortal": 10,
+        "ProsePre": 10,
+        "SelectContent": 10,
+        "SelectItem": 60,
+        "CollectionItem": 60,
+        "SelectItemText": 60,
+        "SelectItemIndicator": 60,
+        "BlogImage": 35,
+        "DialogContent": 2,
+        "BlogTocTree": 1
+      },
+      "mounts": {
+        "CheckboxIndicator": 1,
+        "CheckboxRoot": 1,
+        "Label": 1,
+        "UCheckbox": 1,
+        "[slug]": 1,
+        "BlogTocTree": 1,
+        "DialogTrigger": 1,
+        "DialogPortal": 1,
+        "DialogRoot": 1,
+        "USlideover": 1,
+        "BlogToc": 1,
+        "BlogRenderer": 1,
+        "Markdown": 1,
+        "MarkdownDocument": 1,
+        "BlogChapter": 117,
+        "AsyncComponentWrapper": 117,
+        "DialogOverlay": 1,
+        "DialogContent": 1,
+        "ProseH1": 1,
+        "ProseP": 545,
+        "ProseStrong": 515,
+        "ProseA": 5,
+        "BlogLink": 6,
+        "ProseLi": 282,
+        "ProseOl": 79,
+        "ProseH2": 10,
+        "ProseH3": 63,
+        "ProseEm": 2,
+        "SelectValue": 10,
+        "SelectTrigger": 10,
+        "SelectPortal": 10,
+        "SelectRoot": 10,
+        "USelect": 10,
+        "ProsePre": 10,
+        "BlogCodeBlock": 10,
+        "SelectContent": 10,
+        "SelectItemText": 60,
+        "SelectItemIndicator": 60,
+        "CollectionItem": 60,
+        "SelectItem": 60,
+        "SelectGroup": 10,
+        "SelectProvider": 10,
+        "ProseH4": 43,
+        "ReusableTemplate.define": 76,
+        "ReusableTemplate.reuse": 38,
+        "ProseImg": 38,
+        "BlogImage": 38,
+        "BlogMath": 110,
+        "ProseUl": 10,
+        "ProseBlockquote": 52,
+        "ProseHr": 3,
+        "ProseTh": 70,
+        "ProseTr": 92,
+        "ProseThead": 13,
+        "ProseTd": 345,
+        "ProseTbody": 13,
+        "ProseTable": 13,
+        "ProseCode": 16
+      },
+      "unmounts": {
+        "index": 1
+      },
+      "headingReads": 234,
+      "parses": {
+        "parseCacheHit": 1,
+        "chapterTree": 1
+      },
+      "resizes": {
+        "other": 1,
+        "chapter": 60,
+        "toc": 2
+      },
+      "bodySizeWrites": 85,
+      "heapMB": 40.00363540649414,
+      "nodes": 23210,
+      "layoutMs": 284.20599999999996,
+      "styleMs": 224.35399999999993,
+      "scriptingMs": 767.89,
+      "trace": {
+        "Layout": {
+          "count": 62,
+          "durationMs": 282.928
+        },
+        "UpdateLayoutTree": {
+          "count": 68,
+          "durationMs": 224.276
+        },
+        "Paint": {
+          "count": 66,
+          "durationMs": 57.175
+        },
+        "RasterTask": {
+          "count": 308,
+          "durationMs": 22.697
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 60,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 227,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 3,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 389,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 87.215,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 87.178,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 87.176,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ProxyMain::BeginMainFrame",
+          "ms": 87.169,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 64.904,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 64.877,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 64.874,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ProxyMain::BeginMainFrame",
+          "ms": 64.869,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "RunTask",
+          "ms": 64.496,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 64.458,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 64.456,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ProxyMain::BeginMainFrame",
+          "ms": 64.451,
+          "pid": 52044,
+          "tid": 7036
+        }
+      ]
+    },
+    {
+      "name": "idle",
+      "responseMs": 1510,
+      "duration": 1527.2999999523163,
+      "frames": 248,
+      "rafP95": 6.19999999999709,
+      "rafMax": 24.30000000000291,
+      "rafGapsOver33": 0,
+      "tasks": [],
+      "loaf": [],
+      "updates": {},
+      "mounts": {},
+      "unmounts": {},
+      "headingReads": 0,
+      "parses": {},
+      "resizes": {},
+      "bodySizeWrites": 0,
+      "heapMB": 40.056602478027344,
+      "nodes": 23210,
+      "layoutMs": 6.6350000000001685,
+      "styleMs": 20.5160000000002,
+      "scriptingMs": 21.02,
+      "trace": {
+        "Layout": {
+          "count": 20,
+          "durationMs": 6.42
+        },
+        "UpdateLayoutTree": {
+          "count": 20,
+          "durationMs": 20.49
+        },
+        "Paint": {
+          "count": 1,
+          "durationMs": 0.629
+        },
+        "RasterTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "Decode Image": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "ImageDecodeTask": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "CompositeLayers": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DrawFrame": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "DroppedFrame": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "FramePresented": {
+          "count": 0,
+          "durationMs": 0
+        },
+        "BeginFrame": {
+          "count": 252,
+          "durationMs": 0
+        }
+      },
+      "expensive": [
+        {
+          "name": "RunTask",
+          "ms": 28.604,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadControllerImpl::RunTask",
+          "ms": 28.576,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 28.571,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "SimpleWatcher::OnHandleReady",
+          "ms": 28.566,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "Receive mojo message",
+          "ms": 28.552,
+          "pid": 52044,
+          "tid": 7036
+        },
+        {
+          "name": "ThreadPool_RunTask",
+          "ms": 14.03,
+          "pid": 64860,
+          "tid": 62408
+        },
+        {
+          "name": "Edge_RunTask",
+          "ms": 14.009,
+          "pid": 64860,
+          "tid": 62408
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

@@ -9,6 +9,7 @@ import dev.amai.portfolio.storage.ObjectStorageKeyValidator;
 import dev.amai.portfolio.storage.ObjectStorageWriteRequest;
 import dev.amai.portfolio.storage.StoredObject;
 import dev.amai.portfolio.storage.StoredObjectContent;
+import dev.amai.portfolio.storage.StoredObjectAccessUrl;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.file.FileAlreadyExistsException;
@@ -64,6 +65,12 @@ public final class LocalObjectStorage implements ObjectStorage {
         } finally {
             deleteTemporaryFile(temporary);
         }
+    }
+
+    @Override
+    public StoredObjectAccessUrl accessUrl(String objectKey) {
+        ObjectStorageKeyValidator.validate(objectKey);
+        throw new ObjectStorageException(StorageMessageConstants.LOCAL_DIRECT_ACCESS_UNAVAILABLE);
     }
 
     @Override

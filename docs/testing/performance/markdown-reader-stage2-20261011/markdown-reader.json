@@ -1,0 +1,472 @@
+{
+  "rows": [
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "light",
+      "kind": "short",
+      "enterMs": 208,
+      "taskMs": 41,
+      "layoutMs": 8,
+      "scriptMs": 3,
+      "idleTaskMs": 2,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 5.8,
+      "heapAfterLeaveMB": 6.92,
+      "nodesAfterLeave": 324,
+      "htmlNodes": 3,
+      "tasks": [],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "light",
+      "kind": "long",
+      "enterMs": 119,
+      "taskMs": 116,
+      "layoutMs": 11,
+      "scriptMs": 3,
+      "idleTaskMs": 4,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 6.92,
+      "heapAfterLeaveMB": 12.6,
+      "nodesAfterLeave": 4320,
+      "htmlNodes": 1002,
+      "tasks": [],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "light",
+      "kind": "code",
+      "enterMs": 577,
+      "taskMs": 559,
+      "layoutMs": 13,
+      "scriptMs": 5,
+      "idleTaskMs": 2,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.6,
+      "heapAfterLeaveMB": 28.49,
+      "nodesAfterLeave": 13181,
+      "htmlNodes": 902,
+      "tasks": [
+        {
+          "start": 4581.799999952316,
+          "duration": 475
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "light",
+      "kind": "images",
+      "enterMs": 91,
+      "taskMs": 103,
+      "layoutMs": 5,
+      "scriptMs": 1,
+      "idleTaskMs": 3,
+      "initialImages": 16,
+      "imageRequests": 120,
+      "heapBeforeMB": 28.49,
+      "heapAfterLeaveMB": 12.99,
+      "nodesAfterLeave": 2141,
+      "htmlNodes": 362,
+      "tasks": [],
+      "lazyImages": 120,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "light",
+      "kind": "table",
+      "enterMs": 302,
+      "taskMs": 261,
+      "layoutMs": 53,
+      "scriptMs": 2,
+      "idleTaskMs": 2,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.99,
+      "heapAfterLeaveMB": 26,
+      "nodesAfterLeave": 13158,
+      "htmlNodes": 3269,
+      "tasks": [
+        {
+          "start": 8913.200000047684,
+          "duration": 108
+        },
+        {
+          "start": 9026.299999952316,
+          "duration": 87
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "dark",
+      "kind": "short",
+      "enterMs": 232,
+      "taskMs": 57,
+      "layoutMs": 18,
+      "scriptMs": 3,
+      "idleTaskMs": 1,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 5.8,
+      "heapAfterLeaveMB": 6.93,
+      "nodesAfterLeave": 323,
+      "htmlNodes": 3,
+      "tasks": [],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "dark",
+      "kind": "long",
+      "enterMs": 128,
+      "taskMs": 123,
+      "layoutMs": 11,
+      "scriptMs": 2,
+      "idleTaskMs": 4,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 6.93,
+      "heapAfterLeaveMB": 12.59,
+      "nodesAfterLeave": 4319,
+      "htmlNodes": 1002,
+      "tasks": [
+        {
+          "start": 2458.4000000953674,
+          "duration": 50
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "dark",
+      "kind": "code",
+      "enterMs": 654,
+      "taskMs": 638,
+      "layoutMs": 15,
+      "scriptMs": 6,
+      "idleTaskMs": 2,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.59,
+      "heapAfterLeaveMB": 28.49,
+      "nodesAfterLeave": 13180,
+      "htmlNodes": 902,
+      "tasks": [
+        {
+          "start": 4070.4000000953674,
+          "duration": 543
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "dark",
+      "kind": "images",
+      "enterMs": 97,
+      "taskMs": 112,
+      "layoutMs": 6,
+      "scriptMs": 1,
+      "idleTaskMs": 2,
+      "initialImages": 16,
+      "imageRequests": 120,
+      "heapBeforeMB": 28.49,
+      "heapAfterLeaveMB": 12.99,
+      "nodesAfterLeave": 2140,
+      "htmlNodes": 362,
+      "tasks": [],
+      "lazyImages": 120,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 1440,
+      "theme": "dark",
+      "kind": "table",
+      "enterMs": 334,
+      "taskMs": 288,
+      "layoutMs": 60,
+      "scriptMs": 3,
+      "idleTaskMs": 3,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.99,
+      "heapAfterLeaveMB": 26,
+      "nodesAfterLeave": 13157,
+      "htmlNodes": 3269,
+      "tasks": [
+        {
+          "start": 8480.799999952316,
+          "duration": 120
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "light",
+      "kind": "short",
+      "enterMs": 206,
+      "taskMs": 56,
+      "layoutMs": 21,
+      "scriptMs": 3,
+      "idleTaskMs": 1,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 5.78,
+      "heapAfterLeaveMB": 6.91,
+      "nodesAfterLeave": 324,
+      "htmlNodes": 3,
+      "tasks": [],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "light",
+      "kind": "long",
+      "enterMs": 130,
+      "taskMs": 114,
+      "layoutMs": 10,
+      "scriptMs": 2,
+      "idleTaskMs": 4,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 6.91,
+      "heapAfterLeaveMB": 12.57,
+      "nodesAfterLeave": 4320,
+      "htmlNodes": 1002,
+      "tasks": [
+        {
+          "start": 2423.2000000476837,
+          "duration": 52
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "light",
+      "kind": "code",
+      "enterMs": 640,
+      "taskMs": 628,
+      "layoutMs": 16,
+      "scriptMs": 5,
+      "idleTaskMs": 2,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.57,
+      "heapAfterLeaveMB": 28.5,
+      "nodesAfterLeave": 13181,
+      "htmlNodes": 902,
+      "tasks": [
+        {
+          "start": 4039.2999999523163,
+          "duration": 529
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "light",
+      "kind": "images",
+      "enterMs": 100,
+      "taskMs": 117,
+      "layoutMs": 7,
+      "scriptMs": 1,
+      "idleTaskMs": 2,
+      "initialImages": 17,
+      "imageRequests": 120,
+      "heapBeforeMB": 28.47,
+      "heapAfterLeaveMB": 12.97,
+      "nodesAfterLeave": 2141,
+      "htmlNodes": 362,
+      "tasks": [],
+      "lazyImages": 120,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "light",
+      "kind": "table",
+      "enterMs": 387,
+      "taskMs": 342,
+      "layoutMs": 76,
+      "scriptMs": 2,
+      "idleTaskMs": 3,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.97,
+      "heapAfterLeaveMB": 25.99,
+      "nodesAfterLeave": 13158,
+      "htmlNodes": 3269,
+      "tasks": [
+        {
+          "start": 8407.100000143051,
+          "duration": 106
+        },
+        {
+          "start": 8513.700000047684,
+          "duration": 170
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "dark",
+      "kind": "short",
+      "enterMs": 226,
+      "taskMs": 60,
+      "layoutMs": 23,
+      "scriptMs": 3,
+      "idleTaskMs": 1,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 5.78,
+      "heapAfterLeaveMB": 6.94,
+      "nodesAfterLeave": 326,
+      "htmlNodes": 3,
+      "tasks": [],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "dark",
+      "kind": "long",
+      "enterMs": 124,
+      "taskMs": 109,
+      "layoutMs": 10,
+      "scriptMs": 2,
+      "idleTaskMs": 5,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 6.94,
+      "heapAfterLeaveMB": 12.63,
+      "nodesAfterLeave": 4322,
+      "htmlNodes": 1002,
+      "tasks": [
+        {
+          "start": 2501.800000190735,
+          "duration": 51
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "dark",
+      "kind": "code",
+      "enterMs": 650,
+      "taskMs": 635,
+      "layoutMs": 15,
+      "scriptMs": 5,
+      "idleTaskMs": 2,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.6,
+      "heapAfterLeaveMB": 28.49,
+      "nodesAfterLeave": 13183,
+      "htmlNodes": 902,
+      "tasks": [
+        {
+          "start": 4073.600000143051,
+          "duration": 541
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "dark",
+      "kind": "images",
+      "enterMs": 102,
+      "taskMs": 121,
+      "layoutMs": 7,
+      "scriptMs": 1,
+      "idleTaskMs": 2,
+      "initialImages": 17,
+      "imageRequests": 120,
+      "heapBeforeMB": 28.49,
+      "heapAfterLeaveMB": 12.99,
+      "nodesAfterLeave": 2143,
+      "htmlNodes": 362,
+      "tasks": [],
+      "lazyImages": 120,
+      "overflow": false
+    },
+    {
+      "label": "markdown-reader",
+      "width": 390,
+      "theme": "dark",
+      "kind": "table",
+      "enterMs": 381,
+      "taskMs": 335,
+      "layoutMs": 83,
+      "scriptMs": 2,
+      "idleTaskMs": 3,
+      "initialImages": 0,
+      "imageRequests": 0,
+      "heapBeforeMB": 12.99,
+      "heapAfterLeaveMB": 26,
+      "nodesAfterLeave": 13160,
+      "htmlNodes": 3269,
+      "tasks": [
+        {
+          "start": 8465.100000143051,
+          "duration": 91
+        },
+        {
+          "start": 8559.5,
+          "duration": 171
+        }
+      ],
+      "lazyImages": 0,
+      "overflow": false
+    }
+  ],
+  "errors": []
+}

@@ -1,5 +1,6 @@
 package dev.amai.portfolio.system.service.impl;
 
+import dev.amai.portfolio.system.constant.PasswordCipherConstants;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
@@ -43,6 +44,10 @@ public class SystemBootstrapServiceImpl implements SystemBootstrapService {
         }
         if (!needsOwner) {
             return;
+        }
+        if (settings.initialPassword().getBytes(java.nio.charset.StandardCharsets.UTF_8).length
+                > PasswordCipherConstants.MAX_PLAINTEXT_BYTES) {
+            throw new IllegalStateException(SystemMessageConstants.OWNER_PASSWORD_TOO_LONG);
         }
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         UserAccountDO owner = new UserAccountDO();

@@ -15,6 +15,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -46,6 +48,18 @@ public class GlobalExceptionHandler {
     ResponseEntity<R<Void>> handleMalformedBody(HttpMessageNotReadableException error) {
         return ResponseEntity.badRequest().body(R.failure(
             ApiErrorCode.MALFORMED_REQUEST.name(), WebMessageConstants.MALFORMED_REQUEST, List.of()));
+    }
+
+    @ExceptionHandler({MissingServletRequestParameterException.class, MissingServletRequestPartException.class})
+    ResponseEntity<R<Void>> handleMissingRequestField(Exception error) {
+        return ResponseEntity.badRequest().body(R.failure(ApiErrorCode.MALFORMED_REQUEST.name(),
+            WebMessageConstants.MALFORMED_REQUEST, List.of()));
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    ResponseEntity<R<Void>> handlePayloadTooLarge(org.springframework.web.multipart.MaxUploadSizeExceededException error) {
+        return ResponseEntity.status(ApiErrorCode.PAYLOAD_TOO_LARGE.status())
+            .body(R.failure(ApiErrorCode.PAYLOAD_TOO_LARGE.name(), WebMessageConstants.PAYLOAD_TOO_LARGE, List.of()));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

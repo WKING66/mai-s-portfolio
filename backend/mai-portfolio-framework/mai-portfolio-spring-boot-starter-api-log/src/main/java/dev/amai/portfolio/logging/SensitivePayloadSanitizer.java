@@ -6,6 +6,9 @@ import jakarta.servlet.ServletResponse;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
+import java.net.URI;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -55,6 +58,7 @@ public class SensitivePayloadSanitizer {
         }
         try {
             JsonNode safeCopy = json.valueToTree(value);
+            if (isSignedUrl(safeCopy)) return REDACTED;
             redact(safeCopy, 0);
             String serialized = json.writeValueAsString(safeCopy);
             int maxLength = properties.maxPayloadLength();
@@ -74,7 +78,7 @@ public class SensitivePayloadSanitizer {
         }
         if (node instanceof ObjectNode object) {
             for (var field : object.properties()) {
-                if (isSensitive(field.getKey())) {
+                if (isSensitive(field.getKey()) || isSignedUrl(field.getValue())) {
                     object.put(field.getKey(), REDACTED);
                 } else if (depth + 1 >= MAX_DEPTH) {
                     object.put(field.getKey(), OMITTED);
@@ -84,13 +88,33 @@ public class SensitivePayloadSanitizer {
             }
         } else if (node instanceof ArrayNode array) {
             for (int index = 0; index < array.size(); index++) {
-                if (depth + 1 >= MAX_DEPTH) {
+                if (isSignedUrl(array.get(index))) {
+                    array.set(index, REDACTED);
+                } else if (depth + 1 >= MAX_DEPTH) {
                     array.set(index, OMITTED);
                 } else {
                     redact(array.get(index), depth + 1);
                 }
             }
         }
+    }
+
+    private boolean isSignedUrl(JsonNode value) {
+        if (value == null || !value.isString()) return false;
+        try {
+            URI uri = URI.create(value.asString());
+            if (!"https".equalsIgnoreCase(uri.getScheme()) && !"http".equalsIgnoreCase(uri.getScheme())) return false;
+            String query = uri.getRawQuery();
+            if (query == null) return false;
+            for (String part : query.split("&")) {
+                String name = URLDecoder.decode(part.split("=", 2)[0], StandardCharsets.UTF_8).toLowerCase(Locale.ROOT);
+                if (Set.of("signature", "ossaccesskeyid", "x-oss-signature", "x-oss-credential", "security-token")
+                        .contains(name)) return true;
+            }
+        } catch (IllegalArgumentException invalidUrl) {
+            // 普通文本不是地址；原有按字段脱敏继续生效。
+        }
+        return false;
     }
 
     private boolean isSensitive(String fieldName) {

@@ -45,7 +45,7 @@ public class ObjectStorageAutoConfiguration {
     @Bean
     @ConditionalOnProperty(prefix = "portfolio.media", name = "storage", havingValue = "oss")
     ObjectStorage ossObjectStorage(OSS ossClient, MediaStorageProperties properties) {
-        return new AliyunOssObjectStorage(ossClient, properties.oss().bucketName());
+        return new AliyunOssObjectStorage(ossClient, properties.oss().bucketName(), properties.signedUrlTtl());
     }
 
     private String validateOssConfiguration(MediaStorageProperties.Oss oss) {

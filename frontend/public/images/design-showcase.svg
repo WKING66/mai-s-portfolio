@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="360" viewBox="0 0 960 360" role="img" aria-label="青绿与冷灰的几何构图">
+  <rect width="960" height="360" fill="#e6efeb"/>
+  <rect x="48" y="48" width="288" height="264" rx="12" fill="#36776d"/>
+  <circle cx="480" cy="180" r="108" fill="#82b8ad"/>
+  <path d="M624 312 756 48 888 312Z" fill="#627676"/>
+  <path d="M72 270h240M72 288h160" stroke="#e5eeeb" stroke-width="2"/>
+</svg>

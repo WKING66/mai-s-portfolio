@@ -1,0 +1,105 @@
+/* 正文元素使用 Nuxt UI Prose；这里只补全已验收的阅读宽度、H5/H6 和长文布局。 */
+.blog-renderer { font-size: 1.0625rem; line-height: 1.85; overflow-wrap: anywhere; }
+.blog-renderer :where(p) { line-height: inherit; }
+.blog-renderer :where(p) { text-wrap: wrap; }
+.blog-renderer :where(h1, h2, h3, h4, h5, h6) { scroll-margin-top: calc(var(--site-header-height) + 1.5rem); }
+.blog-renderer :where(h1, h2, h3, h4, h5, h6)[data-heading-flash] { position: relative; isolation: isolate; }
+.blog-renderer [data-heading-flash]::before { content: ''; position: absolute; inset: -.12em -.35em; border-radius: .35rem; z-index: -1; background: color-mix(in srgb, var(--ui-primary) 18%, transparent); opacity: 1; pointer-events: none; }
+.blog-renderer :where(h5) { font-size: 1.0625rem; font-weight: 600; margin-top: 1.5rem; }
+.blog-renderer :where(h6) { font-size: .9375rem; font-weight: 600; color: var(--ui-text-muted); margin-top: 1rem; }
+.blog-renderer :where(img) { max-width: 100%; height: auto; }
+.blog-image-frame { display: block; max-width: 100%; }
+.blog-image-frame[data-loading="true"] { min-height: clamp(12rem, 50vw, 24rem); }
+.blog-renderer :where(input[type="checkbox"]) { accent-color: var(--ui-primary); margin-inline-end: .5rem; }
+.blog-renderer :where(.contains-task-list) { list-style: none; }
+.blog-math { color: inherit; }
+.blog-math:not(.blog-math-block) { display: inline-block; max-width: 100%; overflow-x: auto; overflow-y: hidden; vertical-align: middle; padding-block: .2em; }
+.blog-math .katex { font-size: 1.05em; }
+.blog-math-block { display: block; max-width: 100%; overflow-x: auto; overflow-y: hidden; margin-block: 1.25rem; padding-block: .3rem; }
+.blog-math-block .katex-display { margin-block: .2rem; }
+.blog-math-fallback { color: var(--ui-text-muted); font-family: var(--font-mono); font-size: .85em; white-space: pre-wrap; overflow-wrap: anywhere; }
+.blog-mermaid { background: var(--ui-bg); }
+.blog-mermaid-view { display: flex; min-width: 0; flex-direction: column; }
+.blog-mermaid-viewport { position: relative; width: 100%; max-width: 100%; aspect-ratio: var(--mermaid-aspect-ratio, 4/3); min-height: 12rem; max-height: 28rem; overflow: hidden; cursor: grab; touch-action: none; }
+.blog-mermaid-viewport:focus-visible { outline: 2px solid var(--ui-primary); outline-offset: -3px; }
+.blog-mermaid-plane { position: absolute; left: 0; top: 0; transform-origin: 0 0; pointer-events: none; user-select: none; }
+.blog-mermaid-plane > svg { display: block; width: 100% !important; height: 100%; max-width: none !important; }
+.blog-mermaid-modal { height: 100vh; height: 100dvh; color: var(--ui-text); background: var(--ui-bg); padding-bottom: env(safe-area-inset-bottom, 0px); }
+.blog-mermaid-frame { min-width: 0; max-width: 100%; align-self: center; width: 100%; }
+.blog-mermaid-view-full, .blog-mermaid-view-full > .blog-mermaid-frame { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+.blog-mermaid-viewport-full { flex: 1; min-height: 0; max-height: none; aspect-ratio: auto; cursor: grab; touch-action: none; }
+.blog-mermaid-viewport.is-dragging { cursor: grabbing; }
+.blog-mermaid-placeholder { min-height: 12rem; }
+.blog-mermaid-source { max-height: min(24rem, 45svh); overflow: auto; white-space: pre; overflow-wrap: normal; font-family: var(--font-mono); }
+.blog-reader { max-width: var(--site-reading-width); margin-inline: auto; }
+.blog-reading-page { --blog-reading-start-gap: 1.5rem; padding-block-start: var(--blog-reading-start-gap); }
+.blog-reading-article { margin-top: var(--blog-reading-start-gap); }
+.blog-reading-title { max-width: var(--site-reading-width); }
+.blog-reading-layout { display: grid; min-width: 0; column-gap: 2rem; row-gap: 1rem; }
+.blog-reading-toc { order: -1; min-width: 0; border-bottom: 1px solid var(--ui-border); padding-bottom: 1rem; }
+.blog-toc-title { font-size: .875rem; font-weight: 600; margin-bottom: .65rem; }
+.blog-toc-scroll { max-height: 12rem; overflow-y: auto; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--ui-text-muted) 35%, transparent) transparent; scrollbar-gutter: stable; }
+.blog-toc-scroll::-webkit-scrollbar { width: 5px; }
+.blog-toc-scroll::-webkit-scrollbar-thumb { border-radius: 8px; background: color-mix(in srgb, var(--ui-text-muted) 35%, transparent); }
+.blog-toc-link { display: block; font-size: .8125rem; line-height: 1.5; padding-block: .3rem; padding-right: .4rem; border-radius: .3rem; color: var(--ui-text-muted); overflow-wrap: anywhere; }
+.blog-toc-link:hover { color: var(--ui-text); background: var(--ui-bg-elevated); }
+.blog-toc-link[aria-current] { color: var(--ui-primary); background: color-mix(in srgb, var(--ui-primary) 8%, transparent); font-weight: 600; }
+.blog-toc-row { display: flex; align-items: start; gap: .1rem; }
+.blog-toc-row .blog-toc-link { flex: 1; min-width: 0; padding-left: .15rem; }
+.blog-toc-branch, .blog-toc-leaf { width: 1.25rem; flex-shrink: 0; }
+.blog-toc-branch { margin-top: .15rem; padding: .15rem; }
+.blog-chapter-heading { display: flex; align-items: baseline; gap: .5rem; margin-top: 1.75rem; margin-bottom: 1rem; }
+.blog-chapter-title { min-width: 0; }
+.blog-chapter-title > :is(h1,h2,h3,h4,h5,h6) { margin-block: 0; min-width: 0; }
+.blog-chapter-heading > button { flex-shrink: 0; }
+.blog-chapter-leaf { display: flow-root; }
+@supports (content-visibility: hidden) {
+  .blog-chapter-body[data-reading-folded="true"] { content-visibility: hidden !important; block-size: 0; }
+}
+@supports not (content-visibility: hidden) {
+  .blog-chapter-body[data-reading-folded="true"] { display: none; }
+}
+/* 首次渐进准备跳过尚未显示章节的布局；完成后只使用实测的叶章节高度。
+   无脚本阅读仍保留完整 SSR 正文；锚点操作等待准备完成后只定位一次。 */
+@media (scripting: enabled) {
+  /* 采用已实际测得的叶章节高度，不按字数估计；DOM/状态/查找与可访问性保留。 */
+  /* 只使用组件实测缓存；浏览器的 auto remembered size 会跨宽度复用旧高度。 */
+  .blog-chapter-body[data-reading-contained="true"] { content-visibility: auto; contain-intrinsic-block-size: var(--reading-body-height); }
+  /* 块内代码 Select Portal 必须越过正文边界，聚焦时取消 paint containment。 */
+  .blog-chapter-body[data-reading-contained="true"]:focus-within { content-visibility: visible; }
+  .blog-chapter-body[data-reading-pending="true"] { content-visibility: hidden; }
+}
+@media (hover: hover) and (pointer: fine) {
+  .blog-toc-branch, .blog-chapter-heading > button { opacity: 0; transition: opacity .15s; }
+  .blog-toc-row:hover .blog-toc-branch, .blog-toc-row:focus-within .blog-toc-branch,
+  .blog-chapter-heading:hover > button, .blog-chapter-heading:focus-within > button { opacity: 1; }
+}
+@media (hover: none), (pointer: coarse) {
+  .blog-toc-branch { visibility: hidden; pointer-events: none; }
+}
+.blog-toc-mobile-toggle { display: none; }
+/* 明确可用高度：fit-content + 多层 flex:1 的不定高度在旧 WebKit 会压缩目录。
+   vh 为旧内核回退，svh 在支持的浏览器扣除工具栏；不按机型分支。 */
+.blog-toc-panel { top: var(--site-overlay-top); bottom: auto; height: calc(100vh - var(--site-overlay-top) - 1rem - env(safe-area-inset-bottom, 0px)); height: calc(100svh - var(--site-overlay-top) - 1rem - env(safe-area-inset-bottom, 0px)); width: min(20rem, calc(100vw - min(4rem, 15vw))); max-width: none; padding-inline-start: env(safe-area-inset-left, 0px); }
+.blog-toc-panel-tree { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.blog-toc-panel-tree .blog-toc-scroll { flex: 1; min-height: 0; max-height: none; }
+@media (max-width: 1199px) {
+  .blog-toc-desktop { display: none; }
+  .blog-toc-mobile-toggle { display: inline-flex; }
+  .blog-reading-toc { position: sticky; top: calc(var(--site-header-height) + .5rem); z-index: 5; justify-self: end; padding: 0; border: 0; }
+  .blog-reading-with-header > .blog-reading-title, .blog-reading-with-header > .blog-reading-toc { grid-area: 1 / 1; align-self: start; }
+  .blog-reading-with-header > .blog-reading-title { padding-inline-end: 3.25rem; }
+}
+/* 父章节维持普通布局，避免整篇估算高度导致即时锚点漂移。 */
+@media (min-width: 1200px) {
+  .blog-reading-layout { max-width: none; grid-template-columns: 17.5rem minmax(0, 1fr); }
+  .blog-reading-layout > .blog-renderer { grid-column: 2; grid-row: 1; }
+  .blog-reading-layout > .blog-renderer, .blog-reading-layout > .blog-reading-title { max-width: var(--site-reading-width); width: 100%; }
+  .blog-reading-with-header > .blog-reading-title { grid-column: 2; grid-row: 1; }
+  .blog-reading-with-header > .blog-renderer { grid-row: 2; }
+  .blog-reading-toc { order: -1; grid-column: 1; grid-row: 1 / span 2; position: sticky; top: calc(var(--site-header-height) + 1rem); align-self: start; border-bottom: 0; border-right: 1px solid var(--ui-border); padding: 0 .75rem 0 0; }
+  .blog-reading-toc .blog-toc-scroll { max-height: calc(100svh - var(--site-header-height) - 4rem); }
+  /* 公共阅读页首屏：扣除页顶留白、返回链接、文章间距、目录标题及底部安全距离。
+     Sticky 生效后也保留该安全上限，不在滚动中反复读写几何位置。 */
+  .blog-reading-page .blog-toc-scroll { max-height: calc(100svh - var(--site-header-height) - var(--blog-reading-start-gap) - 1.75rem - var(--blog-reading-start-gap) - 3rem); }
+}

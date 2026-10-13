@@ -1,0 +1,27 @@
+{
+  "results": [
+    {
+      "width": 1440,
+      "theme": "light",
+      "status": "passed"
+    },
+    {
+      "width": 1440,
+      "theme": "dark",
+      "status": "passed"
+    },
+    {
+      "width": 390,
+      "theme": "light",
+      "status": "passed"
+    },
+    {
+      "width": 390,
+      "theme": "dark",
+      "status": "passed"
+    }
+  ],
+  "hydration": [],
+  "errors": [],
+  "manageRequests": 0
+}
