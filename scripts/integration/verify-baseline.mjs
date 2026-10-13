@@ -1,14 +1,15 @@
+import { assertIsolatedBackend } from './assert-isolated-backend.mjs';
 import assert from 'node:assert/strict'
 import { publicEncrypt, constants, randomUUID } from 'node:crypto'
 import { readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 
 // 仅用于明确确认的隔离候选服务；不能拿维护者开发库或生产账号运行写入验收。
-const base = process.env.BASELINE_URL || 'http://127.0.0.1:3040'
+const base = process.env.BASELINE_URL || 'http://127.0.0.1:3000'
 const target = new URL(base)
 assert.equal(process.env.BASELINE_ISOLATED, '1', '必须明确确认隔离测试环境')
 assert.equal(target.hostname, '127.0.0.1')
-assert.equal(target.port, '3040')
+assert.equal(target.port, '3000')
 const password = process.env.BASELINE_OWNER_PASSWORD
 assert.ok(password && process.env.BASELINE_PUBLIC_KEY_FILE && process.env.BASELINE_OUTPUT_DIR)
 const publicKey = await readFile(process.env.BASELINE_PUBLIC_KEY_FILE, 'utf8')
@@ -37,6 +38,7 @@ async function login(username, plainPassword) {
   return { cookie, csrf: result.data.csrfToken }
 }
 const owner = await login('owner', password)
+await assertIsolatedBackend(base, owner.cookie)
 if (process.argv.includes('--cleanup')) {
   const state = JSON.parse(await readFile(resolve(output, 'article-state.json'), 'utf8'))
   const { data: current } = await call('GET', `/blogs/${state.id}`, { session: owner })
@@ -52,7 +54,7 @@ if (process.argv.includes('--cleanup')) {
   await call('GET', '/account/profile', { session: owner })
   await call('GET', '/tags?kind=TECH', { session: owner })
   const slug = 'baseline-' + randomUUID()
-  const markdown = '# 数据结构与算法：隔离基线验收\n\n## 示例代码\n\n```javascript\nconst total = [1, 2, 3].reduce((a, b) => a + b, 0)\n```\n\n## 示例公式\n\n$$x^2 + y^2 = z^2$$\n\n## 示例流程\n\n```mermaid\nflowchart LR\n A[输入] --> B[文档]\n B --> C[展示]\n```\n\n' + Array.from({ length: 30 }, (_, index) => `## 阅读章节 ${index + 1}\n\n这是独立临时数据库中的合成验收正文，用于验证目录、折叠、SSR 和 Markdown 契约。\n\n`).join('')
+  const markdown = '# 数据结构与算法：隔离基线验收\n\n## 示例代码\n\n```javascript\nconst total = [1, 2, 3].reduce((a, b) => a + b, 0)\n```\n\n## 示例公式\n\n$$x^2 + y^2 = z^2$$\n\n## 示例流程\n\n```mermaid\nflowchart LR\n A[输入] --> B[文档]\n B --> C[展示]\n```\n\n' + Array.from({ length: 120 }, (_, index) => `## 阅读章节 ${index + 1}\n\n这是独立临时数据库中的合成验收正文，用于验证目录、折叠、SSR 和 Markdown 契约。\n\n`).join('')
   const input = content => ({ slug, title: '数据结构与算法：隔离基线验收', summary: '独立测试环境中的合成内容', content, allowDownload: true, remoteRightsConfirmed: false })
   const { data: draft } = await call('POST', '/blogs', { session: owner, body: input(markdown) })
   await call('GET', `/blogs/by-slug/${slug}`, { expected: 404 })

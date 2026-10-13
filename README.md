@@ -6,11 +6,11 @@
 
 ## 本地启动
 
-准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。仓库根目录的 `.env`（已被 Git 忽略）需包含 `PSQL_HOST`、`PSQL_PORT`、`PSQL_USERNAME`、`PSQL_PASSWORD`、`REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、可为空的 `REDIS_PASSWORD` 和至少 12 字符的 `OWNER_PASSWORD`；后端开发脚本使用 `dev` 配置，并始终连接独立的 `portfolio_dev` 库，不会使用该文件里的其他库名。首次运行前只对专用开发库执行 Flyway 迁移，不要将此配置指向已有业务库。初始站长密码只在首次建号时哈希保存，后续修改 `.env` 不会重置已存在账号。
+准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。将根目录 `.env.example` 复制到 `backend/.env` 后填写本机配置；三个后端脚本默认读取该文件，也可通过 `-EnvFile <路径>` 明确指定其他配置文件。后端目录的 `backend/.env`（已被 Git 忽略）需包含 `PSQL_HOST`、`PSQL_PORT`、`PSQL_USERNAME`、`PSQL_PASSWORD`、`REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、可为空的 `REDIS_PASSWORD` 和至少 12 字符的 `OWNER_PASSWORD`；后端开发脚本使用 `dev` 配置，并始终连接独立的 `portfolio_dev` 库，不会使用该文件里的其他库名。首次运行前只对专用开发库执行 Flyway 迁移，不要将此配置指向已有业务库。初始站长密码只在首次建号时哈希保存，后续修改 `.env` 不会重置已存在账号。
 
 Redis 由 Redisson 统一接入。项目自有键统一使用 `REDIS_KEY_PREFIX` 命名空间，动态客户端标识先做 SHA-256 摘要；当前承担 Sa-Token 会话、IP 固定窗口限流与分布式锁。登录使用 `auth:login`、注册使用 `auth:register` 命名空间，两者复用限流组件和 Lua，但各自计数，成功或失败都占用本业务额度。认证使用部署配置中的固定 RSA 公钥，不再签发或消费一次性登录挑战。当前实现只使用 Redis 3.2 可用的 Lua、过期和映射命令，不使用 Redis 6 的 `KEEPTTL`；精确的 Redis 3.2.1 兼容验收仍须连接真实 3.2.1 服务执行。
 
-本地 `dev` 启动默认使用真实私有 OSS，PostgreSQL 只保存 Asset 元数据。根目录 `.env` 须设置 `MEDIA_STORAGE=oss`，并按 `.env.example` 填写完整 HTTPS endpoint、Bucket 和 AccessKey；启动脚本会在配置缺失或 endpoint 不是 HTTPS 根地址时直接失败。`local` 实现只供自动化测试或显式离线排障，字节写入被 Git 忽略的 `.local-media`。AccessKey 不进入前端、接口响应或版本库。两种实现都拒绝覆盖同名对象，业务层后续通过新增 Asset/对象键完成版本更新。
+本地 `dev` 启动默认使用真实私有 OSS，PostgreSQL 只保存 Asset 元数据。`backend/.env` 须设置 `MEDIA_STORAGE=oss`，并按根目录 `.env.example` 填写完整 HTTPS endpoint、Bucket 和 AccessKey；启动脚本会在配置缺失或 endpoint 不是 HTTPS 根地址时直接失败。`local` 实现只供自动化测试或显式离线排障，字节写入被 Git 忽略的 `.local-media`。AccessKey 不进入前端、接口响应或版本库。两种实现都拒绝覆盖同名对象，业务层后续通过新增 Asset/对象键完成版本更新。
 
 真实 OSS 集成测试固定使用现有私有 Bucket `amai-portfolio`，并在其 `integration-tests/` 前缀创建唯一临时对象，验证私有 ACL、上传、读取、禁止覆盖和删除，测试结束后只清理该随机测试对象。它默认不随普通回归访问网络；使用专用脚本从被忽略的 `.env` 注入凭据，且不会打印凭据。脚本会校验 Bucket 名，防止误操作其他 Bucket：
 

@@ -5,7 +5,7 @@ server:
 spring:
   datasource:
     druid:
-      # 开发库固定为独立的 portfolio_dev，凭据只从仓库根目录被忽略的 .env 注入。
+      # 开发库固定为独立的 portfolio_dev，凭据只从backend 目录被忽略的 .env 注入。
       url: jdbc:postgresql://${PSQL_HOST:127.0.0.1}:${PSQL_PORT:5432}/portfolio_dev
       username: ${PSQL_USERNAME:postgres}
       password: ${PSQL_PASSWORD:123456}

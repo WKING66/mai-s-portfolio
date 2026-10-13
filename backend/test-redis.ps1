@@ -1,9 +1,13 @@
+param(
+    # 凭据由启动脚本注入环境，不放入 application-dev.yaml；可显式指定其他受控配置文件。
+    [string]$EnvFile = (Join-Path $PSScriptRoot '.env')
+)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$configPath = Join-Path $PSScriptRoot '..\.env'
+$configPath = $EnvFile
 if (-not (Test-Path -LiteralPath $configPath)) {
-    throw '请先在仓库根目录创建被 Git 忽略的 .env 文件。'
+    throw '请先创建被 Git 忽略的 backend/.env，或通过 -EnvFile 指定配置文件。'
 }
 
 $settings = @{}
@@ -62,7 +66,7 @@ $mavenCommand = Get-Command mvn.cmd -ErrorAction Stop
 $testExitCode = 0
 Push-Location $PSScriptRoot
 try {
-    & $mavenCommand.Source -B `
+    & $mavenCommand.Source -f (Join-Path $PSScriptRoot 'pom.xml') -B `
         -pl 'mai-portfolio-framework/mai-portfolio-spring-boot-starter-security' `
         -am `
         '-Dtest=RedissonIntegrationTest,NamespacedSaTokenDaoIntegrationTest' `

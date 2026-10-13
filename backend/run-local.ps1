@@ -1,9 +1,13 @@
+param(
+    # 凭据由启动脚本注入环境，不放入 application-dev.yaml；可显式指定其他受控配置文件。
+    [string]$EnvFile = (Join-Path $PSScriptRoot '.env')
+)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$configPath = Join-Path $PSScriptRoot '..\.env'
+$configPath = $EnvFile
 if (-not (Test-Path -LiteralPath $configPath)) {
-    throw '请先在仓库根目录创建被 Git 忽略的 .env 文件。'
+    throw '请先创建被 Git 忽略的 backend/.env，或通过 -EnvFile 指定配置文件。'
 }
 
 $settings = @{}
@@ -92,9 +96,9 @@ if ($mediaStorage -eq 'oss') {
 }
 
 $mavenCommand = Get-Command mvn.cmd -ErrorAction Stop
-& $mavenCommand.Source -B -DskipTests install
+& $mavenCommand.Source -f (Join-Path $PSScriptRoot 'pom.xml') -B -DskipTests install
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
-& $mavenCommand.Source -f 'mai-portfolio-launch/pom.xml' spring-boot:run '-Dspring-boot.run.profiles=dev'
+& $mavenCommand.Source -f (Join-Path $PSScriptRoot 'mai-portfolio-launch/pom.xml') spring-boot:run '-Dspring-boot.run.profiles=dev'
 exit $LASTEXITCODE
