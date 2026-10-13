@@ -1,0 +1,102 @@
+{
+  "at": "2026-10-12",
+  "server": "3000 frontend / 9333 backend",
+  "unit": {
+    "files": 31,
+    "tests": 287,
+    "result": "passed"
+  },
+  "typecheck": "passed",
+  "productionBuild": "passed; DEP0155 dependency warning",
+  "backend": {
+    "DocumentPipelineTest": 16,
+    "result": "passed with JDK21",
+    "databaseLifecycle": "not run; dedicated test database configuration unavailable"
+  },
+  "browser": [
+    {
+      "exitCode": 0,
+      "seconds": 62.4,
+      "started": "2026-10-12T18:41:40.6661871+08:00",
+      "name": "visible-performance"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 29.4,
+      "started": "2026-10-12T18:42:43.1016952+08:00",
+      "name": "ssr-direct-performance"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 16.6,
+      "started": "2026-10-12T18:43:12.5087884+08:00",
+      "name": "mermaid"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 64.7,
+      "started": "2026-10-12T18:43:29.1493804+08:00",
+      "name": "reading"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 20.6,
+      "started": "2026-10-12T18:44:33.8193471+08:00",
+      "name": "math"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 5.7,
+      "started": "2026-10-12T18:44:54.4036604+08:00",
+      "name": "renderer"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 12.5,
+      "started": "2026-10-12T18:45:00.0903441+08:00",
+      "name": "import"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 12.8,
+      "started": "2026-10-12T18:45:12.5822802+08:00",
+      "name": "lifecycle"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 52.3,
+      "started": "2026-10-12T18:45:25.3535537+08:00",
+      "name": "showcase"
+    },
+    {
+      "exitCode": 0,
+      "seconds": 135.7,
+      "started": "2026-10-12T18:46:17.7042592+08:00",
+      "name": "responsive"
+    }
+  ],
+  "finalDelivery": {
+    "browser": "153.0.4234.48",
+    "video": true,
+    "errorCount": 0
+  },
+  "font200": {
+    "cases": 120,
+    "failures": 0,
+    "errors": 0
+  },
+  "devices": {
+    "configurations": 34,
+    "screenshots": 488,
+    "completed": true
+  },
+  "physical": {
+    "Mate60Pro": "maintainer Edge test passed",
+    "iPad9": "not available; untested"
+  },
+  "skipped": [
+    "Showcase production-closed case skipped on test-mode external server",
+    "Physical iOS/WebKit acceptance",
+    "LAN HTTP login/admin requires trusted HTTPS; encryption retained"
+  ]
+}

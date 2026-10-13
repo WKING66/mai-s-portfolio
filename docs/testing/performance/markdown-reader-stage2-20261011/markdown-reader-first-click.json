@@ -1,0 +1,58 @@
+[
+  {
+    "label": "markdown-reader",
+    "width": 1440,
+    "enterMs": 2272,
+    "taskMs": 947,
+    "layoutMs": 150,
+    "scriptMs": 45,
+    "idleTaskMs": 94,
+    "initialImages": 0,
+    "articleRequests": 1,
+    "heapMB": 26.13,
+    "errors": [],
+    "tasks": [
+      {
+        "start": 2219.100000143051,
+        "duration": 121
+      },
+      {
+        "start": 2493.4000000953674,
+        "duration": 88
+      },
+      {
+        "start": 2581.5,
+        "duration": 169
+      }
+    ],
+    "articleNodes": 3524,
+    "lazyImages": 38,
+    "naturalImageMB": 0
+  },
+  {
+    "label": "markdown-reader",
+    "width": 390,
+    "enterMs": 2218,
+    "taskMs": 949,
+    "layoutMs": 142,
+    "scriptMs": 37,
+    "idleTaskMs": 87,
+    "initialImages": 0,
+    "articleRequests": 1,
+    "heapMB": 28.27,
+    "errors": [],
+    "tasks": [
+      {
+        "start": 2101.300000190735,
+        "duration": 143
+      },
+      {
+        "start": 2399.9000000953674,
+        "duration": 98
+      }
+    ],
+    "articleNodes": 3524,
+    "lazyImages": 38,
+    "naturalImageMB": 0
+  }
+]
