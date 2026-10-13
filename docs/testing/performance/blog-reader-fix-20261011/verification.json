@@ -1,0 +1,60 @@
+{
+  "readerInteractions": {
+    "errors": 0,
+    "samples": 8
+  },
+  "trace": "sanitized *.trace.json.gz in final, decompress to JSON",
+  "parent": "feature/blog-import-workflow",
+  "longSession": "finite three-cycle GC checks only",
+  "push": "not performed",
+  "branch": "feature/blog-reader-performance-responsive",
+  "realArticleResponsive": {
+    "errors": 0,
+    "samples": 20
+  },
+  "vitest": {
+    "passed": 283,
+    "files": 30
+  },
+  "frontend": "http://127.0.0.1:3000",
+  "merge": "not performed",
+  "productionBuild": "passed",
+  "pcLayout": {
+    "errors": 0,
+    "samples": 8
+  },
+  "backend": "http://127.0.0.1:9333",
+  "finalSSRAndGC": "final/direct-reading.json",
+  "importHotfix": "passed",
+  "readingSecurityResources": "passed, actual published Markdown and OSS plus unsafe-input fixture",
+  "homeMotion": "passed",
+  "wholeSite": {
+    "hydrationErrors": 0,
+    "privateData": "browser fixture, no actual writes",
+    "accountTabs": 34,
+    "samples": 510,
+    "failures": 0,
+    "navigationInteractions": 36
+  },
+  "typecheck": "passed",
+  "lifecycle": {
+    "passed": 2,
+    "data": "isolated browser fixture"
+  },
+  "finalPerformance": "final/acceptance-reading.json",
+  "browser": "Edge 153.0.4234.48",
+  "baseline": "ebd2069",
+  "showcase": {
+    "passed": 11,
+    "skipReason": "Existing acceptance frontend explicitly enables Showcase; production-default-disabled case not executed",
+    "skipped": 1
+  },
+  "maintainerAcceptance": "pending",
+  "math": {
+    "errors": 0,
+    "ssrMathML": true,
+    "samples": 8
+  },
+  "date": "2026-10-11",
+  "backendTests": "not rerun, backend unchanged"
+}

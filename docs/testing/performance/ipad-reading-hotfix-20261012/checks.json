@@ -1,0 +1,77 @@
+{
+  "sourceCommit": "21082ea",
+  "unit": {
+    "files": 31,
+    "tests": 287,
+    "passed": true
+  },
+  "typecheck": "passed",
+  "productionBuild": "passed; DEP0155 dependency warning",
+  "browser": [
+    {
+      "name": "webkit18",
+      "exitCode": 0,
+      "seconds": 34.6
+    },
+    {
+      "name": "webkit26",
+      "exitCode": 0,
+      "seconds": 54.4
+    },
+    {
+      "name": "edge-toc",
+      "exitCode": 0,
+      "seconds": 12.6
+    },
+    {
+      "name": "performance1280",
+      "exitCode": 0,
+      "seconds": 99.1
+    },
+    {
+      "name": "performance1920",
+      "exitCode": 0,
+      "seconds": 135.8
+    },
+    {
+      "name": "reading",
+      "exitCode": 0,
+      "seconds": 65.4
+    },
+    {
+      "name": "math",
+      "exitCode": 0,
+      "seconds": 20.8
+    },
+    {
+      "name": "showcase",
+      "exitCode": 0,
+      "seconds": 52.2
+    }
+  ],
+  "afterProgressiveCache": {
+    "performance1280": "exit 0",
+    "performance1920": "exit 0",
+    "webkit18": "exit 0; six cases; zero hydration errors",
+    "reading": "exit 0; eight cases; zero errors"
+  },
+  "physical": {
+    "iPad9": {
+      "os": "18.6.2",
+      "browser": "Edge",
+      "result": "maintainer confirmed TOC displays, scrolls and navigates"
+    },
+    "desktop": {
+      "browser": "Edge",
+      "result": "maintainer: 暂未发现明显卡顿现象"
+    }
+  },
+  "notRepeated": [
+    "Full 34 device matrix; previous matrix retained, this hotfix adds WebKit actual list geometry checks",
+    "Backend/database lifecycle; backend unchanged",
+    "Physical WebKit version cannot be equated with Playwright Windows build"
+  ],
+  "invocationCorrections": [
+    "Early nonexistent test:unit script and wrong Vitest config invocation corrected to package npm run test; final 287 passed"
+  ]
+}

@@ -1,0 +1,311 @@
+{
+  "codeBase": "4544a5d1fd48296c31c53835ed591bbed3934da1",
+  "mainAtInspection": "0e89031e831aeb77567d0acb62a20b91ca1ac3bf",
+  "realReadOnly": {
+    "api": [
+      {
+        "path": "/api/v1/profile",
+        "status": 200,
+        "code": "OK"
+      },
+      {
+        "path": "/api/v1/projects?view=PUBLIC&page=1&size=12",
+        "status": 200,
+        "code": "OK"
+      },
+      {
+        "path": "/api/v1/blogs?view=PUBLIC&page=1&size=12",
+        "status": 200,
+        "code": "OK"
+      },
+      {
+        "path": "/api/v1/auth/session",
+        "status": 200,
+        "code": "OK"
+      },
+      {
+        "path": "/api/v1/blogs/by-slug/blog-import-ui-qa-20261009-17%3A14",
+        "status": 200,
+        "code": "OK"
+      }
+    ],
+    "rows": [
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/projects",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/blog",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/login",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/register",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/forbidden",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/__baseline_missing_page",
+        "status": 404,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/blog/blog-import-ui-qa-20261009-17:14",
+        "realApi": true,
+        "interaction": "Shiki Dracula/GitHub Light with portal select"
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/blog/blog-import-ui-qa-20261009-17:14",
+        "realApi": true,
+        "interaction": "list click, chapter fold/unfold, SSR reload, mobile TOC"
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "path": "/admin/blogs",
+        "anonymousRedirect": "login",
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/projects",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/blog",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/login",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/register",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/forbidden",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/__baseline_missing_page",
+        "status": 404,
+        "realApi": true
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/blog/blog-import-ui-qa-20261009-17:14",
+        "realApi": true,
+        "interaction": "list click, chapter fold/unfold, SSR reload, mobile TOC"
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "path": "/admin/blogs",
+        "anonymousRedirect": "login",
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/projects",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/blog",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/login",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/register",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/forbidden",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/__baseline_missing_page",
+        "status": 404,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/blog/blog-import-ui-qa-20261009-17:14",
+        "realApi": true,
+        "interaction": "list click, chapter fold/unfold, SSR reload, mobile TOC"
+      },
+      {
+        "width": 390,
+        "theme": "light",
+        "path": "/admin/blogs",
+        "anonymousRedirect": "login",
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/projects",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/blog",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/login",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/register",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/forbidden",
+        "status": 200,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/__baseline_missing_page",
+        "status": 404,
+        "realApi": true
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/blog/blog-import-ui-qa-20261009-17:14",
+        "realApi": true,
+        "interaction": "list click, chapter fold/unfold, SSR reload, mobile TOC"
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "path": "/admin/blogs",
+        "anonymousRedirect": "login",
+        "realApi": true
+      }
+    ],
+    "errors": [],
+    "scope": "真实公开 API 与匿名路由，只读，无请求 Mock，无真实写入"
+  },
+  "unitTests": {
+    "files": 31,
+    "passed": 287
+  },
+  "fixtureLifecycle": {
+    "passed": 2,
+    "realWrites": false
+  },
+  "fixtureImport": "passed full workflow",
+  "mermaid": {
+    "edgeGroups": 4,
+    "screenshots": false
+  },
+  "lint": "not configured",
+  "newPhysicalDeviceAcceptance": "pending"
+}
