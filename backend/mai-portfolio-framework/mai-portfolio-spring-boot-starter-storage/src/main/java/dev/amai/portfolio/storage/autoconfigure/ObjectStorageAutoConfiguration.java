@@ -10,6 +10,7 @@ import dev.amai.portfolio.storage.local.LocalObjectStorage;
 import dev.amai.portfolio.storage.oss.AliyunOssObjectStorage;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.stream.Stream;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -52,6 +53,12 @@ public class ObjectStorageAutoConfiguration {
         if (isBlank(oss.endpoint()) || isBlank(oss.bucketName())
             || isBlank(oss.accessKeyId()) || isBlank(oss.accessKeySecret())) {
             throw new IllegalStateException(StorageMessageConstants.OSS_CONFIGURATION_INCOMPLETE);
+        }
+        // ConfigurationProperties 可保留未解析的占位符；非空并不意味着凭据已注入。
+        // 在创建 SDK/签名地址之前拒绝，提示仅含配置名，不带凭据值。
+        if (Stream.of(oss.endpoint(), oss.bucketName(), oss.accessKeyId(), oss.accessKeySecret())
+                .anyMatch(value -> value.contains("${"))) {
+            throw new IllegalStateException(StorageMessageConstants.OSS_CONFIGURATION_UNRESOLVED);
         }
         return validateHttpsEndpoint(oss.endpoint());
     }

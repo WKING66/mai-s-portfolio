@@ -4,10 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.aliyun.oss.OSS;
 import dev.amai.portfolio.storage.ObjectStorage;
+import dev.amai.portfolio.storage.StorageMessageConstants;
 import dev.amai.portfolio.storage.local.LocalObjectStorage;
 import dev.amai.portfolio.storage.oss.AliyunOssObjectStorage;
 import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.autoconfigure.context.ConfigurationPropertiesAutoConfiguration;
@@ -68,6 +71,44 @@ class ObjectStorageAutoConfigurationTest {
             });
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"endpoint", "bucket-name", "access-key-id", "access-key-secret"})
+    void ossModeRejectsUnresolvedConfigurationBeforeCreatingClient(String property) {
+        String placeholder = "${UNINJECTED_OSS_CONFIGURATION}";
+        contextRunner()
+            .withPropertyValues(
+                "portfolio.media.storage=oss",
+                "portfolio.media.oss.endpoint=https://oss-cn-hangzhou.aliyuncs.com",
+                "portfolio.media.oss.bucket-name=portfolio-private",
+                "portfolio.media.oss.access-key-id=test-access-key",
+                "portfolio.media.oss.access-key-secret=test-access-secret")
+            .withPropertyValues("portfolio.media.oss." + property + "=" + placeholder)
+            .run(context -> {
+                assertThat(context).hasFailed();
+                assertThat(context.getStartupFailure())
+                    .hasRootCauseMessage(StorageMessageConstants.OSS_CONFIGURATION_UNRESOLVED);
+                assertThat(context.getStartupFailure().getMessage()).doesNotContain(placeholder);
+            });
+    }
+    @Test
+    void ossModeAcceptsPlaceholdersAfterEnvironmentResolution() {
+        contextRunner()
+            .withPropertyValues(
+                "INJECTED_OSS_ID=test-access-key",
+                "INJECTED_OSS_SECRET=test-access-secret",
+                "portfolio.media.storage=oss",
+                "portfolio.media.oss.endpoint=https://oss-cn-hangzhou.aliyuncs.com",
+                "portfolio.media.oss.bucket-name=portfolio-private",
+                "portfolio.media.oss.access-key-id=${INJECTED_OSS_ID}",
+                "portfolio.media.oss.access-key-secret=${INJECTED_OSS_SECRET}")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context).hasSingleBean(OSS.class);
+                var credentials = context.getBean(MediaStorageProperties.class).oss();
+                assertThat(credentials.accessKeyId()).isEqualTo("test-access-key");
+                assertThat(credentials.accessKeySecret()).isEqualTo("test-access-secret");
+            });
+    }
     private ApplicationContextRunner contextRunner() {
         return new ApplicationContextRunner()
             .withConfiguration(AutoConfigurations.of(ConfigurationPropertiesAutoConfiguration.class))

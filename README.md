@@ -12,6 +12,9 @@ Redis 由 Redisson 统一接入。项目自有键统一使用 `REDIS_KEY_PREFIX`
 
 本地 `dev` 启动默认使用真实私有 OSS，PostgreSQL 只保存 Asset 元数据。`backend/.env` 须设置 `MEDIA_STORAGE=oss`，并按根目录 `.env.example` 填写完整 HTTPS endpoint、Bucket 和 AccessKey；启动脚本会在配置缺失或 endpoint 不是 HTTPS 根地址时直接失败。`local` 实现只供自动化测试或显式离线排障，字节写入被 Git 忽略的 `.local-media`。AccessKey 不进入前端、接口响应或版本库。两种实现都拒绝覆盖同名对象，业务层后续通过新增 Asset/对象键完成版本更新。
 
+
+IDEA 直接运行 `PortfolioApplication` 时，需在 **Run → Edit Configurations → Environment variables** 中通过 `.env files/scripts` 浏览按钮选择实际 `backend/.env`（可以指定仓库之外的受控配置文件）。Java 进程读取的是注入后的环境；PowerShell 脚本注入仅对其子进程有效，不会自动传给独立启动的 IDEA。具体操作见 [JetBrains 官方说明](https://www.jetbrains.com/help/idea/program-arguments-and-environment-variables.html)。修改运行配置后重新启动后端；已经生成的错误签名 URL 必须重新查询业务 API 获取，不能继续使用旧缓存地址。OSS 配置包含未解析占位符时，应用现在在创建客户端前拒绝启动，不输出凭据值。
+
 真实 OSS 集成测试固定使用现有私有 Bucket `amai-portfolio`，并在其 `integration-tests/` 前缀创建唯一临时对象，验证私有 ACL、上传、读取、禁止覆盖和删除，测试结束后只清理该随机测试对象。它默认不随普通回归访问网络；使用专用脚本从被忽略的 `.env` 注入凭据，且不会打印凭据。脚本会校验 Bucket 名，防止误操作其他 Bucket：
 
 ```powershell

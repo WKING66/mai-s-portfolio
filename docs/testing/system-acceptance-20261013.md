@@ -60,3 +60,6 @@ main 与 origin/main 一致，远程默认分支及 origin/HEAD 指向 main。�
 先创建新的专用库和 Redis 前缀、临时 RSA/账号并启动 9333/3000；Nuxt公钥配置为 SPKI Base64，不是完整 PEM。所有写入入口共用 assert-isolated-backend 的随机标签探针，先证明HTTP确实读取该隔离库再写入，探针最终删除。测试重复登录数量较多，隔离实例额度为登录50/注册20；生产默认值未改。OssAcceptanceCleanup 使用打包应用 BOOT-INF/lib 中现有 SDK 依赖，校验随机对象键清单，只操作本轮对象。报告不包含Cookie、密文、签名地址或 AccessKey。
 
 详见 [Git 规范](../development/git-workflow.md) 与 [待审核 CI 模板](../development/ci-pr.example.yml)。修复与文档通过本轮 PR 审核后才能进入 main；未恢复新的后端业务开发。
+## IDEA 启动补充修复
+
+维护者在 IDEA 直接启动时，backend/.env 未进入 Java 进程，配置绑定保留 `${OSS_ACCESS_KEY_ID}` 字面量；旧 OSS 校验只查非空，客户端因此生成无效签名链接。现统一在 OSS 客户端创建前拒绝四项配置中的未解析占位符，提示不包含实际值。IDEA 使用运行配置自带的 .env files/scripts 注入文件，不增加应用内 dotenv 加载器。相关配置9项、启动冒烟7项均通过，后端 package 通过；IDEA实际注入、重启及新资源链接仍需维护者操作后复验，未将本机配置测试称为该进程已修好。

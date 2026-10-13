@@ -20,6 +20,8 @@ public final class StorageMessageConstants {
     public static final String DELETE_FAILED = "对象删除失败";
     public static final String OSS_CONFIGURATION_INCOMPLETE =
         "OSS 模式必须配置 endpoint、bucket-name、access-key-id 和 access-key-secret";
+    public static final String OSS_CONFIGURATION_UNRESOLVED =
+        "OSS 配置存在未解析占位符，请为启动进程注入 endpoint、bucket-name、access-key-id 和 access-key-secret";
     public static final String OSS_ENDPOINT_HTTPS_REQUIRED =
         "OSS endpoint 必须是有效的 HTTPS 根地址";
 
