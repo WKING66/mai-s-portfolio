@@ -12,6 +12,5 @@ public final class WebMessageConstants {
     public static final String DATA_CONFLICT = "数据状态已变化，请刷新后重试";
     public static final String SERVICE_UNAVAILABLE = "服务暂时不可用";
 
-    private WebMessageConstants() {
-    }
+    private WebMessageConstants() {}
 }

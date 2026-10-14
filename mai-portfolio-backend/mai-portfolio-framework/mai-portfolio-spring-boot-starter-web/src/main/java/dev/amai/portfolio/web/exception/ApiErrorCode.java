@@ -2,6 +2,7 @@ package dev.amai.portfolio.web.exception;
 
 import org.springframework.http.HttpStatus;
 
+/** API 机器错误码与 HTTP 状态的共同来源，保持现有错误码名称和映射。 */
 public enum ApiErrorCode {
     UNAUTHENTICATED(HttpStatus.UNAUTHORIZED),
     AUTH_INVALID_CREDENTIAL_PAYLOAD(HttpStatus.BAD_REQUEST),
