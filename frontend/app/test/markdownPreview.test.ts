@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { parseBlogMarkdown, markdownSignature } from '../utils/markdown'
 import { codeLabel } from '../constants/codeThemes'
-import { SHOWCASE_MARKDOWN } from '../constants/designShowcase'
+import { MARKDOWN_READING_SAMPLE } from './fixtures/markdownReading'
 import { textContent } from 'comark/utils'
 import type { Node, ElementNode } from 'comark'
 
@@ -49,7 +49,7 @@ describe('Markdown rendering and format comparison', () => {
     expect(codeLabel(' ', '')).toBe('代码')
   })
   it('highlights all seven languages with five token palettes and safe fallback', async () => {
-    const tree = await parseBlogMarkdown(SHOWCASE_MARKDOWN)
+    const tree = await parseBlogMarkdown(MARKDOWN_READING_SAMPLE)
     const blocks = elements(tree.nodes).filter(node => node[0] === 'pre')
     expect(blocks).toHaveLength(9)
     for (const block of blocks.slice(0, 7)) {

@@ -1,5 +1,5 @@
-/* 全站与独立 Showcase 复用同一组语义 token；局部属性不改变 html 的主题偏好。 */
-:root, .design-showcase[data-showcase-theme="light"] {
+/* 全站语义 token，由 html 的主题状态统一选择。 */
+:root {
   color-scheme: light;
   --site-bg: #F5F7F6;
   --site-surface: #FFFFFF;
@@ -21,7 +21,7 @@
   --site-error: #B54446;
   --site-shadow: 0 4px 16px rgb(31 45 43 / 6%);
 }
-:root[data-theme="dark"], .design-showcase[data-showcase-theme="dark"] {
+:root[data-theme="dark"] {
   color-scheme: dark;
   --site-bg: #10191C;
   --site-surface: #182326;
@@ -43,7 +43,7 @@
   --site-error: #E5A1A5;
   --site-shadow: 0 4px 16px rgb(0 0 0 / 16%);
 }
-:root, .design-showcase {
+:root {
   --site-width: 75rem;
   --site-reading-width: 47.5rem;
   --site-gutter: clamp(1rem, 3vw, 1.5rem);
@@ -83,7 +83,4 @@
   --ui-border-muted: var(--site-border-muted);
   --ui-border-accented: var(--site-border-accented);
   --ui-border-inverted: var(--site-text);
-  --showcase-canvas: var(--site-bg);
-  --showcase-primary-hover: var(--site-primary-hover);
-  --showcase-shadow: var(--site-shadow);
 }
