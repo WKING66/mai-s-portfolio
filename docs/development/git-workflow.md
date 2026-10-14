@@ -25,7 +25,7 @@ Agent 专注开发，dev 负责集成，main 负责稳定发布；日常最小�
 
 ## 日常开发、Commit 与 PR
 
-1. 在自己的长期分支开始任务，按需要获取远程状态，确认已同步最新 dev；不为普通读文件或每个 Commit 反复 fetch。
+1. 每次新任务开始前，在自己的 Worktree 检查分支和未提交修改，保护 WIP；必须执行 git fetch origin，将最新 origin/dev 快进到自己的 backend/frontend 并推送开发分支。同步成功后才能开始新任务，不为普通读文件或每个 Commit 反复 fetch。
 2. 实现已授权功能，执行与风险相称的最小充分验证，并检查实际 Diff。
 3. 精确暂存本任务文件，使用 Conventional Commits，例如 feat(backend-document): support version export、fix(backend-auth): correct session validation、refactor(frontend-toc): simplify scroll tracking。
 4. 提交并正常推送自己的分支，创建指向 dev 的 PR。一个 Commit 有明确职责；不无检查地 git add .，不混入无关格式化、重构、他人 WIP、凭据、本地配置或测试产物。
@@ -34,7 +34,7 @@ Agent 专注开发，dev 负责集成，main 负责稳定发布；日常最小�
 
 长期分支之间统一使用 **Merge Commit**：backend → dev、frontend → dev、dev → main 均禁止 Squash and Merge，也不使用 Rebase and Merge。此方式保留祖先关系，使开发分支可直接快进到集成结果，避免反复出现已经合并的代码。
 
-PR 合并后，对应 Agent 在自己的干净工作区同步，示例：
+每次新任务开始前，以及确认本轮 PR 提交已进入 dev 后，对应 Agent 必须在自己的干净工作区执行以下同步。纯同步属于 V0，不触发 Maven、Nuxt 或端到端测试。后端示例：
 
 ```text
 git status --short --branch
@@ -44,11 +44,11 @@ git merge --ff-only origin/dev
 git push origin backend
 ```
 
-前端将示例中的 backend 换成 frontend。存在 WIP 先保护和协调，不照抄切换命令；无法快进时检查未合并提交和分叉原因，提出保留成果的方案，不 reset、强推或自动扩大集成范围。
+前端将示例中的 backend 换成 frontend。已有进行中的任务、未合并 PR 或 WIP，先保护进度和核对状态，不照抄切换命令或为了同步丢弃成果；只有确认本轮提交已进入 dev 后才开始下一轮同步。无法快进时检查未合并提交、未完成任务和分叉原因，选择保留成果的合并/协调方案，不强制 reset、强推或擅自重写历史。
 
 ## 集成与发布
 
-- dev 只接收达到完成标准的功能。前后端按现有 OpenAPI 契约协作；接口不兼容或数据库迁移冲突先明确解决方案再合并，不以覆盖一方消除冲突。
+- dev 是前后端已集成代码的共同来源，只接收达到完成标准的功能。跨端功能先按正常 PR/审核流程在 dev 确认 OpenAPI 契约，双方基于确认的契约分别开发；另一 Agent 的未合并代码不能假设已在 dev。依赖通过明确接口交接或提前合入可独立验收的契约变更解决。接口不兼容或数据库迁移冲突先明确方案再合并，不以覆盖一方消除冲突。
 - 维护者决定发布时固定待发布 dev Commit，暂停向该候选引入新功能；针对该版本执行发布构建、必要安全检查与前后端关键业务真实验收。
 - 验收通过后创建或完成 dev → main PR，列明候选版本、覆盖范围和未验证内容，由维护者最终确认并使用 Merge Commit 合并。
 - 发布完成后，由获授权的集成负责人使 dev 快进到最新 main；前后端 Agent 再同步最新 dev。若存在新的未合并提交或无法快进，先核对，不强制覆盖。
