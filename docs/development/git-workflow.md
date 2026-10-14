@@ -127,5 +127,5 @@ git push origin backend
 - 仅提交功能代码、功能单元测试与必要测试支撑、关键项目文档及安全配置模板；不能因放进 src/test 或 app/test 就提交本地工具。
 - resources/ 收录对外启动、使用、必要设计和数据库说明。Agent/审核/交接/阶段报告、截图保存在 private/，不入 Git；运行时 SQL 保持唯一来源。
 - 本地前后端联调、浏览器、性能、Windows shell 和辅助开发脚本不提交，用完及时清理。演示组件完成使命后删除，正式功能完成后不保留演示 URL；保留真正的功能测试。
-- 本轮维护者明确指定的两个共享规范文件 AGENTS.md、docs/development/git-workflow.md 纳入 Git，作为上述资料分类的特定例外；其他内部材料仍留 private/。旧 private/development/git-workflow.md 不再保留另一套规范，统一引用本文。切换 Worktree 后确认根规范存在再开发。
+- 维护者明确指定的共享规范 AGENTS.md、docs/development/git-workflow.md、docs/development/coding-style.md 纳入 Git，作为上述资料分类的特定例外；其他内部材料仍留 private/。旧 private/development/git-workflow.md 不再保留另一套规范，统一引用本文。切换 Worktree 后确认根规范存在再开发。
 - 日常只报告完成内容、PR、验证等级及结果、接口变化和关键风险/阻塞；不生成不必要的长篇开发、审计或测试报告。
