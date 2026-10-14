@@ -12,7 +12,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   runtimeConfig: {
     // 生产默认关闭；显式 test 环境标识同时用于 SSR 与客户端路由判断，不含业务权限。
-    public: { authRsaPublicKey: '', siteUrl: '', designShowcaseEnvironment: '' },
+    public: { authRsaPublicKey: '', siteUrl: '' },
   },
   routeRules: {
     '/api/v1/**': {
@@ -23,7 +23,6 @@ export default defineNuxtConfig({
     '/login': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
     '/register': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
     '/forbidden': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
-    '/design-showcase': { headers: { 'X-Robots-Tag': SEO_NOINDEX } },
   },
   app: {
     head: {

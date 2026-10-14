@@ -3,7 +3,7 @@ import type { ElementNode, Node } from 'comark'
 import { parseBlogMarkdown } from '../utils/markdown'
 import { renderBlogMath, compactBlogMath, MATH_LIMITS } from '../utils/blogMath'
 import { parseDocument, DomUtils } from 'htmlparser2'
-import { BLOG_MATH_FIXTURE } from '../constants/blogMathFixture'
+import { BLOG_MATH_FIXTURE } from './fixtures/blogMathFixture'
 import { textContent } from 'comark/utils'
 const elements = (nodes: Node[]): ElementNode[] => nodes.flatMap(node => Array.isArray(node) ? [node as ElementNode, ...elements(node.slice(2) as Node[])] : [])
 

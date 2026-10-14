@@ -106,7 +106,7 @@ function update() {
   if (positionsDirty) {
     // 尺寸变化只使缓存过期；跳过内容/图片会在滚动中多次改变正文高度，
     // 不能因此每次重新测量所有标题。二分定位仅测量本次需要的节点。
-    headerHeight = document.querySelector('.showcase-header, .site-header')?.getBoundingClientRect().height || 72
+    headerHeight = document.querySelector('.site-header')?.getBoundingClientRect().height || 72
     geometryRevision++
     positionsDirty = false
   }
@@ -147,7 +147,7 @@ watch([links, () => props.contentReady, () => props.root], async () => {
   if (props.contentReady === false) return
   observer = new ResizeObserver(invalidatePositions)
   if (props.root) observer.observe(props.root)
-  const header = document.querySelector('.showcase-header, .site-header')
+  const header = document.querySelector('.site-header')
   if (header) observer.observe(header)
   pinned = false; invalidatePositions()
 }, { immediate: true })

@@ -16,7 +16,7 @@ const fullscreenSvg = computed(() => fullscreen.value && svg.value ? cloneMermai
 function openFullscreen() { inlineCanvas.value?.focus(); fullscreen.value = true }
 function restoreFocus(event: Event) { event.preventDefault(); inlineCanvas.value?.focus() }
 const { copy, copied } = useClipboard({ legacy: true })
-let revision = 0, disposed = false, visibility: IntersectionObserver | undefined, previewTheme: MutationObserver | undefined
+let revision = 0, disposed = false, visibility: IntersectionObserver | undefined
 async function update() {
   if (!activated.value || !root.value || disposed) return
   const current = ++revision
@@ -33,10 +33,8 @@ watch(() => props.content, () => { revision++; svg.value = ''; fullscreen.value 
 onMounted(() => {
   visibility = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) { activated.value = true; visibility?.disconnect(); void update() } }, { rootMargin: '200px' })
   if (root.value) visibility.observe(root.value)
-  const showcase = root.value?.closest('.design-showcase')
-  if (showcase) { previewTheme = new MutationObserver(update); previewTheme.observe(showcase, { attributes: true, attributeFilter: ['data-showcase-theme'] }) }
 })
-onBeforeUnmount(() => { disposed = true; revision++; visibility?.disconnect(); previewTheme?.disconnect() })
+onBeforeUnmount(() => { disposed = true; revision++; visibility?.disconnect() })
 </script>
 
 <template>
