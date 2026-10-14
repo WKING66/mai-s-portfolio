@@ -21,7 +21,7 @@ import org.redisson.config.SingleServerConfig;
 /** 真实 Redis 验收测试，仅操作随机命名空间并在结束后清理。 */
 @EnabledIfEnvironmentVariable(named = "RUN_REDIS_INTEGRATION_TEST", matches = "(?i)true")
 class RedissonIntegrationTest {
-    private RedissonClient redisson;
+    private RedissonClient redissonClient;
     private FixedWindowRateLimiter rateLimiter;
     private String keyPrefix;
 
@@ -29,37 +29,37 @@ class RedissonIntegrationTest {
     void setUp() {
         String host = environmentOrDefault("REDIS_HOST", "127.0.0.1");
         String port = environmentOrDefault("REDIS_PORT", "6379");
-        Config config = new Config();
-        config.setCodec(StringCodec.INSTANCE);
-        SingleServerConfig server = config.useSingleServer()
-            .setAddress("redis://" + host + ':' + port)
-            .setDatabase(Integer.parseInt(environmentOrDefault("REDIS_DATABASE", "0")));
+        Config redissonConfig = new Config();
+        redissonConfig.setCodec(StringCodec.INSTANCE);
+        SingleServerConfig singleServerConfig =
+                redissonConfig
+                        .useSingleServer()
+                        .setAddress("redis://" + host + ':' + port)
+                        .setDatabase(Integer.parseInt(environmentOrDefault("REDIS_DATABASE", "0")));
         String password = System.getenv("REDIS_PASSWORD");
         if (password != null && !password.isBlank()) {
-            server.setPassword(password);
+            singleServerConfig.setPassword(password);
         }
-        redisson = Redisson.create(config);
+        redissonClient = Redisson.create(redissonConfig);
         keyPrefix = "mai-portfolio:integration:" + UUID.randomUUID();
-        RedisKeys keys = new RedisKeys(new RedisInfrastructureProperties(keyPrefix));
-        rateLimiter = new RedissonFixedWindowRateLimiter(redisson, keys);
+        RedisKeys redisKeys = new RedisKeys(new RedisInfrastructureProperties(keyPrefix));
+        rateLimiter = new RedissonFixedWindowRateLimiter(redissonClient, redisKeys);
     }
 
     @AfterEach
     void cleanUp() {
-        if (redisson != null) {
-            redisson.getKeys().deleteByPattern(keyPrefix + ":*");
-            redisson.shutdown();
+        if (redissonClient != null) {
+            redissonClient.getKeys().deleteByPattern(keyPrefix + ":*");
+            redissonClient.shutdown();
         }
     }
 
     @Test
     void supportsAtomicRateLimitAndReset() {
+        assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10))).isTrue();
+        assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10))).isTrue();
         assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10)))
-            .isTrue();
-        assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10)))
-            .isTrue();
-        assertThat(rateLimiter.tryAcquire("login", "client-a", 2, Duration.ofSeconds(10)))
-            .isFalse();
+                .isFalse();
 
         assertThat(rateLimiter.tryAcquire("login", "client-b", 2, Duration.ofSeconds(10))).isTrue();
         rateLimiter.reset("login", "client-a");
@@ -68,10 +68,14 @@ class RedissonIntegrationTest {
 
     @Test
     void permitsAfterWindowExpires() throws InterruptedException {
-        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1))).isTrue();
-        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1))).isFalse();
-        Thread.sleep(1250);
-        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1))).isTrue();
+        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1)))
+                .isTrue();
+        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1)))
+                .isFalse();
+        // 等待窗口过期并预留调度余量，避免恰好落在 TTL 边界。
+        Thread.sleep(Duration.ofSeconds(1).plusMillis(250).toMillis());
+        assertThat(rateLimiter.tryAcquire("login", "expiry-client", 1, Duration.ofSeconds(1)))
+                .isTrue();
     }
 
     private String environmentOrDefault(String name, String defaultValue) {

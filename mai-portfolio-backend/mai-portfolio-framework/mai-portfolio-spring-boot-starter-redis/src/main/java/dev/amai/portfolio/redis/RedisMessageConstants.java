@@ -8,6 +8,5 @@ public final class RedisMessageConstants {
     public static final String LIMIT_POSITIVE = "限流阈值必须大于零";
     public static final String SHA256_UNAVAILABLE = "JVM 不支持 SHA-256";
 
-    private RedisMessageConstants() {
-    }
+    private RedisMessageConstants() {}
 }
