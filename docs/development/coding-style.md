@@ -8,7 +8,7 @@
 
 ## Java 排版
 
-- UTF-8、LF；Java 使用 Google Java Format 的 AOSP 风格，基础缩进四个空格，常规代码行宽由固定版本格式化器统一管理。backend/.gitattributes 固定 Java、POM 与格式配置的 LF，避免 Windows 检出后反复转换；不要手动维护第二套 IDEA 排版风格。
+- UTF-8、LF；Java 使用 Google Java Format 的 AOSP 风格，基础缩进四个空格，常规代码行宽由固定版本格式化器统一管理。mai-portfolio-backend/.gitattributes 固定 Java、POM 与格式配置的 LF，避免 Windows 检出后反复转换；不要手动维护第二套 IDEA 排版风格。
 - if/else、for/while/do、switch、try/catch/finally 使用清晰换行和大括号，禁止把控制流程或方法体压成一行。多语句 Lambda 同样展开，长注解、参数、构造器和复杂 Stream 按格式化器排版。
 - import 统一排序；不为整理 import 更改类型绑定或静态调用。第一批不启用自动改写语法、展开通配符、缩短类型名称等自动重构步骤。
 - SQL、正则、文本块和长字符串首先保持实际值不变。格式化器不自动重写长字符串；跨行整理须核对字符串值和 SQL 参数绑定，不拆成无意义的碎片。
@@ -61,8 +61,8 @@ Formatter 负责可确定的排版；补齐遗漏的大括号、语义命名、�
 使用 JDK 21 和现有 Maven。以下命令从仓库根目录执行，只运行格式工具，不触发单元测试、编译、Nuxt 或全链路测试：
 
 ```text
-mvn -B -ntp -N -f backend/pom.xml spotless:check
-mvn -B -ntp -N -f backend/pom.xml spotless:apply
+mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:check
+mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:apply
 ```
 
 根 POM 的 Spotless 统一覆盖全部模块的 main/test Java、自有 tools Java 和全部 POM，排除的只有 target 生成物。插件不继承到子模块，避免反复扫描和遗漏独立 BOM。根工程 verify 阶段执行相同 check；单模块命令不能替代这个全后端门禁。
@@ -70,8 +70,8 @@ mvn -B -ntp -N -f backend/pom.xml spotless:apply
 分批期间只格式化当前批次；可使用 Spotless 官方的 spotlessFiles 正则表达式参数做定向操作（不是文件通配符），例如第一批 POM：
 
 ```text
-mvn -B -ntp -N -f backend/pom.xml spotless:apply "-DspotlessFiles=.*pom\.xml"
-mvn -B -ntp -N -f backend/pom.xml spotless:check "-DspotlessFiles=.*pom\.xml"
+mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:apply "-DspotlessFiles=.*pom\.xml"
+mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:check "-DspotlessFiles=.*pom\.xml"
 ```
 
 后续完整模块批次将参数换成该模块路径。定向检查只能说明该范围通过，不能冒充全量通过；最终验收必须执行不带过滤参数的 check。不能在正式门禁中用过滤参数、ratchet、ignore、exclude 或 formatter off 隐藏存量问题。
