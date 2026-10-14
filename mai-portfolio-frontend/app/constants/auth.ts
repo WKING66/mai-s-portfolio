@@ -4,7 +4,7 @@ export const AUTH_ACCESS = {
   OWNER: 'owner',
 } as const
 
-export type AuthAccess = typeof AUTH_ACCESS[keyof typeof AUTH_ACCESS]
+export type AuthAccess = (typeof AUTH_ACCESS)[keyof typeof AUTH_ACCESS]
 
 export const AUTH_PATHS = {
   login: '/login',
