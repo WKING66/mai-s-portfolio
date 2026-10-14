@@ -7,60 +7,72 @@ const MAX_BROWSER_TIMEOUT_MS = 2 ** 31 - 1
 
 /** 已展示资源到期前刷新；失败不循环轰炸接口，回到页面时可再次尝试。 */
 export function useAssetUrlRefresh(
-  source: () => unknown,
-  refresh: () => Promise<unknown>,
+  getResourceProjection: () => unknown,
+  refreshResources: () => Promise<unknown>,
 ) {
-  if (!import.meta.client) return
-  let timer: ReturnType<typeof setTimeout> | undefined
-  let pending = false
-  let disposed = false
-  function cancel() {
-    if (timer !== undefined) clearTimeout(timer)
-    timer = undefined
+  // 1. 只在客户端安排计时；同一组件不并发刷新，卸载后不再发起请求。
+  if (!import.meta.client) {
+    return
   }
-  async function renew() {
-    if (pending || disposed || assetUrlsFresh(source())) return
-    pending = true
+  let refreshTimer: ReturnType<typeof setTimeout> | undefined
+  let isRefreshing = false
+  let isDisposed = false
+  function cancelRefreshTimer() {
+    if (refreshTimer !== undefined) {
+      clearTimeout(refreshTimer)
+    }
+    refreshTimer = undefined
+  }
+  async function refreshExpiredResources() {
+    if (isRefreshing || isDisposed || assetUrlsFresh(getResourceProjection())) {
+      return
+    }
+    isRefreshing = true
     try {
-      await refresh()
+      await refreshResources()
     } catch {
       /* 调用方已有请求错误状态，保留它供用户重试。 */
     } finally {
-      pending = false
+      isRefreshing = false
     }
   }
-  function schedule() {
-    cancel()
-    const expiry = assetUrlsExpiry(source())
+  function scheduleRefresh() {
+    // 2. 替换旧计时器，按最早到期资源留出传输余量并限制浏览器计时上限。
+    cancelRefreshTimer()
+    const expiresAtTimestamp = assetUrlsExpiry(getResourceProjection())
     // 已过期/刷新失败不立即重新安排零延时请求。
     if (
-      Number.isFinite(expiry) &&
-      expiry > Date.now() + ASSET_URL_REFRESH_LEAD_MS
+      Number.isFinite(expiresAtTimestamp) &&
+      expiresAtTimestamp > Date.now() + ASSET_URL_REFRESH_LEAD_MS
     ) {
-      timer = setTimeout(
+      refreshTimer = setTimeout(
         () => {
-          void renew()
+          void refreshExpiredResources()
         },
         Math.min(
-          expiry - Date.now() - ASSET_URL_REFRESH_LEAD_MS,
+          expiresAtTimestamp - Date.now() - ASSET_URL_REFRESH_LEAD_MS,
           MAX_BROWSER_TIMEOUT_MS,
         ),
       )
     }
   }
-  function onVisible() {
-    if (document.visibilityState === 'visible') void renew()
+  function refreshWhenVisible() {
+    if (document.visibilityState === 'visible') {
+      void refreshExpiredResources()
+    }
   }
-  watch(source, schedule, { deep: true })
+  // 3. 投影变化时重新安排；恢复可见时检查过期，但失败不立即循环重试。
+  watch(getResourceProjection, scheduleRefresh, { deep: true })
   onMounted(() => {
-    schedule()
-    window.addEventListener('focus', onVisible)
-    document.addEventListener('visibilitychange', onVisible)
+    scheduleRefresh()
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
   })
   onUnmounted(() => {
-    disposed = true
-    cancel()
-    window.removeEventListener('focus', onVisible)
-    document.removeEventListener('visibilitychange', onVisible)
+    // 4. 标记卸载并释放计时器和事件监听，保留原有在途请求完成语义。
+    isDisposed = true
+    cancelRefreshTimer()
+    window.removeEventListener('focus', refreshWhenVisible)
+    document.removeEventListener('visibilitychange', refreshWhenVisible)
   })
 }

@@ -8,64 +8,106 @@ import { useFeedback } from './useFeedback'
 export function useAdminProjectList() {
   const { getManagedProjects, changeProjectStatus } = useProjectApi()
   const feedback = useFeedback()
-  const result = ref<ProjectPage<ProjectEditor> | null>(null)
+  const projectPage = ref<ProjectPage<ProjectEditor> | null>(null)
   const requestedPage = ref(1)
-  const filter = ref<AdminProjectFilter>('ALL')
-  const pending = ref(false)
+  const statusFilter = ref<AdminProjectFilter>('ALL')
+  const isPending = ref(false)
   const changingProjectId = ref<number | null>(null)
-  const canPrevious = computed(() => !!result.value && result.value.page > 1)
-  const canNext = computed(() => !!result.value && result.value.page * result.value.size < result.value.total)
+  const canGoToPreviousPage = computed(() => !!projectPage.value && projectPage.value.page > 1)
+  const canGoToNextPage = computed(
+    () =>
+      !!projectPage.value &&
+      projectPage.value.page * projectPage.value.size < projectPage.value.total,
+  )
 
-  async function load(nextPage = requestedPage.value, nextFilter = filter.value, force = false) {
-    if (pending.value) return
-    pending.value = true
+  async function load(
+    nextPage = requestedPage.value,
+    nextFilter = statusFilter.value,
+    force = false,
+  ) {
+    // 1. 在途操作互斥；先记录本次筛选和页码，不把旧列表展示为新结果。
+    if (isPending.value) {
+      return
+    }
+    isPending.value = true
     requestedPage.value = nextPage
-    filter.value = nextFilter
-    result.value = null
+    statusFilter.value = nextFilter
+    projectPage.value = null
     try {
+      // 2. 查询成功才设置当前结果，失败保留目标页码以便重试。
       const status = nextFilter === 'ALL' ? '' : nextFilter
-      result.value = await (force ? getManagedProjects(nextPage, status, true) : getManagedProjects(nextPage, status))
-    } catch (cause) {
-      feedback.error(cause, PROJECT_MESSAGES.loadFailed)
+      projectPage.value = await (force
+        ? getManagedProjects(nextPage, status, true)
+        : getManagedProjects(nextPage, status))
+    } catch (error) {
+      feedback.error(error, PROJECT_MESSAGES.loadFailed)
     } finally {
-      pending.value = false
+      isPending.value = false
     }
   }
 
   async function transition(project: ProjectEditor) {
-    if (pending.value) return
-    const publish = project.status === ADMIN_PROJECT_STATUS.DRAFT
-    pending.value = true
+    if (isPending.value) {
+      return
+    }
+    // 1. 根据当前发布状态选择操作，并锁定本次变更的项目。
+    const shouldPublish = project.status === ADMIN_PROJECT_STATUS.DRAFT
+    isPending.value = true
     changingProjectId.value = project.id
     try {
-      await changeProjectStatus(project.id, project.version, publish)
-      feedback.success(publish ? PROJECT_MESSAGES.published : PROJECT_MESSAGES.unpublished)
-    } catch (cause) {
+      // 2. 携带已有版本提交；冲突不会自动重放写请求。
+      await changeProjectStatus(project.id, project.version, shouldPublish)
+      feedback.success(shouldPublish ? PROJECT_MESSAGES.published : PROJECT_MESSAGES.unpublished)
+    } catch (error) {
       // 冲突或校验失败保留原列表，允许重新读取，不自动重试写入。
-      feedback.error(cause, PROJECT_MESSAGES.saveFailed)
+      feedback.error(error, PROJECT_MESSAGES.saveFailed)
       return
     } finally {
-      pending.value = false
+      isPending.value = false
       changingProjectId.value = null
     }
+    // 3. 写入成功且互斥锁释放后重新读取列表；失败分支提前返回。
     await load()
   }
 
   async function changePage(nextPage: number) {
-    if (pending.value || !result.value) return
+    if (isPending.value || !projectPage.value) {
+      return
+    }
     // 总数可能被其他操作减少，当前空页仍应能向前退出，不能被新的总页数困住。
-    const lastPage = Math.max(result.value.page, 1, Math.ceil(result.value.total / result.value.size))
-    if (!Number.isSafeInteger(nextPage) || nextPage < 1 || nextPage > lastPage) return
+    const lastPage = Math.max(
+      projectPage.value.page,
+      1,
+      Math.ceil(projectPage.value.total / projectPage.value.size),
+    )
+    if (!Number.isSafeInteger(nextPage) || nextPage < 1 || nextPage > lastPage) {
+      return
+    }
     await load(nextPage)
   }
 
   async function changeFilter(nextFilter: AdminProjectFilter) {
-    if (pending.value) return
+    if (isPending.value) {
+      return
+    }
     await load(1, nextFilter)
   }
 
-  function reload() { return load(requestedPage.value, filter.value, true) }
+  function reload() {
+    return load(requestedPage.value, statusFilter.value, true)
+  }
 
-  return { result, filter, pending, changingProjectId, canPrevious, canNext,
-    load, reload, transition, changePage, changeFilter }
+  return {
+    result: projectPage,
+    filter: statusFilter,
+    pending: isPending,
+    changingProjectId,
+    canPrevious: canGoToPreviousPage,
+    canNext: canGoToNextPage,
+    load,
+    reload,
+    transition,
+    changePage,
+    changeFilter,
+  }
 }

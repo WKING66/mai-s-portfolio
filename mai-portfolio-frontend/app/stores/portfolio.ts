@@ -12,7 +12,15 @@ export const usePortfolioStore = defineStore('portfolio', {
     projectsRevision: 0,
   }),
   actions: {
-    invalidateProjects() { this.projectsRevision += 1; this.projects = {} },
-    invalidateProfile() { this.profileRevision += 1; this.profile = null },
+    // 使旧的公开项目查询失效，下一次读取不能继续回填过期列表。
+    invalidateProjects() {
+      this.projectsRevision += 1
+      this.projects = {}
+    },
+    // 公开资料和项目各自维护世代，不把管理状态写入公开快照。
+    invalidateProfile() {
+      this.profileRevision += 1
+      this.profile = null
+    },
   },
 })
