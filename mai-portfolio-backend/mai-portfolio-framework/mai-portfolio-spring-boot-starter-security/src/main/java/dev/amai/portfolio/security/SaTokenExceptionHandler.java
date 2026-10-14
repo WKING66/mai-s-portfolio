@@ -18,13 +18,21 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class SaTokenExceptionHandler {
     @ExceptionHandler(NotLoginException.class)
     ResponseEntity<R<Void>> handleNotLoggedIn(NotLoginException error) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(R.failure(
-            ApiErrorCode.UNAUTHENTICATED.name(), SecurityMessageConstants.LOGIN_REQUIRED, List.of()));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(
+                        R.failure(
+                                ApiErrorCode.UNAUTHENTICATED.name(),
+                                SecurityMessageConstants.LOGIN_REQUIRED,
+                                List.of()));
     }
 
     @ExceptionHandler(NotRoleException.class)
     ResponseEntity<R<Void>> handleMissingRole(NotRoleException error) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(R.failure(
-            ApiErrorCode.FORBIDDEN.name(), SecurityMessageConstants.PERMISSION_DENIED, List.of()));
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(
+                        R.failure(
+                                ApiErrorCode.FORBIDDEN.name(),
+                                SecurityMessageConstants.PERMISSION_DENIED,
+                                List.of()));
     }
 }
