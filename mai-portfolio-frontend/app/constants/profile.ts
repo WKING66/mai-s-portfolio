@@ -7,7 +7,11 @@ export const PROFILE_PUBLIC_DATA_KEY = 'profile:PUBLIC'
 
 /** 与服务端资料 Request 的长度一致；这里只改善输入体验，不代替业务校验。 */
 export const PROFILE_FIELD_LIMITS = {
-  displayName: 100, headline: 200, intro: 16000, githubUrl: 2048, email: 254,
+  displayName: 100,
+  headline: 200,
+  intro: 16000,
+  githubUrl: 2048,
+  email: 254,
 } as const
 
 export const PROFILE_MESSAGES = {
