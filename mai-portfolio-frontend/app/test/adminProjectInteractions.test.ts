@@ -3,37 +3,63 @@ import type { ProjectEditor, ProjectPage } from '../api/projects'
 import { ADMIN_PROJECT_STATUS } from '../constants/admin'
 import { PROJECT_MESSAGES } from '../constants/projects'
 
+import { useAdminProjectList } from '../composables/useAdminProjectList'
+import { useProjectEditor } from '../composables/useProjectEditor'
+
 const api = vi.hoisted(() => ({
-  getManagedProjects: vi.fn(), getProject: vi.fn(), getProjectTags: vi.fn(),
-  saveProject: vi.fn(), changeProjectStatus: vi.fn(), upload: vi.fn(),
+  getManagedProjects: vi.fn(),
+  getProject: vi.fn(),
+  getProjectTags: vi.fn(),
+  saveProject: vi.fn(),
+  changeProjectStatus: vi.fn(),
+  upload: vi.fn(),
 }))
 const feedback = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }))
 vi.mock('../composables/useFeedback', () => ({ useFeedback: () => feedback }))
 vi.mock('../api/projects', () => ({ useProjectApi: () => api }))
 vi.mock('../api/assets', () => ({ useAssetApi: () => ({ upload: api.upload }) }))
 
-import { useAdminProjectList } from '../composables/useAdminProjectList'
-import { useProjectEditor } from '../composables/useProjectEditor'
-
 const project: ProjectEditor = {
-  id: 7, slug: 'example-project', title: '真实项目', summary: '摘要', contribution: '本人贡献',
-  outcome: null, timeLabel: null, tags: [{ id: 2, name: 'Java', slug: 'java', group: 'BACKEND', logoKey: null }],
-  links: [{ type: 'CODE', label: '仓库', url: 'https://example.com/repository', visible: true, sortOrder: 0 }],
-  status: ADMIN_PROJECT_STATUS.DRAFT, featured: false, sortOrder: 0, version: 3,
-  publishedAt: null, updatedAt: '2026-10-06T01:00:00.123456',
+  id: 7,
+  slug: 'example-project',
+  title: '真实项目',
+  summary: '摘要',
+  contribution: '本人贡献',
+  outcome: null,
+  timeLabel: null,
+  tags: [{ id: 2, name: 'Java', slug: 'java', group: 'BACKEND', logoKey: null }],
+  links: [
+    {
+      type: 'CODE',
+      label: '仓库',
+      url: 'https://example.com/repository',
+      visible: true,
+      sortOrder: 0,
+    },
+  ],
+  status: ADMIN_PROJECT_STATUS.DRAFT,
+  featured: false,
+  sortOrder: 0,
+  version: 3,
+  publishedAt: null,
+  updatedAt: '2026-10-06T01:00:00.123456',
 }
 function page(current = 1, total = 21): ProjectPage<ProjectEditor> {
   return { view: 'MANAGE', page: current, size: 20, total, items: [{ ...project }] }
 }
 
 beforeEach(() => {
-  Object.values(api).forEach(mock => mock.mockReset())
-  Object.values(feedback).forEach(mock => mock.mockReset())
+  Object.values(api).forEach((mock) => mock.mockReset())
+  Object.values(feedback).forEach((mock) => mock.mockReset())
   api.getManagedProjects.mockResolvedValue(page())
   api.getProjectTags.mockResolvedValue(project.tags)
   api.getProject.mockResolvedValue(project)
   api.saveProject.mockResolvedValue(project)
-  api.changeProjectStatus.mockResolvedValue({ ...project, status: ADMIN_PROJECT_STATUS.PUBLISHED, version: 4 })
+  api.changeProjectStatus.mockResolvedValue({
+    ...project,
+    status: ADMIN_PROJECT_STATUS.PUBLISHED,
+    version: 4,
+  })
 })
 
 describe('managed project list interactions', () => {
@@ -43,7 +69,10 @@ describe('managed project list interactions', () => {
     api.getManagedProjects.mockRejectedValueOnce(new Error('分页请求失败'))
     await list.changePage(2)
     expect(list.result.value).toBeNull()
-    expect(feedback.error).toHaveBeenCalledWith(expect.objectContaining({ message: '分页请求失败' }), PROJECT_MESSAGES.loadFailed)
+    expect(feedback.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: '分页请求失败' }),
+      PROJECT_MESSAGES.loadFailed,
+    )
     expect(list.pending.value).toBe(false)
     api.getManagedProjects.mockResolvedValueOnce(page(2))
     await list.load()
@@ -54,7 +83,12 @@ describe('managed project list interactions', () => {
 
   it('ignores a second load and does not change filters or pages while a request is pending', async () => {
     let finish: ((value: ProjectPage<ProjectEditor>) => void) | undefined
-    api.getManagedProjects.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    api.getManagedProjects.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
     const list = useAdminProjectList()
     const loading = list.load()
     await list.load(2)
@@ -99,7 +133,10 @@ describe('managed project list interactions', () => {
     api.getManagedProjects.mockRejectedValueOnce(new Error('读取失败'))
     await list.load()
     expect(list.result.value).toBeNull()
-    expect(feedback.error).toHaveBeenCalledWith(expect.objectContaining({ message: '读取失败' }), PROJECT_MESSAGES.loadFailed)
+    expect(feedback.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: '读取失败' }),
+      PROJECT_MESSAGES.loadFailed,
+    )
   })
 
   it('keeps a failed status change recoverable and does not retry a conflicting write', async () => {
@@ -111,7 +148,10 @@ describe('managed project list interactions', () => {
     expect(api.changeProjectStatus).toHaveBeenCalledTimes(1)
     expect(api.getManagedProjects).toHaveBeenCalledTimes(1)
     expect(list.result.value?.items[0]?.version).toBe(project.version)
-    expect(feedback.error).toHaveBeenCalledWith(expect.objectContaining({ message: PROJECT_MESSAGES.conflict }), PROJECT_MESSAGES.saveFailed)
+    expect(feedback.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: PROJECT_MESSAGES.conflict }),
+      PROJECT_MESSAGES.saveFailed,
+    )
     expect(list.pending.value).toBe(false)
     expect(list.changingProjectId.value).toBeNull()
   })
@@ -136,14 +176,20 @@ describe('project editor interactions', () => {
     expect(editor.dirty.value).toBe(true)
     expect(api.saveProject).not.toHaveBeenCalled()
     await editor.save()
-    expect(api.saveProject).toHaveBeenCalledWith(project.id, expect.objectContaining({ coverMediaId: 19 }))
+    expect(api.saveProject).toHaveBeenCalledWith(
+      project.id,
+      expect.objectContaining({ coverMediaId: 19 }),
+    )
     editor.removeCover()
     expect(editor.form.coverMediaId).toBeNull()
     expect(editor.coverPreview.value).toBeNull()
   })
 
   it('retains the existing cover and dirty inputs when an upload fails', async () => {
-    api.getProject.mockResolvedValueOnce({ ...project, cover: { assetId: 12, url: '/preview/12', alt: null, expiresAt: '2030-01-01T00:00:00Z' } })
+    api.getProject.mockResolvedValueOnce({
+      ...project,
+      cover: { assetId: 12, url: '/preview/12', alt: null, expiresAt: '2030-01-01T00:00:00Z' },
+    })
     api.upload.mockRejectedValueOnce(new Error(PROJECT_MESSAGES.coverFailed))
     const editor = useProjectEditor(project.id)
     await editor.load()
@@ -153,14 +199,19 @@ describe('project editor interactions', () => {
     expect(editor.coverPreview.value).toBe('/preview/12')
     expect(editor.form.title).toBe('保留未保存标题')
     expect(editor.pending.value).toBe(false)
-    expect(feedback.error).toHaveBeenCalledWith(expect.objectContaining({ message: PROJECT_MESSAGES.coverFailed }), PROJECT_MESSAGES.coverFailed)
+    expect(feedback.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: PROJECT_MESSAGES.coverFailed }),
+      PROJECT_MESSAGES.coverFailed,
+    )
   })
 
   it('rejects unsupported or oversized covers without making a request', async () => {
     const editor = useProjectEditor(project.id)
     await editor.load()
     await editor.uploadCover(new File(['svg'], 'cover.svg', { type: 'image/svg+xml' }))
-    await editor.uploadCover(new File([new Uint8Array(8388609)], 'large.png', { type: 'image/png' }))
+    await editor.uploadCover(
+      new File([new Uint8Array(8388609)], 'large.png', { type: 'image/png' }),
+    )
     expect(api.upload).not.toHaveBeenCalled()
     expect(feedback.error).toHaveBeenCalledTimes(2)
     expect(feedback.error).toHaveBeenLastCalledWith(PROJECT_MESSAGES.coverInvalid)
@@ -172,7 +223,10 @@ describe('project editor interactions', () => {
     await editor.load()
     editor.form.title = '仅修改标题'
     await editor.save()
-    expect(api.saveProject).toHaveBeenCalledWith(project.id, expect.objectContaining({ timeLabel: '2024 – 2025' }))
+    expect(api.saveProject).toHaveBeenCalledWith(
+      project.id,
+      expect.objectContaining({ timeLabel: '2024 – 2025' }),
+    )
   })
 
   it('initializes a new draft as clean and enables editing only after the tags have loaded', async () => {
@@ -192,7 +246,10 @@ describe('project editor interactions', () => {
     await editor.load()
     expect(editor.loaded.value).toBe(false)
     expect(editor.pending.value).toBe(false)
-    expect(feedback.error).toHaveBeenCalledWith(expect.objectContaining({ message: '标签读取失败' }), PROJECT_MESSAGES.loadFailed)
+    expect(feedback.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: '标签读取失败' }),
+      PROJECT_MESSAGES.loadFailed,
+    )
     await editor.load()
     expect(editor.loaded.value).toBe(true)
     expect(feedback.error).toHaveBeenCalledOnce()
@@ -208,7 +265,10 @@ describe('project editor interactions', () => {
     expect(editor.form.version).toBe(project.version)
     expect(editor.dirty.value).toBe(true)
     expect(editor.pending.value).toBe(false)
-    expect(feedback.error).toHaveBeenCalledWith(expect.objectContaining({ message: PROJECT_MESSAGES.conflict }), PROJECT_MESSAGES.saveFailed)
+    expect(feedback.error).toHaveBeenCalledWith(
+      expect.objectContaining({ message: PROJECT_MESSAGES.conflict }),
+      PROJECT_MESSAGES.saveFailed,
+    )
     expect(api.saveProject).toHaveBeenCalledTimes(1)
   })
 
@@ -230,7 +290,12 @@ describe('project editor interactions', () => {
 
   it('blocks duplicate saves and preserves one created identity until route navigation completes', async () => {
     let finish: ((value: ProjectEditor) => void) | undefined
-    api.saveProject.mockImplementationOnce(() => new Promise(resolve => { finish = resolve }))
+    api.saveProject.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
     const editor = useProjectEditor()
     await editor.load()
     const saving = editor.save()
@@ -239,7 +304,10 @@ describe('project editor interactions', () => {
     finish?.(project)
     expect(await saving).toBe(project.id)
     await editor.save()
-    expect(api.saveProject).toHaveBeenLastCalledWith(project.id, expect.objectContaining({ version: project.version }))
+    expect(api.saveProject).toHaveBeenLastCalledWith(
+      project.id,
+      expect.objectContaining({ version: project.version }),
+    )
     await editor.reload(() => true)
     expect(api.getProject).toHaveBeenCalledWith(project.id, true)
   })
@@ -271,4 +339,35 @@ describe('project editor interactions', () => {
     editor.setTag(2, false)
     expect(editor.form.tagIds).toEqual([3])
   })
+})
+
+it('starts tags before detail in parallel and enables editing only after both resolve', async () => {
+  const calls: string[] = []
+  let resolveTags!: (tags: ProjectEditor['tags']) => void
+  let resolveProject!: (value: ProjectEditor) => void
+  api.getProjectTags.mockImplementationOnce(() => {
+    calls.push('tags')
+    return new Promise((resolve) => {
+      resolveTags = resolve
+    })
+  })
+  api.getProject.mockImplementationOnce(() => {
+    calls.push('project')
+    return new Promise((resolve) => {
+      resolveProject = resolve
+    })
+  })
+  const editor = useProjectEditor(project.id)
+  const loading = editor.load(true)
+  expect(calls).toEqual(['tags', 'project'])
+  expect(api.getProject).toHaveBeenCalledWith(project.id, true)
+  resolveProject(project)
+  await Promise.resolve()
+  expect(editor.loaded.value).toBe(false)
+  expect(editor.pending.value).toBe(true)
+  resolveTags(project.tags)
+  await loading
+  expect(editor.loaded.value).toBe(true)
+  expect(editor.pending.value).toBe(false)
+  expect(editor.form.version).toBe(project.version)
 })

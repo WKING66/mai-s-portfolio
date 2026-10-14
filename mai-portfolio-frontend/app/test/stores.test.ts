@@ -3,12 +3,26 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useAccountStore } from '../stores/account'
 import { useManagementStore } from '../stores/management'
 import { usePortfolioStore } from '../stores/portfolio'
-import type { ProjectEditor } from '../api/projects'
+import type { ProjectEditor, ProjectPage } from '../api/projects'
 
 const owner = { loggedIn: true, username: 'owner', roles: ['OWNER'], csrfToken: 'test-only' }
-const project: ProjectEditor = { id: 15, slug: 'test', title: '测试', summary: '摘要', contribution: '贡献',
-  outcome: null, timeLabel: null, tags: [], links: [], status: 'DRAFT', featured: false,
-  sortOrder: 0, version: 4, publishedAt: null, updatedAt: '2026-10-07T00:00:00' }
+const project: ProjectEditor = {
+  id: 15,
+  slug: 'test',
+  title: '测试',
+  summary: '摘要',
+  contribution: '贡献',
+  outcome: null,
+  timeLabel: null,
+  tags: [],
+  links: [],
+  status: 'DRAFT',
+  featured: false,
+  sortOrder: 0,
+  version: 4,
+  publishedAt: null,
+  updatedAt: '2026-10-07T00:00:00',
+}
 beforeEach(() => setActivePinia(createPinia()))
 
 describe('Pinia account and content snapshots', () => {
@@ -23,7 +37,12 @@ describe('Pinia account and content snapshots', () => {
   it('clears profile and its pending state on account switch or logout', () => {
     const store = useAccountStore()
     store.setSession(owner)
-    store.profile = { username: 'owner', nickname: '旧账号', avatarUrl: null, avatarExpiresAt: null }
+    store.profile = {
+      username: 'owner',
+      nickname: '旧账号',
+      avatarUrl: null,
+      avatarExpiresAt: null,
+    }
     store.profilePending = true
     const revision = store.profileRevision
     store.setSession({ ...owner, username: 'visitor', roles: [] })
@@ -32,23 +51,32 @@ describe('Pinia account and content snapshots', () => {
     expect(store.profileRevision).toBeGreaterThan(revision)
   })
   it('does not share private or public state across SSR Pinia instances', () => {
-    const first = createPinia(), second = createPinia()
+    const first = createPinia(),
+      second = createPinia()
     useAccountStore(first).setSession(owner)
     useManagementStore(first).acceptProject(project)
     expect(useAccountStore(second).session.loggedIn).toBe(false)
     expect(useManagementStore(second).projects).toEqual({})
-    usePortfolioStore(first).projects.test = { code: 'OK', message: '', data: { view: 'PUBLIC', page: 1, size: 4, total: 0, items: [] }, details: [] }
+    usePortfolioStore(first).projects.test = {
+      code: 'OK',
+      message: '',
+      data: { view: 'PUBLIC', page: 1, size: 4, total: 0, items: [] },
+      details: [],
+    }
     expect(usePortfolioStore(second).projects).toEqual({})
   })
   it('reuses technical tags and deduplicates concurrent reads', async () => {
     const store = useManagementStore()
-    const fetcher = vi.fn().mockResolvedValue([{ id: 1, name: 'Java', slug: 'java', group: 'LANGUAGE', logoKey: null }])
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue([{ id: 1, name: 'Java', slug: 'java', group: 'LANGUAGE', logoKey: null }])
     await Promise.all([store.getTags(fetcher), store.getTags(fetcher)])
     await store.getTags(fetcher)
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
   it('reuses project details unless explicitly reloaded', async () => {
-    const store = useManagementStore(), fetcher = vi.fn().mockResolvedValue(project)
+    const store = useManagementStore(),
+      fetcher = vi.fn().mockResolvedValue(project)
     await store.getProject(15, fetcher)
     await store.getProject(15, fetcher)
     expect(fetcher).toHaveBeenCalledTimes(1)
@@ -67,7 +95,13 @@ describe('Pinia account and content snapshots', () => {
   it('does not repopulate private caches when an older read finishes after clearing', async () => {
     const store = useManagementStore()
     let finish!: (value: ProjectEditor) => void
-    const reading = store.getProject(15, () => new Promise(resolve => { finish = resolve }))
+    const reading = store.getProject(
+      15,
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
     store.clear()
     finish(project)
     await reading
@@ -76,17 +110,67 @@ describe('Pinia account and content snapshots', () => {
   it('does not let an older read overwrite a newer saved snapshot', async () => {
     const store = useManagementStore()
     let finish!: (value: ProjectEditor) => void
-    const reading = store.getProject(15, () => new Promise(resolve => { finish = resolve }))
+    const reading = store.getProject(
+      15,
+      () =>
+        new Promise((resolve) => {
+          finish = resolve
+        }),
+    )
     store.acceptProject({ ...project, version: 5 })
     finish(project)
     await reading
     expect(store.projects[15]?.version).toBe(5)
   })
   it('retries failed reads and never caches a failure', async () => {
-    const store = useManagementStore(), fetcher = vi.fn().mockRejectedValueOnce(new Error('failed')).mockResolvedValue([])
+    const store = useManagementStore(),
+      fetcher = vi.fn().mockRejectedValueOnce(new Error('failed')).mockResolvedValue([])
     await expect(store.getTags(fetcher)).rejects.toThrow('failed')
     expect(store.tags).toBeNull()
     await store.getTags(fetcher)
     expect(store.tags).toEqual([])
+  })
+  it('preserves cache dictionary identity when explicitly refreshing an entry', async () => {
+    const store = useManagementStore()
+    store.projects[project.id] = project
+    const projectCache = store.projects
+    await store.getProject(project.id, vi.fn().mockResolvedValue({ ...project, version: 5 }), true)
+    expect(store.projects).toBe(projectCache)
+    expect(store.projects[project.id]?.version).toBe(5)
+
+    const page: ProjectPage<ProjectEditor> = {
+      view: 'MANAGE',
+      page: 1,
+      size: 20,
+      total: 0,
+      items: [],
+    }
+    store.lists.all = page
+    const listCache = store.lists
+    await store.getList('all', vi.fn().mockResolvedValue(page), true)
+    expect(store.lists).toBe(listCache)
+  })
+
+  it('preserves strict deletion failures rather than silently reusing protected cache entries', () => {
+    const store = useManagementStore()
+    Object.defineProperty(store.projects, project.id, { value: project, configurable: false })
+    const fetchProject = vi.fn()
+    expect(() => store.getProject(project.id, fetchProject, true)).toThrow(TypeError)
+    expect(fetchProject).not.toHaveBeenCalled()
+    // 用描述符核对冻结键的原值，避免 Vue 包装对象时触发另一项 Proxy 不变量。
+    expect(Object.getOwnPropertyDescriptor(store.projects, project.id)?.value).toEqual(project)
+
+    const page: ProjectPage<ProjectEditor> = {
+      view: 'MANAGE',
+      page: 1,
+      size: 20,
+      total: 0,
+      items: [],
+    }
+    Object.defineProperty(store.lists, 'locked', { value: page, configurable: false })
+    const fetchList = vi.fn()
+    expect(() => store.getList('locked', fetchList, true)).toThrow(TypeError)
+    expect(fetchList).not.toHaveBeenCalled()
+    expect(Object.getOwnPropertyDescriptor(store.lists, 'locked')?.value).toEqual(page)
   })
 })
