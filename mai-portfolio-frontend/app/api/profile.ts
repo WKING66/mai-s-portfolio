@@ -25,21 +25,37 @@ export interface SiteProfileResponse extends UpdateProfileRequest {
 }
 
 export function useSiteProfile() {
-  // 公开资料参与服务端渲染；页面只通过此处读取统一 API 响应。
-  const store = usePortfolioStore(useNuxtApp().$pinia)
-  const revision = store.profileRevision
+  // 1. 公开资料参与 SSR；读取当前应用的缓存并保留其修订号。
+  const portfolioStore = usePortfolioStore(useNuxtApp().$pinia)
+  const profileRevision = portfolioStore.profileRevision
   const response = useFetch<ApiResponse<SiteProfileResponse>>(PROFILE_PATHS.api, {
     key: PROFILE_PUBLIC_DATA_KEY,
-    getCachedData: (key, app) => {
-      const cached = store.profile ?? app.payload.data[key] ?? app.static.data[key]
-      return cached && assetUrlsFresh(cached) ? cached : undefined
+    getCachedData: (key, nuxtApp) => {
+      const cachedProfile =
+        portfolioStore.profile ?? nuxtApp.payload.data[key] ?? nuxtApp.static.data[key]
+      return cachedProfile && assetUrlsFresh(cachedProfile) ? cachedProfile : undefined
     },
   })
-  useAssetUrlRefresh(() => response.data.value, () => response.refresh())
-  watch(response.data, value => { if (store.profileRevision === revision && value?.code === 'OK') store.profile = value }, { immediate: true })
-  return response.then(result => {
+  // 2. 签名地址即将到期时刷新业务投影，不修改原始资源身份。
+  useAssetUrlRefresh(
+    () => response.data.value,
+    () => response.refresh(),
+  )
+  // 3. 当前修订号才可回填缓存；SSR 在 Promise 完成时做同样校验。
+  watch(
+    response.data,
+    (profileResponse) => {
+      if (portfolioStore.profileRevision === profileRevision && profileResponse?.code === 'OK') {
+        portfolioStore.profile = profileResponse
+      }
+    },
+    { immediate: true },
+  )
+  return response.then((result) => {
     // SSR watcher 不会持续运行，必须在公开请求完成后把结果写入本请求的 Pinia。
-    if (store.profileRevision === revision && result.data.value?.code === 'OK') store.profile = result.data.value
+    if (portfolioStore.profileRevision === profileRevision && result.data.value?.code === 'OK') {
+      portfolioStore.profile = result.data.value
+    }
     return result
   })
 }
@@ -56,29 +72,43 @@ export interface UpdateProfileRequest {
 
 /** setup 时绑定统一鉴权入口；资料管理不另建角色判断或 CSRF 流程。 */
 export function useSiteProfileApi() {
-  const auth = useAuthState()
-  const app = useNuxtApp()
-  const store = useManagementStore(app.$pinia)
-  const publicStore = usePortfolioStore(app.$pinia)
+  const authState = useAuthState()
+  const nuxtApp = useNuxtApp()
+  const managementStore = useManagementStore(nuxtApp.$pinia)
+  const portfolioStore = usePortfolioStore(nuxtApp.$pinia)
 
   async function readProfile(): Promise<SiteProfileResponse> {
-    const profile = await auth.request<SiteProfileResponse>(PROFILE_PATHS.api, {},
-      AUTH_ACCESS.OWNER, PROFILE_MESSAGES.loadFailed)
-    if (!profile) throw new Error(PROFILE_MESSAGES.loadFailed)
+    const profile = await authState.request<SiteProfileResponse>(
+      PROFILE_PATHS.api,
+      {},
+      AUTH_ACCESS.OWNER,
+      PROFILE_MESSAGES.loadFailed,
+    )
+    if (!profile) {
+      throw new Error(PROFILE_MESSAGES.loadFailed)
+    }
     return profile
   }
 
   function getProfile(force = false) {
-    return auth.canAccess(AUTH_ACCESS.OWNER) ? store.getProfile(readProfile, force) : readProfile()
+    return authState.canAccess(AUTH_ACCESS.OWNER)
+      ? managementStore.getProfile(readProfile, force)
+      : readProfile()
   }
 
   async function updateProfile(body: UpdateProfileRequest): Promise<SiteProfileResponse> {
-    const profile = await auth.request<SiteProfileResponse>(PROFILE_PATHS.api, { method: 'PATCH', body },
-      AUTH_ACCESS.OWNER, PROFILE_MESSAGES.saveFailed)
-    if (!profile) throw new Error(PROFILE_MESSAGES.saveFailed)
-    store.acceptProfile(profile)
-    publicStore.invalidateProfile()
-    app.runWithContext(() => clearNuxtData(PROFILE_PUBLIC_DATA_KEY))
+    const profile = await authState.request<SiteProfileResponse>(
+      PROFILE_PATHS.api,
+      { method: 'PATCH', body },
+      AUTH_ACCESS.OWNER,
+      PROFILE_MESSAGES.saveFailed,
+    )
+    if (!profile) {
+      throw new Error(PROFILE_MESSAGES.saveFailed)
+    }
+    managementStore.acceptProfile(profile)
+    portfolioStore.invalidateProfile()
+    nuxtApp.runWithContext(() => clearNuxtData(PROFILE_PUBLIC_DATA_KEY))
     return profile
   }
 

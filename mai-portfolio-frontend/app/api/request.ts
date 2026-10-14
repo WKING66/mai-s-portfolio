@@ -49,15 +49,14 @@ export async function requestApi<T>(
   options: Parameters<typeof $fetch>[1],
   fallbackMessage: string,
 ): Promise<ApiResponse<T>> {
+  // 1. 使用统一请求入口且关闭自动重试，避免写操作重复执行。
   let response: ApiResponse<T>
   try {
-    // 登录等写操作不能因客户端自动重试重复执行；需要重试时由用户明确发起。
     response = await $fetch<ApiResponse<T>>(path, { ...options, retry: 0 })
   } catch (error: unknown) {
-    const payload =
-      typeof error === 'object' && error !== null && 'data' in error
-        ? error.data
-        : undefined
+    // 2. 提取稳定 HTTP 状态与业务码；界面只显示统一错误提示。
+    const errorPayload =
+      typeof error === 'object' && error !== null && 'data' in error ? error.data : undefined
     const status =
       typeof error === 'object' &&
       error !== null &&
@@ -66,11 +65,12 @@ export async function requestApi<T>(
         ? error.statusCode
         : null
     throw new ApiRequestError(
-      responseMessage(payload, fallbackMessage),
+      responseMessage(errorPayload, fallbackMessage),
       status,
-      responseCode(payload),
+      responseCode(errorPayload),
     )
   }
+  // 3. HTTP 成功仍须核对业务码，再交给调用方使用响应数据。
   if (response.code !== SUCCESS_CODE) {
     throw new ApiRequestError(
       responseMessage(response, fallbackMessage),
@@ -85,8 +85,9 @@ export async function requestApi<T>(
 export async function requestDownload(
   path: string,
   options: Parameters<typeof $fetch>[1],
-  fallback: string,
+  fallbackMessage: string,
 ) {
+  // 1. 按 Blob 接收下载响应；错误仍由统一认证层判断。
   let response
   try {
     response = await $fetch.raw<Blob>(path, {
@@ -96,30 +97,31 @@ export async function requestDownload(
       retry: 0,
     })
   } catch {
-    throw new ApiRequestError(fallback, null, null)
+    throw new ApiRequestError(fallbackMessage, null, null)
   }
+  // 2. 下载失败时尝试读取统一 JSON 错误，无法解码则保留兜底提示。
   if (!response.ok) {
     // 错误响应也以 Blob 接收，先解码统一 JSON 错误，再交给认证层处理 401/403。
-    let payload: unknown
+    let errorPayload: unknown
     try {
-      payload = JSON.parse(await response._data!.text())
+      errorPayload = JSON.parse(await response._data!.text())
     } catch {
-      payload = undefined
+      errorPayload = undefined
     }
     throw new ApiRequestError(
-      responseMessage(payload, fallback),
+      responseMessage(errorPayload, fallbackMessage),
       response.status,
-      responseCode(payload),
+      responseCode(errorPayload),
     )
   }
-  if (!response._data)
-    throw new ApiRequestError(fallback, response.status, null)
+  // 3. 校验实际文件数据并读取下载文件名，不把错误 Blob 当正文保存。
+  if (!response._data) {
+    throw new ApiRequestError(fallbackMessage, response.status, null)
+  }
   // 当前后端文件名为 ASCII；优先使用服务端命名，缺少响应头时才按容器类型兜底。
   const disposition = response.headers.get('content-disposition') || ''
   const filename =
     /filename="?([^";]+)"?/.exec(disposition)?.[1] ||
-    (response.headers.get('content-type')?.includes('zip')
-      ? 'article.zip'
-      : 'article.md')
+    (response.headers.get('content-type')?.includes('zip') ? 'article.zip' : 'article.md')
   return { blob: response._data, filename }
 }

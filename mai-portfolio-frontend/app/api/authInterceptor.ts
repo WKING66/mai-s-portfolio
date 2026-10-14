@@ -32,12 +32,12 @@ function anonymousSession(): SessionResponse {
  * 公共 SSR 请求及登录凭据错误不走此拦截器，避免泄漏管理快照或登录重定向循环。
  */
 export function createAuthInterceptor(context: AuthContext) {
-  let revision = 0
-  let refreshing: Promise<boolean> | null = null
+  let sessionRevision = 0
+  let pendingRefresh: Promise<boolean> | null = null
 
   function accept(session: SessionResponse) {
-    revision += 1
-    refreshing = null
+    sessionRevision += 1
+    pendingRefresh = null
     context.setSession({ ...session, roles: Array.isArray(session.roles) ? session.roles : [] })
   }
 
@@ -46,32 +46,43 @@ export function createAuthInterceptor(context: AuthContext) {
   }
 
   function restore(session: SessionResponse) {
-    const normalized = { ...session, roles: Array.isArray(session.roles) ? session.roles : [] }
-    const current = context.session()
+    const normalizedSession = {
+      ...session,
+      roles: Array.isArray(session.roles) ? session.roles : [],
+    }
+    const currentSession = context.session()
     // 同一账号的令牌刷新不是切换账号，不能误丢弃其他正常的在途操作。
     if (
-      current.loggedIn !== normalized.loggedIn ||
-      current.username !== normalized.username ||
-      JSON.stringify([...current.roles].sort()) !== JSON.stringify([...normalized.roles].sort())
+      currentSession.loggedIn !== normalizedSession.loggedIn ||
+      currentSession.username !== normalizedSession.username ||
+      JSON.stringify([...currentSession.roles].sort()) !==
+        JSON.stringify([...normalizedSession.roles].sort())
     ) {
-      revision += 1
+      sessionRevision += 1
     }
-    context.setSession(normalized)
+    context.setSession(normalizedSession)
   }
 
   /** 共享同一在途查询；返回是否实际恢复了本世代，旧查询不能影响新登录或注销。 */
   function refresh(): Promise<boolean> {
-    if (refreshing) return refreshing
-    const startedAt = revision
-    const pending = getSession()
+    // 1. 同一应用复用在途查询，记录开始时的世代，隔离注销和账号切换。
+    if (pendingRefresh) {
+      return pendingRefresh
+    }
+    const startedRevision = sessionRevision
+    const sessionRequest = getSession()
       .then((session) => {
-        if (revision !== startedAt) return false
+        // 2. 仅当前世代可以恢复会话；旧查询不能覆盖新登录。
+        if (sessionRevision !== startedRevision) {
+          return false
+        }
         restore(session)
         return true
       })
       .catch((error) => {
+        // 3. 当前查询失败才清理快照；网络故障不等同于服务端确认匿名。
         // 旧查询失败也必须显式标为过期，否则等待它的 403 分支仍会导航新账户。
-        if (revision !== startedAt) {
+        if (sessionRevision !== startedRevision) {
           throw new ApiRequestError(
             AUTH_MESSAGES.sessionChanged,
             null,
@@ -80,15 +91,19 @@ export function createAuthInterceptor(context: AuthContext) {
         }
         clear()
         // 网络/服务故障不能持久化为“服务端确认匿名”，下次初始化仍需重试真实会话。
-        if (!(error instanceof ApiRequestError && (error.status === 401 || error.status === 403)))
+        if (!(error instanceof ApiRequestError && (error.status === 401 || error.status === 403))) {
           context.invalidateSession()
+        }
         throw error
       })
       .finally(() => {
-        if (refreshing === pending) refreshing = null
+        // 4. 只释放本次查询，不能把更新的在途请求清空。
+        if (pendingRefresh === sessionRequest) {
+          pendingRefresh = null
+        }
       })
-    refreshing = pending
-    return pending
+    pendingRefresh = sessionRequest
+    return sessionRequest
   }
 
   function canAccess(access: AuthAccess): boolean {
@@ -102,7 +117,9 @@ export function createAuthInterceptor(context: AuthContext) {
 
   async function redirect(access: AuthAccess) {
     const target = accessRedirect(context.session(), context.ready(), access, context.currentPath())
-    if (target) await context.navigate(target)
+    if (target) {
+      await context.navigate(target)
+    }
   }
 
   /** 写请求统一注入最新 CSRF；任何失败都不自动重放，避免重复提交。 */
@@ -112,14 +129,18 @@ export function createAuthInterceptor(context: AuthContext) {
     access: AuthAccess,
     operation: (options: RequestOptions) => Promise<T>,
   ): Promise<T> {
+    // 1. 校验 API 范围与访问策略，SSR 不发送依赖客户端管理快照的请求。
     if (!path.startsWith(AUTH_PATHS.apiPrefix)) {
       throw new ApiRequestError(AUTH_MESSAGES.invalidRequest, null, AUTH_ERROR_CODES.invalidRequest)
     }
     if (!context.isClient() || !canAccess(access)) {
-      if (context.isClient()) await redirect(access)
+      if (context.isClient()) {
+        await redirect(access)
+      }
       throw new ApiRequestError(AUTH_MESSAGES.forbidden, 403, AUTH_ERROR_CODES.clientForbidden)
     }
-    const startedAt = revision
+    // 2. 绑定会话世代，写请求注入当前 CSRF；失败不自动重放。
+    const startedRevision = sessionRevision
     const method = (options.method || 'GET').toUpperCase()
     const headers = new Headers(options.headers)
     if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
@@ -128,7 +149,7 @@ export function createAuthInterceptor(context: AuthContext) {
     try {
       const response = await operation({ ...options, credentials: 'same-origin', headers })
       // 注销、切换账号或权限刷新后的旧成功响应，不允许交给业务组件回填。
-      if (revision !== startedAt) {
+      if (sessionRevision !== startedRevision) {
         throw new ApiRequestError(
           AUTH_MESSAGES.sessionChanged,
           null,
@@ -137,24 +158,29 @@ export function createAuthInterceptor(context: AuthContext) {
       }
       return response
     } catch (error) {
+      // 3. 拒绝旧账号的失败响应，再按 401/403 刷新真实会话和权限。
       // 旧请求的失败同样不能清理新账号或触发多次重定向。
-      if (revision !== startedAt || !(error instanceof ApiRequestError)) throw error
+      if (sessionRevision !== startedRevision || !(error instanceof ApiRequestError)) {
+        throw error
+      }
       if (error.status === 401) {
         clear()
         // 服务端已否定缓存快照，重新读取一次真实会话；旧请求不自动重放。
         try {
-          if (!(await refresh()))
+          if (!(await refresh())) {
             throw new ApiRequestError(
               AUTH_MESSAGES.sessionChanged,
               null,
               AUTH_ERROR_CODES.sessionChanged,
             )
+          }
         } catch (refreshError) {
           if (
             refreshError instanceof ApiRequestError &&
             refreshError.code === AUTH_ERROR_CODES.sessionChanged
-          )
+          ) {
             throw refreshError
+          }
         }
         await redirect(access)
       } else if (
@@ -170,12 +196,10 @@ export function createAuthInterceptor(context: AuthContext) {
             )
           }
         } catch (refreshError) {
-          if (
-            !(
-              refreshError instanceof ApiRequestError &&
-              refreshError.code === AUTH_ERROR_CODES.sessionChanged
-            )
-          ) {
+          if (!(
+            refreshError instanceof ApiRequestError &&
+            refreshError.code === AUTH_ERROR_CODES.sessionChanged
+          )) {
             await redirect(access)
           }
           throw refreshError
@@ -200,7 +224,7 @@ export function createAuthInterceptor(context: AuthContext) {
       path,
       options,
       access,
-      async (prepared) => (await requestApi<T>(path, prepared, fallbackMessage)).data,
+      async (preparedOptions) => (await requestApi<T>(path, preparedOptions, fallbackMessage)).data,
     )
   }
   function download(
@@ -209,8 +233,8 @@ export function createAuthInterceptor(context: AuthContext) {
     access: AuthAccess,
     fallbackMessage: string,
   ) {
-    return execute(path, options, access, (prepared) =>
-      requestDownload(path, prepared, fallbackMessage),
+    return execute(path, options, access, (preparedOptions) =>
+      requestDownload(path, preparedOptions, fallbackMessage),
     )
   }
 
@@ -220,9 +244,10 @@ export function createAuthInterceptor(context: AuthContext) {
       clear()
       return
     }
-    // 先使较早的会话查询失效，但注销失败时不伪造本地成功或提前清空登录。
-    revision += 1
-    refreshing = null
+    // 1. 先使较早的会话查询失效，但注销失败时不伪造本地成功或提前清空登录。
+    sessionRevision += 1
+    pendingRefresh = null
+    // 2. 服务端注销成功后才清空本地会话，失败时保留现有登录状态。
     await request<null>(
       AUTH_PATHS.session,
       { method: 'DELETE' },
@@ -242,6 +267,6 @@ export function createAuthInterceptor(context: AuthContext) {
     request,
     download,
     signOut,
-    sessionRevision: () => revision,
+    sessionRevision: () => sessionRevision,
   }
 }
