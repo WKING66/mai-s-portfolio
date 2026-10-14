@@ -4,6 +4,5 @@ package dev.amai.portfolio.common;
 public final class ResponseMessageConstants {
     public static final String SUCCESS = "成功";
 
-    private ResponseMessageConstants() {
-    }
+    private ResponseMessageConstants() {}
 }

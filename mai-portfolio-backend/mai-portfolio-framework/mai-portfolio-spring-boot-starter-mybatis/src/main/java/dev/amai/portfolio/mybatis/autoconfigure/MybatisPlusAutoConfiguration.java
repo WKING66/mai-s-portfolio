@@ -15,11 +15,14 @@ public class MybatisPlusAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(MybatisPlusInterceptor.class)
     MybatisPlusInterceptor mybatisPlusInterceptor() {
-        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
-        PaginationInnerInterceptor pagination = new PaginationInnerInterceptor(DbType.POSTGRE_SQL);
+        // 1. 创建拦截器链；调用方可通过同类型 Bean 覆盖自动装配。
+        MybatisPlusInterceptor mybatisPlusInterceptor = new MybatisPlusInterceptor();
+        // 2. 使用实际 PostgreSQL 方言和既有单页上限，作为请求层限制之外的分页兜底。
+        PaginationInnerInterceptor paginationInnerInterceptor =
+                new PaginationInnerInterceptor(DbType.POSTGRE_SQL);
         // 服务端限制单页上限，不能依赖调用方主动传入安全的 size。
-        pagination.setMaxLimit(MAX_PAGE_SIZE);
-        interceptor.addInnerInterceptor(pagination);
-        return interceptor;
+        paginationInnerInterceptor.setMaxLimit(MAX_PAGE_SIZE);
+        mybatisPlusInterceptor.addInnerInterceptor(paginationInnerInterceptor);
+        return mybatisPlusInterceptor;
     }
 }

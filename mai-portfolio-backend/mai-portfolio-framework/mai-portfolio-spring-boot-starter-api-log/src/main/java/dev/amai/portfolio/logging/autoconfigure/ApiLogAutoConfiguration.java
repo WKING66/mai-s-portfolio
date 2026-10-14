@@ -15,14 +15,15 @@ public class ApiLogAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(SensitivePayloadSanitizer.class)
     SensitivePayloadSanitizer sensitivePayloadSanitizer(
-            JsonMapper jsonMapper, ApiLogProperties properties) {
-        return new SensitivePayloadSanitizer(jsonMapper, properties);
+            JsonMapper jsonMapper, ApiLogProperties apiLogProperties) {
+        return new SensitivePayloadSanitizer(jsonMapper, apiLogProperties);
     }
 
     @Bean
     @ConditionalOnMissingBean(ApiLoggingAspect.class)
     ApiLoggingAspect apiLoggingAspect(
-            SensitivePayloadSanitizer sanitizer, ApiLogProperties properties) {
-        return new ApiLoggingAspect(sanitizer, properties);
+            SensitivePayloadSanitizer sensitivePayloadSanitizer,
+            ApiLogProperties apiLogProperties) {
+        return new ApiLoggingAspect(sensitivePayloadSanitizer, apiLogProperties);
     }
 }
