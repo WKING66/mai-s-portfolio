@@ -9,7 +9,12 @@
     "build": "nuxt build",
     "preview": "nuxt preview --host 127.0.0.1",
     "preview:lan": "nuxt preview --host 0.0.0.0 --port 3000",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "eslint --max-warnings=0",
+    "lint:fix": "eslint --fix --max-warnings=0",
+    "format": "prettier --write",
+    "format:check": "prettier . --check",
+    "postinstall": "nuxt prepare"
   },
   "dependencies": {
     "@comark/nuxt": "0.7.0",
@@ -27,8 +32,13 @@
     "shiki": "4.5.0"
   },
   "devDependencies": {
+    "@nuxt/eslint": "1.17.0",
+    "@stylistic/eslint-plugin": "5.10.0",
     "@tailwindcss/vite": "4.3.3",
     "@types/node": "24.19.2",
+    "eslint": "10.12.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.10",
     "tailwindcss": "4.3.3",
     "typescript": "5.9.2",
     "vitest": "3.2.4",

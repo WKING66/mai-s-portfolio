@@ -1,0 +1,12 @@
+# Scope line-ending normalization to this frontend worktree's tracked text files.
+*.vue text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.md text eol=lf
+.editorconfig text eol=lf
+.prettierignore text eol=lf
+.gitattributes text eol=lf
