@@ -10,7 +10,9 @@ public class InvalidCredentialPayloadException extends ApiException {
     private final List<String> details;
 
     public InvalidCredentialPayloadException(List<String> details) {
-        super(ApiErrorCode.AUTH_INVALID_CREDENTIAL_PAYLOAD, SystemMessageConstants.AUTH_REQUEST_INVALID);
+        super(
+                ApiErrorCode.AUTH_INVALID_CREDENTIAL_PAYLOAD,
+                SystemMessageConstants.AUTH_REQUEST_INVALID);
         this.details = List.copyOf(details);
     }
 

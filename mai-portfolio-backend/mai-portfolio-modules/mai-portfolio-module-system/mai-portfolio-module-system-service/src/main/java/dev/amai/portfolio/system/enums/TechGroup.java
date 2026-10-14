@@ -4,7 +4,11 @@ import dev.amai.portfolio.system.constant.TaxonomyMessageConstants;
 import java.util.Arrays;
 
 public enum TechGroup {
-    LANGUAGE(0), FRAMEWORK(1), TOOL(2), INFRA(3), DATA(4);
+    LANGUAGE(0),
+    FRAMEWORK(1),
+    TOOL(2),
+    INFRA(3),
+    DATA(4);
 
     private final int code;
 
@@ -18,7 +22,12 @@ public enum TechGroup {
 
     public static TechGroup fromCode(int code) {
         // 未知数据库编码应暴露为内部数据问题，不能默默归入任一公开分类。
-        return Arrays.stream(values()).filter(group -> group.code == code).findFirst()
-            .orElseThrow(() -> new IllegalStateException(TaxonomyMessageConstants.TECH_GROUP_UNKNOWN + code));
+        return Arrays.stream(values())
+                .filter(group -> group.code == code)
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new IllegalStateException(
+                                        TaxonomyMessageConstants.TECH_GROUP_UNKNOWN + code));
     }
 }

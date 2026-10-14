@@ -13,11 +13,11 @@ import org.springframework.validation.annotation.Validated;
 /** 固定私钥来自外部 Secret 文件，非开发环境默认要求 HTTPS。 */
 @Validated
 @ConfigurationProperties(prefix = "portfolio.security")
-public record SecurityProperties(@NotEmpty List<String> allowedOrigins,
-                                 @NotNull Resource rsaPrivateKey,
-                                 boolean requireHttps,
-                                 @Positive int maxLoginAttemptsPerClient,
-                                 @NotNull Duration loginAttemptWindow,
-                                 @Positive @DefaultValue("5") int maxRegistrationAttemptsPerClient,
-                                 @NotNull @DefaultValue("5m") Duration registrationAttemptWindow) {
-}
+public record SecurityProperties(
+        @NotEmpty List<String> allowedOrigins,
+        @NotNull Resource rsaPrivateKey,
+        boolean requireHttps,
+        @Positive int maxLoginAttemptsPerClient,
+        @NotNull Duration loginAttemptWindow,
+        @Positive @DefaultValue("5") int maxRegistrationAttemptsPerClient,
+        @NotNull @DefaultValue("5m") Duration registrationAttemptWindow) {}

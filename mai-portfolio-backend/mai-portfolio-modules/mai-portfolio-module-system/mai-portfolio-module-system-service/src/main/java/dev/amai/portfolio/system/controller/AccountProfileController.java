@@ -25,39 +25,59 @@ import org.springframework.web.bind.annotation.*;
 @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
 @Tag(name = "账号", description = "当前账号本人资料与密码；与网站公开资料分离")
 public class AccountProfileController {
-    private final AccountProfileService accountProfile;
+    private final AccountProfileService accountProfileService;
 
-    public AccountProfileController(AccountProfileService accountProfile) { this.accountProfile = accountProfile; }
+    public AccountProfileController(AccountProfileService accountProfileService) {
+        this.accountProfileService = accountProfileService;
+    }
 
     @GetMapping("/profile")
     @Operation(summary = "读取本人资料", description = "返回昵称及头像 OSS 临时地址和到期时间，不返回密码或角色配置。")
     public ResponseEntity<R<AccountProfileVo>> current() {
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore().cachePrivate())
-            .body(R.success(accountProfile.current()));
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore().cachePrivate())
+                .body(R.success(accountProfileService.current()));
     }
 
     @PutMapping("/profile")
     @ApiLog
-    @Operation(summary = "修改本人昵称", parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME,
-        in = ParameterIn.HEADER, required = true))
+    @Operation(
+            summary = "修改本人昵称",
+            parameters =
+                    @Parameter(
+                            name = AuthConstants.CSRF_HEADER_NAME,
+                            in = ParameterIn.HEADER,
+                            required = true))
     public R<AccountProfileVo> update(@Valid @RequestBody AccountProfileRequest request) {
-        return R.success(accountProfile.update(request));
+        return R.success(accountProfileService.update(request));
     }
 
     @PutMapping("/avatar")
     @ApiLog
-    @Operation(summary = "绑定本人头像", description = "仅接受当前账号通过 POST /assets、usage=AVATAR 创建的 READY 资产；不上传文件，不删除旧对象。",
-        parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
+    @Operation(
+            summary = "绑定本人头像",
+            description = "仅接受当前账号通过 POST /assets、usage=AVATAR 创建的 READY 资产；不上传文件，不删除旧对象。",
+            parameters =
+                    @Parameter(
+                            name = AuthConstants.CSRF_HEADER_NAME,
+                            in = ParameterIn.HEADER,
+                            required = true))
     public R<AccountProfileVo> avatar(@Valid @RequestBody AccountAvatarRequest request) {
-        return R.success(accountProfile.bindAvatar(request));
+        return R.success(accountProfileService.bindAvatar(request));
     }
 
     @PutMapping("/password")
     @ApiLog
-    @Operation(summary = "修改本人密码", description = "原密码精确验证，新密码使用共享政策；密码和凭据版本原子更新，旧会话失效。",
-        parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
+    @Operation(
+            summary = "修改本人密码",
+            description = "原密码精确验证，新密码使用共享政策；密码和凭据版本原子更新，旧会话失效。",
+            parameters =
+                    @Parameter(
+                            name = AuthConstants.CSRF_HEADER_NAME,
+                            in = ParameterIn.HEADER,
+                            required = true))
     public R<Void> password(@Valid @RequestBody AccountPasswordRequest request) {
-        accountProfile.changePassword(request);
+        accountProfileService.changePassword(request);
         return R.success(null);
     }
 }

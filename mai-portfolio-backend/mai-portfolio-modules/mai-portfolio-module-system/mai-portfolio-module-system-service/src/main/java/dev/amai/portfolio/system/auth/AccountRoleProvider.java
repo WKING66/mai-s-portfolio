@@ -2,20 +2,15 @@ package dev.amai.portfolio.system.auth;
 
 import cn.dev33.satoken.stp.StpInterface;
 import dev.amai.portfolio.system.service.OwnerRoleService;
-
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
 import org.springframework.stereotype.Component;
 
 @Component
 public class AccountRoleProvider implements StpInterface {
-    private final OwnerRoleService roles;
+    private final OwnerRoleService ownerRoleService;
 
-    public AccountRoleProvider(OwnerRoleService roles) {
-        this.roles = roles;
+    public AccountRoleProvider(OwnerRoleService ownerRoleService) {
+        this.ownerRoleService = ownerRoleService;
     }
 
     @Override
@@ -26,8 +21,8 @@ public class AccountRoleProvider implements StpInterface {
 
     @Override
     public List<String> getRoleList(Object loginId, String loginType) {
-        // TODO 走缓存
+        // 直接读取当前数据库状态，避免沿用登录时缓存的站长角色。
         // 登录时写入的是数值主键；Sa-Token 回调中的 ID 类型不保证仍为 Long。
-        return roles.findRoles(Long.parseLong(loginId.toString()));
+        return ownerRoleService.findRoles(Long.parseLong(loginId.toString()));
     }
 }

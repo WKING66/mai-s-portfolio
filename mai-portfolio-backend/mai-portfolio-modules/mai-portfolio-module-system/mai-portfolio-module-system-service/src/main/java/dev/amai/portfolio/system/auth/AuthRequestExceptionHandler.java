@@ -13,8 +13,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthRequestExceptionHandler {
     @ExceptionHandler(InvalidCredentialPayloadException.class)
-    public ResponseEntity<R<Void>> invalidCredentialPayload(InvalidCredentialPayloadException error) {
-        return ResponseEntity.badRequest().body(R.failure(
-            error.code().name(), error.getMessage(), error.details()));
+    public ResponseEntity<R<Void>> invalidCredentialPayload(
+            InvalidCredentialPayloadException error) {
+        return ResponseEntity.badRequest()
+                .body(R.failure(error.code().name(), error.getMessage(), error.details()));
     }
 }

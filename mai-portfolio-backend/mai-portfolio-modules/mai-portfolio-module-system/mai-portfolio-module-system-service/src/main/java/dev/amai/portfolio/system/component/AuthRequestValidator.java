@@ -18,9 +18,14 @@ public class AuthRequestValidator {
         if (request == null) {
             throw new InvalidCredentialPayloadException(List.of());
         }
-        List<String> details = validator.validate(request).stream()
-            .map(violation -> violation.getPropertyPath() + ": " + violation.getMessage())
-            .distinct().sorted().toList();
+        List<String> details =
+                validator.validate(request).stream()
+                        .map(
+                                violation ->
+                                        violation.getPropertyPath() + ": " + violation.getMessage())
+                        .distinct()
+                        .sorted()
+                        .toList();
         if (!details.isEmpty()) {
             // 只返回字段名与约束消息，绝不携带原始密码/密文等被拒绝的值。
             throw new InvalidCredentialPayloadException(details);

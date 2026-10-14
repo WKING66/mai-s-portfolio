@@ -20,15 +20,29 @@ import org.springframework.web.bind.annotation.RestController;
 @SaCheckRole(AuthConstants.OWNER_ROLE)
 @Tag(name = "技术标签")
 public class TagController {
-    private final TaxonomyQueryService taxonomy;
-    public TagController(TaxonomyQueryService taxonomy) { this.taxonomy = taxonomy; }
+    private final TaxonomyQueryService taxonomyQueryService;
+
+    public TagController(TaxonomyQueryService taxonomyQueryService) {
+        this.taxonomyQueryService = taxonomyQueryService;
+    }
 
     @GetMapping
-    @Operation(summary = "读取项目可选技术标签", description = "本轮仅支持 kind=TECH。",
-        security = @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME))
+    @Operation(
+            summary = "读取项目可选技术标签",
+            description = "本轮仅支持 kind=TECH。",
+            security = @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME))
     public R<List<TechTagOptionVo>> list(@RequestParam(defaultValue = "TECH") String kind) {
 
-        return R.success(taxonomy.techTagOptions(kind).stream()
-            .map(tag -> new TechTagOptionVo(tag.id(), tag.name(), tag.slug(), tag.group(), tag.logoKey())).toList());
+        return R.success(
+                taxonomyQueryService.techTagOptions(kind).stream()
+                        .map(
+                                tag ->
+                                        new TechTagOptionVo(
+                                                tag.id(),
+                                                tag.name(),
+                                                tag.slug(),
+                                                tag.group(),
+                                                tag.logoKey()))
+                        .toList());
     }
 }

@@ -13,6 +13,7 @@ import lombok.Setter;
 public class UserAccountDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private String username;
     private Integer type;
     private String passwordHash;

@@ -7,8 +7,8 @@ public final class AccountMessageConstants {
     public static final String CURRENT_PASSWORD_INVALID = "当前密码不正确";
     public static final String PASSWORD_UNCHANGED = "新密码不能与当前密码相同";
     public static final String ACCOUNT_WRITE_CONFLICT = "账号资料已更新，请重新操作";
-    public static final String PASSWORD_TRANSACTION_REQUIRED = "Password changes require an active transaction";
+    public static final String PASSWORD_TRANSACTION_REQUIRED =
+            "Password changes require an active transaction";
 
-    private AccountMessageConstants() {
-    }
+    private AccountMessageConstants() {}
 }

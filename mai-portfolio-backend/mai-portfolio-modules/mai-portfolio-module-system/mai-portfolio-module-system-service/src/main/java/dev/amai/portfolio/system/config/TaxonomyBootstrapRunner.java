@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "portfolio.bootstrap.enabled", havingValue = "true")
 public class TaxonomyBootstrapRunner implements ApplicationRunner {
-    private final TaxonomyBootstrapService bootstrap;
+    private final TaxonomyBootstrapService taxonomyBootstrapService;
 
-    public TaxonomyBootstrapRunner(TaxonomyBootstrapService bootstrap) {
-        this.bootstrap = bootstrap;
+    public TaxonomyBootstrapRunner(TaxonomyBootstrapService taxonomyBootstrapService) {
+        this.taxonomyBootstrapService = taxonomyBootstrapService;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        bootstrap.initialize();
+        taxonomyBootstrapService.initialize();
     }
 }

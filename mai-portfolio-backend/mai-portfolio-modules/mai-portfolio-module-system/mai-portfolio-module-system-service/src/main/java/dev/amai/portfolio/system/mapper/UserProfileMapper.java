@@ -6,5 +6,4 @@ import org.apache.ibatis.annotations.Mapper;
 
 /** 仅 System 服务使用；写入前锁定对应 user_account 行，以串行化资料创建。 */
 @Mapper
-public interface UserProfileMapper extends BaseMapper<UserProfileDO> {
-}
+public interface UserProfileMapper extends BaseMapper<UserProfileDO> {}

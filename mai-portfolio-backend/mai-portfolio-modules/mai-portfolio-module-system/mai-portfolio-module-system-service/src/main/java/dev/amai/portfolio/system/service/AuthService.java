@@ -6,7 +6,7 @@ import dev.amai.portfolio.system.entity.vo.RegistrationVo;
 import dev.amai.portfolio.system.entity.vo.SessionVo;
 
 public interface AuthService {
-    /** 未登录返回安全的匿名状态；已有会话只检查账号是否可用。 */
+    /** 未登录返回安全的匿名状态；已有会话核对账号状态及凭据版本。 */
     SessionVo current();
 
     /** 仅接受允许的页面来源，并为新会话签发独立的写操作令牌。 */

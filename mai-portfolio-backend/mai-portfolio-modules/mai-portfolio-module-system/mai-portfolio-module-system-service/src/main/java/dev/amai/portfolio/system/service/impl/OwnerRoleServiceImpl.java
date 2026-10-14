@@ -7,23 +7,21 @@ import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.OwnerRoleService;
 import java.util.List;
-
-import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
 @Service
 public class OwnerRoleServiceImpl implements OwnerRoleService {
-    private final UserAccountMapper accounts;
+    private final UserAccountMapper userAccountMapper;
 
-
-    public OwnerRoleServiceImpl(UserAccountMapper accounts) {
-        this.accounts = accounts;
+    public OwnerRoleServiceImpl(UserAccountMapper userAccountMapper) {
+        this.userAccountMapper = userAccountMapper;
     }
 
     @Override
     public List<String> findRoles(long accountId) {
-        UserAccountDO account = accounts.selectById(accountId);
-        if (account == null || account.getStatus() != AccountStatus.ENABLED.code()
+        UserAccountDO account = userAccountMapper.selectById(accountId);
+        if (account == null
+                || account.getStatus() != AccountStatus.ENABLED.code()
                 || account.getType() != AccountType.OWNER.code()) {
             return List.of();
         }
