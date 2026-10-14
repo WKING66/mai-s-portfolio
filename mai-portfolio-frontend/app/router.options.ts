@@ -7,32 +7,64 @@ import { navigationScroll } from './utils/scrollPosition'
 
 export default <RouterConfig>{
   scrollBehavior(to, from, savedPosition) {
-    const app = useNuxtApp()
-    const position = navigationScroll(to, from, savedPosition,
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-    if (!position) return false
-    const targetPosition = position
+    const nuxtApp = useNuxtApp()
+    // 1. 初次水合和历史返回遵循既有恢复策略，不重复覆盖阅读位置。
+    const scrollPosition = navigationScroll(
+      to,
+      from,
+      savedPosition,
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    )
+    if (!scrollPosition) {
+      return false
+    }
+    const targetPosition = scrollPosition
+    // 2. 正文目录先处理展开与定位，未接管时才使用路由滚动。
     function resolvePosition() {
       if (to.hash) {
-        let id: string
-        try { id = decodeURIComponent(to.hash.slice(1)) } catch { return false }
+        let headingId: string
+        try {
+          headingId = decodeURIComponent(to.hash.slice(1))
+        } catch {
+          return false
+        }
         // 阅读目录负责必要的展开、即时定位及闪现；路由只保留历史，避免二次滚动。
-        const detail = { id, handled: false }
-        window.dispatchEvent(new CustomEvent('blog:heading-navigation', { detail }))
-        if (detail.handled) return false
+        const navigationDetail = { id: headingId, handled: false }
+        window.dispatchEvent(
+          new CustomEvent('blog:heading-navigation', { detail: navigationDetail }),
+        )
+        if (navigationDetail.handled) {
+          return false
+        }
       }
       if ('el' in targetPosition) {
-        let element: HTMLElement | null = null
-        try { element = document.getElementById(decodeURIComponent(to.hash.slice(1))) } catch { return false }
-        return element ? { ...targetPosition, el: element, top: parseFloat(getComputedStyle(element).scrollMarginTop) || 0 } : false
+        let element: HTMLElement | null
+        try {
+          element = document.getElementById(decodeURIComponent(to.hash.slice(1)))
+        } catch {
+          return false
+        }
+        return element
+          ? {
+              ...targetPosition,
+              el: element,
+              top: parseFloat(getComputedStyle(element).scrollMarginTop) || 0,
+            }
+          : false
       }
       return targetPosition
     }
-    if (to.path === from.path || savedPosition) return resolvePosition()
+    if (to.path === from.path || savedPosition) {
+      return resolvePosition()
+    }
     // 目标 DOM 完成即可，不等待页头后台恢复会话。
-    return new Promise(resolve => {
-      app.hooks.hookOnce('page:loading:end', () => {
-        requestAnimationFrame(() => resolve(app.$router.currentRoute.value.fullPath === to.fullPath ? resolvePosition() : false))
+    return new Promise((resolve) => {
+      nuxtApp.hooks.hookOnce('page:loading:end', () => {
+        requestAnimationFrame(() =>
+          resolve(
+            nuxtApp.$router.currentRoute.value.fullPath === to.fullPath ? resolvePosition() : false,
+          ),
+        )
       })
     })
   },
