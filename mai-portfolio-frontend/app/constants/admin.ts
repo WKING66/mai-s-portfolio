@@ -18,7 +18,7 @@ export const ADMIN_PROJECT_FILTERS = [
   { label: '草稿', value: ADMIN_PROJECT_STATUS.DRAFT },
   { label: '已发布', value: ADMIN_PROJECT_STATUS.PUBLISHED },
 ] as const
-export type AdminProjectFilter = typeof ADMIN_PROJECT_FILTERS[number]['value']
+export type AdminProjectFilter = (typeof ADMIN_PROJECT_FILTERS)[number]['value']
 
 export const ADMIN_PROJECT_LINK_TYPES = [
   { label: '代码仓库', value: 'CODE' },
@@ -29,7 +29,12 @@ export const ADMIN_PROJECT_LINK_TYPES = [
 export const ADMIN_PROJECT_DEFAULT_LINK_TYPE = ADMIN_PROJECT_LINK_TYPES[0].value
 
 export const ADMIN_PROJECT_LIMITS = {
-  slug: 160, title: 200, content: 16000, timeLabel: 100, linkLabel: 100, linkUrl: 2048,
+  slug: 160,
+  title: 200,
+  content: 16000,
+  timeLabel: 100,
+  linkLabel: 100,
+  linkUrl: 2048,
 } as const
 
 export const ADMIN_MESSAGES = {
