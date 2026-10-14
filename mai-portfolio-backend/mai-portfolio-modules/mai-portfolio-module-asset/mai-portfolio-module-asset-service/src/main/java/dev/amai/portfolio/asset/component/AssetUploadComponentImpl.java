@@ -41,63 +41,98 @@ public class AssetUploadComponentImpl implements AssetUploadComponent {
     private static final Logger LOG = LoggerFactory.getLogger(AssetUploadComponentImpl.class);
     private static final int EDITOR_UPLOAD_SOURCE = 2;
     private static final Pattern MIME = Pattern.compile("[a-z0-9.+-]+/[a-z0-9.+-]+");
-    private final MediaAssetMapper assets;
-    private final ObjectStorage storage;
-    private final TransactionTemplate transactions;
+    private final MediaAssetMapper mediaAssetMapper;
+    private final ObjectStorage objectStorage;
+    private final TransactionTemplate transactionTemplate;
 
-    public AssetUploadComponentImpl(MediaAssetMapper assets, ObjectStorage storage,
+    public AssetUploadComponentImpl(
+            MediaAssetMapper mediaAssetMapper,
+            ObjectStorage objectStorage,
             PlatformTransactionManager transactionManager) {
-        this.assets = assets;
-        this.storage = storage;
-        transactions = new TransactionTemplate(transactionManager);
-        transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.mediaAssetMapper = mediaAssetMapper;
+        this.objectStorage = objectStorage;
+        transactionTemplate = new TransactionTemplate(transactionManager);
+        transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public long upload(AssetUploadRequest request) {
+        // 1. 校验内部命令并保存内容快照；实际内容策略由用途校验入口负责。
         validate(request);
         // 独立快照保证哈希、大小和实际上传内容一致，不受调用方并发修改数组影响。
         byte[] bytes = request.content().clone();
-        String extension = request.usage().assetType() == AssetType.IMAGE
-            ? request.filename().substring(request.filename().lastIndexOf('.')) : ".bin";
+        String extension =
+                request.usage().assetType() == AssetType.IMAGE
+                        ? request.filename().substring(request.filename().lastIndexOf('.'))
+                        : ".bin";
         String key = request.usage().objectPrefix() + "/" + UUID.randomUUID() + extension;
         MediaAssetDO asset = pendingAsset(request, bytes, key);
-        transactions.executeWithoutResult(status -> {
-            if (assets.insert(asset) != 1 || asset.getId() == null) throw failed();
-        });
+        // 2. 独立短事务持久化 PENDING；外层事务暂停，OSS 上传不持有数据库事务。
+        transactionTemplate.executeWithoutResult(
+                status -> {
+                    if (mediaAssetMapper.insert(asset) != 1 || asset.getId() == null) {
+                        throw failed();
+                    }
+                });
         try {
-            storage.store(new ObjectStorageWriteRequest(key, new ByteArrayInputStream(bytes),
-                bytes.length, request.contentType()));
-            transactions.executeWithoutResult(status -> updateState(asset.getId(), MediaStatus.READY));
+            // 3. 上传后在新事务条件更新 READY；存储异常和 READY 更新异常均进入失败分支。
+            objectStorage.store(
+                    new ObjectStorageWriteRequest(
+                            key,
+                            new ByteArrayInputStream(bytes),
+                            bytes.length,
+                            request.contentType()));
+            transactionTemplate.executeWithoutResult(
+                    status -> updateState(asset.getId(), MediaStatus.READY));
             return asset.getId();
         } catch (RuntimeException failure) {
+            // 4. 尽力把仍处于 PENDING 的记录标记 FAILED；二次失败保留 suppressed 因果。
+            // 不在这里删除已上传对象，避免误删；绑定失败/补偿时机由调用业务决定。
             try {
-                transactions.executeWithoutResult(status -> updateState(asset.getId(), MediaStatus.FAILED));
+                transactionTemplate.executeWithoutResult(
+                        status -> updateState(asset.getId(), MediaStatus.FAILED));
             } catch (RuntimeException metadataFailure) {
                 failure.addSuppressed(metadataFailure);
                 LOG.error("Asset failure state could not be persisted, assetId={}", asset.getId());
             }
             // 不记录厂商异常文本、对象地址或签名；保留因果链供受控调试。
-            LOG.warn("Asset upload failed, assetId={}, failureType={}",
-                asset.getId(), failure.getClass().getSimpleName());
+            LOG.warn(
+                    "Asset upload failed, assetId={}, failureType={}",
+                    asset.getId(),
+                    failure.getClass().getSimpleName());
             ApiException translated = failed();
             translated.initCause(failure);
             throw translated;
         }
     }
 
+    /** 校验命令结构及持久化容量，不再次解码图片，也不判断业务对象可见性。 */
     private void validate(AssetUploadRequest request) {
-        if (request == null || request.usage() == null || request.uploaderAccountId() < 1 || request.content() == null
-                || request.content().length == 0 || request.content().length > request.usage().maxBytes()
-                || request.filename() == null || request.filename().isBlank() || request.filename().length() > MAX_FILENAME_LENGTH
+        if (request == null
+                || request.usage() == null
+                || request.uploaderAccountId() < 1
+                || request.content() == null
+                || request.content().length == 0
+                || request.content().length > request.usage().maxBytes()
+                || request.filename() == null
+                || request.filename().isBlank()
+                || request.filename().length() > MAX_FILENAME_LENGTH
                 || request.filename().codePoints().anyMatch(Character::isISOControl)
-                || request.contentType() == null || request.contentType().length() > MAX_CONTENT_TYPE_LENGTH || !MIME.matcher(request.contentType()).matches()
-                || (request.usage().assetType() == AssetType.IMAGE && (request.width() == null || request.height() == null
-                    || request.width() < 1 || request.height() < 1
-                    || !(request.filename().endsWith(".png") || request.filename().endsWith(".jpg"))))
-                || (request.usage().assetType() != AssetType.IMAGE && (request.width() != null || request.height() != null))) {
-            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, AssetMessageConstants.UPLOAD_INVALID);
+                || request.contentType() == null
+                || request.contentType().length() > MAX_CONTENT_TYPE_LENGTH
+                || !MIME.matcher(request.contentType()).matches()
+                || (request.usage().assetType() == AssetType.IMAGE
+                        && (request.width() == null
+                                || request.height() == null
+                                || request.width() < 1
+                                || request.height() < 1
+                                || !(request.filename().endsWith(".png")
+                                        || request.filename().endsWith(".jpg"))))
+                || (request.usage().assetType() != AssetType.IMAGE
+                        && (request.width() != null || request.height() != null))) {
+            throw new ApiException(
+                    ApiErrorCode.VALIDATION_FAILED, AssetMessageConstants.UPLOAD_INVALID);
         }
     }
 
@@ -121,18 +156,27 @@ public class AssetUploadComponentImpl implements AssetUploadComponent {
     }
 
     private void updateState(long id, MediaStatus state) {
-        if (assets.update(null, Wrappers.<MediaAssetDO>lambdaUpdate()
-                .eq(MediaAssetDO::getId, id).eq(MediaAssetDO::getStatus, MediaStatus.PENDING.code())
-                .set(MediaAssetDO::getStatus, state.code())
-                .set(MediaAssetDO::getUpdatedAt, LocalDateTime.now(ZoneOffset.UTC))) != 1) {
+        if (mediaAssetMapper.update(
+                        null,
+                        Wrappers.<MediaAssetDO>lambdaUpdate()
+                                .eq(MediaAssetDO::getId, id)
+                                .eq(MediaAssetDO::getStatus, MediaStatus.PENDING.code())
+                                .set(MediaAssetDO::getStatus, state.code())
+                                .set(MediaAssetDO::getUpdatedAt, LocalDateTime.now(ZoneOffset.UTC)))
+                != 1) {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, AssetMessageConstants.UPLOAD_FAILED);
         }
     }
 
     private byte[] sha256(byte[] bytes) {
-        try { return MessageDigest.getInstance("SHA-256").digest(bytes); }
-        catch (NoSuchAlgorithmException impossible) { throw new IllegalStateException(impossible); }
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(bytes);
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
     }
 
-    private ApiException failed() { return new ApiException(ApiErrorCode.INTERNAL_ERROR, AssetMessageConstants.UPLOAD_FAILED); }
+    private ApiException failed() {
+        return new ApiException(ApiErrorCode.INTERNAL_ERROR, AssetMessageConstants.UPLOAD_FAILED);
+    }
 }

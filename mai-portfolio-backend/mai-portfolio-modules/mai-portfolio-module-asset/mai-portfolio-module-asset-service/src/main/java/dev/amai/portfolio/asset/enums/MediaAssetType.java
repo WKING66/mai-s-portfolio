@@ -1,7 +1,9 @@
 package dev.amai.portfolio.asset.enums;
 
 public enum MediaAssetType {
-    IMAGE(0), DOCUMENT(1), FILE(2);
+    IMAGE(0),
+    DOCUMENT(1),
+    FILE(2);
 
     private final int code;
 
@@ -15,7 +17,9 @@ public enum MediaAssetType {
 
     public static dev.amai.portfolio.asset.api.AssetType toApiType(int code) {
         for (var type : values()) {
-            if (type.code == code) return dev.amai.portfolio.asset.api.AssetType.valueOf(type.name());
+            if (type.code == code) {
+                return dev.amai.portfolio.asset.api.AssetType.valueOf(type.name());
+            }
         }
         throw new IllegalArgumentException("Unknown media asset type");
     }

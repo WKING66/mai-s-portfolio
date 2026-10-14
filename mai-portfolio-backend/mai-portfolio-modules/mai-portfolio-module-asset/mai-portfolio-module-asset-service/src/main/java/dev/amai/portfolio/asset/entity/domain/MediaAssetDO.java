@@ -3,9 +3,9 @@ package dev.amai.portfolio.asset.entity.domain;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class MediaAssetDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private Integer assetType;
     private Integer sourceType;
     private String usage;
