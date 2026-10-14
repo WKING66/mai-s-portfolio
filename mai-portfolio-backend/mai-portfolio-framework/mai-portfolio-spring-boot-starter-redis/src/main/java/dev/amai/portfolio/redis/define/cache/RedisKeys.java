@@ -17,24 +17,31 @@ import java.util.regex.Pattern;
 public final class RedisKeys {
     /** 登录尝试限流窗口，TTL 来自安全配置。 */
     public static final String LOGIN_RATE_NAMESPACE = "auth:login";
+
     /** 注册尝试的独立窗口；注册失败或防刷不能消耗正常登录额度。 */
     public static final String REGISTRATION_RATE_NAMESPACE = "auth:register";
 
+    private static final String RATE_KEY_NAMESPACE_PREFIX = "rate:";
+    private static final String SA_TOKEN_NAMESPACE_SUFFIX = ":sa-token:";
+    private static final String SUBJECT_DIGEST_ALGORITHM = "SHA-256";
+
+    /** 校验含 rate: 前缀的完整命名空间，最长 96 个字符。 */
     private static final Pattern NAMESPACE_PATTERN = Pattern.compile("[a-z0-9][a-z0-9:-]{0,95}");
+
     private final String keyPrefix;
 
-    public RedisKeys(RedisInfrastructureProperties properties) {
-        this.keyPrefix = properties.keyPrefix();
+    public RedisKeys(RedisInfrastructureProperties redisInfrastructureProperties) {
+        this.keyPrefix = redisInfrastructureProperties.keyPrefix();
     }
 
     /** 固定窗口计数 String：{应用前缀}:rate:{命名空间}:{主体摘要}。 */
     public String rateLimit(String namespace, String subject) {
-        return subjectKey("rate:" + namespace, subject);
+        return subjectKey(RATE_KEY_NAMESPACE_PREFIX + namespace, subject);
     }
 
     /** Sa-Token 管理的 token、会话及角色缓存统一前缀，TTL 由 Sa-Token 控制。 */
     public String saTokenPrefix() {
-        return keyPrefix + ":sa-token:";
+        return keyPrefix + SA_TOKEN_NAMESPACE_SUFFIX;
     }
 
     /** 为 Sa-Token 原始键或搜索前缀添加应用命名空间。 */
@@ -44,8 +51,8 @@ public final class RedisKeys {
 
     /** 搜索结果去除本应用前缀，保持 Sa-Token DAO 对外返回原始键的契约。 */
     public String unwrapSaToken(String key) {
-        String prefix = saTokenPrefix();
-        return key.startsWith(prefix) ? key.substring(prefix.length()) : key;
+        String saTokenPrefix = saTokenPrefix();
+        return key.startsWith(saTokenPrefix) ? key.substring(saTokenPrefix.length()) : key;
     }
 
     private String namespace(String namespace) {
@@ -54,9 +61,11 @@ public final class RedisKeys {
     }
 
     private String subjectKey(String namespace, String subject) {
+        // 1. 拒绝空主体，避免不同匿名调用共享无意义的计数键。
         if (subject == null || subject.isBlank()) {
             throw new IllegalArgumentException(RedisMessageConstants.SUBJECT_REQUIRED);
         }
+        // 2. 校验命名空间并加入配置前缀；主体保留原值语义，只以摘要进入键名。
         return namespace(namespace) + ":" + sha256(subject);
     }
 
@@ -68,8 +77,9 @@ public final class RedisKeys {
 
     private String sha256(String value) {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
+            MessageDigest messageDigest = MessageDigest.getInstance(SUBJECT_DIGEST_ALGORITHM);
+            return HexFormat.of()
+                    .formatHex(messageDigest.digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException unavailable) {
             throw new IllegalStateException(RedisMessageConstants.SHA256_UNAVAILABLE, unavailable);
         }
