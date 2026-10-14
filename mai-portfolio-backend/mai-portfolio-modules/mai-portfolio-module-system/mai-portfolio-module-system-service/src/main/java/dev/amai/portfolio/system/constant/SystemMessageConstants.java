@@ -21,8 +21,7 @@ public final class SystemMessageConstants {
     public static final String REGISTER_USERNAME_EXISTS = "用户名已被使用";
     public static final String REGISTER_RATE_LIMITED = "注册尝试过于频繁，请稍后重试";
     public static final String CSRF_INVALID = "缺少有效的写入令牌";
-    public static final String OWNER_PASSWORD_TOO_SHORT =
-        "OWNER_PASSWORD 至少需要 12 个字符；请只在本地环境文件中设置";
-    private SystemMessageConstants() {
-    }
+    public static final String OWNER_PASSWORD_TOO_SHORT = "OWNER_PASSWORD 至少需要 12 个字符；请只在本地环境文件中设置";
+
+    private SystemMessageConstants() {}
 }

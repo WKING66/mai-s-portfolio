@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "portfolio.bootstrap.enabled", havingValue = "true")
 public class SystemBootstrapRunner implements ApplicationRunner {
-    private final SystemBootstrapService bootstrap;
+    private final SystemBootstrapService systemBootstrapService;
 
-    public SystemBootstrapRunner(SystemBootstrapService bootstrap) {
-        this.bootstrap = bootstrap;
+    public SystemBootstrapRunner(SystemBootstrapService systemBootstrapService) {
+        this.systemBootstrapService = systemBootstrapService;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        bootstrap.initialize();
+        systemBootstrapService.initialize();
     }
 }

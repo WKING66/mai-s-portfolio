@@ -4,6 +4,5 @@ package dev.amai.portfolio.system.constant;
 public final class TaxonomyMessageConstants {
     public static final String TECH_GROUP_UNKNOWN = "未知技术分类编码: ";
 
-    private TaxonomyMessageConstants() {
-    }
+    private TaxonomyMessageConstants() {}
 }

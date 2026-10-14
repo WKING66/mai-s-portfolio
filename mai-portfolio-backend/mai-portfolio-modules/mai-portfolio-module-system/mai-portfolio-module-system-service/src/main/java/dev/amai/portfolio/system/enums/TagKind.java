@@ -1,7 +1,8 @@
 package dev.amai.portfolio.system.enums;
 
 public enum TagKind {
-    TOPIC(0), TECH(1);
+    TOPIC(0),
+    TECH(1);
 
     private final int code;
 

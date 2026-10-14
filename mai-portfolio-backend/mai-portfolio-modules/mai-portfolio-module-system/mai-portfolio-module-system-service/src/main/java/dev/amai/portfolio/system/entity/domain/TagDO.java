@@ -12,6 +12,7 @@ import lombok.Setter;
 public class TagDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private Integer kind;
     private String name;
     private String normalizedName;

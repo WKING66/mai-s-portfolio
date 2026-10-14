@@ -1,7 +1,8 @@
 package dev.amai.portfolio.system.enums;
 
 public enum FeaturedStatus {
-    STANDARD(0), FEATURED(1);
+    STANDARD(0),
+    FEATURED(1);
 
     private final int code;
 

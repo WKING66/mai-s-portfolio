@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class NewPasswordPolicy {
     private static final int MIN_CHARACTERS = 12;
-    private static final Pattern PADDING = Pattern.compile("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$");
+    private static final Pattern PADDING =
+            Pattern.compile("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$");
     private static final Pattern CHARACTERS = Pattern.compile("[\\x21-\\x7E]+");
 
     public String normalize(String value) {
@@ -21,7 +22,8 @@ public class NewPasswordPolicy {
             throw invalid(SystemMessageConstants.REGISTER_PASSWORD_CHARACTERS_INVALID);
         }
         if (password.codePointCount(0, password.length()) < MIN_CHARACTERS
-                || password.getBytes(StandardCharsets.UTF_8).length > PasswordCipherConstants.MAX_PLAINTEXT_BYTES) {
+                || password.getBytes(StandardCharsets.UTF_8).length
+                        > PasswordCipherConstants.MAX_PLAINTEXT_BYTES) {
             throw invalid(SystemMessageConstants.REGISTER_PASSWORD_INVALID);
         }
         return password;

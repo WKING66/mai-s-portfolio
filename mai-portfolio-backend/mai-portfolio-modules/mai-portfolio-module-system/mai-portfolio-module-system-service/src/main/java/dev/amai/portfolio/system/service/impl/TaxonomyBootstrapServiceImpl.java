@@ -16,19 +16,27 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class TaxonomyBootstrapServiceImpl implements TaxonomyBootstrapService {
-    private final TagMapper tags;
+    private final TagMapper tagMapper;
 
-    public TaxonomyBootstrapServiceImpl(TagMapper tags) {
-        this.tags = tags;
+    public TaxonomyBootstrapServiceImpl(TagMapper tagMapper) {
+        this.tagMapper = tagMapper;
     }
 
     @Override
     @Transactional
     public void initialize() {
-        tags.acquireBootstrapLock();
-        Set<String> existingSlugs = tags.selectList(Wrappers.<TagDO>lambdaQuery()
-                .eq(TagDO::getKind, TagKind.TECH.code()))
-            .stream().map(TagDO::getSlug).collect(Collectors.toSet());
+        // 1. 事务级锁避免多个实例同时判重后插入，提交/回滚时自动释放。
+        tagMapper.acquireBootstrapLock();
+        // 2. 读取已有技术标签身份，只补齐缺失预设，不覆盖维护者已有配置。
+        Set<String> existingSlugs =
+                tagMapper
+                        .selectList(
+                                Wrappers.<TagDO>lambdaQuery()
+                                        .eq(TagDO::getKind, TagKind.TECH.code()))
+                        .stream()
+                        .map(TagDO::getSlug)
+                        .collect(Collectors.toSet());
+        // 3. 按预设分类与展示顺序写入；顺序值是预设数据，不由调用方推断。
         for (Tech tech : TECH_STACK) {
             String slug = "tech-" + tech.slug();
             if (existingSlugs.contains(slug)) {
@@ -42,34 +50,33 @@ public class TaxonomyBootstrapServiceImpl implements TaxonomyBootstrapService {
             tag.setGroupCode(tech.group().code());
             tag.setIsFeatured(FeaturedStatus.FEATURED.code());
             tag.setSortOrder(tech.order());
-            tags.insert(tag);
+            tagMapper.insert(tag);
         }
     }
 
-    private record Tech(String slug, String name, TechGroup group, int order) {
-    }
+    private record Tech(String slug, String name, TechGroup group, int order) {}
 
-    private static final List<Tech> TECH_STACK = List.of(
-        new Tech("java", "Java", TechGroup.LANGUAGE, 0),
-        new Tech("javascript", "JavaScript", TechGroup.LANGUAGE, 1),
-        new Tech("typescript", "TypeScript", TechGroup.LANGUAGE, 2),
-        new Tech("python", "Python", TechGroup.LANGUAGE, 3),
-        new Tech("spring-boot", "Spring Boot", TechGroup.FRAMEWORK, 0),
-        new Tech("vue", "Vue", TechGroup.FRAMEWORK, 1),
-        new Tech("vite", "Vite", TechGroup.FRAMEWORK, 2),
-        new Tech("langchain", "LangChain", TechGroup.FRAMEWORK, 3),
-        new Tech("langgraph", "LangGraph", TechGroup.FRAMEWORK, 4),
-        new Tech("mybatis-plus", "MyBatis-Plus", TechGroup.FRAMEWORK, 5),
-        new Tech("git", "Git", TechGroup.TOOL, 0),
-        new Tech("jenkins", "Jenkins", TechGroup.TOOL, 1),
-        new Tech("github-ci-cd", "GitHub CI/CD", TechGroup.TOOL, 2),
-        new Tech("linux", "Linux", TechGroup.INFRA, 0),
-        new Tech("docker", "Docker", TechGroup.INFRA, 1),
-        new Tech("nginx", "Nginx", TechGroup.INFRA, 2),
-        new Tech("mysql", "MySQL", TechGroup.DATA, 0),
-        new Tech("elasticsearch", "Elasticsearch", TechGroup.DATA, 1),
-        new Tech("redis", "Redis", TechGroup.DATA, 2),
-        new Tech("postgresql", "PostgreSQL", TechGroup.DATA, 3),
-        new Tech("milvus", "Milvus", TechGroup.DATA, 4)
-    );
+    private static final List<Tech> TECH_STACK =
+            List.of(
+                    new Tech("java", "Java", TechGroup.LANGUAGE, 0),
+                    new Tech("javascript", "JavaScript", TechGroup.LANGUAGE, 1),
+                    new Tech("typescript", "TypeScript", TechGroup.LANGUAGE, 2),
+                    new Tech("python", "Python", TechGroup.LANGUAGE, 3),
+                    new Tech("spring-boot", "Spring Boot", TechGroup.FRAMEWORK, 0),
+                    new Tech("vue", "Vue", TechGroup.FRAMEWORK, 1),
+                    new Tech("vite", "Vite", TechGroup.FRAMEWORK, 2),
+                    new Tech("langchain", "LangChain", TechGroup.FRAMEWORK, 3),
+                    new Tech("langgraph", "LangGraph", TechGroup.FRAMEWORK, 4),
+                    new Tech("mybatis-plus", "MyBatis-Plus", TechGroup.FRAMEWORK, 5),
+                    new Tech("git", "Git", TechGroup.TOOL, 0),
+                    new Tech("jenkins", "Jenkins", TechGroup.TOOL, 1),
+                    new Tech("github-ci-cd", "GitHub CI/CD", TechGroup.TOOL, 2),
+                    new Tech("linux", "Linux", TechGroup.INFRA, 0),
+                    new Tech("docker", "Docker", TechGroup.INFRA, 1),
+                    new Tech("nginx", "Nginx", TechGroup.INFRA, 2),
+                    new Tech("mysql", "MySQL", TechGroup.DATA, 0),
+                    new Tech("elasticsearch", "Elasticsearch", TechGroup.DATA, 1),
+                    new Tech("redis", "Redis", TechGroup.DATA, 2),
+                    new Tech("postgresql", "PostgreSQL", TechGroup.DATA, 3),
+                    new Tech("milvus", "Milvus", TechGroup.DATA, 4));
 }

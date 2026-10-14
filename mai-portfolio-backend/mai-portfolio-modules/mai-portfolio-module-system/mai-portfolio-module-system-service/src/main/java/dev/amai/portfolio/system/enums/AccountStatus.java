@@ -1,7 +1,8 @@
 package dev.amai.portfolio.system.enums;
 
 public enum AccountStatus {
-    DISABLED(0), ENABLED(1);
+    DISABLED(0),
+    ENABLED(1);
 
     private final int code;
 

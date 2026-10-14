@@ -10,11 +10,16 @@ import org.springframework.stereotype.Component;
 /** 只信任容器确认的 HTTPS，不根据客户端转发头自行放行。 */
 @Component
 public class RequestSecurityPolicy {
-    private final SecurityProperties security;
-    public RequestSecurityPolicy(SecurityProperties security) { this.security = security; }
+    private final SecurityProperties securityProperties;
+
+    public RequestSecurityPolicy(SecurityProperties securityProperties) {
+        this.securityProperties = securityProperties;
+    }
+
     public void requireSecureTransport(HttpServletRequest request) {
-        if (security.requireHttps() && !request.isSecure()) {
-            throw new ApiException(ApiErrorCode.HTTPS_REQUIRED, SystemMessageConstants.LOGIN_HTTPS_REQUIRED);
+        if (securityProperties.requireHttps() && !request.isSecure()) {
+            throw new ApiException(
+                    ApiErrorCode.HTTPS_REQUIRED, SystemMessageConstants.LOGIN_HTTPS_REQUIRED);
         }
     }
 }

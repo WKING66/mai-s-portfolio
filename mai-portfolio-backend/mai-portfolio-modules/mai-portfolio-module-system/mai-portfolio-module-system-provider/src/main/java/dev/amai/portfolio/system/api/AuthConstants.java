@@ -15,6 +15,5 @@ public final class AuthConstants {
     public static final String CSRF_SESSION_KEY = "csrf";
     public static final String CSRF_HEADER_NAME = "X-CSRF-Token";
 
-    private AuthConstants() {
-    }
+    private AuthConstants() {}
 }
