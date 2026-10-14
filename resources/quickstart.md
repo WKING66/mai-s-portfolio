@@ -4,7 +4,7 @@
 
 ## 本地启动
 
-准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。IDEA 运行 `dev.amai.portfolio.PortfolioApplication`，使用 `dev` 配置，默认后端 9333。按 `.env.example` 向 Java 进程注入数据库、Redis、OSS、初始化站长密码及 RSA 私钥位置；本地 `.env` 文件本身不会自动成为 Java 环境变量。前端运行环境提供对应的 SPKI 公钥。
+准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。IDEA 导入 `mai-portfolio-backend/pom.xml`，运行 `dev.amai.portfolio.PortfolioApplication`，使用 `dev` 配置，默认后端 9333。按 `.env.example` 向 Java 进程注入数据库、Redis、OSS、初始化站长密码及 RSA 私钥位置；本地 `.env` 文件本身不会自动成为 Java 环境变量。前端运行环境提供对应的 SPKI 公钥。
 
 首次启动确认连接的是专用开发库 `portfolio_dev`，不要指向已有业务或生产库。初始化站长密码只在首次建号时保存，修改启动配置不会重置已有账号。数据库初始化与迁移见 [数据库说明](database/README.md)。
 
@@ -13,7 +13,7 @@ Redis 由 Redisson 统一接入。项目自有键统一使用 `REDIS_KEY_PREFIX`
 本地 `dev` 启动默认使用真实私有 OSS，PostgreSQL 只保存 Asset 元数据。向后端运行进程提供 `MEDIA_STORAGE=oss` 和 `.env.example` 中的完整 HTTPS endpoint、Bucket、AccessKey 配置；对象存储配置要求 HTTPS 根地址。`local` 实现只供自动化测试或显式离线排障，字节写入被 Git 忽略的 `.local-media`。AccessKey 不进入前端、接口响应或版本库。两种实现都拒绝覆盖同名对象，业务层后续通过新增 Asset/对象键完成版本更新。
 
 ```powershell
-cd frontend
+cd mai-portfolio-frontend
 npm ci
 npm run dev
 ```
@@ -43,12 +43,12 @@ npm run dev
 ## 检查
 
 ```powershell
-cd backend
+cd mai-portfolio-backend
 mvn test
 ```
 
 ```powershell
-cd frontend
+cd mai-portfolio-frontend
 npm run typecheck
 npm test
 npm run build

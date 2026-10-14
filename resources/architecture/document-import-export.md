@@ -385,17 +385,17 @@ Controller 在响应提交前完成业务授权与输出计划准备。异步 Wr
 
 ## 10. 代码导航
 
-后端源码根：`backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/`。
+后端源码根：`mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/`。
 
 | 环节 | 入口 |
 |---|---|
-| 文件选择 | [BlogImportPanel.vue](../../frontend/app/components/BlogImportPanel.vue) |
-| 编辑与绑定 | [BlogEditor.vue](../../frontend/app/components/BlogEditor.vue) |
-| multipart 与保存下载 | [blogs.ts](../../frontend/app/api/blogs.ts) |
-| 下载错误及响应头 | [request.ts](../../frontend/app/api/request.ts) |
-| 认证请求拦截 | [authInterceptor.ts](../../frontend/app/api/authInterceptor.ts) |
-| 公开详情 | [公开文章页](../../frontend/app/pages/blog/%5Bslug%5D.vue) |
-| 签名缓存与刷新 | [assetUrls.ts](../../frontend/app/utils/assetUrls.ts)、[useAssetUrlRefresh.ts](../../frontend/app/composables/useAssetUrlRefresh.ts) |
+| 文件选择 | [BlogImportPanel.vue](../../mai-portfolio-frontend/app/components/BlogImportPanel.vue) |
+| 编辑与绑定 | [BlogEditor.vue](../../mai-portfolio-frontend/app/components/BlogEditor.vue) |
+| multipart 与保存下载 | [blogs.ts](../../mai-portfolio-frontend/app/api/blogs.ts) |
+| 下载错误及响应头 | [request.ts](../../mai-portfolio-frontend/app/api/request.ts) |
+| 认证请求拦截 | [authInterceptor.ts](../../mai-portfolio-frontend/app/api/authInterceptor.ts) |
+| 公开详情 | [公开文章页](../../mai-portfolio-frontend/app/pages/blog/%5Bslug%5D.vue) |
+| 签名缓存与刷新 | [assetUrls.ts](../../mai-portfolio-frontend/app/utils/assetUrls.ts)、[useAssetUrlRefresh.ts](../../mai-portfolio-frontend/app/composables/useAssetUrlRefresh.ts) |
 | HTTP / 业务入口 | 后端根下 `controller/BlogController.java`、`service/impl/BlogServiceImpl.java` |
 | 解析与资源准备 | 后端根下 `component/MarkdownDocumentParser.java`、`DocumentResourceResolver.java`、`RemoteResourceFetcher.java` |
 | 文档持久化 | 后端根下 `service/impl/DocumentServiceImpl.java` |

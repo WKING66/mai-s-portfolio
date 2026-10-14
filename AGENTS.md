@@ -2,6 +2,8 @@
 
 完整共同规范见 [Git 协作与分级验证规范](docs/development/git-workflow.md)，它是工程流程的唯一完整来源。共同规范由后端 Agent 维护，前端 Agent 不同时编辑。
 
+仓库源码子目录为 mai-portfolio-backend/、mai-portfolio-frontend/；Git 分支仍为 backend、frontend。源码子目录与外层 Worktree 不是同一概念，工作区位置以 git worktree list 为准。
+
 ## Git、工作区与验证
 
 1. main 用于稳定发布，dev 用于集成，backend/frontend 是各 Agent 长期开发分支。日常 PR 指向 dev，发布 PR 为 dev → main；本规则替代普通任务直接向 main 提 PR 的旧规定。
