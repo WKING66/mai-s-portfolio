@@ -28,13 +28,18 @@ public class SecurityAutoConfiguration implements WebMvcConfigurer {
      * 复用官方 Filter 的绑定及 finally 清理，并保持它原有的过滤器顺序。
      */
     @Bean
-    FilterRegistrationBean<SaTokenContextFilterForJakartaServlet> saTokenContextDispatchRegistration(
-            SaTokenContextFilterForJakartaServlet filter) {
-        var registration = new FilterRegistrationBean<>(filter);
-        registration.setDispatcherTypes(DispatcherType.REQUEST, DispatcherType.ASYNC);
-        registration.setAsyncSupported(true);
-        registration.setOrder(OrderUtils.getOrder(filter.getClass(), Ordered.LOWEST_PRECEDENCE));
-        return registration;
+    FilterRegistrationBean<SaTokenContextFilterForJakartaServlet>
+            saTokenContextDispatchRegistration(
+                    SaTokenContextFilterForJakartaServlet saTokenContextFilter) {
+        // 1. 复用官方 Filter，为首次请求和流式响应收尾派发绑定并清理上下文。
+        var saTokenContextFilterRegistration = new FilterRegistrationBean<>(saTokenContextFilter);
+        saTokenContextFilterRegistration.setDispatcherTypes(
+                DispatcherType.REQUEST, DispatcherType.ASYNC);
+        saTokenContextFilterRegistration.setAsyncSupported(true);
+        // 2. 沿用官方 Filter 的执行顺序，避免改变与其他过滤器的先后关系。
+        saTokenContextFilterRegistration.setOrder(
+                OrderUtils.getOrder(saTokenContextFilter.getClass(), Ordered.LOWEST_PRECEDENCE));
+        return saTokenContextFilterRegistration;
     }
 
     /**
@@ -64,7 +69,7 @@ public class SecurityAutoConfiguration implements WebMvcConfigurer {
      */
     @Bean
     @ConditionalOnMissingBean(SaTokenDao.class)
-    SaTokenDao saTokenDao(RedissonClient redisson, RedisKeys keys) {
-        return new NamespacedSaTokenDao(redisson, keys);
+    SaTokenDao saTokenDao(RedissonClient redissonClient, RedisKeys redisKeys) {
+        return new NamespacedSaTokenDao(redissonClient, redisKeys);
     }
 }
