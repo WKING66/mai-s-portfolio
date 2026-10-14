@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 不声明节点权重：SortPom 保留现有元素顺序，仅调整 XML 排版。 -->
+<project xmlns="http://maven.apache.org/POM/4.0.0" />

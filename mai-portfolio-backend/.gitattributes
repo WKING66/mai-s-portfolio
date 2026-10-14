@@ -1,0 +1,4 @@
+# 自有源码与 POM 使用 LF，避免 Windows 检出与格式器反复转换。
+*.java text eol=lf
+pom.xml text eol=lf
+config/*.xml text eol=lf

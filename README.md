@@ -18,8 +18,8 @@ Nuxt 4、Nuxt UI、Tailwind CSS 4；Java 21、Spring Boot 4、Maven 模块化单
 
 | 目录 | 用途 |
 | --- | --- |
-| `frontend/` | 正式页面、组件、渲染及功能单元测试 |
-| `backend/` | 后端业务、基础设施、数据库迁移及功能测试 |
+| `mai-portfolio-frontend/` | 正式页面、组件、渲染及功能单元测试 |
+| `mai-portfolio-backend/` | 后端业务、基础设施、数据库迁移及功能测试 |
 | [resources/](resources/README.md) | 项目启动、使用、数据库和必要设计资料，随 Git 发布 |
 | `private/` | 维护者审核、Agent 内部材料，不随 Git 发布 |
 

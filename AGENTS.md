@@ -2,6 +2,8 @@
 
 完整共同规范见 [Git 协作与分级验证规范](docs/development/git-workflow.md)，它是工程流程的唯一完整来源。共同规范由后端 Agent 维护，前端 Agent 不同时编辑。
 
+仓库源码子目录为 mai-portfolio-backend/、mai-portfolio-frontend/；Git 分支仍为 backend、frontend。源码子目录与外层 Worktree 不是同一概念，工作区位置以 git worktree list 为准。
+
 ## Git、工作区与验证
 
 1. main 用于稳定发布，dev 用于集成，backend/frontend 是各 Agent 长期开发分支。日常 PR 指向 dev，发布 PR 为 dev → main；本规则替代普通任务直接向 main 提 PR 的旧规定。
@@ -11,7 +13,17 @@
 5. Conventional Commits 使用准确 scope，精确暂存任务文件并检查 Diff；不无检查地 git add .，不混入无关格式化、重构、凭据、本地配置和测试产物。
 6. 按 V0–V3 风险执行最小充分验证。V0 仅检查 Diff、内容/格式，不运行应用测试或构建；不默认全量测试，不重复已通过且未受影响的检查，不把 Mock 称为真实联调。
 7. 完成后提交、推送并创建 dev PR，简述功能、范围、验证等级/结果、接口变化和风险。发布阶段固定 dev 候选并集中验收，维护者最终批准后合并 main。
-8. 对外资料放 resources，私人材料放 private；仅本文件与上述完整规范作为共享规范纳入 Git。联调/Windows/辅助测试工具不提交，用完清理；正式功能完成后删除演示组件与演示 URL。
+8. 对外资料放 resources，私人材料放 private；本文件与维护者指定的共同开发规范纳入 Git，其他内部材料仍不提交。联调/Windows/辅助测试工具不提交，用完清理；正式功能完成后删除演示组件与演示 URL。
+
+## 后端编码规范
+
+遵循 [后端编码规范](docs/development/coding-style.md)。所有自有 Java 与 POM 纳入统一格式检查，分批整改不得用排除路径或关闭规则掩盖存量问题。
+
+- Service/Mapper 依赖和局部引用使用明确的 xxxService/xxxMapper 名称；框架对象体现真实类型与职责。重命名核对注入、Qualifier/Resource、反射与测试引用。
+- 关键业务方法按真实流程写中文步骤注释，解释事务、锁、外部资源操作、失败和已有补偿约束；简单委托不堆砌注释。
+- 控制流程使用大括号并换行，禁止压缩式方法和多语句代码块；复杂表达式与 POM 结构清晰展开。
+- 纯格式/注释仅执行格式、Diff 和必要 XML 检查；重命名/组织调整执行关联编译与测试，关键业务代码增加定向回归。
+- 不借整改改变 API、Schema/Flyway、鉴权、Document 版本、事务/补偿、OSS 或 Bean 装配契约。按完整模块分批 backend → dev，前一批合并并同步 dev 后再继续。
 
 ## 职责与质量
 
