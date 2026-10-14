@@ -8,7 +8,9 @@ export interface AuthSession {
 
 /** 未确认会话、未知策略和非精确角色一律拒绝；前端不作为服务端授权凭证。 */
 export function hasAccess(session: AuthSession, ready: boolean, access: AuthAccess): boolean {
-  if (!ready || !session.loggedIn) return false
+  if (!ready || !session.loggedIn) {
+    return false
+  }
   switch (access) {
     case AUTH_ACCESS.AUTHENTICATED:
       return true
@@ -20,8 +22,15 @@ export function hasAccess(session: AuthSession, ready: boolean, access: AuthAcce
 }
 
 /** 路由守卫和请求拦截使用同一跳转规则，禁止组件自行拼装权限分支。 */
-export function accessRedirect(session: AuthSession, ready: boolean, access: AuthAccess, returnTo: unknown): string | null {
-  if (hasAccess(session, ready, access)) return null
+export function accessRedirect(
+  session: AuthSession,
+  ready: boolean,
+  access: AuthAccess,
+  returnTo: unknown,
+): string | null {
+  if (hasAccess(session, ready, access)) {
+    return null
+  }
   if (!ready || !session.loggedIn) {
     return AUTH_PATHS.login + '?returnTo=' + encodeURIComponent(safeReturnPath(returnTo))
   }
@@ -29,6 +38,10 @@ export function accessRedirect(session: AuthSession, ready: boolean, access: Aut
 }
 
 export function safeReturnPath(value: unknown): string {
-  return typeof value === 'string' && (value === AUTH_PATHS.account || value === PROFILE_PATHS.page || /^\/admin\/projects(?:\/[0-9]+|\/new)?$/.test(value))
-    ? value : AUTH_PATHS.manageProjects
+  return typeof value === 'string' &&
+    (value === AUTH_PATHS.account ||
+      value === PROFILE_PATHS.page ||
+      /^\/admin\/projects(?:\/[0-9]+|\/new)?$/.test(value))
+    ? value
+    : AUTH_PATHS.manageProjects
 }
