@@ -13,11 +13,18 @@ public class BlogPostDO {
     private Long id;
 
     private Long documentId;
+
     private Long publishedVersionId;
+
     private String slug;
+
     private Integer status;
+
     private Integer allowVisitorDownload;
+
     private java.time.LocalDateTime publishedAt;
+
     private java.time.LocalDateTime createdAt;
+
     private java.time.LocalDateTime updatedAt;
 }

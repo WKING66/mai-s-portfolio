@@ -11,7 +11,12 @@ import org.commonmark.renderer.markdown.MarkdownRenderer;
 final class MarkdownDestinations {
     private MarkdownDestinations() {}
 
-    private record Edit(int start, int end, Node node) {}
+    private record Edit(
+            int start,
+
+            int end,
+
+            Node node) {}
 
     static String rewrite(String content, BiFunction<String, Boolean, String> destination) {
         // 1. 读取 CommonMark 源码范围，只标记地址变化的真实图片与链接。

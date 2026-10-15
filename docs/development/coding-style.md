@@ -1,17 +1,25 @@
 # 后端编码规范
 
-适用于全部后端自有 Java 源码、功能测试、POM 及相关配置。Git 与 V0–V3 验证遵循 [Git 工作流](git-workflow.md)，本文只规定编码、可读性和格式检查；共同规范由后端 Agent 维护。
+本文是后端编码风格的唯一依据，后端 Agent 每次开发前必须完整阅读，实现及提交前必须逐项对照。适用于后端生产 Java、POM 及相关配置；修改功能测试时同样遵循，但不为规范治理重排未改动的旧测试。Git 与 V0–V3 验证遵循 [Git 工作流](git-workflow.md)，共同规范由后端 Agent 维护。
+
+## 强制执行方式
+
+- 先阅读本规范和相关现有实现，再编码；旧代码、IDE 默认配置和第三方格式化器不高于本规范。
+- 按规范直接书写，只整理本任务涉及的代码；不执行全仓自动重排，不把无关格式调整混入功能提交。
+- 项目不使用自动源码格式化器，也不绑定自动格式门禁。Agent 不执行 Google Java Format/Spotless 等重排命令，不启用 IDE 保存时或提交时自动格式化，不擅自引入替代工具；未来采用工具必须先验证全部规则兼容并由维护者批准。
+- 提交前检查实际 Diff，并执行文末自检。规范不满足时先修正；编译或测试通过不能代替可读性、职责边界和风格检查。
+- 私人 IDE 设置不纳入 Git；使用编辑器的人应关闭会覆盖本规范的自动格式化。规范约束 Agent 的执行行为，不声称文档能强制控制所有个人插件。
 
 ## 不改变业务事实
 
-本轮存量整改保持 API 路径、字段与响应、数据库 Schema/Flyway、鉴权授权、Document 版本、事务与补偿、OSS 签名权限及 Spring Bean 装配契约不变。不升级或删减现有依赖，不改变 Scope、模块顺序及已有插件执行阶段。需要业务修复的问题在 PR 简述，另行处理，不混入格式整改。
+纯排版或可读性整改保持 API 路径、字段与响应、数据库 Schema/Flyway、鉴权授权、Document 版本、事务与补偿、OSS 签名权限及 Bean 装配契约不变；不顺带升级或删减应用依赖、改变 Scope 和模块顺序。业务修复与构建治理按维护者授权范围实施，不能伪装成格式调整。
 
 ## Java 排版
 
-- UTF-8、LF；Java 使用 Google Java Format 的 AOSP 风格，基础缩进四个空格，常规代码行宽由固定版本格式化器统一管理。mai-portfolio-backend/.gitattributes 固定 Java、POM 与格式配置的 LF，避免 Windows 检出后反复转换；不要手动维护第二套 IDEA 排版风格。
-- if/else、for/while/do、switch、try/catch/finally 使用清晰换行和大括号，禁止把控制流程或方法体压成一行。多语句 Lambda 同样展开，长注解、参数、构造器和复杂 Stream 按格式化器排版。
+- UTF-8、LF，基础缩进四个空格，不使用 Tab。mai-portfolio-backend/.gitattributes 固定 Java/POM 的 LF。长参数、注解或表达式在职责清晰的位置换行，续行缩进保持一致；不为了固定列宽拆坏字符串或表达式。
+- if/else、for/while/do、switch、try/catch/finally 使用清晰换行和大括号，禁止把控制流程或方法体压成一行。多语句 Lambda 同样展开，长注解、参数、构造器和复杂 Stream 清晰换行，不机械压缩。
 - import 统一排序；不为整理 import 更改类型绑定或静态调用。第一批不启用自动改写语法、展开通配符、缩短类型名称等自动重构步骤。
-- SQL、正则、文本块和长字符串首先保持实际值不变。格式化器不自动重写长字符串；跨行整理须核对字符串值和 SQL 参数绑定，不拆成无意义的碎片。
+- SQL、正则、文本块和长字符串首先保持实际值不变。跨行整理须核对字符串值和 SQL 参数绑定，不拆成无意义的碎片。
 - 复杂方法只在职责明确且行为等价时局部拆分；不为了排版引入 Factory、Strategy、Registry 或万能工具类。
 
 正确的简单方法也应展开：
@@ -22,7 +30,29 @@ public boolean exists(Long documentId) {
 }
 ```
 
-Formatter 负责可确定的排版；补齐遗漏的大括号、语义命名、职责和必要注释仍需 Review。不能因 Formatter 通过就称这些规则已全部满足，也不通过正则替换控制流程来代替理解代码。
+排版、语义命名、职责和必要注释都纳入提交前 Review；不能以工具检查通过代替人工判断，也不通过正则替换控制流程来代替理解代码。
+
+## 数据类字段排版
+
+所有生产数据类统一执行，包括 DTO、VO、DO、跨模块传输对象、配置数据类及嵌套 record；不因使用 class 或 record 而采用两种字段排版。
+
+- 字段声明和注解不得写在同一行，每个注解单独一行，与所属字段保持相同缩进。
+- 每个字段单独声明，相邻字段之间保留一个空行；record 组件按字段处理，包括没有注解的组件。
+- 保留字段顺序、注解参数、泛型、默认值及既有业务方法；不为了排版把 record 改成普通 Bean。
+
+```java
+public record ExampleRequest(
+        @NotNull
+        @Positive
+        Long version,
+
+        @Size(max = MAX_TITLE_LENGTH)
+        String title,
+
+        boolean enabled) {}
+```
+
+上述排版是强制标准，包括未加注解的字段和单字段 record。不得把多个字段压回同一行，也不得用切换为普通 Bean 来规避 record 排版。
 
 ## 依赖与变量命名
 
@@ -31,6 +61,14 @@ Formatter 负责可确定的排版；补齐遗漏的大括号、语义命名、�
 - SDK 与基础设施按实际类型和用途命名，例如 ossClient、redissonClient、redissonLock、saTokenSession、redisTemplate；只有实际使用 Quartz 或 XXL-Job 时才使用 quartzScheduler、xxlJobExecutor。
 - 已封装的对象按抽象职责命名，例如 objectStorage；不能为了规范把存储抽象叫 ossClient。client、manager、handler、obj、data、temp 等只在极小且含义明确的上下文使用。
 - 重命名同时核对构造器、Lombok 生成注入、Qualifier/Resource、按名称装配、反射及测试引用。公开 DTO/VO 字段、JSON 属性、Bean 名称和第三方 API 名称不能作为普通变量随意重命名。
+
+## 对象转换与输入校验
+
+- 每个业务 service 模块的转换接口放在自身 convert 包，使用 MapStruct 的 org.mapstruct.Mapper；数据库 Mapper 继续放在 mapper 包，使用 org.apache.ibatis.annotations.Mapper，不混用两者职责。
+- 无状态、无外部依赖的转换器使用静态 MAPPER = Mappers.getMapper(...) 和 to(...) 重载，保留 record，漏映射在编译期报错。转换器只装配字段和编码，不查询数据库，不决定权限、发布状态或版本选择。
+- HTTP 请求的必填、长度、范围和格式约束使用 jakarta.validation，由 DTO 注解及入口的 @Valid/@Validated 触发；有真实动作差异时使用校验分组，不在 Service 重复实现同一套字段格式判断。
+- 权限、唯一性、版本 CAS、发布完整性、资源归属及动态配置限制属于业务规则，保留在相应业务边界。业务拒绝和参数校验异常不得混用。
+- Hutool 用于语义等价的空集合、默认值等冗余操作；不为替换简单的 == null 而增加绕行，不改变 null/空串/空白、Unicode、路径或权限判断的业务含义。
 
 ## 中文业务步骤与 JavaDoc
 
@@ -52,40 +90,25 @@ Formatter 负责可确定的排版；补齐遗漏的大括号、语义命名、�
 ## POM、XML、YAML 与 SQL
 
 - POM/XML 四空格缩进，dependencies、dependencyManagement、plugins、executions、profiles、properties 等结构按层级换行。叶子文本可在同一行，禁止多个依赖元素挤在一行。
-- POM 采用 Spotless 的 SortPom 格式步骤。空排序模板保留现有节点顺序；不排序依赖、插件、模块、属性或 executions。每批用 XML 解析核对结构、文本和元素顺序，除明确新增的格式插件配置外应保持一致。
+- 保留依赖、插件、模块、属性和 executions 的现有顺序，不因排版改变 Maven 语义；纯排版后用 XML 解析核对结构和文本，构建配置改动明确说明意图。
 - 运行时 YAML、Mapper XML 和 SQL 可读性整改保持解析值、占位符、参数和顺序；不重写历史 Flyway SQL。注解中的 SQL 字符串按实际值核对。
 - 所有自有 POM 纳入检查，包括不继承根 POM 的 BOM；不因独立父子关系遗漏文件。
 
-## 可重复执行的格式门禁
+## 提交前自检与验证
 
-使用 JDK 21 和现有 Maven。以下命令从仓库根目录执行，只运行格式工具，不触发单元测试、编译、Nuxt 或全链路测试：
+1. 对照本规范检查注解/字段分行、字段间空行、四空格缩进、控制块展开和长表达式换行。
+2. 检查依赖/变量命名、中文步骤注释、常量来源、转换器与业务层边界、输入校验及失败路径。
+3. 检查实际 Diff，确认无字段顺序、注解参数、默认值、字符串/SQL 或非授权业务变化；不混入无关重排、旧测试、前端代码或本地工具。
+4. 执行 git diff --check；涉及 POM/XML 时解析并核对预期结构，确保没有删除编译器、注解处理器或其他必要构建配置。
+5. 纯排版、注释和规范修改属于 V0，不运行 Maven/Nuxt 构建或应用测试。不能确认行为等价时按实际风险升级验证，不能继续按纯排版交付。
+6. PR 简述修改范围、自检结果、实际验证及未覆盖范围，不再要求或声称 Spotless/全仓自动格式检查通过。
 
-```text
-mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:check
-mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:apply
-```
+规范检查由 Agent 自检与 PR 审查执行；如使用临时语法解析或 token 比对辅助核对，用后清理，不提交本地工具，不将其描述为已启用的 CI 门禁。维护者未授权前不自动合并 dev/main。
 
-根 POM 的 Spotless 统一覆盖全部模块的 main/test Java、自有 tools Java 和全部 POM，排除的只有 target 生成物。插件不继承到子模块，避免反复扫描和遗漏独立 BOM。根工程 verify 阶段执行相同 check；单模块命令不能替代这个全后端门禁。
+## 持续治理范围
 
-分批期间只格式化当前批次；可使用 Spotless 官方的 spotlessFiles 正则表达式参数做定向操作（不是文件通配符），例如第一批 POM：
-
-```text
-mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:apply "-DspotlessFiles=.*pom\.xml"
-mvn -B -ntp -N -f mai-portfolio-backend/pom.xml spotless:check "-DspotlessFiles=.*pom\.xml"
-```
-
-后续完整模块批次将参数换成该模块路径。定向检查只能说明该范围通过，不能冒充全量通过；最终验收必须执行不带过滤参数的 check。不能在正式门禁中用过滤参数、ratchet、ignore、exclude 或 formatter off 隐藏存量问题。
-
-Spotless 与 Java Formatter 固定版本在根 POM。POM 格式器版本随固定 Spotless 版本确定。工具只处理格式，不自动添加补偿、改业务逻辑或升级应用依赖。CI 可调用同一独立 check，是否配置 GitHub required checks 仍遵循维护者审批；本轮不重建 CI。
-
-工具依据：[Spotless Maven 官方配置](https://github.com/diffplug/spotless/tree/main/plugin-maven)、[Google Java Format](https://github.com/google/google-java-format)。新增格式插件配置的原因是当前后端没有统一格式工具，不引入其他测试框架。
-
-## 分批实施与验收
-
-- 以完整模块划分后续批次，每批一次处理该模块的 Controller/DTO/VO、Service、Mapper、基础设施及关联功能测试，避免同一文件在不同职责批次中反复格式化。
-- 第一批落地共同规范、格式工具及全部 POM 排版；之后覆盖 common/framework、System、Asset、Blog/Document、Portfolio、Agent/Launch 和剩余源码。具体批次大小依实际文件量和风险拆分。
-- 仅在后端 Worktree 的 backend 实施。每批一个 backend → dev PR，前一批由维护者审核合并并同步最新 dev 后再开展下一批；不同时混入后续批次或前端修改。
-- 纯格式和注释执行格式、Diff 及必要 XML 解析；依赖重命名/局部组织调整执行受影响模块编译、定向测试和必要注入验证；认证、缓存、事务、Document 状态等即使预期行为不变，也执行关联风险回归。
-- 每批说明实际模块、文件数、命名/注释/排版范围、是否改变行为、实际结果和剩余范围。全量格式检查若仍失败，明确报告，不能据定向通过宣布任务完成。
-- 全部批次完成后执行一次完整格式、必要后端编译和关联回归。只在全量源码规范、准确注释、依赖命名与验证均达标时宣布完成；测试通过不能替代 Maintainability Review。
-- 只提交功能单元测试及必要支撑；本地联调/Windows/辅助工具用完清理，不混入本轮提交。对外项目资料仍放 resources，私人报告放 private；本规范是维护者指定的共享工程规范。
+- 存量可读性治理按已授权模块分批实施，只处理生产文件；不因为统一风格而重排旧测试、前端或无关模块。功能改动涉及哪些代码，就检查对应代码是否符合规范。
+- 每批在后端 Worktree 的 backend 实施，创建 backend → dev PR；前一批由维护者合并并同步 dev 后再开始下一批。审核期间的修订留在当前 PR。
+- 保留已确认的风格和业务决策，不重复格式迁移；后续规范调整先修改本文及 AGENTS.md 引用，清理旧规则冲突。
+- 通过测试只是最低条件，还需核对业务事实来源、职责边界、重复规则、失败路径和实际扩展点；存在明显结构性问题不得标记完成。
+- 对外项目资料放 resources，私人材料放 private；本规范是维护者指定的共享工程规范。本地联调、Windows 及辅助开发工具用完清理，不提交。

@@ -24,6 +24,8 @@ public class UserProfileDO {
     private String nickname;
 
     private Long avatarMediaId;
+
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
 }

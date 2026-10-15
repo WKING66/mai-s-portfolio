@@ -9,19 +9,20 @@ import jakarta.validation.constraints.Size;
 @Schema(description = "用户密文登录请求；浏览器使用部署配置中的固定公钥")
 public record LoginRequest(
         @NotBlank(message = SystemMessageConstants.LOGIN_USERNAME_REQUIRED)
-                @Size(max = 64, message = SystemMessageConstants.LOGIN_USERNAME_TOO_LONG)
-                @Schema(
+        @Size(max = 64, message = SystemMessageConstants.LOGIN_USERNAME_TOO_LONG)
+        @Schema(
                         description = "用户名",
                         example = "owner",
                         requiredMode = Schema.RequiredMode.REQUIRED)
-                String username,
+        String username,
+
         @NotBlank(message = SystemMessageConstants.LOGIN_CIPHERTEXT_REQUIRED)
-                @Size(
+        @Size(
                         max = PasswordCipherConstants.MAX_ENCRYPTED_PASSWORD_CHARACTERS,
                         message = SystemMessageConstants.LOGIN_CIPHERTEXT_INVALID)
-                @Schema(
+        @Schema(
                         description = "RSA-OAEP SHA-256 加密后的密码，标准 Base64；不接受明文密码",
                         format = "byte",
                         accessMode = Schema.AccessMode.WRITE_ONLY,
                         requiredMode = Schema.RequiredMode.REQUIRED)
-                String encryptedPassword) {}
+        String encryptedPassword) {}

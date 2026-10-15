@@ -15,10 +15,16 @@ public class UserAccountDO {
     private Long id;
 
     private String username;
+
     private Integer type;
+
     private String passwordHash;
+
     private Integer status;
+
     private long credentialVersion;
+
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
 }

@@ -8,12 +8,20 @@ import java.util.regex.Pattern;
 /** 稳定引用不含 OSS 地址；READY 必须绑定 Asset，失败记录只能保留来源与状态。 */
 public record DocumentResource(
         String key,
+
         ResourceType type,
+
         ResourceSource source,
+
         String originalUri,
+
         Long assetId,
-        ResourceStatus status) {
+
+        ResourceStatus status
+
+    ) {
     public static final String REFERENCE_PREFIX = "resource://";
+
     private static final Pattern RESOURCE_KEY =
             Pattern.compile("[A-Za-z0-9_-]{1," + MAX_RESOURCE_KEY_LENGTH + "}");
 

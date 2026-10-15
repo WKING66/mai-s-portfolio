@@ -13,10 +13,16 @@ import lombok.Setter;
 public class ProjectLinkDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private Long projectId;
+
     private Integer linkType;
+
     private String label;
+
     private String url;
+
     private Integer isVisible;
+
     private Integer sortOrder;
 }
