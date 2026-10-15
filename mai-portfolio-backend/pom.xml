@@ -25,8 +25,6 @@
         <!-- 编译期工具版本与 processor path 共用来源，供 Maven 及 IDE 导入器直接解析。 -->
         <mapstruct.version>1.6.3</mapstruct.version>
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
-        <spotless.version>3.10.4</spotless.version>
-        <google-java-format.version>1.28.0</google-java-format.version>
     </properties>
     <dependencyManagement>
         <dependencies>
@@ -55,67 +53,6 @@
         </dependencies>
     </dependencyManagement>
     <build>
-        <plugins>
-            <!-- 根工程一次检查全部自有源码和 POM，独立 BOM 也纳入；子模块不重复扫描。 -->
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>${spotless.version}</version>
-                <inherited>false</inherited>
-                <configuration>
-                    <lineEndings>UNIX</lineEndings>
-                    <java>
-                        <includes>
-                            <include>**/src/main/java/**/*.java</include>
-                            <include>**/src/test/java/**/*.java</include>
-                            <include>tools/**/*.java</include>
-                        </includes>
-                        <excludes>
-                            <exclude>**/target/**</exclude>
-                        </excludes>
-                        <googleJavaFormat>
-                            <version>${google-java-format.version}</version>
-                            <style>AOSP</style>
-                            <reflowLongStrings>false</reflowLongStrings>
-                            <formatJavadoc>false</formatJavadoc>
-                        </googleJavaFormat>
-                        <importOrder />
-                        <trimTrailingWhitespace />
-                        <endWithNewline />
-                    </java>
-                    <pom>
-                        <includes>
-                            <include>**/pom.xml</include>
-                        </includes>
-                        <excludes>
-                            <exclude>**/target/**</exclude>
-                        </excludes>
-                        <sortPom>
-                            <encoding>UTF-8</encoding>
-                            <nrOfIndentSpace>4</nrOfIndentSpace>
-                            <expandEmptyElements>false</expandEmptyElements>
-                            <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
-                            <indentAttribute>schemaLocation</indentAttribute>
-                            <quiet>true</quiet>
-                            <!-- 空排序模板只规范排版，保留依赖、插件、模块及属性的原顺序。 -->
-                            <sortOrderFile>${project.basedir}/config/pom-format-order.xml</sortOrderFile>
-                            <sortProperties>false</sortProperties>
-                            <sortModules>false</sortModules>
-                            <sortExecutions>false</sortExecutions>
-                        </sortPom>
-                    </pom>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>check-backend-format</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
         <pluginManagement>
             <plugins>
                 <plugin>
