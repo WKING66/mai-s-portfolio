@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Getter;
 import lombok.Setter;
 
-/** 版本资源关系；表及 mediaId 沿用旧命名，实际关联统一 media_asset，失败时允许为空。 */
+/** 版本资源关系；Java 字段与文档资源语义一致，旧表列名通过 TableField 保留，失败时允许不绑定资产。 */
 @Getter
 @Setter
 @TableName("document_version_asset")
@@ -14,21 +14,26 @@ public class DocumentResourceDO {
 
     private Long documentVersionId;
 
-    private Long mediaId;
+    @TableField("media_id")
+    private Long assetId;
 
     private Integer role;
 
     private String altText;
 
-    private String sourceReference;
+    @TableField("source_reference")
+    private String originalUri;
 
     private Integer sortOrder;
 
-    private String resourceKey;
+    @TableField("resource_key")
+    private String key;
 
-    private Integer resourceType;
+    @TableField("resource_type")
+    private Integer type;
 
-    private Integer sourceKind;
+    @TableField("source_kind")
+    private Integer source;
 
     private Integer status;
 }

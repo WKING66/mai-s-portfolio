@@ -22,7 +22,8 @@ public class DocumentVersionDO {
 
     private String summary;
 
-    private String markdownContent;
+    @TableField("markdown_content")
+    private String content;
 
     private Short readingTimeMinutes;
 

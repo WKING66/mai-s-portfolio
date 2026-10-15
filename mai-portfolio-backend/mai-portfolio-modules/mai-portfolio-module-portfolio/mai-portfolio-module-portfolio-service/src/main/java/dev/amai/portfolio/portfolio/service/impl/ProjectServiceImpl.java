@@ -111,7 +111,7 @@ public class ProjectServiceImpl implements ProjectService {
         // 3. 在同一只读快照内分页并批量装配关联，避免卡片逐条查询。
         var result = projectMapper.selectPage(new Page<>(page, size), query);
         List<ProjectItemVo> items = projectViews(result.getRecords(), view);
-        return ProjectConvert.MAPPER.to(view.name(), page, size, result.getTotal(), items);
+        return new ProjectPageVo(view.name(), page, size, result.getTotal(), items);
     }
 
     @Override
