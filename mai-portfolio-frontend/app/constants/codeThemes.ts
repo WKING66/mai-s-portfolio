@@ -6,6 +6,7 @@ export const CODE_THEMES = [
   { label: 'Tokyo Night', value: 'tokyo' },
   { label: 'Dracula', value: 'dracula' },
 ] as const
-export type CodeTheme = typeof CODE_THEMES[number]['value']
+export type CodeTheme = (typeof CODE_THEMES)[number]['value']
 export const CODE_FOLD = { threshold: 20, previewLines: 14 } as const
-export const codeLabel = (filename?: string, language?: string) => filename?.trim() || language?.trim() || '代码'
+export const codeLabel = (filename?: string, language?: string) =>
+  filename?.trim() || language?.trim() || '代码'
