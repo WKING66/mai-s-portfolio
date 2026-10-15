@@ -9,14 +9,14 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "portfolio.bootstrap.enabled", havingValue = "true")
 public class PortfolioBootstrapRunner implements ApplicationRunner {
-    private final PortfolioBootstrapService bootstrap;
+    private final PortfolioBootstrapService portfolioBootstrapService;
 
-    public PortfolioBootstrapRunner(PortfolioBootstrapService bootstrap) {
-        this.bootstrap = bootstrap;
+    public PortfolioBootstrapRunner(PortfolioBootstrapService portfolioBootstrapService) {
+        this.portfolioBootstrapService = portfolioBootstrapService;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        bootstrap.initialize();
+        portfolioBootstrapService.initialize();
     }
 }

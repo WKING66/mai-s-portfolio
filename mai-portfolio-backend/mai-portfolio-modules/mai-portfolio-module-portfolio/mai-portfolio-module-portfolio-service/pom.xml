@@ -13,6 +13,14 @@
     <description>个人资料与项目展示的三层业务实现。</description>
     <dependencies>
         <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-portfolio-provider</artifactId>
         </dependency>
