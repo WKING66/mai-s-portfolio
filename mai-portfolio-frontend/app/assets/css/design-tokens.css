@@ -1,46 +1,46 @@
 /* 全站语义 token，由 html 的主题状态统一选择。 */
 :root {
   color-scheme: light;
-  --site-bg: #F5F7F6;
-  --site-surface: #FFFFFF;
-  --site-text: #1F2D2B;
-  --site-muted: #596C69;
-  --site-line: #CDDAD5;
-  --site-accent: #36776D;
-  --site-accent-secondary: #36776D;
-  --site-primary-hover: #2B6058;
-  --site-inverted: #FFFFFF;
-  --site-bg-muted: #EDF2F0;
-  --site-bg-elevated: #E7EEEB;
-  --site-bg-accented: #DCE7E2;
-  --site-border-muted: #DCE5E1;
-  --site-border-accented: #AEBFB7;
-  --site-success: #2F745F;
-  --site-info: #3B6EA2;
-  --site-warning: #8B621A;
-  --site-error: #B54446;
+  --site-bg: #f5f7f6;
+  --site-surface: #ffffff;
+  --site-text: #1f2d2b;
+  --site-muted: #596c69;
+  --site-line: #cddad5;
+  --site-accent: #36776d;
+  --site-accent-secondary: #36776d;
+  --site-primary-hover: #2b6058;
+  --site-inverted: #ffffff;
+  --site-bg-muted: #edf2f0;
+  --site-bg-elevated: #e7eeeb;
+  --site-bg-accented: #dce7e2;
+  --site-border-muted: #dce5e1;
+  --site-border-accented: #aebfb7;
+  --site-success: #2f745f;
+  --site-info: #3b6ea2;
+  --site-warning: #8b621a;
+  --site-error: #b54446;
   --site-shadow: 0 4px 16px rgb(31 45 43 / 6%);
 }
-:root[data-theme="dark"] {
+:root[data-theme='dark'] {
   color-scheme: dark;
-  --site-bg: #10191C;
+  --site-bg: #10191c;
   --site-surface: #182326;
-  --site-text: #E5EEEB;
-  --site-muted: #A2B5B2;
-  --site-line: #35494B;
-  --site-accent: #82B8AD;
-  --site-accent-secondary: #82B8AD;
-  --site-primary-hover: #9AC4B8;
-  --site-inverted: #10191C;
-  --site-bg-muted: #1D2C30;
+  --site-text: #e5eeeb;
+  --site-muted: #a2b5b2;
+  --site-line: #35494b;
+  --site-accent: #82b8ad;
+  --site-accent-secondary: #82b8ad;
+  --site-primary-hover: #9ac4b8;
+  --site-inverted: #10191c;
+  --site-bg-muted: #1d2c30;
   --site-bg-elevated: #243438;
-  --site-bg-accented: #2D4245;
-  --site-border-muted: #2D3D40;
-  --site-border-accented: #4C6868;
-  --site-success: #8DC6A5;
-  --site-info: #99BDE0;
-  --site-warning: #DCC28B;
-  --site-error: #E5A1A5;
+  --site-bg-accented: #2d4245;
+  --site-border-muted: #2d3d40;
+  --site-border-accented: #4c6868;
+  --site-success: #8dc6a5;
+  --site-info: #99bde0;
+  --site-warning: #dcc28b;
+  --site-error: #e5a1a5;
   --site-shadow: 0 4px 16px rgb(0 0 0 / 16%);
 }
 :root {
@@ -49,8 +49,8 @@
   --site-gutter: clamp(1rem, 3vw, 1.5rem);
   --site-header-height: calc(4.5rem + 1px);
   --site-overlay-top: min(var(--site-header-height), 25svh);
-  --site-radius: .75rem;
-  --ui-radius: .25rem;
+  --site-radius: 0.75rem;
+  --ui-radius: 0.25rem;
   --ui-color-primary-50: #edf5f2;
   --ui-color-primary-100: #dbece5;
   --ui-color-primary-200: #bdd9cf;

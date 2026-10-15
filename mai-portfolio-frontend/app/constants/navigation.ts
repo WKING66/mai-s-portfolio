@@ -7,7 +7,7 @@ export const SITE_NAVIGATION = [
   { id: 'contact', href: '/#contact', label: '联系' },
 ] as const
 
-export type SiteSection = typeof SITE_NAVIGATION[number]['id']
+export type SiteSection = (typeof SITE_NAVIGATION)[number]['id']
 
 export const ACCOUNT_MENU_MESSAGES = {
   account: '账户',
