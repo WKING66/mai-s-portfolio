@@ -2,6 +2,7 @@ package dev.amai.portfolio.asset.service.impl;
 
 import dev.amai.portfolio.asset.api.AssetFileService;
 import dev.amai.portfolio.asset.api.AssetQueryService;
+import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.component.ImageContentValidator;
@@ -115,7 +116,7 @@ public class AssetServiceImpl implements AssetService {
         return toVo(resource);
     }
 
-    private AssetVo toVo(dev.amai.portfolio.asset.api.AssetResourceData resource) {
+    private AssetVo toVo(AssetResourceData resource) {
         return new AssetVo(
                 resource.id(),
                 resource.resourceUrl(),

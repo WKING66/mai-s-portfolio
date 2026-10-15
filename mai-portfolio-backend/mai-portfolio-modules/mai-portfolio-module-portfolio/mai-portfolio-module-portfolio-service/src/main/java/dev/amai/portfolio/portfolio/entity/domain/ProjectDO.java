@@ -3,6 +3,7 @@ package dev.amai.portfolio.portfolio.entity.domain;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -34,9 +35,9 @@ public class ProjectDO {
 
     private Long version;
 
-    private java.time.LocalDateTime publishedAt;
+    private LocalDateTime publishedAt;
 
-    private java.time.LocalDateTime createdAt;
+    private LocalDateTime createdAt;
 
-    private java.time.LocalDateTime updatedAt;
+    private LocalDateTime updatedAt;
 }

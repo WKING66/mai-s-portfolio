@@ -1,17 +1,20 @@
 package dev.amai.portfolio.blog.service.impl;
 
-import static dev.amai.portfolio.blog.constant.DocumentPolicy.*;
-
 import dev.amai.portfolio.asset.api.AssetFileService;
 import dev.amai.portfolio.blog.component.DocumentRenderer;
 import dev.amai.portfolio.blog.entity.domain.*;
 import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.blog.service.DocumentExportService;
 import dev.amai.portfolio.web.exception.*;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.zip.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import static dev.amai.portfolio.blog.constant.DocumentPolicy.*;
 
 /** 基于已授权 Document 生成输出计划；普通展示链接与受保护 ZIP 字节读取分别处理。 */
 @Service
@@ -21,12 +24,12 @@ public class DocumentExportServiceImpl implements DocumentExportService {
     private static final String ZIP_EXTENSION = ".zip";
     private static final String RESOURCE_DIRECTORY = "resources/";
     private static final String DEFAULT_ATTACHMENT_FILENAME = "attachment.bin";
-    private static final org.slf4j.Logger LOG =
-            org.slf4j.LoggerFactory.getLogger(DocumentExportServiceImpl.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(DocumentExportServiceImpl.class);
 
     /** 失败时释放压缩器但不写中央目录，禁止把部分资源包装成完整 ZIP。 */
     private static class ExportZip extends ZipOutputStream {
-        ExportZip(java.io.OutputStream output) {
+        ExportZip(OutputStream output) {
             super(output, StandardCharsets.UTF_8);
         }
 
@@ -120,7 +123,7 @@ public class DocumentExportServiceImpl implements DocumentExportService {
                                 }
                                 // 实际读取长度也要一致，不能把截断的对象封装成完整 ZIP。
                                 if (copied != assetContent.size()) {
-                                    throw new java.io.IOException(
+                                    throw new IOException(
                                             "Asset length changed during export");
                                 }
                             }
@@ -128,7 +131,7 @@ public class DocumentExportServiceImpl implements DocumentExportService {
                         }
                         zipArchive.finish();
                         zipArchive.flush();
-                    } catch (java.io.IOException | RuntimeException failure) {
+                    } catch (IOException | RuntimeException failure) {
                         LOG.warn(
                                 "Document export interrupted, documentId={}, versionId={},"
                                         + " failureType={}",

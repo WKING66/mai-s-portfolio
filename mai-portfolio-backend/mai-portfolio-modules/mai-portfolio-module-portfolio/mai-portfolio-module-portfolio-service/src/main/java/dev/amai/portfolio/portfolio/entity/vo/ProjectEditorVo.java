@@ -1,6 +1,7 @@
 package dev.amai.portfolio.portfolio.entity.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /** 项目管理完整快照。 */
@@ -32,9 +33,9 @@ public record ProjectEditorVo(
 
         Long version,
 
-        java.time.LocalDateTime publishedAt,
+        LocalDateTime publishedAt,
 
-        java.time.LocalDateTime updatedAt,
+        LocalDateTime updatedAt,
 
         @Schema(description = "当前封面与 OSS 签名地址；无图为 null")
         ProjectCoverVo cover
