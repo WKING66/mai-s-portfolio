@@ -7,6 +7,7 @@ import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.constant.AssetMessageConstants;
+import dev.amai.portfolio.asset.convert.AssetConvert;
 import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
 import dev.amai.portfolio.asset.enums.MediaAssetType;
 import dev.amai.portfolio.asset.enums.MediaStatus;
@@ -49,11 +50,10 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             return Optional.empty();
         }
         return Optional.of(
-                new AssetMetadataData(
-                        asset.getId(),
+                AssetConvert.MAPPER.to(
+                        asset,
                         MediaAssetType.toApiType(asset.getAssetType()),
-                        AssetUsage.valueOf(asset.getUsage()),
-                        asset.getUploaderAccountId()));
+                        AssetUsage.valueOf(asset.getUsage())));
     }
 
     @Override
@@ -112,16 +112,11 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             }
             resourcesById.put(
                     asset.getId(),
-                    new AssetResourceData(
-                            asset.getId(),
+                    AssetConvert.MAPPER.to(
+                            asset,
                             expectedType,
                             AssetUsage.valueOf(asset.getUsage()),
-                            asset.getUploaderAccountId(),
-                            asset.getOriginalFilename(),
-                            asset.getMimeType(),
-                            asset.getByteSize(),
-                            storedObjectAccessUrl.url(),
-                            storedObjectAccessUrl.expiresAt()));
+                            storedObjectAccessUrl));
         }
         return Map.copyOf(resourcesById);
     }

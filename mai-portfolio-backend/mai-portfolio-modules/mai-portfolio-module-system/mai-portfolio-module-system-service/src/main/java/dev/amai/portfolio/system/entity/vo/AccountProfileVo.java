@@ -1,6 +1,7 @@
 package dev.amai.portfolio.system.entity.vo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.time.Instant;
 
 @Schema(description = "当前登录账号本人资料；无角色、密码摘要或对象存储键")
 public record AccountProfileVo(
@@ -14,4 +15,4 @@ public record AccountProfileVo(
         String avatarUrl,
 
         @Schema(description = "头像签名到期时间（UTC）")
-        java.time.Instant avatarExpiresAt) {}
+        Instant avatarExpiresAt) {}

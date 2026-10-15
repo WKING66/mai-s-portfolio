@@ -6,10 +6,13 @@ import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 
 import dev.amai.portfolio.blog.config.DocumentProperties;
 import dev.amai.portfolio.blog.entity.domain.DocumentInputResource;
+import dev.amai.portfolio.blog.enums.ResourceSource;
 import jakarta.annotation.PreDestroy;
 import java.io.*;
 import java.net.*;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
+
 import org.apache.hc.client5.http.DnsResolver;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.config.RequestConfig;
@@ -93,7 +96,7 @@ public class RemoteResourceFetcher implements AutoCloseable {
             validateUri(targetUri);
             URI requestUri = targetUri;
             long remainingMs =
-                    java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                    TimeUnit.NANOSECONDS.toMillis(
                             deadlineNanos - System.nanoTime());
             if (remainingMs < 1) {
                 throw new IOException("Document fetch budget exhausted");
@@ -152,7 +155,7 @@ public class RemoteResourceFetcher implements AutoCloseable {
                                         Math.min(
                                                 deadlineNanos,
                                                 System.nanoTime()
-                                                        + java.util.concurrent.TimeUnit.MILLISECONDS
+                                                        + TimeUnit.MILLISECONDS
                                                                 .toNanos(
                                                                         documentProperties
                                                                                 .getReadTimeoutMs()));
@@ -187,7 +190,7 @@ public class RemoteResourceFetcher implements AutoCloseable {
                         source,
                         fetchResult.mime(),
                         fetchResult.bytes(),
-                        dev.amai.portfolio.blog.enums.ResourceSource.REMOTE);
+                        ResourceSource.REMOTE);
             }
             targetUri = fetchResult.redirect();
         }

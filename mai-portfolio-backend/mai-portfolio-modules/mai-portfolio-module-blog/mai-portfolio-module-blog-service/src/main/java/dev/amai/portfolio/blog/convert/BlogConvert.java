@@ -14,6 +14,8 @@ import org.mapstruct.factory.Mappers;
 public interface BlogConvert {
     BlogConvert MAPPER = Mappers.getMapper(BlogConvert.class);
 
+    BlogPageVo to(String view, int page, int size, long total, List<BlogCardVo> items);
+
     /** 文章身份与已选版本摘要合成列表条目，状态由业务层提供。 */
     @Mapping(target = "id", source = "blogPost.id")
     @Mapping(target = "version", source = "documentSummary.version")

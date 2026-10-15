@@ -1,5 +1,7 @@
 package dev.amai.portfolio.asset.enums;
 
+import dev.amai.portfolio.asset.api.AssetType;
+
 public enum MediaAssetType {
     IMAGE(0),
     DOCUMENT(1),
@@ -15,16 +17,16 @@ public enum MediaAssetType {
         return code;
     }
 
-    public static dev.amai.portfolio.asset.api.AssetType toApiType(int code) {
+    public static AssetType toApiType(int code) {
         for (var type : values()) {
             if (type.code == code) {
-                return dev.amai.portfolio.asset.api.AssetType.valueOf(type.name());
+                return AssetType.valueOf(type.name());
             }
         }
         throw new IllegalArgumentException("Unknown media asset type");
     }
 
-    public static MediaAssetType from(dev.amai.portfolio.asset.api.AssetType type) {
+    public static MediaAssetType from(AssetType type) {
         return valueOf(type.name());
     }
 }

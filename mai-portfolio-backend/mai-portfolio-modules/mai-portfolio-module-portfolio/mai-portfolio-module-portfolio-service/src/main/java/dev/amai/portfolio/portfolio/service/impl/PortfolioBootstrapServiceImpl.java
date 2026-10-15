@@ -10,19 +10,21 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PortfolioBootstrapServiceImpl implements PortfolioBootstrapService {
-    private final SiteConfigMapper siteConfigs;
+    private final SiteConfigMapper siteConfigMapper;
 
-    public PortfolioBootstrapServiceImpl(SiteConfigMapper siteConfigs) {
-        this.siteConfigs = siteConfigs;
+    public PortfolioBootstrapServiceImpl(SiteConfigMapper siteConfigMapper) {
+        this.siteConfigMapper = siteConfigMapper;
     }
 
     @Override
     @Transactional
     public void initialize() {
-        siteConfigs.acquireBootstrapLock();
-        if (siteConfigs.selectCount(null) != 0) {
+        // 1. 持有事务级 advisory lock，串行化多实例的首次初始化，提交/回滚时自动释放。
+        siteConfigMapper.acquireBootstrapLock();
+        if (siteConfigMapper.selectCount(null) != 0) {
             return;
         }
+        // 2. 只补齐空库，绝不覆盖已有资料；写入失败由当前数据库事务回滚。
         SiteConfigDO profile = new SiteConfigDO();
         profile.setDisplayName("阿霾");
         profile.setHeadline("一名 Java 后端工程师，转型从事 AI 智能体开发。");
@@ -30,6 +32,6 @@ public class PortfolioBootstrapServiceImpl implements PortfolioBootstrapService 
         profile.setGithubUrl("https://github.com/WKING66");
         profile.setEmail("2899964923@qq.com");
         profile.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
-        siteConfigs.insert(profile);
+        siteConfigMapper.insert(profile);
     }
 }

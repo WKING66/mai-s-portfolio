@@ -1,6 +1,7 @@
 package dev.amai.portfolio.system.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
@@ -11,6 +12,7 @@ import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 
 /** 每个令牌绑定登录时的凭据版本；数据库版本决定失效，旧记录按已有 TTL 回收。 */
@@ -31,11 +33,11 @@ public class AccountAuthenticationServiceImpl implements AccountAuthenticationSe
     }
 
     @Override
-    public java.util.Optional<UserAccountDO> findCurrentAccount() {
+    public Optional<UserAccountDO> findCurrentAccount() {
         if (!StpUtil.isLogin()) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
-        return java.util.Optional.ofNullable(readSessionAccount(false));
+        return Optional.ofNullable(readSessionAccount(false));
     }
 
     @Override
@@ -91,7 +93,7 @@ public class AccountAuthenticationServiceImpl implements AccountAuthenticationSe
         // 每次登录使用独立 token，禁止新登录改写旧 token 的凭据版本。
         StpUtil.login(
                 account.getId(),
-                new cn.dev33.satoken.stp.parameter.SaLoginParameter().setIsShare(false));
+                new SaLoginParameter().setIsShare(false));
         // 2. 为本次登录生成写操作令牌，并分别保存凭据版本与账号会话 CSRF。
         byte[] bytes = new byte[CSRF_BYTES];
         secureRandom.nextBytes(bytes);

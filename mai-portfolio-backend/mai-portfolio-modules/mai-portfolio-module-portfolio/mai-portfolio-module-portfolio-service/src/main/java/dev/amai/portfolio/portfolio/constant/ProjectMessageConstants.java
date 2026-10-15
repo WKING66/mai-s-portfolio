@@ -13,5 +13,7 @@ public final class ProjectMessageConstants {
     public static final String INVALID_LINKS = "外链类型、HTTP(S) 地址、长度或重复关联不正确";
     public static final String PUBLISH_REQUIRED = "发布需填写标题、摘要、本人贡献和至少一个技术标签";
     public static final String CONFLICT = "项目已被其他操作更新，请重新读取后提交";
-    private ProjectMessageConstants() { }
+
+    private ProjectMessageConstants() {
+    }
 }

@@ -1,8 +1,6 @@
 package dev.amai.portfolio.asset.component;
 
-import static org.springframework.http.MediaType.IMAGE_JPEG_VALUE;
-import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
-
+import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.config.AvatarUploadProperties;
 import dev.amai.portfolio.asset.constant.AssetMessageConstants;
@@ -17,6 +15,8 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import org.springframework.stereotype.Component;
+import static org.springframework.http.MediaType.IMAGE_JPEG_VALUE;
+import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 
 /** 在解码前检查尺寸，按用途设限；重编码移除 EXIF 与尾随内容，不负责业务绑定。 */
 @Component
@@ -43,7 +43,7 @@ public class ImageContentValidator {
     public CheckedImage inspect(byte[] content, String declaredContentType, AssetUsage purpose) {
         // 1. 根据用途及声明 MIME 校验输入容量，不信任文件扩展名。
         if (purpose == null
-                || purpose.assetType() != dev.amai.portfolio.asset.api.AssetType.IMAGE) {
+                || purpose.assetType() != AssetType.IMAGE) {
             throw invalid(AssetMessageConstants.IMAGE_TYPE_INVALID);
         }
         if (content == null || content.length == 0) {

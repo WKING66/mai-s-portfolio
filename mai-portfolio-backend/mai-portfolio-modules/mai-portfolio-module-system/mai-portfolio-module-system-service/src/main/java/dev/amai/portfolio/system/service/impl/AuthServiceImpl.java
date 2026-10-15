@@ -6,6 +6,7 @@ import dev.amai.portfolio.system.component.AuthRequestValidator;
 import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
+import dev.amai.portfolio.system.convert.AccountConvert;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.entity.request.LoginRequest;
 import dev.amai.portfolio.system.entity.request.RegisterRequest;
@@ -78,9 +79,9 @@ public class AuthServiceImpl implements AuthService {
         if (account == null) {
             return new SessionVo(false, null, null, List.of());
         }
-        return new SessionVo(
+        return AccountConvert.MAPPER.to(
+                account,
                 true,
-                account.getUsername(),
                 accountAuthenticationService.csrfToken(),
                 ownerRoleService.findRoles(account.getId()));
     }
@@ -120,8 +121,8 @@ public class AuthServiceImpl implements AuthService {
         String csrf = accountAuthenticationService.startSession(account);
         // IP 窗口统计所有尝试；不能因某个账号成功而放行对其他账号的持续猜测。
         LOG.info("User logged in, accountId={}", account.getId());
-        return new SessionVo(
-                true, account.getUsername(), csrf, ownerRoleService.findRoles(account.getId()));
+        return AccountConvert.MAPPER.to(
+                account, true, csrf, ownerRoleService.findRoles(account.getId()));
     }
 
     @Override
