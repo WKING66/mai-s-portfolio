@@ -64,17 +64,22 @@ public class MarkdownDocumentParser implements DocumentParser {
         for (Node child = markdownAst.getFirstChild(); child != null; child = child.getNext()) {
             if (child instanceof Heading heading && heading.getLevel() == TITLE_HEADING_LEVEL) {
                 StringBuilder headingText = new StringBuilder();
-                child.accept(
-                        new AbstractVisitor() {
-                            @Override
-                            public void visit(Text textNode) {
-                                headingText.append(textNode.getLiteral());
-                            }
-                        });
+                appendHeadingText(child, headingText);
                 title = headingText.toString();
                 break;
             }
         }
         return new ParsedDocument(DocumentOrigin.MARKDOWN, title, content, resources);
+    }
+
+    /** 仅收集 Text，与原 Visitor 一致，不把行内代码或 HTML 的字面量混作标题文本。 */
+    private static void appendHeadingText(Node node, StringBuilder headingText) {
+        if (node instanceof Text textNode) {
+            headingText.append(textNode.getLiteral());
+            return;
+        }
+        for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+            appendHeadingText(child, headingText);
+        }
     }
 }
