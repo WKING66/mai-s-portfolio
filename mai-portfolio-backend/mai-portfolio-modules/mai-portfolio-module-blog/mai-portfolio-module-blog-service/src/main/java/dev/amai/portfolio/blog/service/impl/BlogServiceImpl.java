@@ -106,7 +106,7 @@ public class BlogServiceImpl implements BlogService {
                                             blogPost, documentSummary, state(blogPost));
                                 })
                         .toList();
-        return new BlogPageVo(
+        return BlogConvert.MAPPER.to(
                 manage ? MANAGE_VIEW : PUBLIC_VIEW, page, size, blogPage.getTotal(), blogCards);
     }
 

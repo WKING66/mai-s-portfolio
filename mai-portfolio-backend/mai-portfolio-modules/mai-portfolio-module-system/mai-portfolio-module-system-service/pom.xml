@@ -13,6 +13,10 @@
     <description>账号、会话、角色、鉴权与共享标签字典的三层业务实现。</description>
     <dependencies>
         <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-common</artifactId>
         </dependency>

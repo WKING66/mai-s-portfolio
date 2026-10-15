@@ -13,6 +13,10 @@
     <description>媒体资产元数据与访问策略的三层业务实现。</description>
     <dependencies>
         <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-system-provider</artifactId>
         </dependency>

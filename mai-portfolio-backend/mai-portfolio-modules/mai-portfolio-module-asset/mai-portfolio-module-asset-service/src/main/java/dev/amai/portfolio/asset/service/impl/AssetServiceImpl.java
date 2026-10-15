@@ -2,11 +2,11 @@ package dev.amai.portfolio.asset.service.impl;
 
 import dev.amai.portfolio.asset.api.AssetFileService;
 import dev.amai.portfolio.asset.api.AssetQueryService;
-import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.component.ImageContentValidator;
 import dev.amai.portfolio.asset.constant.AssetMessageConstants;
+import dev.amai.portfolio.asset.convert.AssetConvert;
 import dev.amai.portfolio.asset.entity.vo.AssetVo;
 import dev.amai.portfolio.asset.service.AssetService;
 import dev.amai.portfolio.system.api.AccountIdentityService;
@@ -64,7 +64,7 @@ public class AssetServiceImpl implements AssetService {
                                         new ApiException(
                                                 ApiErrorCode.NOT_FOUND,
                                                 AssetMessageConstants.ASSET_NOT_FOUND));
-        return toVo(resource);
+        return AssetConvert.MAPPER.to(resource);
     }
 
     @Override
@@ -113,17 +113,7 @@ public class AssetServiceImpl implements AssetService {
                                         new ApiException(
                                                 ApiErrorCode.INTERNAL_ERROR,
                                                 AssetMessageConstants.UPLOAD_FAILED));
-        return toVo(resource);
-    }
-
-    private AssetVo toVo(AssetResourceData resource) {
-        return new AssetVo(
-                resource.id(),
-                resource.resourceUrl(),
-                resource.expiresAt(),
-                resource.contentType(),
-                resource.byteSize(),
-                resource.usage());
+        return AssetConvert.MAPPER.to(resource);
     }
 
     private ApiException invalid(String message) {
