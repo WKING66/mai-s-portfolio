@@ -1,10 +1,14 @@
 import { Marked, type marked } from 'marked'
 import { MarkdownManager } from '@tiptap/markdown'
 import StarterKit from '@tiptap/starter-kit'
-import type { MarkdownToken } from '@tiptap/core'
+import { getSchema, type MarkdownToken } from '@tiptap/core'
 import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT, isEditorUrl } from './markdownExtensions'
 
 export const RICH_TEXT_CHARACTER_LIMIT = 60000
+const editorSchema = getSchema([
+  StarterKit.configure(EDITOR_STARTER_KIT),
+  ...BLOG_EDITOR_EXTENSIONS,
+])
 
 /** 每个编辑会话独立注册 tokenizer，避免多次打开正文后在全局 marked 累积扩展。 */
 export function createBlogMarkdownOptions() {
@@ -62,6 +66,9 @@ export function inspectBlogMarkdown(source: string, manager = createBlogMarkdown
     }
     // 2. 真正转换并比较语义；不能仅因解析未报错就认为表格、资源或公式没有丢失。
     const document = manager.parse(source)
+    if (document.content?.length) {
+      editorSchema.nodeFromJSON(document).check()
+    }
     const output = manager.serialize(document)
     const meaning = (markdown: string) =>
       JSON.stringify(

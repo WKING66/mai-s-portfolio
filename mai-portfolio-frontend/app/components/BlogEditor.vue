@@ -34,6 +34,7 @@ const isOperationPending = computed(() => activeOperation.value !== null)
 const isLoading = ref(props.id !== null)
 const includeResources = ref(false)
 const saveErrorMessage = ref('')
+const isMarkdownBlocked = ref(false)
 const isSlugLocked = computed(() => Boolean(savedBlogPost.value?.publishedAt))
 const slugIssue = computed(() => (isSlugLocked.value ? '' : blogSlugIssue(editorForm.slug)))
 const canPublish = computed(
@@ -55,12 +56,14 @@ function extractEditorFields(blogPost: Blog) {
     allowDownload: blogPost.allowDownload,
   }
 }
-const isDirty = computed(() =>
-  savedBlogPost.value
-    ? Object.entries(extractEditorFields(savedBlogPost.value)).some(
-        ([key, value]) => editorForm[key as keyof typeof editorForm] !== value,
-      )
-    : true,
+const isDirty = computed(
+  () =>
+    isMarkdownBlocked.value ||
+    (savedBlogPost.value
+      ? Object.entries(extractEditorFields(savedBlogPost.value)).some(
+          ([key, value]) => editorForm[key as keyof typeof editorForm] !== value,
+        )
+      : true),
 )
 // 1. 只有明确读取、保存或状态变更成功才接收服务端快照，失败不覆盖编辑缓冲。
 function acceptSavedBlogPost(blogPost: Blog) {
@@ -136,6 +139,10 @@ async function runEditorOperation(name: EditorOperation, action: () => Promise<v
 }
 // 4. 保存提交完整编辑字段和已知版本，创建草稿成功后替换为正式编辑地址。
 async function saveDraft() {
+  if (isMarkdownBlocked.value) {
+    feedback.error('请先在正文编辑器中检查并采用源码，再保存草稿。')
+    return
+  }
   if (slugIssue.value) {
     feedback.error(slugIssue.value)
     return
@@ -156,7 +163,12 @@ async function saveDraft() {
 // 5. 发布或下架仅操作已保存快照，禁止用返回快照吞掉未保存输入。
 async function changePublicationStatus(published: boolean) {
   // 状态接口返回完整快照；未保存时接收它会吞掉输入，因此发布、下架共用这个保护。
-  if (!savedBlogPost.value || isDirty.value || (published && !canPublish.value)) {
+  if (
+    !savedBlogPost.value ||
+    isDirty.value ||
+    isMarkdownBlocked.value ||
+    (published && !canPublish.value)
+  ) {
     return
   }
   await runEditorOperation(published ? 'publish' : 'unpublish', async () => {
@@ -168,6 +180,11 @@ async function changePublicationStatus(published: boolean) {
 }
 // 6. 上传成功只插入稳定资源引用，实际关联仍由保存流程完成。
 async function uploadResource(event: Event, usage: AssetUsage) {
+  // 转换恢复区尚未确认时不能追加资源并重载正文，避免覆盖尚待修复的富文本输入。
+  if (isMarkdownBlocked.value) {
+    feedback.error('请先检查并采用正文源码，再插入资源。')
+    return
+  }
   const input = event.currentTarget as HTMLInputElement
   const file = input.files?.[0]
   if (!file) {
@@ -278,7 +295,7 @@ async function downloadSavedDraft() {
                 type="file"
                 :accept="BLOG_IMAGE_ACCEPT"
                 hidden
-                :disabled="isOperationPending"
+                :disabled="isOperationPending || isMarkdownBlocked"
                 aria-label="选择正文图片"
                 @change="uploadResource($event, 'IMAGE')"
               />
@@ -286,7 +303,7 @@ async function downloadSavedDraft() {
                 ref="attachmentInput"
                 type="file"
                 hidden
-                :disabled="isOperationPending"
+                :disabled="isOperationPending || isMarkdownBlocked"
                 aria-label="选择正文附件"
                 @change="uploadResource($event, 'ATTACHMENT')"
               />
@@ -296,7 +313,7 @@ async function downloadSavedDraft() {
                 size="sm"
                 icon="i-lucide-image-plus"
                 :loading="activeOperation === 'image'"
-                :disabled="isOperationPending"
+                :disabled="isOperationPending || isMarkdownBlocked"
                 @click="imageInput?.click()"
                 >插入图片</UButton
               >
@@ -306,7 +323,7 @@ async function downloadSavedDraft() {
                 size="sm"
                 icon="i-lucide-paperclip"
                 :loading="activeOperation === 'attachment'"
-                :disabled="isOperationPending"
+                :disabled="isOperationPending || isMarkdownBlocked"
                 @click="attachmentInput?.click()"
                 >插入附件</UButton
               >
@@ -317,14 +334,22 @@ async function downloadSavedDraft() {
             class="min-w-0"
             description="图片和附件上传后会插入资源引用；保存草稿后完成绑定。"
           >
-            <UTextarea
-              v-model="editorForm.content"
-              :disabled="isOperationPending"
-              :rows="18"
-              placeholder="使用 Markdown 开始写作…"
-              class="w-full"
-              :ui="{ base: 'font-mono leading-7' }"
-            />
+            <ClientOnly>
+              <LazyBlogMarkdownEditor
+                v-model="editorForm.content"
+                :disabled="isOperationPending"
+                @update:blocked="isMarkdownBlocked = $event"
+              />
+              <template #fallback>
+                <UTextarea
+                  :model-value="editorForm.content"
+                  disabled
+                  :rows="18"
+                  aria-label="正在准备正文编辑器"
+                  class="w-full"
+                />
+              </template>
+            </ClientOnly>
           </UFormField>
           <UCheckbox
             v-model="editorForm.remoteRightsConfirmed"
@@ -415,7 +440,7 @@ async function downloadSavedDraft() {
               block
               icon="i-lucide-save"
               :loading="activeOperation === 'save'"
-              :disabled="isOperationPending || Boolean(slugIssue)"
+              :disabled="isOperationPending || isMarkdownBlocked || Boolean(slugIssue)"
               @click="saveDraft"
               >保存草稿</UButton
             >
@@ -426,7 +451,7 @@ async function downloadSavedDraft() {
               variant="outline"
               icon="i-lucide-send"
               :loading="activeOperation === 'publish'"
-              :disabled="isOperationPending || isDirty || !canPublish"
+              :disabled="isOperationPending || isMarkdownBlocked || isDirty || !canPublish"
               @click="changePublicationStatus(true)"
               >发布当前草稿</UButton
             >
@@ -450,7 +475,7 @@ async function downloadSavedDraft() {
                 color="neutral"
                 variant="ghost"
                 size="sm"
-                :disabled="isOperationPending || isDirty"
+                :disabled="isOperationPending || isMarkdownBlocked || isDirty"
                 :loading="activeOperation === 'unpublish'"
                 @click="changePublicationStatus(false)"
                 >下架文章</UButton

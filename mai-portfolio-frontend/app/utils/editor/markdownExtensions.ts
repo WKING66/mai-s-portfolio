@@ -1,3 +1,4 @@
+import Paragraph from '@tiptap/extension-paragraph'
 import { Node, type JSONContent } from '@tiptap/core'
 import CodeBlock from '@tiptap/extension-code-block'
 import Image from '@tiptap/extension-image'
@@ -6,9 +7,12 @@ import { TaskList, TaskItem } from '@tiptap/extension-list'
 import { TableKit } from '@tiptap/extension-table'
 import { safeBlogUrl } from '../blogResources'
 
-/** 内部引用只进入 Markdown 属性；DOM 上不挂临时地址，也不直接导航内部协议。 */
+/** 稳定身份可以进入 DOM 恢复标记，但不直接作为可导航 URL。 */
+function isStableReference(uri: string): boolean {
+  return /^(?:asset:\/\/[1-9]\d*|resource:\/\/[\w-]+)$/.test(uri)
+}
 export function isEditorUrl(uri: string): boolean {
-  return /^(?:asset:\/\/[1-9]\d*|resource:\/\/[\w-]+)$/.test(uri) || Boolean(safeBlogUrl(uri))
+  return isStableReference(uri) || Boolean(safeBlogUrl(uri))
 }
 
 function nodeText(node: JSONContent): string {
@@ -108,7 +112,25 @@ function preservedMath(block: boolean) {
   })
 }
 
+// DOM 恢复规则与占位渲染成对维护，保证输入法重读段落时仍能恢复稳定资源身份。
 const StableImage = Image.extend({
+  parseHTML() {
+    return [
+      {
+        tag: 'span[data-editor-image-ref]',
+        getAttrs(element) {
+          const src = element.getAttribute('data-editor-image-ref') || ''
+          return isEditorUrl(src)
+            ? {
+                src,
+                alt: element.getAttribute('data-editor-image-alt'),
+                title: element.getAttribute('title'),
+              }
+            : false
+        },
+      },
+    ]
+  },
   renderHTML({ node }) {
     // 资源在编辑器中显示稳定身份占位，签名地址的续签仍由已保存预览承担。
     // 这也避免未获确认的外部图片在打开草稿时被自动请求。
@@ -116,6 +138,9 @@ const StableImage = Image.extend({
       'span',
       {
         class: 'editor-resource',
+        'data-editor-image-ref': node.attrs.src,
+        'data-editor-image-alt': node.attrs.alt,
+        title: node.attrs.title,
         contenteditable: 'false',
         role: 'img',
         'aria-label': node.attrs.alt || '图片',
@@ -126,6 +151,7 @@ const StableImage = Image.extend({
 }).configure({ inline: true, allowBase64: false })
 
 export const EDITOR_STARTER_KIT = {
+  paragraph: false,
   codeBlock: false,
   link: false,
   underline: false,
@@ -134,13 +160,41 @@ export const EDITOR_STARTER_KIT = {
 
 /** UEditor 和保真预检共用扩展集合，不能各自维护不同 Markdown 方言。 */
 export const BLOG_EDITOR_EXTENSIONS = [
+  Paragraph.extend({
+    parseMarkdown(token, helpers) {
+      // TipTap 默认会把独立图片从段落中提到根部；行内图片必须留在段落内，保证 Schema 有效。
+      if (token.tokens?.length === 1 && token.tokens[0]?.type === 'image') {
+        return helpers.createNode('paragraph', undefined, helpers.parseInline(token.tokens))
+      }
+      return (
+        this.parent?.(token, helpers) ??
+        helpers.createNode('paragraph', undefined, helpers.parseInline(token.tokens || []))
+      )
+    },
+  }),
   PreservedCodeBlock,
   StableImage,
   Link.extend({
+    parseHTML() {
+      return [
+        {
+          tag: 'span[data-editor-resource-link]',
+          getAttrs(element) {
+            const href = element.getAttribute('data-editor-resource-link') || ''
+            return isStableReference(href) ? { href, title: element.getAttribute('title') } : false
+          },
+        },
+        ...(this.parent?.() || []),
+      ]
+    },
     renderHTML({ HTMLAttributes }) {
       const uri = String(HTMLAttributes.href || '')
-      if (/^(?:resource|asset):\/\//.test(uri)) {
-        return ['span', { class: 'editor-resource', title: uri }, 0]
+      if (isStableReference(uri)) {
+        return [
+          'span',
+          { class: 'editor-resource', 'data-editor-resource-link': uri, title: uri },
+          0,
+        ]
       }
       return [
         'a',

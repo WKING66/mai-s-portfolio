@@ -8,6 +8,10 @@ function contentMeaning(node: JSONContent): unknown {
     originalLanguage: _language,
     ...attrs
   } = node.attrs ?? {}
+  // Enter 产生的空段落属于编辑占位，Markdown 不区分其数量；不能因此阻断继续输入。
+  const content = node.content
+    ?.filter((child) => child.type !== 'paragraph' || child.content?.length)
+    .map(contentMeaning)
   return {
     type: node.type,
     text: node.text,
@@ -18,7 +22,7 @@ function contentMeaning(node: JSONContent): unknown {
         Object.entries(mark.attrs ?? {}).filter(([, value]) => value !== null),
       ),
     })),
-    content: node.content?.map(contentMeaning),
+    content: content?.length ? content : undefined,
   }
 }
 
