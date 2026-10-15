@@ -32,8 +32,6 @@ public class BlogServiceImpl implements BlogService {
     private static final org.slf4j.Logger LOG =
             org.slf4j.LoggerFactory.getLogger(BlogServiceImpl.class);
     private final BlogPostMapper blogPostMapper;
-    private final BlogConvert blogConvert;
-    private final DocumentConvert documentConvert;
     private final DocumentService documentService;
     private final DocumentResourceResolver documentResourceResolver;
     private final DocumentParser documentParser;
@@ -48,8 +46,6 @@ public class BlogServiceImpl implements BlogService {
 
     public BlogServiceImpl(
             BlogPostMapper blogPostMapper,
-            BlogConvert blogConvert,
-            DocumentConvert documentConvert,
             DocumentService documentService,
             DocumentResourceResolver documentResourceResolver,
             DocumentParser documentParser,
@@ -60,8 +56,6 @@ public class BlogServiceImpl implements BlogService {
             DocumentProperties documentProperties,
             PlatformTransactionManager transactionManager) {
         this.blogPostMapper = blogPostMapper;
-        this.blogConvert = blogConvert;
-        this.documentConvert = documentConvert;
         this.documentService = documentService;
         this.documentResourceResolver = documentResourceResolver;
         this.documentParser = documentParser;
@@ -104,7 +98,7 @@ public class BlogServiceImpl implements BlogService {
                                         throw new ApiException(
                                                 ApiErrorCode.INTERNAL_ERROR, "文章文档版本缺失");
                                     }
-                                    return blogConvert.toCard(
+                                    return BlogConvert.MAPPER.to(
                                             blogPost, documentSummary, state(blogPost));
                                 })
                         .toList();
@@ -204,7 +198,7 @@ public class BlogServiceImpl implements BlogService {
                 documentResourceResolver.prepare(
                         parsed.content(), Map.of(), parsed.resources(), rights, accountId);
         var request =
-                blogConvert.toImportRequest(
+                BlogConvert.MAPPER.to(
                         prepared, StrUtil.subPre(parsed.title(), MAX_TITLE_LENGTH), true, rights);
         return persist(null, request, prepared, parsed.origin().code(), accountId);
     }
@@ -341,11 +335,11 @@ public class BlogServiceImpl implements BlogService {
                     document.resources().stream()
                             .map(
                                     r ->
-                                            documentConvert.toResourceVo(
+                                            DocumentConvert.MAPPER.to(
                                                     r, null, r.status(), r.originalUri()))
                             .toList();
         }
-        return blogConvert.toVo(
+        return BlogConvert.MAPPER.to(
                 blogPost,
                 document,
                 state(blogPost),

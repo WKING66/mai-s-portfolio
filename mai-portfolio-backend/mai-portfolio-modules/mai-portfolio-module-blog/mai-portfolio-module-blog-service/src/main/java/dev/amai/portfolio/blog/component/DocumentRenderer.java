@@ -18,11 +18,9 @@ public class DocumentRenderer {
     private static final String UNAVAILABLE_RESOURCE_DESTINATION = "#resource-unavailable";
 
     private final AssetQueryService assetQueryService;
-    private final DocumentConvert documentConvert;
 
-    public DocumentRenderer(AssetQueryService assetQueryService, DocumentConvert documentConvert) {
+    public DocumentRenderer(AssetQueryService assetQueryService) {
         this.assetQueryService = assetQueryService;
-        this.documentConvert = documentConvert;
     }
 
     /** 批量生成签名地址；manage 只控制来源字段投影，不赋予资源字节访问权限。 */
@@ -53,7 +51,7 @@ public class DocumentRenderer {
                                             ? ResourceStatus.FETCH_FAILED
                                             : r.status();
                             // 当前失效状态和来源可见性由此处决定；空资产字段交给生成映射统一处理。
-                            return documentConvert.toResourceVo(
+                            return DocumentConvert.MAPPER.to(
                                     r, assetResource, status, manage ? r.originalUri() : null);
                         })
                 .toList();

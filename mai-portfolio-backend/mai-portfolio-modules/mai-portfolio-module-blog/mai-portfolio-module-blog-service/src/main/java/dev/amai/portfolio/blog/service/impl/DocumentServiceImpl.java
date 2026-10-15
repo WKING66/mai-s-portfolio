@@ -24,17 +24,14 @@ public class DocumentServiceImpl implements DocumentService {
     // 混合语言正文的粗略阅读时间，仅作展示元数据，不参与发布或权限判断。
     private static final int READING_CHARACTERS_PER_MINUTE = 500;
     private final DocumentMapper documentMapper;
-    private final DocumentConvert documentConvert;
     private final DocumentVersionMapper documentVersionMapper;
     private final DocumentResourceMapper documentResourceMapper;
 
     public DocumentServiceImpl(
             DocumentMapper documentMapper,
-            DocumentConvert documentConvert,
             DocumentVersionMapper documentVersionMapper,
             DocumentResourceMapper documentResourceMapper) {
         this.documentMapper = documentMapper;
-        this.documentConvert = documentConvert;
         this.documentVersionMapper = documentVersionMapper;
         this.documentResourceMapper = documentResourceMapper;
     }
@@ -84,7 +81,7 @@ public class DocumentServiceImpl implements DocumentService {
                             documentVersion.getId())) {
                         summariesByDocument.put(
                                 documentVersion.getDocumentId(),
-                                documentConvert.toSummary(
+                                DocumentConvert.MAPPER.to(
                                         documentVersion,
                                         requested.get(documentVersion.getDocumentId()) == null
                                                 ? lockVersionsByDocument.get(
@@ -139,7 +136,7 @@ public class DocumentServiceImpl implements DocumentService {
         short readingTimeMinutes =
                 (short) Math.min(Short.MAX_VALUE, Math.max(1, roundedReadingMinutes));
         var documentVersion =
-                documentConvert.toVersion(
+                DocumentConvert.MAPPER.to(
                         document,
                         prepared,
                         title,
@@ -152,7 +149,7 @@ public class DocumentServiceImpl implements DocumentService {
         int resourceOrder = 0;
         for (var resource : prepared.resources()) {
             var documentResourceRelation =
-                    documentConvert.toRelation(
+                    DocumentConvert.MAPPER.to(
                             resource, documentVersion.getId(), BODY_RESOURCE_ROLE, resourceOrder++);
             documentResourceMapper.insert(documentResourceRelation);
         }
@@ -162,7 +159,7 @@ public class DocumentServiceImpl implements DocumentService {
                 Wrappers.<DocumentDO>lambdaUpdate()
                         .eq(DocumentDO::getId, document.getId())
                         .set(DocumentDO::getCurrentVersionId, documentVersion.getId()));
-        return documentConvert.toDocument(document, documentVersion, prepared.resources());
+        return DocumentConvert.MAPPER.to(document, documentVersion, prepared.resources());
     }
 
     @Override
@@ -183,8 +180,8 @@ public class DocumentServiceImpl implements DocumentService {
                         Wrappers.<DocumentResourceDO>lambdaQuery()
                                 .eq(DocumentResourceDO::getDocumentVersionId, versionIdPointer)
                                 .orderByAsc(DocumentResourceDO::getSortOrder));
-        return documentConvert.toDocument(
-                document, documentVersion, documentConvert.toResources(versionResources));
+        return DocumentConvert.MAPPER.to(
+                document, documentVersion, DocumentConvert.MAPPER.to(versionResources));
     }
 
     @Override
