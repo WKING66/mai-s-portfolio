@@ -20,6 +20,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -38,20 +39,45 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<R<Void>> handleValidation(MethodArgumentNotValidException exception) {
-        // 1. 仅投影现有字段错误，去重并排序，避免响应受校验执行顺序影响。
-        List<String> details =
+        return validationFailure(
                 exception.getBindingResult().getFieldErrors().stream()
                         .map(field -> field.getField() + ": " + field.getDefaultMessage())
-                        .distinct()
-                        .sorted(Comparator.naturalOrder())
-                        .toList();
-        // 2. 保留参数校验专属的 422 信封，与业务拒绝的响应边界分离。
+                        .toList());
+    }
+
+    /** MVC 原生方法校验处理 query/path 约束；只将输入约束转换为 422。 */
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<R<Void>> handleMethodValidation(HandlerMethodValidationException exception) {
+        if (exception.isForReturnValue()) {
+            // 返回值违反契约是服务端问题，不能伪装成用户输入错误。
+            return handleUnexpected(exception);
+        }
+        return validationFailure(
+                exception.getParameterValidationResults().stream()
+                        .flatMap(
+                                result ->
+                                        result.getResolvableErrors().stream()
+                                                .map(
+                                                        error ->
+                                                                result.getMethodParameter()
+                                                                                .getParameterName()
+                                                                        + ": "
+                                                                        + error
+                                                                                .getDefaultMessage()))
+                        .toList());
+    }
+
+    private ResponseEntity<R<Void>> validationFailure(List<String> details) {
+        // 两种入口校验共用字段错误信封；去重排序且不回显用户的原始输入。
         return ResponseEntity.unprocessableEntity()
                 .body(
                         R.failure(
                                 ApiErrorCode.VALIDATION_FAILED.name(),
                                 WebMessageConstants.VALIDATION_FAILED,
-                                details));
+                                details.stream()
+                                        .distinct()
+                                        .sorted(Comparator.naturalOrder())
+                                        .toList()));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

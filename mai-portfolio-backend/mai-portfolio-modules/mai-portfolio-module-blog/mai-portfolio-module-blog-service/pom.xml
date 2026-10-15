@@ -12,6 +12,14 @@
     <name>mai-portfolio-module-blog-service</name>
     <dependencies>
         <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.mapstruct</groupId>
+            <artifactId>mapstruct</artifactId>
+        </dependency>
+        <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-blog-provider</artifactId>
         </dependency>

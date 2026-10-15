@@ -14,9 +14,11 @@ public enum DocumentOrigin {
     }
 
     public static DocumentOrigin from(int code) {
-        for (var value : values())
-            if (value.code == code)
+        for (var value : values()) {
+            if (value.code == code) {
                 return value;
+            }
+        }
         throw new IllegalStateException("Invalid DocumentOrigin code");
     }
 }
