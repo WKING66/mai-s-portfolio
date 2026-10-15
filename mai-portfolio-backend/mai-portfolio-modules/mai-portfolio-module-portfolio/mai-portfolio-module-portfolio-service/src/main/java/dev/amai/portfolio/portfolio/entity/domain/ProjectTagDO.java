@@ -13,6 +13,8 @@ import lombok.Setter;
 public class ProjectTagDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private Long projectId;
+
     private Long tagId;
 }

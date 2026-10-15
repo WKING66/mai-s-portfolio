@@ -13,13 +13,22 @@ public class DocumentResourceDO {
     private Long id;
 
     private Long documentVersionId;
+
     private Long mediaId;
+
     private Integer role;
+
     private String altText;
+
     private String sourceReference;
+
     private Integer sortOrder;
+
     private String resourceKey;
+
     private Integer resourceType;
+
     private Integer sourceKind;
+
     private Integer status;
 }

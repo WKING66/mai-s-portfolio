@@ -7,9 +7,15 @@ package dev.amai.portfolio.asset.api;
  */
 public record AssetUploadRequest(
         AssetUsage usage,
+
         long uploaderAccountId,
+
         String filename,
+
         String contentType,
+
         byte[] content,
+
         Integer width,
+
         Integer height) {}

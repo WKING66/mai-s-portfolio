@@ -247,5 +247,10 @@ public class RemoteResourceFetcher implements AutoCloseable {
         httpClient.close();
     }
 
-    private record Fetch(URI redirect, String mime, byte[] bytes) {}
+    private record Fetch(
+            URI redirect,
+
+            String mime,
+
+            byte[] bytes) {}
 }

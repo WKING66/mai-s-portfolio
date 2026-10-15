@@ -5,7 +5,13 @@ import java.util.Objects;
 
 /** 单次写入的元数据与调用方持有的输入流；声明长度须与实际内容一致，存储实现负责核对。 */
 public record ObjectStorageWriteRequest(
-        String objectKey, InputStream inputStream, long byteSize, String contentType) {
+        String objectKey,
+
+        InputStream inputStream,
+
+        long byteSize,
+
+        String contentType) {
     public ObjectStorageWriteRequest {
         objectKey = ObjectStorageKeyValidator.validate(objectKey);
         Objects.requireNonNull(inputStream, StorageMessageConstants.CONTENT_REQUIRED);

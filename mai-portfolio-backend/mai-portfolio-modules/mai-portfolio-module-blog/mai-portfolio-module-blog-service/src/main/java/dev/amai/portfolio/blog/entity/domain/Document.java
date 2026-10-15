@@ -12,12 +12,19 @@ import java.util.List;
  */
 public record Document(
         long id,
+
         long versionId,
+
         long version,
+
         long lockVersion,
+
         String title,
+
         String summary,
+
         String content,
+
         List<DocumentResource> resources) {
     public Document {
         resources = List.copyOf(resources);

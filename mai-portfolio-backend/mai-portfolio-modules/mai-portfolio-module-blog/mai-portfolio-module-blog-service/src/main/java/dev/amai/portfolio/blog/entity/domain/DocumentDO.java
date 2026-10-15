@@ -13,9 +13,14 @@ public class DocumentDO {
     private Long id;
 
     private Long ownerId;
+
     private Integer originType;
+
     private Long currentVersionId;
+
     private Long lockVersion;
+
     private java.time.LocalDateTime createdAt;
+
     private java.time.LocalDateTime updatedAt;
 }

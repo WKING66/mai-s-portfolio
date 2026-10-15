@@ -24,6 +24,28 @@ public boolean exists(Long documentId) {
 
 Formatter 负责可确定的排版；补齐遗漏的大括号、语义命名、职责和必要注释仍需 Review。不能因 Formatter 通过就称这些规则已全部满足，也不通过正则替换控制流程来代替理解代码。
 
+## 数据类字段排版
+
+所有生产数据类统一执行，包括 DTO、VO、DO、跨模块传输对象、配置数据类及嵌套 record；不因使用 class 或 record 而采用两种字段排版。
+
+- 字段声明和注解不得写在同一行，每个注解单独一行，与所属字段保持相同缩进。
+- 每个字段单独声明，相邻字段之间保留一个空行；record 组件按字段处理，包括没有注解的组件。
+- 保留字段顺序、注解参数、泛型、默认值及既有业务方法；不为了排版把 record 改成普通 Bean。
+
+```java
+public record ExampleRequest(
+        @NotNull
+        @Positive
+        Long version,
+
+        @Size(max = 200)
+        String title,
+
+        boolean enabled) {}
+```
+
+当前 Google Java Format 的固定规则会合并部分 record 注解并移除组件间空行，无法通过原生选项表达上述要求。暂不更换格式化器；数据类声明以此规则和人工/语法树检查为准，不将冲突输出覆盖为新标准，也不以排除文件、关闭规则或强行宣称 Spotless 通过来掩盖冲突。后续统一格式化器前，自动重排数据类必须人工核对本节要求。
+
 ## 依赖与变量命名
 
 - 所有 Service/Mapper 类型的字段、构造器参数和局部引用使用明确的 xxxService/xxxMapper：blogService、documentMapper、userAccountMapper。禁止用 blogs、versions、mapper 等集合式或泛称表示依赖。

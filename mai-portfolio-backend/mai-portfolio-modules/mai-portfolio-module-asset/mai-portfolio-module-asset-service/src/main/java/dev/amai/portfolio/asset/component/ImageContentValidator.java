@@ -109,5 +109,13 @@ public class ImageContentValidator {
     }
 
     public record CheckedImage(
-            byte[] bytes, String mime, String extension, int width, int height) {}
+            byte[] bytes,
+
+            String mime,
+
+            String extension,
+
+            int width,
+
+            int height) {}
 }

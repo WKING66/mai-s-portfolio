@@ -14,11 +14,18 @@ public class TagDO {
     private Long id;
 
     private Integer kind;
+
     private String name;
+
     private String normalizedName;
+
     private String slug;
+
     private Integer groupCode;
+
     private String logoKey;
+
     private Integer isFeatured;
+
     private Integer sortOrder;
 }

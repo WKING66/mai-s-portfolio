@@ -3,7 +3,16 @@ package dev.amai.portfolio.common;
 import java.util.List;
 
 /** 统一响应信封；data 等字段名称是既有 JSON 契约，HTTP 状态由调用方决定。 */
-public record R<T>(String code, String message, T data, List<String> details) {
+public record R<T>(
+        String code,
+
+        String message,
+
+        T data,
+
+        List<String> details
+
+    ) {
     public static final String SUCCESS_CODE = "OK";
 
     public static <T> R<T> success(T data) {

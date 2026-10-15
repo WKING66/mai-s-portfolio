@@ -10,16 +10,29 @@ import java.util.List;
  */
 public record BlogVo(
         long id,
+
         String slug,
+
         String status,
+
         long version,
+
         long documentId,
+
         long documentVersionId,
+
         String title,
+
         String summary,
+
         String content,
+
         String previewIssue,
+
         List<DocumentResourceVo> resources,
+
         boolean allowDownload,
+
         LocalDateTime publishedAt,
+
         LocalDateTime updatedAt) {}

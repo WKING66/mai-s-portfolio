@@ -9,8 +9,17 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 /** 服务端对象存储配置；通过 Spring 配置绑定，凭据只用于构建 OSS 客户端。 */
 @ConfigurationProperties(prefix = "portfolio.media")
 public record MediaStorageProperties(
-        MediaStorageType storage, Path localDirectory, Oss oss, Duration signedUrlTtl) {
+        MediaStorageType storage,
+
+        Path localDirectory,
+
+        Oss oss,
+
+        Duration signedUrlTtl
+
+    ) {
     public static final Duration DEFAULT_SIGNED_URL_TTL = Duration.ofHours(1);
+
     private static final Path DEFAULT_LOCAL_DIRECTORY = Path.of(".local-media");
 
     public MediaStorageProperties {
@@ -26,14 +35,24 @@ public record MediaStorageProperties(
     /** OSS 客户端连接参数；超时值为 null 或非正数时使用安全默认值。 */
     public record Oss(
             String endpoint,
+
             String bucketName,
+
             String accessKeyId,
+
             String accessKeySecret,
+
             Duration connectTimeout,
+
             Duration socketTimeout,
-            int maxConnections) {
+
+            int maxConnections
+
+        ) {
         private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);
+
         private static final Duration DEFAULT_SOCKET_TIMEOUT = Duration.ofSeconds(30);
+
         private static final int DEFAULT_MAX_CONNECTIONS = 20;
 
         public Oss {

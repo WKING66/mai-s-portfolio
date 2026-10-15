@@ -15,17 +15,30 @@ public class MediaAssetDO {
     private Long id;
 
     private Integer assetType;
+
     private Integer sourceType;
+
     private String usage;
+
     private Long uploaderAccountId;
+
     private String storageKey;
+
     private String originalFilename;
+
     private String mimeType;
+
     private Long byteSize;
+
     private byte[] sha256;
+
     private Integer width;
+
     private Integer height;
+
     private Integer status;
+
     private LocalDateTime createdAt;
+
     private LocalDateTime updatedAt;
 }

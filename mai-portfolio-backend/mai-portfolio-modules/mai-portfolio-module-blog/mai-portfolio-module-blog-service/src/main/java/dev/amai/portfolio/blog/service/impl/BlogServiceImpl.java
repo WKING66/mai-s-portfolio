@@ -42,7 +42,10 @@ public class BlogServiceImpl implements BlogService {
     private final DocumentProperties documentProperties;
     private final TransactionTemplate transactionTemplate;
 
-    private record SavedDraft(BlogPostDO blog, Document document) {}
+    private record SavedDraft(
+            BlogPostDO blog,
+
+            Document document) {}
 
     public BlogServiceImpl(
             BlogPostMapper blogPostMapper,

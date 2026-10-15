@@ -13,11 +13,18 @@ public class DocumentVersionDO {
     private Long id;
 
     private Long documentId;
+
     private Long versionNumber;
+
     private String title;
+
     private String summary;
+
     private String markdownContent;
+
     private Short readingTimeMinutes;
+
     private Long createdBy;
+
     private java.time.LocalDateTime createdAt;
 }
