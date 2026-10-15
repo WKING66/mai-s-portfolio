@@ -1,6 +1,7 @@
 package dev.amai.portfolio.asset.entity.domain;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
@@ -14,7 +15,8 @@ public class MediaAssetDO {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Integer assetType;
+    @TableField("asset_type")
+    private Integer type;
 
     private Integer sourceType;
 
@@ -26,7 +28,8 @@ public class MediaAssetDO {
 
     private String originalFilename;
 
-    private String mimeType;
+    @TableField("mime_type")
+    private String contentType;
 
     private Long byteSize;
 

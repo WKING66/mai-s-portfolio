@@ -5,7 +5,6 @@ import dev.amai.portfolio.asset.api.AssetMetadataData;
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
-import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.constant.AssetMessageConstants;
 import dev.amai.portfolio.asset.convert.AssetConvert;
 import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
@@ -49,11 +48,7 @@ public class AssetQueryServiceImpl implements AssetQueryService {
                 || asset.getStatus() != MediaStatus.READY.code()) {
             return Optional.empty();
         }
-        return Optional.of(
-                AssetConvert.MAPPER.to(
-                        asset,
-                        MediaAssetType.toApiType(asset.getAssetType()),
-                        AssetUsage.valueOf(asset.getUsage())));
+        return Optional.of(AssetConvert.MAPPER.to(asset));
     }
 
     @Override
@@ -82,14 +77,14 @@ public class AssetQueryServiceImpl implements AssetQueryService {
                                 .in(MediaAssetDO::getId, ids)
                                 .eq(MediaAssetDO::getStatus, MediaStatus.READY.code())
                                 .eq(
-                                        MediaAssetDO::getAssetType,
+                                        MediaAssetDO::getType,
                                         MediaAssetType.from(expectedType).code()));
         var resourcesById = new HashMap<Long, AssetResourceData>();
         for (MediaAssetDO asset : mediaAssets) {
             if (asset.getStorageKey() == null
                     || asset.getStorageKey().isBlank()
                     || asset.getUsage() == null
-                    || asset.getMimeType() == null
+                    || asset.getContentType() == null
                     || asset.getByteSize() == null
                     || asset.getByteSize() < 1) {
                 continue;
@@ -112,11 +107,7 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             }
             resourcesById.put(
                     asset.getId(),
-                    AssetConvert.MAPPER.to(
-                            asset,
-                            expectedType,
-                            AssetUsage.valueOf(asset.getUsage()),
-                            storedObjectAccessUrl));
+                    AssetConvert.MAPPER.to(asset, storedObjectAccessUrl));
         }
         return Map.copyOf(resourcesById);
     }

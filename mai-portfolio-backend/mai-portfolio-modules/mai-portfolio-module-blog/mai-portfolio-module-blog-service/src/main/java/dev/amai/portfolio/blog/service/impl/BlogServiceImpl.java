@@ -106,7 +106,7 @@ public class BlogServiceImpl implements BlogService {
                                             blogPost, documentSummary, state(blogPost));
                                 })
                         .toList();
-        return BlogConvert.MAPPER.to(
+        return new BlogPageVo(
                 manage ? MANAGE_VIEW : PUBLIC_VIEW, page, size, blogPage.getTotal(), blogCards);
     }
 
@@ -201,9 +201,15 @@ public class BlogServiceImpl implements BlogService {
         var prepared =
                 documentResourceResolver.prepare(
                         parsed.content(), Map.of(), parsed.resources(), rights, accountId);
-        var request =
-                BlogConvert.MAPPER.to(
-                        prepared, StrUtil.subPre(parsed.title(), MAX_TITLE_LENGTH), true, rights);
+        // 导入草稿的缺省值属于创建流程，不作为通用对象转换规则。
+        var request = new BlogRequest(
+                null,
+                "",
+                StrUtil.subPre(parsed.title(), MAX_TITLE_LENGTH),
+                "",
+                prepared.content(),
+                true,
+                rights);
         return persist(null, request, prepared, parsed.origin().code(), accountId);
     }
 

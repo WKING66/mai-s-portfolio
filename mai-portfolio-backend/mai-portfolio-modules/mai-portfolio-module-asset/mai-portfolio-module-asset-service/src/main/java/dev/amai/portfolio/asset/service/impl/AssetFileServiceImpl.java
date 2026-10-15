@@ -96,7 +96,7 @@ public class AssetFileServiceImpl implements AssetFileService {
                     content.inputStream(),
                     content.byteSize(),
                     asset.getOriginalFilename(),
-                    asset.getMimeType());
+                    asset.getContentType());
         } catch (RuntimeException failure) {
             LOG.warn(
                     "Asset read failed, assetId={}, failureType={}",

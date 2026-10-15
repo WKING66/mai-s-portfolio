@@ -6,9 +6,7 @@ import dev.amai.portfolio.portfolio.entity.domain.ProjectLinkDO;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectMediaDO;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectCoverVo;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectEditorVo;
-import dev.amai.portfolio.portfolio.entity.vo.ProjectItemVo;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectLinkVo;
-import dev.amai.portfolio.portfolio.entity.vo.ProjectPageVo;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectTagVo;
 import dev.amai.portfolio.portfolio.entity.vo.PublicProjectLinkVo;
 import dev.amai.portfolio.portfolio.entity.vo.PublicProjectVo;
@@ -53,6 +51,4 @@ public interface ProjectConvert {
             String status,
             boolean featured,
             ProjectCoverVo cover);
-
-    ProjectPageVo to(String view, int page, int size, long total, List<ProjectItemVo> items);
 }
