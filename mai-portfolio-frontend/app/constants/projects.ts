@@ -1,7 +1,8 @@
 /** 项目与前端鉴权的统一提示、分页和路径。 */
 export const PROJECT_MESSAGES = {
   coverLabel: '项目封面（可选）',
-  coverHint: '上传真实项目截图或封面：PNG/JPG，最大 8 MB，宽高不超过 4096 像素。上传后保存项目才会生效。',
+  coverHint:
+    '上传真实项目截图或封面：PNG/JPG，最大 8 MB，宽高不超过 4096 像素。上传后保存项目才会生效。',
   coverUpload: '选择并上传图片',
   coverUploading: '正在上传…',
   coverRemove: '移除封面',
@@ -29,4 +30,9 @@ export const PROJECT_PAGE_SIZE = 12
 export const HOME_PROJECT_LIMIT = 4
 export const PROJECT_PATH = '/api/v1/projects'
 export const PROJECT_COVER_MAX_BYTES = 8 * 1024 * 1024
-export const PROJECT_LINK_LABELS = { CODE: '代码仓库', DEMO: '在线演示', DOCUMENTATION: '项目文档', OTHER: '外部入口' } as const
+export const PROJECT_LINK_LABELS = {
+  CODE: '代码仓库',
+  DEMO: '在线演示',
+  DOCUMENTATION: '项目文档',
+  OTHER: '外部入口',
+} as const
