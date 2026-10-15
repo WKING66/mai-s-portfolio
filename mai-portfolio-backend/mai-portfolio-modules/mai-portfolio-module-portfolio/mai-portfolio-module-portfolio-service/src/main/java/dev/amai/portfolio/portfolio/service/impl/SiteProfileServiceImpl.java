@@ -66,17 +66,17 @@ public class SiteProfileServiceImpl implements SiteProfileService {
         // TIMESTAMP(3) 是并发令牌；同一毫秒内连续提交也必须产生不同的值。
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MILLIS);
         LocalDateTime updatedAt = now.isAfter(existing.getUpdatedAt())
-            ? now : existing.getUpdatedAt().plus(1, ChronoUnit.MILLIS);
+                ? now : existing.getUpdatedAt().plus(1, ChronoUnit.MILLIS);
         // 3. 在一个数据库事务中 CAS 更新文本；不修改头像、简历或外部 OSS 对象。
         int changed = siteConfigMapper.update(null, Wrappers.<SiteConfigDO>lambdaUpdate()
-            .eq(SiteConfigDO::getId, existing.getId())
-            .eq(SiteConfigDO::getUpdatedAt, request.updatedAt())
-            .set(SiteConfigDO::getDisplayName, request.displayName().trim())
-            .set(SiteConfigDO::getHeadline, request.headline().trim())
-            .set(SiteConfigDO::getIntro, request.intro().trim())
-            .set(SiteConfigDO::getGithubUrl, githubUrl)
-            .set(SiteConfigDO::getEmail, email)
-            .set(SiteConfigDO::getUpdatedAt, updatedAt));
+                .eq(SiteConfigDO::getId, existing.getId())
+                .eq(SiteConfigDO::getUpdatedAt, request.updatedAt())
+                .set(SiteConfigDO::getDisplayName, request.displayName().trim())
+                .set(SiteConfigDO::getHeadline, request.headline().trim())
+                .set(SiteConfigDO::getIntro, request.intro().trim())
+                .set(SiteConfigDO::getGithubUrl, githubUrl)
+                .set(SiteConfigDO::getEmail, email)
+                .set(SiteConfigDO::getUpdatedAt, updatedAt));
         if (changed != 1) {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, WebMessageConstants.DATA_CONFLICT);
         }
@@ -98,8 +98,8 @@ public class SiteProfileServiceImpl implements SiteProfileService {
         AssetResourceData avatar = assetQueryService.findReady(profile.getAvatarMediaId(), AssetType.IMAGE).orElse(null);
         AssetResourceData resume = assetQueryService.findReady(profile.getResumeMediaId(), AssetType.DOCUMENT).orElse(null);
         List<TechTagVo> techStack = taxonomyQueryService.featuredTechTags().stream()
-            .map(SiteProfileConvert.MAPPER::to)
-            .toList();
+                .map(SiteProfileConvert.MAPPER::to)
+                .toList();
         return SiteProfileConvert.MAPPER.to(
                 profile,
                 avatar == null ? null : avatar.resourceUrl(),
