@@ -5,5 +5,4 @@ import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
-public interface MediaAssetMapper extends BaseMapper<MediaAssetDO> {
-}
+public interface MediaAssetMapper extends BaseMapper<MediaAssetDO> {}

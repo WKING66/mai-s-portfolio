@@ -17,8 +17,20 @@ public enum AssetUsage {
         this.maxBytes = maxBytes;
         this.maxDimension = maxDimension;
     }
-    public AssetType assetType() { return assetType; }
-    public String objectPrefix() { return objectPrefix; }
-    public int maxBytes() { return maxBytes; }
-    public int maxDimension() { return maxDimension; }
+
+    public AssetType assetType() {
+        return assetType;
+    }
+
+    public String objectPrefix() {
+        return objectPrefix;
+    }
+
+    public int maxBytes() {
+        return maxBytes;
+    }
+
+    public int maxDimension() {
+        return maxDimension;
+    }
 }

@@ -3,50 +3,54 @@ package dev.amai.portfolio.asset.service.impl;
 import static dev.amai.portfolio.asset.constant.AssetPolicy.MAX_FILENAME_LENGTH;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-
 import dev.amai.portfolio.asset.api.*;
 import dev.amai.portfolio.asset.component.ImageContentValidator;
+import dev.amai.portfolio.asset.constant.AssetMessageConstants;
 import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
 import dev.amai.portfolio.asset.enums.MediaStatus;
 import dev.amai.portfolio.asset.mapper.MediaAssetMapper;
 import dev.amai.portfolio.storage.ObjectStorage;
 import dev.amai.portfolio.web.exception.*;
-
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 import org.springframework.http.MediaType;
-
-import java.util.Set;
+import org.springframework.stereotype.Service;
 
 /** 文档导入等服务端调用复用统一文件校验、上传、读取及失败补偿，不建立第二套 OSS 生命周期。 */
 @Service
 public class AssetFileServiceImpl implements AssetFileService {
     private static final Logger LOG = LoggerFactory.getLogger(AssetFileServiceImpl.class);
-    private final ImageContentValidator images;
-    private final AssetUploadComponent uploads;
-    private final MediaAssetMapper assets;
-    private final ObjectStorage storage;
+    private final ImageContentValidator imageContentValidator;
+    private final AssetUploadComponent assetUploadComponent;
+    private final MediaAssetMapper mediaAssetMapper;
+    private final ObjectStorage objectStorage;
 
     public AssetFileServiceImpl(
-            ImageContentValidator images,
-            AssetUploadComponent uploads,
-            MediaAssetMapper assets,
-            ObjectStorage storage) {
-        this.images = images;
-        this.uploads = uploads;
-        this.assets = assets;
-        this.storage = storage;
+            ImageContentValidator imageContentValidator,
+            AssetUploadComponent assetUploadComponent,
+            MediaAssetMapper mediaAssetMapper,
+            ObjectStorage objectStorage) {
+        this.imageContentValidator = imageContentValidator;
+        this.assetUploadComponent = assetUploadComponent;
+        this.mediaAssetMapper = mediaAssetMapper;
+        this.objectStorage = objectStorage;
     }
 
     @Override
     public long upload(
             AssetUsage usage, long uploader, String filename, String contentType, byte[] bytes) {
-        if (usage == null || bytes == null || bytes.length == 0 || bytes.length > usage.maxBytes())
+        // 1. 校验用途与字节上限；内存命令不从路径推断权限或文件用途。
+        if (usage == null
+                || bytes == null
+                || bytes.length == 0
+                || bytes.length > usage.maxBytes()) {
             throw invalid();
+        }
         AssetUploadRequest request;
+        // 2. 图片解码重编码；附件只保留安全文件名，使用通用下载 MIME。
         if (usage.assetType() == AssetType.IMAGE) {
-            var image = images.inspect(bytes, contentType, usage);
+            var image = imageContentValidator.inspect(bytes, contentType, usage);
             request =
                     new AssetUploadRequest(
                             usage,
@@ -61,22 +65,33 @@ public class AssetFileServiceImpl implements AssetFileService {
             name = name.substring(name.lastIndexOf('/') + 1).strip();
             if (name.isEmpty()
                     || name.length() > MAX_FILENAME_LENGTH
-                    || name.codePoints().anyMatch(Character::isISOControl)) throw invalid();
+                    || name.codePoints().anyMatch(Character::isISOControl)) {
+                throw invalid();
+            }
             request =
                     new AssetUploadRequest(
-                            usage, uploader, name, MediaType.APPLICATION_OCTET_STREAM_VALUE, bytes, null, null);
+                            usage,
+                            uploader,
+                            name,
+                            MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                            bytes,
+                            null,
+                            null);
         }
-        return uploads.upload(request);
+        // 3. 所有用途复用同一 PENDING/READY 生命周期，不各自实现 OSS 上传。
+        return assetUploadComponent.upload(request);
     }
 
-    @Override
     /** 供已完成业务授权的导出调用；调用方必须关闭返回流，普通展示只使用 AssetQueryService。 */
+    @Override
     public AssetFileContent openReady(long id) {
-        var asset = assets.selectById(id);
-        if (asset == null || asset.getStatus() != MediaStatus.READY.code())
-            throw new ApiException(ApiErrorCode.NOT_FOUND, "资源不存在或尚未就绪");
+        var asset = mediaAssetMapper.selectById(id);
+        if (asset == null || asset.getStatus() != MediaStatus.READY.code()) {
+            throw new ApiException(
+                    ApiErrorCode.NOT_FOUND, AssetMessageConstants.FILE_CONTENT_NOT_FOUND);
+        }
         try {
-            var content = storage.open(asset.getStorageKey());
+            var content = objectStorage.open(asset.getStorageKey());
             return new AssetFileContent(
                     content.inputStream(),
                     content.byteSize(),
@@ -87,24 +102,30 @@ public class AssetFileServiceImpl implements AssetFileService {
                     "Asset read failed, assetId={}, failureType={}",
                     id,
                     failure.getClass().getSimpleName());
-            throw new ApiException(ApiErrorCode.INTERNAL_ERROR, "资源读取失败，请重试");
+            throw new ApiException(
+                    ApiErrorCode.INTERNAL_ERROR, AssetMessageConstants.FILE_READ_FAILED);
         }
     }
 
     @Override
     public void discardUnbound(Set<Long> ids, long uploader) {
+        // 逐项尽力清理，单项失败只记安全摘要，不扩大为整个导入补偿失败。
         for (long id : ids) {
             try {
-                var asset = assets.selectById(id);
+                var asset = mediaAssetMapper.selectById(id);
                 if (asset == null
-                        || !java.util.Objects.equals(asset.getUploaderAccountId(), uploader))
+                        || !java.util.Objects.equals(asset.getUploaderAccountId(), uploader)) {
                     continue;
+                }
                 // 先删除数据库记录；任何已绑定资源会被 FK 拒绝，不能先删除 OSS。
-                if (assets.delete(
+                if (mediaAssetMapper.delete(
                                 Wrappers.<MediaAssetDO>lambdaQuery()
                                         .eq(MediaAssetDO::getId, id)
                                         .eq(MediaAssetDO::getUploaderAccountId, uploader))
-                        == 1) storage.delete(asset.getStorageKey());
+                        == 1) {
+                    // 数据库删除成功后才删除对象；OSS 失败可能留下孤儿对象，不恢复元数据。
+                    objectStorage.delete(asset.getStorageKey());
+                }
             } catch (RuntimeException failure) {
                 LOG.warn(
                         "Unbound asset cleanup failed, assetId={}, failureType={}",
@@ -115,6 +136,7 @@ public class AssetFileServiceImpl implements AssetFileService {
     }
 
     private ApiException invalid() {
-        return new ApiException(ApiErrorCode.VALIDATION_FAILED, "文件为空、过大或元数据无效");
+        return new ApiException(
+                ApiErrorCode.VALIDATION_FAILED, AssetMessageConstants.FILE_METADATA_INVALID);
     }
 }
