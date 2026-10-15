@@ -1,7 +1,6 @@
 package dev.amai.portfolio.blog.entity.domain;
 
 import com.baomidou.mybatisplus.annotation.*;
-
 import lombok.Getter;
 import lombok.Setter;
 

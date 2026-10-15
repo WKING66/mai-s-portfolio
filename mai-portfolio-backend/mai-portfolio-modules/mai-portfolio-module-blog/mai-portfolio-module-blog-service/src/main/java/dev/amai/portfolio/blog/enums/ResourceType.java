@@ -14,7 +14,11 @@ public enum ResourceType {
     }
 
     public static ResourceType from(int code) {
-        for (var value : values()) if (value.code == code) return value;
+        for (var value : values()) {
+            if (value.code == code) {
+                return value;
+            }
+        }
         throw new IllegalStateException("Invalid ResourceType code");
     }
 }

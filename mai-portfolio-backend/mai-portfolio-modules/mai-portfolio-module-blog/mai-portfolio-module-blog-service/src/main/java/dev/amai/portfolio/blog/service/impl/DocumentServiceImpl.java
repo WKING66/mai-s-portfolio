@@ -3,57 +3,63 @@ package dev.amai.portfolio.blog.service.impl;
 import static dev.amai.portfolio.blog.constant.DocumentPolicy.*;
 import static org.springframework.transaction.annotation.Isolation.REPEATABLE_READ;
 
+import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-
+import dev.amai.portfolio.blog.convert.DocumentConvert;
 import dev.amai.portfolio.blog.entity.domain.*;
 import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.blog.mapper.*;
 import dev.amai.portfolio.blog.service.DocumentService;
 import dev.amai.portfolio.web.exception.*;
-
+import java.time.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.*;
 
 /** 持久化文档身份、不可变内容版本及版本资源关系；博客发布指针由 BlogService 管理。 */
 @Service
 public class DocumentServiceImpl implements DocumentService {
     // 混合语言正文的粗略阅读时间，仅作展示元数据，不参与发布或权限判断。
     private static final int READING_CHARACTERS_PER_MINUTE = 500;
-    private final DocumentMapper documents;
-    private final DocumentVersionMapper versions;
-    private final DocumentResourceMapper resources;
+    private final DocumentMapper documentMapper;
+    private final DocumentVersionMapper documentVersionMapper;
+    private final DocumentResourceMapper documentResourceMapper;
 
     public DocumentServiceImpl(
-            DocumentMapper documents,
-            DocumentVersionMapper versions,
-            DocumentResourceMapper resources) {
-        this.documents = documents;
-        this.versions = versions;
-        this.resources = resources;
+            DocumentMapper documentMapper,
+            DocumentVersionMapper documentVersionMapper,
+            DocumentResourceMapper documentResourceMapper) {
+        this.documentMapper = documentMapper;
+        this.documentVersionMapper = documentVersionMapper;
+        this.documentResourceMapper = documentResourceMapper;
     }
 
     @Override
-    public java.util.Map<Long, DocumentSummary> summaries(java.util.Map<Long, Long> requested) {
+    public Map<Long, DocumentSummary> summaries(Map<Long, Long> requested) {
         // null 指针读取当前草稿，明确的版本 ID 读取公开快照；列表只取摘要字段，不加载正文。
-        if (requested.isEmpty()) return java.util.Map.of();
-        var docs =
-                documents.selectList(
+        if (requested.isEmpty()) {
+            return Map.of();
+        }
+        var documentIdentities =
+                documentMapper.selectList(
                         Wrappers.<DocumentDO>lambdaQuery()
                                 .in(DocumentDO::getId, requested.keySet()));
-        java.util.Map<Long, Long> pointers = new java.util.HashMap<>();
-        docs.forEach(
-                d ->
-                        pointers.put(
-                                d.getId(),
-                                requested.get(d.getId()) == null
-                                        ? d.getCurrentVersionId()
-                                        : requested.get(d.getId())));
-        var ids = pointers.values().stream().filter(java.util.Objects::nonNull).toList();
-        if (ids.isEmpty()) return java.util.Map.of();
-        var rows =
-                versions.selectList(
+        Map<Long, Long> versionIdsByDocument = new HashMap<>();
+        documentIdentities.forEach(
+                documentIdentity ->
+                        versionIdsByDocument.put(
+                                documentIdentity.getId(),
+                                ObjectUtil.defaultIfNull(
+                                        requested.get(documentIdentity.getId()),
+                                        documentIdentity.getCurrentVersionId())));
+        var versionIds = versionIdsByDocument.values().stream().filter(Objects::nonNull).toList();
+        if (versionIds.isEmpty()) {
+            return Map.of();
+        }
+        var documentVersions =
+                documentVersionMapper.selectList(
                         Wrappers.<DocumentVersionDO>lambdaQuery()
                                 .select(
                                         DocumentVersionDO::getId,
@@ -61,37 +67,43 @@ public class DocumentServiceImpl implements DocumentService {
                                         DocumentVersionDO::getVersionNumber,
                                         DocumentVersionDO::getTitle,
                                         DocumentVersionDO::getSummary)
-                                .in(DocumentVersionDO::getId, ids));
-        java.util.Map<Long, Long> locks = new java.util.HashMap<>();
-        docs.forEach(d -> locks.put(d.getId(), d.getLockVersion()));
-        java.util.Map<Long, DocumentSummary> result = new java.util.HashMap<>();
-        rows.forEach(
-                v -> {
-                    if (java.util.Objects.equals(pointers.get(v.getDocumentId()), v.getId()))
-                        result.put(
-                                v.getDocumentId(),
-                                new DocumentSummary(
-                                        v.getDocumentId(),
-                                        requested.get(v.getDocumentId()) == null
-                                                ? locks.get(v.getDocumentId())
-                                                : v.getVersionNumber(),
-                                        v.getTitle(),
-                                        v.getSummary()));
+                                .in(DocumentVersionDO::getId, versionIds));
+        Map<Long, Long> lockVersionsByDocument = new HashMap<>();
+        documentIdentities.forEach(
+                documentIdentity ->
+                        lockVersionsByDocument.put(
+                                documentIdentity.getId(), documentIdentity.getLockVersion()));
+        Map<Long, DocumentSummary> summariesByDocument = new HashMap<>();
+        documentVersions.forEach(
+                documentVersion -> {
+                    if (Objects.equals(
+                            versionIdsByDocument.get(documentVersion.getDocumentId()),
+                            documentVersion.getId())) {
+                        summariesByDocument.put(
+                                documentVersion.getDocumentId(),
+                                DocumentConvert.MAPPER.to(
+                                        documentVersion,
+                                        requested.get(documentVersion.getDocumentId()) == null
+                                                ? lockVersionsByDocument.get(
+                                                        documentVersion.getDocumentId())
+                                                : documentVersion.getVersionNumber()));
+                    }
                 });
-        return result;
+        return summariesByDocument;
     }
 
     @Override
     @Transactional
     public Document create(
             long owner, int origin, String title, String summary, PreparedDocument prepared) {
+        // 1. 创建文档身份及初始锁版本；身份、正文版本和资源关系由同一事务提交。
         var document = new DocumentDO();
         document.setOwnerId(owner);
         document.setOriginType(origin);
         document.setLockVersion(INITIAL_VERSION);
         document.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
         document.setUpdatedAt(document.getCreatedAt());
-        documents.insert(document);
+        documentMapper.insert(document);
         return persist(document, title, summary, prepared, owner);
     }
 
@@ -116,94 +128,60 @@ public class DocumentServiceImpl implements DocumentService {
             String summary,
             PreparedDocument prepared,
             long editor) {
-        var version = new DocumentVersionDO();
-        version.setDocumentId(document.getId());
-        version.setVersionNumber(document.getLockVersion());
-        version.setTitle(title);
-        version.setSummary(summary);
-        version.setMarkdownContent(prepared.content());
-        version.setReadingTimeMinutes(
-                (short)
-                        Math.min(
-                                Short.MAX_VALUE,
-                                Math.max(
-                                        1,
-                                        (prepared.content()
-                                                                .codePointCount(
-                                                                        0,
-                                                                        prepared.content().length())
-                                                        + READING_CHARACTERS_PER_MINUTE
-                                                        - 1)
-                                                / READING_CHARACTERS_PER_MINUTE)));
-        version.setCreatedBy(editor);
-        version.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
-        versions.insert(version);
-        int order = 0;
-        for (var r : prepared.resources()) {
-            var row = new DocumentResourceDO();
-            row.setDocumentVersionId(version.getId());
-            row.setMediaId(r.assetId());
-            row.setRole(BODY_RESOURCE_ROLE);
-            row.setResourceKey(r.key());
-            row.setResourceType(r.type().code());
-            row.setSourceKind(r.source().code());
-            row.setSourceReference(r.originalUri());
-            row.setStatus(r.status().code());
-            row.setSortOrder(order++);
-            resources.insert(row);
+        // 1. 新增不可变正文快照，不原地修改旧版本内容。
+        int contentCodePoints = prepared.content().codePointCount(0, prepared.content().length());
+        int roundedReadingMinutes =
+                (contentCodePoints + READING_CHARACTERS_PER_MINUTE - 1)
+                        / READING_CHARACTERS_PER_MINUTE;
+        short readingTimeMinutes =
+                (short) Math.min(Short.MAX_VALUE, Math.max(1, roundedReadingMinutes));
+        var documentVersion =
+                DocumentConvert.MAPPER.to(
+                        document,
+                        prepared,
+                        title,
+                        summary,
+                        editor,
+                        readingTimeMinutes,
+                        LocalDateTime.now(ZoneOffset.UTC));
+        documentVersionMapper.insert(documentVersion);
+        // 2. 按准备结果写入该版本独立的资源关系，失败关系允许不绑定 Asset。
+        int resourceOrder = 0;
+        for (var resource : prepared.resources()) {
+            var documentResourceRelation =
+                    DocumentConvert.MAPPER.to(
+                            resource, documentVersion.getId(), BODY_RESOURCE_ROLE, resourceOrder++);
+            documentResourceMapper.insert(documentResourceRelation);
         }
-        // 文档版本与全部资源关系写入后才切换 current_version_id，统一处于调用方事务中。
-        documents.update(
+        // 3. 文档版本与全部资源关系写入后才切换 current_version_id，统一处于调用方事务中。
+        documentMapper.update(
                 null,
                 Wrappers.<DocumentDO>lambdaUpdate()
                         .eq(DocumentDO::getId, document.getId())
-                        .set(DocumentDO::getCurrentVersionId, version.getId()));
-        return new Document(
-                document.getId(),
-                version.getId(),
-                version.getVersionNumber(),
-                document.getLockVersion(),
-                title,
-                summary,
-                prepared.content(),
-                prepared.resources());
+                        .set(DocumentDO::getCurrentVersionId, documentVersion.getId()));
+        return DocumentConvert.MAPPER.to(document, documentVersion, prepared.resources());
     }
 
     @Override
-    @Transactional(
-            readOnly = true,
-            isolation = REPEATABLE_READ)
+    @Transactional(readOnly = true, isolation = REPEATABLE_READ)
     public Document read(long id, Long versionId) {
         // 可重复读保证身份指针、版本和资源关系来自同一个数据库快照。
         var document = required(id);
-        Long pointer = versionId == null ? document.getCurrentVersionId() : versionId;
-        var v = pointer == null ? null : versions.selectById(pointer);
-        if (v == null || !v.getDocumentId().equals(id))
+        Long versionIdPointer = ObjectUtil.defaultIfNull(versionId, document.getCurrentVersionId());
+        var documentVersion =
+                versionIdPointer == null
+                        ? null
+                        : documentVersionMapper.selectById(versionIdPointer);
+        if (documentVersion == null || !documentVersion.getDocumentId().equals(id)) {
             throw new ApiException(ApiErrorCode.NOT_FOUND, "文档版本不存在");
-        var rows =
-                resources.selectList(
+        }
+        var versionResources =
+                documentResourceMapper.selectList(
                         Wrappers.<DocumentResourceDO>lambdaQuery()
-                                .eq(DocumentResourceDO::getDocumentVersionId, pointer)
+                                .eq(DocumentResourceDO::getDocumentVersionId, versionIdPointer)
                                 .orderByAsc(DocumentResourceDO::getSortOrder));
-        return new Document(
-                id,
-                v.getId(),
-                v.getVersionNumber(),
-                document.getLockVersion(),
-                v.getTitle(),
-                v.getSummary(),
-                v.getMarkdownContent(),
-                rows.stream()
-                        .map(
-                                r ->
-                                        new DocumentResource(
-                                                r.getResourceKey(),
-                                                ResourceType.from(r.getResourceType()),
-                                                ResourceSource.from(r.getSourceKind()),
-                                                r.getSourceReference(),
-                                                r.getMediaId(),
-                                                ResourceStatus.from(r.getStatus())))
-                        .toList());
+        return DocumentConvert.MAPPER.to(
+                document, documentVersion, DocumentConvert.MAPPER.to(versionResources));
     }
 
     @Override
@@ -215,20 +193,23 @@ public class DocumentServiceImpl implements DocumentService {
     @Transactional
     public void advanceLock(long id, long expected) {
         // 保存、发布和下架共用 CAS；发布会增加锁计数，但不产生新的正文版本。
-        if (documents.update(
+        if (documentMapper.update(
                         null,
                         Wrappers.<DocumentDO>lambdaUpdate()
                                 .eq(DocumentDO::getId, id)
                                 .eq(DocumentDO::getLockVersion, expected)
                                 .set(DocumentDO::getLockVersion, expected + 1)
                                 .set(DocumentDO::getUpdatedAt, LocalDateTime.now(ZoneOffset.UTC)))
-                != 1)
+                != 1) {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, "文档已被修改，请重新读取后保存");
+        }
     }
 
     private DocumentDO required(long id) {
-        var row = documents.selectById(id);
-        if (row == null) throw new ApiException(ApiErrorCode.NOT_FOUND, "文档不存在");
-        return row;
+        var documentIdentity = documentMapper.selectById(id);
+        if (documentIdentity == null) {
+            throw new ApiException(ApiErrorCode.NOT_FOUND, "文档不存在");
+        }
+        return documentIdentity;
     }
 }

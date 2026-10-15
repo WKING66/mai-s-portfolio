@@ -25,8 +25,9 @@ public record DocumentResource(
                 || status == null
                 || originalUri != null && originalUri.length() > MAX_RESOURCE_URI_LENGTH
                 || status == ResourceStatus.READY && (assetId == null || assetId < 1)
-                || status != ResourceStatus.READY && assetId != null)
+                || status != ResourceStatus.READY && assetId != null) {
             throw new IllegalArgumentException("Invalid document resource");
+        }
     }
 
     public String reference() {

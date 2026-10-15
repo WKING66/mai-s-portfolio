@@ -3,50 +3,56 @@ package dev.amai.portfolio.blog.controller;
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
 
 import cn.dev33.satoken.annotation.*;
-
+import cn.hutool.core.collection.CollUtil;
 import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.service.*;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.api.AuthConstants;
-
+import dev.amai.portfolio.validation.ValidationGroups;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-
 import jakarta.validation.Valid;
-
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import java.util.List;
 import org.springframework.http.*;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
-
-import java.util.List;
 
 /** HTTP 参数与响应适配；权限/版本/资源规则由认证层及业务服务承担。 */
 @RestController
 @RequestMapping("/api/v1/blogs")
 @Tag(name = "博客")
 public class BlogController {
-    private final BlogService blogs;
-    private final DocumentExportService exports;
+    private final BlogService blogService;
+    private final DocumentExportService documentExportService;
 
-    public BlogController(BlogService blogs, DocumentExportService exports) {
-        this.blogs = blogs;
-        this.exports = exports;
+    public BlogController(BlogService blogService, DocumentExportService documentExportService) {
+        this.blogService = blogService;
+        this.documentExportService = documentExportService;
     }
 
     @GetMapping
     @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取公开版本；MANAGE 需要 OWNER，读取草稿投影。")
     public ResponseEntity<R<BlogPageVo>> list(
             @RequestParam(defaultValue = PUBLIC_VIEW) String view,
-            @RequestParam(defaultValue = DEFAULT_PAGE) int page,
-            @RequestParam(defaultValue = DEFAULT_PAGE_SIZE) int size) {
+            @Min(value = 1, message = "页码必须大于等于 {value}")
+                    @Max(value = MAX_PAGE_NUMBER, message = "页码不能超过 {value}")
+                    @RequestParam(defaultValue = DEFAULT_PAGE)
+                    int page,
+            @Min(value = 1, message = "每页条数必须大于等于 {value}")
+                    @Max(value = MAX_PAGE_SIZE, message = "每页条数不能超过 {value}")
+                    @RequestParam(defaultValue = DEFAULT_PAGE_SIZE)
+                    int size) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(R.success(blogs.list(view, page, size)));
+                .body(R.success(blogService.list(view, page, size)));
     }
 
     @GetMapping("/by-slug/{slug}")
@@ -54,7 +60,7 @@ public class BlogController {
     public ResponseEntity<R<BlogVo>> article(@PathVariable String slug) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(R.success(blogs.publicArticle(slug)));
+                .body(R.success(blogService.publicArticle(slug)));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -62,7 +68,7 @@ public class BlogController {
     @GetMapping("/{id}")
     @Operation(summary = "读取博客编辑快照")
     public R<BlogVo> get(@PathVariable long id) {
-        return R.success(blogs.get(id));
+        return R.success(blogService.get(id));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -75,8 +81,8 @@ public class BlogController {
                             name = AuthConstants.CSRF_HEADER_NAME,
                             in = ParameterIn.HEADER,
                             required = true))
-    public R<BlogVo> create(@RequestBody BlogRequest input) {
-        return R.success(blogs.save(null, input));
+    public R<BlogVo> create(@Valid @RequestBody BlogRequest input) {
+        return R.success(blogService.save(null, input));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -90,8 +96,10 @@ public class BlogController {
                             name = AuthConstants.CSRF_HEADER_NAME,
                             in = ParameterIn.HEADER,
                             required = true))
-    public R<BlogVo> save(@PathVariable long id, @RequestBody BlogRequest input) {
-        return R.success(blogs.save(id, input));
+    public R<BlogVo> save(
+            @PathVariable long id,
+            @Validated(ValidationGroups.Update.class) @RequestBody BlogRequest input) {
+        return R.success(blogService.save(id, input));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -110,7 +118,8 @@ public class BlogController {
             @RequestPart(required = false) List<MultipartFile> resources,
             @RequestParam(defaultValue = "false") boolean remoteRightsConfirmed) {
         return R.success(
-                blogs.importDocument(file, resources == null ? List.of() : resources, remoteRightsConfirmed));
+                blogService.importDocument(
+                        file, CollUtil.emptyIfNull(resources), remoteRightsConfirmed));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -124,7 +133,7 @@ public class BlogController {
                             in = ParameterIn.HEADER,
                             required = true))
     public R<BlogVo> publish(@PathVariable long id, @Valid @RequestBody BlogVersionRequest input) {
-        return R.success(blogs.publish(id, input.version(), true));
+        return R.success(blogService.publish(id, input.version(), true));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -139,7 +148,7 @@ public class BlogController {
                             required = true))
     public R<BlogVo> unpublish(
             @PathVariable long id, @Valid @RequestBody BlogVersionRequest input) {
-        return R.success(blogs.publish(id, input.version(), false));
+        return R.success(blogService.publish(id, input.version(), false));
     }
 
     @SaCheckLogin
@@ -156,17 +165,19 @@ public class BlogController {
             @RequestParam(defaultValue = "false") boolean includeResources) {
         // 权限和资源就绪检查在提交响应前完成；writer 只在异步线程向容器输出流写数据。
         // Sa-Token 请求上下文由 Security starter 为 REQUEST/ASYNC 绑定，不跨线程复制上下文。
-        var plan = exports.prepare(blogs.exportDocument(id, view), includeResources);
+        var exportPlan =
+                documentExportService.prepare(
+                        blogService.exportDocument(id, view), includeResources);
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .contentType(MediaType.parseMediaType(plan.contentType()))
+                .contentType(MediaType.parseMediaType(exportPlan.contentType()))
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment()
-                                .filename(plan.filename())
+                                .filename(exportPlan.filename())
                                 .build()
                                 .toString())
                 .header("X-Content-Type-Options", "nosniff")
-                .body(plan.writer()::write);
+                .body(exportPlan.writer()::write);
     }
 }
