@@ -113,7 +113,7 @@ function preservedMath(block: boolean) {
 }
 
 // DOM 恢复规则与占位渲染成对维护，保证输入法重读段落时仍能恢复稳定资源身份。
-const StableImage = Image.extend({
+export const StableImage = Image.extend({
   parseHTML() {
     return [
       {

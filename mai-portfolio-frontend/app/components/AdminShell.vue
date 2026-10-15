@@ -4,7 +4,7 @@ import { useRoute } from '#app'
 import { AUTH_ACCESS, AUTH_MESSAGES } from '../constants/auth'
 import { ADMIN_NAVIGATION, ADMIN_PATHS } from '../constants/admin'
 
-defineProps<{ title: string; description: string }>()
+defineProps<{ title: string; description: string; wide?: boolean }>()
 const route = useRoute()
 const activePage = computed(() => {
   if (route.path.startsWith(ADMIN_PATHS.blogs)) {
@@ -22,7 +22,7 @@ const activePage = computed(() => {
 
 <template>
   <div>
-    <main class="site-container site-page">
+    <main class="site-container site-page" :class="{ 'admin-wide': wide }">
       <Auth :access="AUTH_ACCESS.OWNER">
         <!-- 统一在框架内挂载业务组件，权限撤销时销毁管理快照和未保存表单。 -->
         <div class="admin-workspace grid items-start gap-8">
@@ -77,6 +77,31 @@ const activePage = computed(() => {
     border-bottom: 0;
     border-right: 1px solid var(--site-line);
     padding: 0 1.5rem 0 0;
+  }
+}
+.admin-wide {
+  max-width: 100rem;
+  padding-top: 1.5rem;
+}
+.admin-wide .admin-workspace {
+  gap: 1.25rem;
+}
+.admin-wide header {
+  margin-bottom: 1.5rem;
+}
+.admin-wide header .eyebrow {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .admin-wide .admin-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-wide .admin-navigation {
+    position: static;
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid var(--site-line);
+    padding: 0 0 1rem;
   }
 }
 </style>

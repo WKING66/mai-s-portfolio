@@ -10,7 +10,7 @@ if (!Number.isSafeInteger(blogPostId) || blogPostId < 1) {
 }
 </script>
 <template>
-  <AdminShell title="编辑博客" description="编辑内容与资源，保存草稿后再发布。">
+  <AdminShell wide title="编辑博客" description="编辑内容与资源，保存草稿后再发布。">
     <BlogEditor :id="blogPostId" />
   </AdminShell>
 </template>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { useBlogApi, type Blog } from '../api/blogs'
-import BlogRenderer from './blog/BlogRenderer.vue'
+import { useBlogApi, type Blog, type DocumentResource } from '../api/blogs'
 import { useAssetApi, type AssetUsage } from '../api/assets'
 import { useAssetUrlRefresh } from '../composables/useAssetUrlRefresh'
 import {
@@ -18,7 +17,7 @@ const blogApi = useBlogApi()
 const assetApi = useAssetApi()
 const feedback = useFeedback()
 const savedBlogPost = ref<Blog | null>(null)
-// editorForm 是可丢弃的编辑缓冲，savedBlogPost 是服务端已提交版本；预览和导出不能读未提交输入。
+// editorForm 是编辑草稿，实时预览读取它；savedBlogPost 是已提交快照，仅用于版本操作与导出。
 const editorForm = reactive({
   slug: '',
   title: '',
@@ -42,6 +41,12 @@ const canPublish = computed(
     Boolean(editorForm.slug.trim() && editorForm.title.trim() && editorForm.content.trim()) &&
     !slugIssue.value,
 )
+// 上传后的投影仅用于本次草稿预览，正文仍只插入 asset://；保存后改用服务端绑定资源。
+const uploadedResources = shallowRef<DocumentResource[]>([])
+const previewResources = computed(() => [
+  ...(savedBlogPost.value?.resources ?? []),
+  ...uploadedResources.value,
+])
 const imageInput = ref<HTMLInputElement | null>(null)
 const attachmentInput = ref<HTMLInputElement | null>(null)
 const unresolvedResources = computed(
@@ -69,6 +74,7 @@ const isDirty = computed(
 function acceptSavedBlogPost(blogPost: Blog) {
   // 后台 URL 续签不会调用这里，不能把资源投影刷新误当作接收正文。
   savedBlogPost.value = blogPost
+  uploadedResources.value = []
   Object.assign(editorForm, extractEditorFields(blogPost))
   saveErrorMessage.value = ''
   if (blogPost.previewIssue) {
@@ -192,6 +198,18 @@ async function uploadResource(event: Event, usage: AssetUsage) {
   }
   await runEditorOperation(usage === 'IMAGE' ? 'image' : 'attachment', async () => {
     const asset = await assetApi.upload(file, usage)
+    uploadedResources.value = [
+      ...uploadedResources.value,
+      {
+        key: 'pending-asset-' + asset.id,
+        type: usage === 'IMAGE' ? 'IMAGE' : 'ATTACHMENT',
+        status: 'READY',
+        assetId: asset.id,
+        resourceUrl: asset.resourceUrl,
+        expiresAt: asset.expiresAt,
+        originalUri: null,
+      },
+    ]
     const name = file.name.replace(/[[\]\r\n]/g, '')
     editorForm.content +=
       '\n\n' +
@@ -223,142 +241,170 @@ async function downloadSavedDraft() {
     <p class="mb-4 text-sm text-muted">文章暂时无法读取，请重试。</p>
     <UButton color="neutral" variant="outline" @click="loadBlogPost">重新读取</UButton>
   </UCard>
-  <div v-else class="admin-content-layout" :aria-busy="isOperationPending">
-    <div class="min-w-0 space-y-6">
-      <UCard>
-        <template #header><h2 class="font-semibold">文章内容</h2></template>
-        <div class="grid gap-5">
-          <UFormField label="标题">
-            <UInput
-              v-model="editorForm.title"
-              :maxlength="BLOG_INPUT_LIMITS.title"
-              :disabled="isOperationPending"
-              placeholder="给文章起个标题"
-              class="w-full"
-              size="lg"
-            />
-          </UFormField>
-          <UFormField
-            label="文章标识"
-            hint="Slug"
-            :error="slugIssue || undefined"
-            :description="
-              isSlugLocked
-                ? '首次发布后公开地址固定，下架后也不能修改文章标识。'
-                : '用于公开地址；可以留空保存草稿，首次发布前必须填写并保存。'
-            "
-          >
-            <UInput
-              id="article-slug"
-              v-model="editorForm.slug"
-              :disabled="isOperationPending || isSlugLocked"
-              :maxlength="BLOG_INPUT_LIMITS.slug"
-              placeholder="填写这篇文章的独立标识"
-              class="w-full"
-              size="lg"
-              @update:model-value="saveErrorMessage = ''"
-            />
-            <p v-if="!editorForm.slug && !isSlugLocked" class="mt-2 text-sm text-muted">
-              尚未设置文章标识，请在这里填写后保存草稿，再发布文章。
-            </p>
-            <p v-else-if="!slugIssue" class="mt-2 break-all text-xs leading-6 text-muted">
-              公开地址（发布后可访问）：<code>/blog/{{ encodeURIComponent(editorForm.slug) }}</code>
-            </p>
-            <p class="mt-2 text-xs leading-6 text-muted">
-              文章标识独立于标题，不会随标题变化；是否重名由服务端在保存时检查。
-            </p>
-          </UFormField>
-          <UAlert
-            v-if="saveErrorMessage"
-            role="alert"
-            color="error"
-            variant="soft"
-            title="草稿未保存"
-            :description="saveErrorMessage"
-          />
-          <UFormField label="摘要" description="用于博客列表的文章简介，可留空。">
-            <UTextarea
-              v-model="editorForm.summary"
-              :maxlength="BLOG_INPUT_LIMITS.summary"
-              :disabled="isOperationPending"
-              placeholder="这篇文章主要讲什么？"
-              class="w-full"
-            />
-          </UFormField>
-          <div
-            class="flex flex-wrap items-center justify-between gap-3 border-t border-default pt-4"
-          >
-            <h3 class="text-sm font-medium">Markdown 正文</h3>
-            <div class="flex flex-wrap gap-2">
-              <input
-                ref="imageInput"
-                type="file"
-                :accept="BLOG_IMAGE_ACCEPT"
-                hidden
-                :disabled="isOperationPending || isMarkdownBlocked"
-                aria-label="选择正文图片"
-                @change="uploadResource($event, 'IMAGE')"
-              />
-              <input
-                ref="attachmentInput"
-                type="file"
-                hidden
-                :disabled="isOperationPending || isMarkdownBlocked"
-                aria-label="选择正文附件"
-                @change="uploadResource($event, 'ATTACHMENT')"
-              />
-              <UButton
-                color="neutral"
-                variant="outline"
-                size="sm"
-                icon="i-lucide-image-plus"
-                :loading="activeOperation === 'image'"
-                :disabled="isOperationPending || isMarkdownBlocked"
-                @click="imageInput?.click()"
-                >插入图片</UButton
-              >
-              <UButton
-                color="neutral"
-                variant="outline"
-                size="sm"
-                icon="i-lucide-paperclip"
-                :loading="activeOperation === 'attachment'"
-                :disabled="isOperationPending || isMarkdownBlocked"
-                @click="attachmentInput?.click()"
-                >插入附件</UButton
-              >
-            </div>
-          </div>
-          <UFormField
-            label="正文"
-            class="min-w-0"
-            description="图片和附件上传后会插入资源引用；保存草稿后完成绑定。"
-          >
-            <ClientOnly>
-              <LazyBlogMarkdownEditor
-                v-model="editorForm.content"
+  <div v-else class="space-y-6" :aria-busy="isOperationPending">
+    <UCollapsible>
+      <UButton
+        color="neutral"
+        variant="outline"
+        icon="i-lucide-settings-2"
+        trailing-icon="i-lucide-chevron-down"
+        class="max-w-full"
+      >
+        文章信息 · {{ editorForm.title || '未命名文章' }}
+      </UButton>
+      <template #content>
+        <UCard class="mt-4">
+          <template #header><h2 class="font-semibold">文章信息</h2></template>
+          <div class="grid gap-5">
+            <UFormField label="标题">
+              <UInput
+                v-model="editorForm.title"
+                :maxlength="BLOG_INPUT_LIMITS.title"
                 :disabled="isOperationPending"
-                @update:blocked="isMarkdownBlocked = $event"
+                placeholder="给文章起个标题"
+                class="w-full"
+                size="lg"
               />
-              <template #fallback>
-                <UTextarea
-                  :model-value="editorForm.content"
-                  disabled
-                  :rows="18"
-                  aria-label="正在准备正文编辑器"
-                  class="w-full"
-                />
-              </template>
-            </ClientOnly>
-          </UFormField>
-          <UCheckbox
-            v-model="editorForm.remoteRightsConfirmed"
-            :disabled="isOperationPending"
-            label="允许保存正文中的网络图片"
-            description="仅当你拥有使用权时勾选；已上传的本地资源不需要勾选。"
-          />
+            </UFormField>
+            <UFormField
+              label="文章标识"
+              hint="Slug"
+              :error="slugIssue || undefined"
+              :description="
+                isSlugLocked
+                  ? '首次发布后公开地址固定，下架后也不能修改文章标识。'
+                  : '用于公开地址；可以留空保存草稿，首次发布前必须填写并保存。'
+              "
+            >
+              <UInput
+                id="article-slug"
+                v-model="editorForm.slug"
+                :disabled="isOperationPending || isSlugLocked"
+                :maxlength="BLOG_INPUT_LIMITS.slug"
+                placeholder="填写这篇文章的独立标识"
+                class="w-full"
+                size="lg"
+                @update:model-value="saveErrorMessage = ''"
+              />
+              <p v-if="!editorForm.slug && !isSlugLocked" class="mt-2 text-sm text-muted">
+                尚未设置文章标识，请在这里填写后保存草稿，再发布文章。
+              </p>
+              <p v-else-if="!slugIssue" class="mt-2 break-all text-xs leading-6 text-muted">
+                公开地址（发布后可访问）：<code
+                  >/blog/{{ encodeURIComponent(editorForm.slug) }}</code
+                >
+              </p>
+              <p class="mt-2 text-xs leading-6 text-muted">
+                文章标识独立于标题，不会随标题变化；是否重名由服务端在保存时检查。
+              </p>
+            </UFormField>
+
+            <UFormField label="摘要" description="用于博客列表的文章简介，可留空。">
+              <UTextarea
+                v-model="editorForm.summary"
+                :maxlength="BLOG_INPUT_LIMITS.summary"
+                :disabled="isOperationPending"
+                placeholder="这篇文章主要讲什么？"
+                class="w-full"
+              />
+            </UFormField>
+            <UCheckbox
+              v-model="editorForm.remoteRightsConfirmed"
+              :disabled="isOperationPending"
+              label="允许保存正文中的网络图片"
+              description="仅当你拥有使用权时勾选；已上传的本地资源不需要勾选。"
+            />
+          </div>
+        </UCard>
+      </template>
+    </UCollapsible>
+    <UAlert
+      v-if="saveErrorMessage"
+      role="alert"
+      color="error"
+      variant="soft"
+      title="草稿未保存"
+      :description="saveErrorMessage"
+    />
+    <section class="min-w-0 space-y-4" aria-label="编辑与实时预览">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-3">
+          <h3 class="text-sm font-medium">正文工作台</h3>
+          <span class="text-xs text-muted">{{ isDirty ? '有未保存修改' : '内容已保存' }}</span>
         </div>
-      </UCard>
+        <div class="flex flex-wrap gap-2">
+          <UButton
+            size="sm"
+            icon="i-lucide-save"
+            :loading="activeOperation === 'save'"
+            :disabled="isOperationPending || isMarkdownBlocked || Boolean(slugIssue)"
+            @click="saveDraft"
+            >保存草稿</UButton
+          >
+          <input
+            ref="imageInput"
+            type="file"
+            :accept="BLOG_IMAGE_ACCEPT"
+            hidden
+            :disabled="isOperationPending || isMarkdownBlocked"
+            aria-label="选择正文图片"
+            @change="uploadResource($event, 'IMAGE')"
+          />
+          <input
+            ref="attachmentInput"
+            type="file"
+            hidden
+            :disabled="isOperationPending || isMarkdownBlocked"
+            aria-label="选择正文附件"
+            @change="uploadResource($event, 'ATTACHMENT')"
+          />
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-image-plus"
+            :loading="activeOperation === 'image'"
+            :disabled="isOperationPending || isMarkdownBlocked"
+            @click="imageInput?.click()"
+            >插入图片</UButton
+          >
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="sm"
+            icon="i-lucide-paperclip"
+            :loading="activeOperation === 'attachment'"
+            :disabled="isOperationPending || isMarkdownBlocked"
+            @click="attachmentInput?.click()"
+            >插入附件</UButton
+          >
+        </div>
+      </div>
+      <UFormField
+        label="正文"
+        class="min-w-0"
+        description="图片和附件上传后会插入资源引用；保存草稿后完成绑定。"
+      >
+        <ClientOnly>
+          <LazyBlogEditorWorkbench
+            v-model="editorForm.content"
+            :disabled="isOperationPending"
+            :resources="previewResources"
+            @update:blocked="isMarkdownBlocked = $event"
+          />
+          <template #fallback>
+            <UTextarea
+              :model-value="editorForm.content"
+              disabled
+              :rows="18"
+              aria-label="正在准备正文编辑器"
+              class="w-full"
+            />
+          </template>
+        </ClientOnly>
+      </UFormField>
+    </section>
+    <div class="min-w-0 space-y-6">
       <UCard v-if="unresolvedResources.length">
         <template #header>
           <div class="flex items-center gap-3">
@@ -387,28 +433,8 @@ async function downloadSavedDraft() {
           </li>
         </ul>
       </UCard>
-      <UCard v-if="savedBlogPost">
-        <UCollapsible>
-          <UButton color="neutral" variant="ghost" icon="i-lucide-eye" class="w-full justify-start"
-            >已保存版本预览</UButton
-          >
-          <template #content>
-            <p v-if="isDirty" class="mt-4 text-xs text-muted">
-              当前有未保存修改；这里展示的仍是已保存版本。
-            </p>
-            <Suspense
-              ><BlogRenderer
-                :key="savedBlogPost.documentVersionId"
-                :cache-key="'manage:' + savedBlogPost.documentVersionId"
-                :markdown="savedBlogPost.content"
-                :resources="savedBlogPost.resources"
-                class="mt-5 min-w-0"
-            /></Suspense>
-          </template>
-        </UCollapsible>
-      </UCard>
     </div>
-    <aside class="min-w-0 space-y-5" aria-label="文章设置与操作">
+    <aside class="grid min-w-0 items-start gap-5 lg:grid-cols-2" aria-label="文章设置与操作">
       <UCard>
         <template #header>
           <div class="flex items-center justify-between gap-3">

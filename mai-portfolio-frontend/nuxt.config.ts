@@ -12,6 +12,12 @@ export default defineNuxtConfig({
   ui: { fonts: false, colorMode: false, prose: true },
   icon: { serverBundle: { collections: ['lucide'] } },
   css: ['~/assets/css/main.css'],
+  // 斜杠菜单与编辑器共享 ProseMirror 类，避免开发预构建和直接加载的 DecorationSet 混用。
+  vite: {
+    optimizeDeps: {
+      include: ['@tiptap/suggestion', '@tiptap/pm/state', '@tiptap/pm/view'],
+    },
+  },
   runtimeConfig: {
     // 仅暴露客户端需要的公钥与站点地址，不包含后端凭据。
     public: { authRsaPublicKey: '', siteUrl: '' },

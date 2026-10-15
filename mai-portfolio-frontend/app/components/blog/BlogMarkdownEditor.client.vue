@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
-import type { EditorToolbarItem } from '@nuxt/ui'
-import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT } from '../../utils/editor/markdownExtensions'
+import { VueNodeViewRenderer } from '@tiptap/vue-3'
+import BlogEditorImage from './BlogEditorImage.vue'
+import type { EditorToolbarItem, EditorSuggestionMenuItem } from '@nuxt/ui'
+import {
+  BLOG_EDITOR_EXTENSIONS,
+  EDITOR_STARTER_KIT,
+  StableImage,
+} from '../../utils/editor/markdownExtensions'
 import {
   createBlogMarkdownManager,
   createBlogMarkdownOptions,
@@ -10,10 +16,11 @@ import {
 import { readEditorMarkdown } from '../../utils/editor/markdownOutput'
 import { inheritTableColumnAlignment } from '../../utils/editor/tableCommands'
 
-const props = defineProps<{ modelValue: string; disabled?: boolean }>()
+const props = defineProps<{ modelValue: string; disabled?: boolean; embedded?: boolean }>()
 const emit = defineEmits<{
   'update:modelValue': [markdown: string]
   'update:blocked': [blocked: boolean]
+  'update:mode': [mode: 'rich' | 'source']
 }>()
 const richEditor = useTemplateRef('richEditor')
 const mode = ref<'rich' | 'source'>('rich')
@@ -23,18 +30,32 @@ const conversionIssue = ref('')
 const recoveryMarkdown = ref<string | null>(null)
 const sessionId = ref(0)
 const manager = createBlogMarkdownManager()
+// 只替换图片的编辑视图，Markdown Schema/属性仍与预检共享；续签由资源投影响应式更新。
+const editorExtensions = BLOG_EDITOR_EXTENSIONS.map((extension) =>
+  extension === StableImage
+    ? StableImage.extend({ addNodeView: () => VueNodeViewRenderer(BlogEditorImage) })
+    : extension,
+)
 const markdownOptions = shallowRef(createBlogMarkdownOptions())
 let acceptedMarkdown: string | undefined
 let initialDocument: Editor['state']['doc'] | undefined
 let initialMarkdown = ''
+let richSessionMarkdown = ''
+let validationTimer: ReturnType<typeof setTimeout> | undefined
+let pendingMarkdown: string | undefined
+watch(mode, (value) => emit('update:mode', value), { immediate: true })
+onBeforeUnmount(() => clearTimeout(validationTimer))
 
 // 1. 外部载入/重载和上传只接收 Markdown；自发的更新不重建编辑器，保留当前选择与撤销栈。
 function prepareRichEditor(markdown: string) {
+  clearTimeout(validationTimer)
+  pendingMarkdown = undefined
   conversionIssue.value = ''
   recoveryMarkdown.value = null
   emit('update:blocked', false)
   compatibilityIssue.value = inspectBlogMarkdown(markdown, manager)
   richInput.value = markdown
+  richSessionMarkdown = markdown
   markdownOptions.value = createBlogMarkdownOptions()
   sessionId.value += 1
   if (compatibilityIssue.value) {
@@ -71,11 +92,14 @@ function switchMode(nextMode: 'rich' | 'source') {
   if (props.disabled || nextMode === mode.value) {
     return
   }
+  flushRichUpdate()
   if (nextMode === 'rich') {
     if (conversionIssue.value) {
       return
     }
-    prepareRichEditor(props.modelValue)
+    if (props.modelValue !== richSessionMarkdown || compatibilityIssue.value) {
+      prepareRichEditor(props.modelValue)
+    }
     if (compatibilityIssue.value || conversionIssue.value) {
       return
     }
@@ -95,7 +119,24 @@ function updateSource(markdown: string) {
   acceptedMarkdown = markdown
   emit('update:modelValue', markdown)
 }
+// 连续输入只序列化编辑器本身；停顿后才验证完整往返，避免每键重复解析整篇正文。
 function updateRich(markdown: string) {
+  clearTimeout(validationTimer)
+  pendingMarkdown = markdown
+  emit('update:blocked', true)
+  validationTimer = setTimeout(flushRichUpdate, 220)
+}
+function flushRichUpdate() {
+  clearTimeout(validationTimer)
+  if (pendingMarkdown === undefined) {
+    return
+  }
+  const markdown = pendingMarkdown
+  pendingMarkdown = undefined
+  validateRichUpdate(markdown)
+}
+defineExpose({ switchMode, flushRichUpdate })
+function validateRichUpdate(markdown: string) {
   const editor = richEditor.value?.editor
   if (!editor || props.disabled) {
     return
@@ -105,6 +146,7 @@ function updateRich(markdown: string) {
     const markdownForForm =
       initialDocument && editor.state.doc.eq(initialDocument) ? initialMarkdown : content
     acceptedMarkdown = markdownForForm
+    richSessionMarkdown = markdownForForm
     richInput.value = content
     conversionIssue.value = ''
     recoveryMarkdown.value = null
@@ -211,6 +253,31 @@ function tableActions(editor: Editor) {
   ]
 }
 
+const editorHandlers = {
+  table: {
+    canExecute: (editor: Editor) => !editor.isActive('table'),
+    execute: (editor: Editor) =>
+      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }),
+    isActive: (editor: Editor) => editor.isActive('table'),
+  },
+}
+const suggestionItems: EditorSuggestionMenuItem[] = [
+  { kind: 'paragraph', label: '正文', icon: 'i-lucide-text' },
+  ...[1, 2, 3, 4, 5, 6].map((level) => ({
+    kind: 'heading' as const,
+    level: level as 1 | 2 | 3 | 4 | 5 | 6,
+    label: '标题 ' + level,
+    icon: 'i-lucide-heading',
+  })),
+  { kind: 'bulletList', label: '无序列表', icon: 'i-lucide-list' },
+  { kind: 'orderedList', label: '有序列表', icon: 'i-lucide-list-ordered' },
+  { kind: 'taskList', label: '任务列表', icon: 'i-lucide-list-checks' },
+  { kind: 'table', label: '表格', icon: 'i-lucide-table' },
+  { kind: 'blockquote', label: '引用', icon: 'i-lucide-quote' },
+  { kind: 'codeBlock', label: '代码块', icon: 'i-lucide-square-code' },
+  { kind: 'horizontalRule', label: '分隔线', icon: 'i-lucide-minus' },
+]
+
 // 3. HTML 粘贴只读取纯文本，再经过同一保真检查；不允许任意 HTML 落入 TipTap DOM。
 const editorProps = {
   attributes: { 'aria-label': '博客富文本正文', spellcheck: 'false' },
@@ -240,8 +307,13 @@ const editorProps = {
 </script>
 
 <template>
-  <div class="blog-markdown-editor min-w-0 max-w-full space-y-3">
-    <div class="flex flex-wrap items-center gap-2" role="group" aria-label="正文编辑模式">
+  <div class="blog-markdown-editor min-w-0 max-w-full space-y-3" :class="{ embedded }">
+    <div
+      v-if="!embedded"
+      class="flex flex-wrap items-center gap-2"
+      role="group"
+      aria-label="正文编辑模式"
+    >
       <UButton
         :variant="mode === 'rich' ? 'soft' : 'ghost'"
         color="neutral"
@@ -287,7 +359,7 @@ const editorProps = {
       </template>
     </UAlert>
     <UTextarea
-      v-if="mode === 'source'"
+      v-show="mode === 'source'"
       :model-value="recoveryMarkdown ?? modelValue"
       :disabled="disabled"
       :rows="18"
@@ -298,7 +370,8 @@ const editorProps = {
       @update:model-value="updateSource"
     />
     <UEditor
-      v-else
+      v-if="!compatibilityIssue"
+      v-show="mode === 'rich'"
       ref="richEditor"
       :key="sessionId"
       v-slot="{ editor }"
@@ -307,20 +380,34 @@ const editorProps = {
       :markdown="markdownOptions"
       :editable="!disabled"
       :starter-kit="EDITOR_STARTER_KIT"
-      :extensions="BLOG_EDITOR_EXTENSIONS"
+      :extensions="editorExtensions"
+      :handlers="editorHandlers"
       :image="false"
       :mention="false"
       :editor-props="editorProps"
       placeholder="开始写作…"
       :ui="{
-        root: 'min-w-0 rounded-lg border border-default bg-default',
-        content: 'min-w-0 max-h-[65svh] overflow-auto',
+        root: embedded ? 'editor-rich-root' : 'min-w-0 rounded-lg border border-default bg-default',
+        content: embedded ? 'editor-rich-content' : 'min-w-0 max-h-[65svh] overflow-auto',
         base: 'min-h-96 px-4 py-5 sm:px-6',
       }"
       @update:model-value="updateRich"
     >
-      <div class="flex min-w-0 flex-wrap items-center gap-1 border-b border-default p-2">
-        <UEditorToolbar :editor="editor" :items="toolbarItems" :ui="{ root: 'flex-wrap' }" />
+      <UEditorSuggestionMenu :editor="editor" :items="suggestionItems" />
+      <UEditorToolbar
+        :editor="editor"
+        :items="toolbarItems"
+        layout="bubble"
+        :ui="{ base: 'max-w-[calc(100vw-2rem)] flex-wrap' }"
+      />
+      <div
+        class="editor-toolbar flex min-w-0 flex-wrap items-center gap-1 border-b border-default p-2"
+      >
+        <UEditorToolbar
+          :editor="editor"
+          :items="toolbarItems"
+          :ui="{ base: 'min-w-0 max-w-full flex-wrap' }"
+        />
         <UDropdownMenu :items="tableActions(editor)"
           ><UButton
             color="neutral"
@@ -331,14 +418,40 @@ const editorProps = {
         /></UDropdownMenu>
       </div>
     </UEditor>
-    <p class="text-xs leading-6 text-muted">
-      正文始终保存为
-      Markdown。公式保留原文，图片显示稳定引用；表达式、代码语言与文件名可在源码模式修改。
+    <p v-if="!embedded" class="text-xs leading-6 text-muted">
+      正文始终保存为 Markdown。公式保留原文；表达式、代码语言与文件名可在源码模式修改。
     </p>
   </div>
 </template>
 
 <style scoped>
+.embedded {
+  min-height: 100%;
+}
+.embedded :deep(.editor-rich-root) {
+  border: 0;
+  border-radius: 0;
+  background: var(--ui-bg);
+}
+.embedded :deep(.editor-rich-content) {
+  min-width: 0;
+}
+.embedded :deep(textarea) {
+  min-height: 65svh;
+  border: 0;
+  border-radius: 0;
+  resize: vertical;
+}
+.editor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--ui-bg);
+}
+.embedded > [role='alert'] {
+  margin: 0.75rem;
+}
+
 .blog-markdown-editor :deep(.tiptap) {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -361,16 +474,23 @@ const editorProps = {
   border: 1px solid var(--ui-border);
   padding: 0.5rem 0.75rem;
 }
-.blog-markdown-editor :deep(ul[data-type='taskList']) {
+.blog-markdown-editor :deep(ul:has(> li[data-checked])) {
   list-style: none;
   padding-left: 0.5rem;
 }
-.blog-markdown-editor :deep(li[data-type='taskItem']) {
+.blog-markdown-editor :deep(li[data-checked]) {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
 }
-.blog-markdown-editor :deep(li[data-type='taskItem'] > div) {
+.blog-markdown-editor :deep(li[data-checked] > label) {
+  flex-shrink: 0;
+  padding-top: 0.25rem;
+}
+.blog-markdown-editor :deep(li[data-checked] > div > p) {
+  margin-block: 0;
+}
+.blog-markdown-editor :deep(li[data-checked] > div) {
   min-width: 0;
   flex: 1;
 }

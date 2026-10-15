@@ -47,7 +47,7 @@ function tokenMeaning(token: MarkdownToken): unknown {
 
 export function inspectBlogMarkdown(source: string, manager = createBlogMarkdownManager()): string {
   if (source.length > RICH_TEXT_CHARACTER_LIMIT) {
-    return '正文较长，使用源码模式以避免大型编辑文档阻塞浏览器。已保存版本仍可正常预览。'
+    return '正文较长，使用源码模式以避免大型编辑文档阻塞浏览器。仍可在阅读预览中查看当前草稿。'
   }
   try {
     const tokens = manager.instance.lexer(source)
