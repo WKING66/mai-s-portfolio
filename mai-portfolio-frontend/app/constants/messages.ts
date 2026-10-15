@@ -16,5 +16,5 @@ export const LOGIN_MESSAGES = {
   loginFailed: '登录失败，请稍后重试。',
   sessionFailed: '会话状态暂时无法获取，请稍后重试。',
   logoutFailed: '注销失败，请稍后重试。',
-  logoutSuccess: '注销成功，期待下次再见'
+  logoutSuccess: '注销成功，期待下次再见',
 } as const
