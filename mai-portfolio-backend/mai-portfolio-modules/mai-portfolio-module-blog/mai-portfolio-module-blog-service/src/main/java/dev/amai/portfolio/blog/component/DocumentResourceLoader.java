@@ -1,7 +1,10 @@
 package dev.amai.portfolio.blog.component;
 
 import static dev.amai.portfolio.blog.constant.DocumentPolicy.ASSET_REFERENCE_PREFIX;
+import static dev.amai.portfolio.blog.constant.DocumentPolicy.MAX_RESOURCE_ERROR_LENGTH;
 import static dev.amai.portfolio.blog.constant.DocumentPolicy.MAX_RESOURCE_URI_LENGTH;
+
+import cn.hutool.core.util.StrUtil;
 
 import dev.amai.portfolio.asset.api.AssetFileService;
 import dev.amai.portfolio.asset.api.AssetQueryService;
@@ -41,15 +44,18 @@ final class DocumentResourceLoader {
             String uri, ResourceType type, String key, DocumentPreparationContext context) {
         boolean network = uri.regionMatches(true, 0, HTTP_PREFIX, 0, HTTP_PREFIX.length())
                 || uri.regionMatches(true, 0, HTTPS_PREFIX, 0, HTTPS_PREFIX.length());
-        ResourceSource source = network ? ResourceSource.REMOTE : ResourceSource.LOCAL;
-        String original = uri.length() <= MAX_RESOURCE_URI_LENGTH
-                ? sourceReference(uri) : "[URI exceeds limit]";
+        boolean embedded = DocumentDataUri.matches(uri);
+        ResourceSource source = embedded ? ResourceSource.EMBEDDED
+                : network ? ResourceSource.REMOTE : ResourceSource.LOCAL;
+        String original = embedded ? DocumentDataUri.sourceReference(uri)
+                : uri.length() <= MAX_RESOURCE_URI_LENGTH ? sourceReference(uri) : "[URI exceeds limit]";
         Long assetId = null;
         ResourceStatus status = ResourceStatus.INVALID;
+        String errorMessage = null;
         AssetUsage usage = type == ResourceType.IMAGE ? AssetUsage.IMAGE : AssetUsage.ATTACHMENT;
         try {
             // 1. 引用现有资产只检查就绪、用途和本人归属，不重复上传或登记为新增资产。
-            if (uri.length() > MAX_RESOURCE_URI_LENGTH) {
+            if (!embedded && uri.length() > MAX_RESOURCE_URI_LENGTH) {
                 throw invalid("资源地址过长");
             }
             if (uri.startsWith(ASSET_REFERENCE_PREFIX)) {
@@ -66,24 +72,31 @@ final class DocumentResourceLoader {
         } catch (IOException failure) {
             assetId = null;
             status = ResourceStatus.FETCH_FAILED;
+            errorMessage = "网络图片读取失败，请检查目标地址、网络访问限制及图片大小";
         } catch (ApiException failure) {
             assetId = null;
             status = failure.code().status().is5xxServerError()
                     ? ResourceStatus.FETCH_FAILED : ResourceStatus.INVALID;
+            // 业务异常已经过各边界的安全摘要处理，不暴露 SDK 原始异常或带签名的地址。
+            errorMessage = StrUtil.subPre(failure.getMessage(), MAX_RESOURCE_ERROR_LENGTH);
         } catch (NumberFormatException failure) {
             assetId = null;
             status = ResourceStatus.INVALID;
+            errorMessage = "资产引用 ID 无效，请使用上传接口返回的 asset://数字ID";
         }
         // 单项已知失败仍返回状态供草稿展示；其他 RuntimeException 继续交给外层补偿。
-        return new DocumentResource(key, type, source, original, assetId, status);
+        return new DocumentResource(key, type, source, original, assetId, status, errorMessage);
     }
 
     private long existingAsset(String uri, AssetUsage usage, long uploader) {
         long assetId = Long.valueOf(uri.substring(ASSET_REFERENCE_PREFIX.length()));
         var metadata = assetQueryService.findReadyMetadata(assetId)
                 .orElseThrow(() -> invalid("资源未就绪"));
-        if (metadata.usage() != usage || !Objects.equals(metadata.uploaderAccountId(), uploader)) {
-            throw invalid("资源类型或归属无效");
+        if (metadata.usage() != usage) {
+            throw invalid("资产用途不匹配，图片和附件不能互用");
+        }
+        if (!Objects.equals(metadata.uploaderAccountId(), uploader)) {
+            throw invalid("无权引用其他账号上传的资产");
         }
         return assetId;
     }
@@ -91,6 +104,9 @@ final class DocumentResourceLoader {
     private DocumentInputResource input(
             String uri, boolean network, AssetUsage usage, DocumentPreparationContext context)
             throws IOException {
+        if (DocumentDataUri.matches(uri)) {
+            return DocumentDataUri.decode(uri, usage);
+        }
         if (network) {
             // 共享绝对预算，检查顺序与原实现一致：先预算，再本次抓取授权。
             if (System.nanoTime() > context.fetchDeadlineNanos()) {
@@ -103,7 +119,7 @@ final class DocumentResourceLoader {
         }
         DocumentInputResource input = context.localResource(referencePath(uri));
         if (input == null) {
-            throw invalid("未提供本地资源");
+            throw invalid("未找到对应的本地文件，请检查相对路径并选择包含资源的文档文件夹");
         }
         return input;
     }
@@ -132,6 +148,8 @@ final class DocumentResourceLoader {
 
     /** Markdown 地址可能编码空格；上传文件名则保持字面值。两者都只查询输入映射，不读取文件系统。 */
     static String referencePath(String uri) {
+        // Markdown 工具可能输出 Windows 分隔符；仅规范引用，不放宽上传键或目录边界。
+        uri = uri.replace('\\', '/');
         if (uri.matches("(?i).*%(2f|5c).*")) {
             throw invalid("资源地址不能编码路径分隔符");
         }

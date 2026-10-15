@@ -6,7 +6,6 @@ import { useAssetUrlRefresh } from '../composables/useAssetUrlRefresh'
 import {
   BLOG_IMAGE_ACCEPT,
   BLOG_INPUT_LIMITS,
-  DOCUMENT_RESOURCE_STATUS_LABELS,
   DOCUMENT_RESOURCE_REFERENCE_PREFIX,
 } from '../constants/blogs'
 import { ASSET_REFERENCE_PREFIX } from '../constants/assets'
@@ -354,7 +353,7 @@ async function downloadSavedDraft() {
               {{ resource.originalUri || '未识别的资源' }}
             </p>
             <p class="mt-1 text-muted">
-              {{ DOCUMENT_RESOURCE_STATUS_LABELS[resource.status] }}
+              {{ resource.errorMessage || '此历史版本未记录具体原因，请重新导入原文件查看诊断。' }}
             </p>
             <code class="mt-2 block break-all text-xs"
               >{{ DOCUMENT_RESOURCE_REFERENCE_PREFIX }}{{ resource.key }}</code

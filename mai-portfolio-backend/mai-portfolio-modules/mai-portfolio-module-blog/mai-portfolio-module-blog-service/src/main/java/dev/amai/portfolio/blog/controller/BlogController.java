@@ -107,7 +107,7 @@ public class BlogController {
     @PostMapping(value = "/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "导入 Markdown 草稿",
-            description = "file 是 UTF-8 .md；resources 可提供正文相对路径对应的本地图片/附件。网络图片须明确确认使用权，失败资源保留草稿。",
+            description = "file 是 UTF-8 .md；resources 按正文相对路径提供本地图片/附件，兼容 Windows 引用分隔符。支持 Base64 data URI 图片，经统一 Asset 校验归档；网络图片须确认使用权。失败资源保留草稿，管理投影返回具体 errorMessage。",
             parameters =
                     @Parameter(
                             name = AuthConstants.CSRF_HEADER_NAME,

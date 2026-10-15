@@ -18,6 +18,8 @@ export interface DocumentResource {
   resourceUrl: string | null
   expiresAt: string | null
   originalUri: string | null
+  /** 管理端资源诊断；历史记录可能为空，公开投影不返回原因。 */
+  errorMessage?: string | null
 }
 export interface BlogCard {
   id: number

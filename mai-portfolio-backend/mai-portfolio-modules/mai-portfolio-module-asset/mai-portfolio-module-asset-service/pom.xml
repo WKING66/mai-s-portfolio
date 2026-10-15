@@ -12,6 +12,12 @@
     <name>mai-portfolio-module-asset-service</name>
     <description>媒体资产元数据与访问策略的三层业务实现。</description>
     <dependencies>
+        <!-- WebP 通过标准 ImageIO SPI 解码，仍由统一图片校验器检查尺寸并重编码。 -->
+        <dependency>
+            <groupId>com.github.usefulness</groupId>
+            <artifactId>webp-imageio</artifactId>
+            <scope>runtime</scope>
+        </dependency>
         <dependency>
             <groupId>org.mapstruct</groupId>
             <artifactId>mapstruct</artifactId>

@@ -11,6 +11,7 @@
     <properties>
         <hutool.version>5.8.48</hutool.version>
         <commonmark.version>0.30.0</commonmark.version>
+        <webp-imageio.version>0.11.0</webp-imageio.version>
         <portfolio.version>0.1.0-SNAPSHOT</portfolio.version>
         <!-- 1.46+ 使用 Redis 6 的 SET KEEPTTL；本地 Redis 3.2.1 固定使用 1.45。 -->
         <sa-token.version>1.45.0</sa-token.version>
@@ -24,6 +25,11 @@
     </properties>
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>com.github.usefulness</groupId>
+                <artifactId>webp-imageio</artifactId>
+                <version>${webp-imageio.version}</version>
+            </dependency>
             <dependency>
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-core</artifactId>

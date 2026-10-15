@@ -12,6 +12,9 @@ public final class DocumentPolicy {
 
     public static final int MAX_RESOURCE_URI_LENGTH = 2048;
 
+    /** 资源失败诊断仅保存安全摘要，与数据库 error_message 容量保持一致。 */
+    public static final int MAX_RESOURCE_ERROR_LENGTH = 512;
+
     /** 旧表 role=0 表示正文资源关系；图片/附件由 resource_type 区分。 */
     public static final int BODY_RESOURCE_ROLE = 0;
 
