@@ -18,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
@@ -174,7 +175,7 @@ public class BlogController {
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
                         ContentDisposition.attachment()
-                                .filename(exportPlan.filename())
+                                .filename(exportPlan.filename(), StandardCharsets.UTF_8)
                                 .build()
                                 .toString())
                 .header("X-Content-Type-Options", "nosniff")

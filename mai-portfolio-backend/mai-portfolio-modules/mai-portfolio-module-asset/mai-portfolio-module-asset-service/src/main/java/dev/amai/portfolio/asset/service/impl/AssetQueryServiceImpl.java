@@ -91,8 +91,11 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             }
             StoredObjectAccessUrl storedObjectAccessUrl;
             try {
-                // 3. 每个有效资产生成独立签名，不读取对象字节；任一生成失败按既有契约报错。
-                storedObjectAccessUrl = objectStorage.accessUrl(asset.getStorageKey());
+                // 3. 图片直接展示；文档与普通文件按原始文件名下载，不能用内部 .bin 对象键命名。
+                // 文件名来自资产元数据，旧附件也适用；只签名响应头，不读取或重新上传对象字节。
+                storedObjectAccessUrl = expectedType == AssetType.IMAGE
+                        ? objectStorage.accessUrl(asset.getStorageKey())
+                        : objectStorage.downloadUrl(asset.getStorageKey(), asset.getOriginalFilename());
             } catch (ObjectStorageException error) {
                 LOG.warn(
                         "Asset address generation failed, assetId={}, failureType={}",

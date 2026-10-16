@@ -3,6 +3,7 @@ package dev.amai.portfolio.storage;
 /** 对象存储边界及实现共用的稳定提示，避免跨模块依赖应用层常量。 */
 public final class StorageMessageConstants {
     public static final String ACCESS_URL_FAILED = "资源访问地址生成失败";
+    public static final String DOWNLOAD_FILENAME_INVALID = "下载文件名不能为空、包含路径或控制字符";
     public static final String ACCESS_URL_TTL_INVALID = "签名地址有效期必须大于零";
     public static final String LOCAL_DIRECT_ACCESS_UNAVAILABLE = "本地存储不提供 OSS 签名直连，请使用 OSS 存储配置";
     public static final String OBJECT_KEY_REQUIRED = "对象存储键不能为空";

@@ -45,4 +45,17 @@ class MarkdownDestinationsTest {
         assertThat(parser.parse("fallback.md", body.getBytes(StandardCharsets.UTF_8), Map.of()).title())
                 .isEqualTo("文本 强调  链接");
     }
+
+    @Test
+    void signedQueryEscapesSurviveMarkdownRewriteAndParsingExactly() {
+        String signed = "https://oss.example/legacy.bin?response-content-disposition="
+                + "attachment%3B%20filename%3D%22name%25E9%25A1%25B9.md%22"
+                + "%3B%20filename%2A%3DUTF-8%27%27name%25E9%25A1%25B9.md"
+                + "&Expires=1792144299&Signature=test%2Bvalue%2F";
+        String markdown = MarkdownDestinations.rewrite("[附件](resource://file)", (uri, image) -> signed);
+        assertThat(markdown).isEqualTo("[附件](" + signed + ")");
+        var ast = org.commonmark.parser.Parser.builder().build().parse(markdown);
+        var link = (org.commonmark.node.Link) ast.getFirstChild().getFirstChild();
+        assertThat(link.getDestination()).isEqualTo(signed);
+    }
 }
