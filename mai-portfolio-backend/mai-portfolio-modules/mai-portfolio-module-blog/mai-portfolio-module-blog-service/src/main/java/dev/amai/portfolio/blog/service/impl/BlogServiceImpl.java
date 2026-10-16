@@ -346,7 +346,7 @@ public class BlogServiceImpl implements BlogService {
                             .map(
                                     r ->
                                             DocumentConvert.MAPPER.to(
-                                                    r, null, r.status(), r.originalUri()))
+                                                    r, null, r.status(), r.originalUri(), r.errorMessage()))
                             .toList();
         }
         return BlogConvert.MAPPER.to(

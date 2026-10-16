@@ -36,4 +36,6 @@ public class DocumentResourceDO {
     private Integer source;
 
     private Integer status;
+
+    private String errorMessage;
 }

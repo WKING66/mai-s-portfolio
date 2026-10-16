@@ -22,6 +22,7 @@ import static org.springframework.http.MediaType.IMAGE_PNG_VALUE;
 @Component
 public class ImageContentValidator {
     private static final int FIRST_IMAGE_INDEX = 0;
+    private static final String IMAGE_WEBP_VALUE = "image/webp";
     private final AvatarUploadProperties avatarUploadProperties;
 
     public ImageContentValidator(AvatarUploadProperties avatarUploadProperties) {
@@ -53,8 +54,9 @@ public class ImageContentValidator {
             throw invalid(AssetMessageConstants.IMAGE_TOO_LARGE);
         }
         if (!IMAGE_PNG_VALUE.equals(declaredContentType)
-                && !IMAGE_JPEG_VALUE.equals(declaredContentType)) {
-            throw invalid(AssetMessageConstants.IMAGE_TYPE_INVALID);
+                && !IMAGE_JPEG_VALUE.equals(declaredContentType)
+                && !IMAGE_WEBP_VALUE.equals(declaredContentType)) {
+            throw invalid(AssetMessageConstants.IMAGE_TYPE_UNSUPPORTED);
         }
         try (ImageInputStream input =
                 ImageIO.createImageInputStream(new ByteArrayInputStream(content))) {
@@ -67,12 +69,17 @@ public class ImageContentValidator {
                 // 2. 只检查首张图片；先读取格式和尺寸，确认上限后才分配像素缓冲区。
                 imageReader.setInput(input, true, true);
                 String format = imageReader.getFormatName().toLowerCase(Locale.ROOT);
-                String mime =
-                        "png".equals(format)
-                                ? IMAGE_PNG_VALUE
-                                : "jpeg".equals(format) ? IMAGE_JPEG_VALUE : "";
+                String mime = switch (format) {
+                    case "png" -> IMAGE_PNG_VALUE;
+                    case "jpeg" -> IMAGE_JPEG_VALUE;
+                    case "webp" -> IMAGE_WEBP_VALUE;
+                    default -> "";
+                };
+                if (mime.isEmpty()) {
+                    throw invalid(AssetMessageConstants.IMAGE_TYPE_UNSUPPORTED);
+                }
                 if (!mime.equals(declaredContentType)) {
-                    throw invalid(AssetMessageConstants.IMAGE_TYPE_INVALID);
+                    throw invalid(AssetMessageConstants.IMAGE_MIME_MISMATCH);
                 }
                 int width = imageReader.getWidth(FIRST_IMAGE_INDEX);
                 int height = imageReader.getHeight(FIRST_IMAGE_INDEX);
@@ -83,9 +90,12 @@ public class ImageContentValidator {
                     throw invalid(AssetMessageConstants.IMAGE_DIMENSIONS_INVALID);
                 }
                 // 3. 重编码去掉原文件附加内容，再检查输出容量；不把原始字节写入存储。
+                // WebP 插件只负责解码；统一转为 PNG，复用现有安全输出与存储格式。
+                String outputFormat = "webp".equals(format) ? "png" : format;
+                String outputMime = "webp".equals(format) ? IMAGE_PNG_VALUE : mime;
                 BufferedImage pixels = imageReader.read(FIRST_IMAGE_INDEX);
                 ByteArrayOutputStream output = new ByteArrayOutputStream();
-                if (pixels == null || !ImageIO.write(pixels, format, output)) {
+                if (pixels == null || !ImageIO.write(pixels, outputFormat, output)) {
                     throw invalid(AssetMessageConstants.IMAGE_TYPE_INVALID);
                 }
                 byte[] bytes = output.toByteArray();
@@ -94,7 +104,7 @@ public class ImageContentValidator {
                     throw invalid(AssetMessageConstants.IMAGE_TOO_LARGE);
                 }
                 return new CheckedImage(
-                        bytes, mime, IMAGE_PNG_VALUE.equals(mime) ? "png" : "jpg", width, height);
+                        bytes, outputMime, IMAGE_PNG_VALUE.equals(outputMime) ? "png" : "jpg", width, height);
             } finally {
                 // 4. 无论校验/重编码是否成功，都释放 ImageReader，外层关闭输入流。
                 imageReader.dispose();

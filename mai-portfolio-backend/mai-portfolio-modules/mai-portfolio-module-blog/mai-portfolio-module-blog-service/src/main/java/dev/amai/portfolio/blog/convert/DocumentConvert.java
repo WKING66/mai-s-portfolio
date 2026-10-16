@@ -59,11 +59,13 @@ public interface DocumentConvert {
     @Mapping(target = "status", source = "status")
     @Mapping(target = "originalUri", source = "originalUri")
     @Mapping(target = "filename", source = "asset.originalFilename")
+    @Mapping(target = "errorMessage", source = "errorMessage")
     DocumentResourceVo to(
             DocumentResource resource,
             AssetResourceData asset,
             ResourceStatus status,
-            String originalUri);
+            String originalUri,
+            String errorMessage);
 
     // 编码转换按类型统一复用，禁止使用默认 ordinal 或在每个字段中复制 Java 表达式。
     default ResourceType toResourceType(Integer code) {

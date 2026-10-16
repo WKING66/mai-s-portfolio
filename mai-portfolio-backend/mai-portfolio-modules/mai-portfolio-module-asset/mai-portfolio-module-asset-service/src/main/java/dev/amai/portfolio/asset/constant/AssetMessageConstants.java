@@ -10,7 +10,9 @@ public final class AssetMessageConstants {
     public static final String FILE_TOO_LARGE = "文件超过当前用途的大小限制";
     public static final String IMAGE_EMPTY = "请选择图片文件";
     public static final String IMAGE_TOO_LARGE = "图片超过当前用途的大小限制";
-    public static final String IMAGE_TYPE_INVALID = "仅支持有效且 MIME 匹配的 PNG 或 JPEG 图片";
+    public static final String IMAGE_TYPE_INVALID = "图片内容损坏或无法解码，请重新导出 PNG、JPEG 或 WebP 文件";
+    public static final String IMAGE_TYPE_UNSUPPORTED = "图片格式不支持，仅支持 PNG、JPEG 或 WebP";
+    public static final String IMAGE_MIME_MISMATCH = "图片实际格式与声明的 MIME 类型不一致，请检查文件内容和上传类型";
     public static final String IMAGE_DIMENSIONS_INVALID = "图片宽高超过当前用途的像素限制";
     public static final String UPLOAD_INVALID = "上传文件或资产元数据不合法";
     public static final String RESOURCE_ACCESS_FAILED = "资源地址暂时无法生成，请稍后重试";
