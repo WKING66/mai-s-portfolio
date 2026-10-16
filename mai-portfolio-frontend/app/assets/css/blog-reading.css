@@ -133,6 +133,7 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 .blog-mermaid-frame {
+  position: relative;
   min-width: 0;
   max-width: 100%;
   align-self: center;
@@ -171,6 +172,7 @@
   margin-inline: auto;
 }
 .blog-reading-page {
+  max-width: 90rem;
   --blog-reading-start-gap: 1.5rem;
   padding-block-start: var(--blog-reading-start-gap);
 }
@@ -213,7 +215,7 @@
 }
 .blog-toc-link {
   display: block;
-  font-size: 0.8125rem;
+  font-size: 0.875rem;
   line-height: 1.5;
   padding-block: 0.3rem;
   padding-right: 0.4rem;
@@ -316,6 +318,9 @@
     pointer-events: none;
   }
 }
+.blog-toc-resize-handle {
+  display: none;
+}
 .blog-toc-mobile-toggle {
   display: none;
 }
@@ -369,7 +374,7 @@
 @media (min-width: 1200px) {
   .blog-reading-layout {
     max-width: none;
-    grid-template-columns: 17.5rem minmax(0, 1fr);
+    grid-template-columns: var(--blog-toc-width, 18rem) minmax(0, 1fr);
   }
   .blog-reading-layout > .blog-renderer {
     grid-column: 2;
@@ -377,7 +382,7 @@
   }
   .blog-reading-layout > .blog-renderer,
   .blog-reading-layout > .blog-reading-title {
-    max-width: var(--site-reading-width);
+    max-width: none;
     width: 100%;
   }
   .blog-reading-with-header > .blog-reading-title {
@@ -397,6 +402,31 @@
     border-bottom: 0;
     border-right: 1px solid var(--ui-border);
     padding: 0 0.75rem 0 0;
+  }
+  .blog-toc-resize-handle {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    inset-block: 0;
+    inset-inline-end: -1rem;
+    width: 1.5rem;
+    cursor: col-resize;
+    touch-action: none;
+    z-index: 1;
+  }
+  .blog-toc-resize-handle span {
+    width: 2px;
+    height: 2.5rem;
+    border-radius: 1rem;
+    background: var(--ui-border-accented);
+  }
+  .blog-toc-resize-handle:hover span,
+  .blog-toc-resize-handle:focus-visible span {
+    background: var(--ui-primary);
+  }
+  .blog-reading-layout[data-toc-resizing] {
+    user-select: none;
+    cursor: col-resize;
   }
   .blog-reading-toc .blog-toc-scroll {
     max-height: calc(100svh - var(--site-header-height) - 4rem);
