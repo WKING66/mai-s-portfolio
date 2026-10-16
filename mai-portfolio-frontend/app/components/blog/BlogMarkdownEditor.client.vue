@@ -27,7 +27,6 @@ const mode = ref<'rich' | 'source'>('rich')
 const richInput = ref('')
 const compatibilityIssue = ref('')
 const conversionIssue = ref('')
-const recoveryMarkdown = ref<string | null>(null)
 const sessionId = ref(0)
 const manager = createBlogMarkdownManager()
 // 只替换图片的编辑视图，Markdown Schema/属性仍与预检共享；续签由资源投影响应式更新。
@@ -51,7 +50,6 @@ function prepareRichEditor(markdown: string) {
   clearTimeout(validationTimer)
   pendingMarkdown = undefined
   conversionIssue.value = ''
-  recoveryMarkdown.value = null
   emit('update:blocked', false)
   compatibilityIssue.value = inspectBlogMarkdown(markdown, manager)
   richInput.value = markdown
@@ -88,32 +86,34 @@ watch(
   },
 )
 
-function switchMode(nextMode: 'rich' | 'source') {
-  if (props.disabled || nextMode === mode.value) {
-    return
+function switchMode(nextMode: 'rich' | 'source'): boolean {
+  if (props.disabled) {
+    return false
   }
-  flushRichUpdate()
+  if (nextMode === mode.value) {
+    return true
+  }
+  // 转换及往返校验成功后才提交模式；失败保留当前文档、光标和撤销历史。
+  if (!flushRichUpdate()) {
+    return false
+  }
   if (nextMode === 'rich') {
-    if (conversionIssue.value) {
-      return
-    }
     if (props.modelValue !== richSessionMarkdown || compatibilityIssue.value) {
+      const issue = inspectBlogMarkdown(props.modelValue, manager)
+      if (issue) {
+        compatibilityIssue.value = issue
+        return false
+      }
       prepareRichEditor(props.modelValue)
-    }
-    if (compatibilityIssue.value || conversionIssue.value) {
-      return
     }
   }
   mode.value = nextMode
+  return true
 }
 
 // 2. 仅真实内容更新才回传，打开、选区变化和模式切换不能使草稿变脏或触发保存。
 function updateSource(markdown: string) {
   if (props.disabled) {
-    return
-  }
-  if (conversionIssue.value) {
-    recoveryMarkdown.value = markdown
     return
   }
   acceptedMarkdown = markdown
@@ -126,20 +126,20 @@ function updateRich(markdown: string) {
   emit('update:blocked', true)
   validationTimer = setTimeout(flushRichUpdate, 220)
 }
-function flushRichUpdate() {
+function flushRichUpdate(): boolean {
   clearTimeout(validationTimer)
   if (pendingMarkdown === undefined) {
-    return
+    return !conversionIssue.value
   }
   const markdown = pendingMarkdown
   pendingMarkdown = undefined
-  validateRichUpdate(markdown)
+  return validateRichUpdate(markdown)
 }
 defineExpose({ switchMode, flushRichUpdate })
-function validateRichUpdate(markdown: string) {
+function validateRichUpdate(markdown: string): boolean {
   const editor = richEditor.value?.editor
   if (!editor || props.disabled) {
-    return
+    return false
   }
   try {
     const content = readEditorMarkdown(editor as Editor, markdown)
@@ -149,28 +149,17 @@ function validateRichUpdate(markdown: string) {
     richSessionMarkdown = markdownForForm
     richInput.value = content
     conversionIssue.value = ''
-    recoveryMarkdown.value = null
     emit('update:blocked', false)
     if (markdownForForm !== props.modelValue) {
       emit('update:modelValue', markdownForForm)
     }
+    return true
   } catch (cause) {
-    // 保留转换结果供源码修复，同时阻止父级保存/发布；绝不能拿纯文本覆盖原正文。
-    conversionIssue.value = cause instanceof Error ? cause.message : '转换失败，请在源码模式检查。'
-    recoveryMarkdown.value = markdown
+    // UEditor 出错时可能发出 getText()，不能把它作为可采用的源码；原富文本会话继续保留供撤销。
+    conversionIssue.value = cause instanceof Error ? cause.message : '转换失败，请撤销后重试。'
     emit('update:blocked', true)
+    return false
   }
-}
-function acceptRecoverySource() {
-  if (props.disabled || recoveryMarkdown.value === null) {
-    return
-  }
-  // 用户明确检查并采用源码后才解除阻塞；保留原编辑缓冲直到这个动作发生。
-  acceptedMarkdown = recoveryMarkdown.value
-  emit('update:modelValue', recoveryMarkdown.value)
-  recoveryMarkdown.value = null
-  conversionIssue.value = ''
-  emit('update:blocked', false)
 }
 
 function keepOriginalMarkdown() {
@@ -342,25 +331,18 @@ const editorProps = {
       v-if="conversionIssue"
       color="error"
       variant="soft"
-      title="尚未将转换结果用于保存"
+      title="转换未通过，已保留当前富文本输入"
       :description="conversionIssue"
     >
       <template #actions>
         <UButton color="neutral" variant="ghost" :disabled="disabled" @click="keepOriginalMarkdown"
-          >保留转换前正文</UButton
-        >
-        <UButton
-          color="neutral"
-          variant="outline"
-          :disabled="disabled || mode !== 'source'"
-          @click="acceptRecoverySource"
-          >检查后采用源码</UButton
+          >放弃本次富文本修改，恢复已确认源码</UButton
         >
       </template>
     </UAlert>
     <UTextarea
       v-show="mode === 'source'"
-      :model-value="recoveryMarkdown ?? modelValue"
+      :model-value="modelValue"
       :disabled="disabled"
       :rows="18"
       placeholder="使用 Markdown 开始写作…"
@@ -494,6 +476,7 @@ const editorProps = {
   min-width: 0;
   flex: 1;
 }
+.blog-markdown-editor :deep(.editor-preserved-markdown),
 .blog-markdown-editor :deep(.editor-preserved-math),
 .blog-markdown-editor :deep(.editor-resource) {
   border-radius: 0.25rem;

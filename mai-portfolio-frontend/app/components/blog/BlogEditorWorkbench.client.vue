@@ -45,12 +45,14 @@ watch(
   { immediate: true },
 )
 function chooseEditor(mode: 'rich' | 'source') {
-  markdownEditor.value?.switchMode(mode)
-  previewOnly.value = false
+  if (markdownEditor.value?.switchMode(mode)) {
+    previewOnly.value = false
+  }
 }
 function choosePreview() {
-  markdownEditor.value?.flushRichUpdate()
-  previewOnly.value = true
+  if (markdownEditor.value?.flushRichUpdate()) {
+    previewOnly.value = true
+  }
 }
 
 // 2. 宽度只影响 CSS 列尺寸，既不改变 Markdown，也不重建编辑器/阅读器实例。

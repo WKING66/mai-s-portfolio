@@ -145,7 +145,7 @@ async function runEditorOperation(name: EditorOperation, action: () => Promise<v
 // 4. 保存提交完整编辑字段和已知版本，创建草稿成功后替换为正式编辑地址。
 async function saveDraft() {
   if (isMarkdownBlocked.value) {
-    feedback.error('请先在正文编辑器中检查并采用源码，再保存草稿。')
+    feedback.error('正文尚未通过转换校验，请先完成校验或撤销无法转换的操作，再保存草稿。')
     return
   }
   if (slugIssue.value) {
@@ -187,7 +187,7 @@ async function changePublicationStatus(published: boolean) {
 async function uploadResource(event: Event, usage: AssetUsage) {
   // 转换恢复区尚未确认时不能追加资源并重载正文，避免覆盖尚待修复的富文本输入。
   if (isMarkdownBlocked.value) {
-    feedback.error('请先检查并采用正文源码，再插入资源。')
+    feedback.error('请先完成正文转换校验或撤销无法转换的操作，再插入资源。')
     return
   }
   const input = event.currentTarget as HTMLInputElement

@@ -61,6 +61,39 @@ export const PreservedCodeBlock = CodeBlock.extend({
   },
 }).configure({ enableTabIndentation: true })
 
+/** HTML 块只保存原始 Markdown，既不交给 HTML parser，也不把作者属性带入编辑 DOM。 */
+export const PreservedMarkdownBlock = Node.create({
+  name: 'preservedMarkdownBlock',
+  markdownTokenName: 'html',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  addAttributes() {
+    return { source: { default: '', rendered: false } }
+  },
+  parseHTML() {
+    // 不接受剪贴板 HTML 伪造的原文节点；只允许 Markdown lexer 创建。
+    return []
+  },
+  renderHTML({ node }) {
+    return [
+      'pre',
+      {
+        class: 'editor-preserved-markdown',
+        contenteditable: 'false',
+        'aria-label': '受保护的 Markdown 原始块，请在源码模式编辑',
+      },
+      node.attrs.source,
+    ]
+  },
+  parseMarkdown(token, helpers) {
+    return helpers.createNode('preservedMarkdownBlock', { source: token.raw })
+  },
+  renderMarkdown(node) {
+    return node.attrs?.source || ''
+  },
+})
+
 function preservedMath(block: boolean) {
   const name = block ? 'preservedMathBlock' : 'preservedMathInline'
   const pattern = block
@@ -173,6 +206,7 @@ export const BLOG_EDITOR_EXTENSIONS = [
     },
   }),
   PreservedCodeBlock,
+  PreservedMarkdownBlock,
   StableImage,
   Link.extend({
     parseHTML() {

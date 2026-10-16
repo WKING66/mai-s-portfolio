@@ -13,6 +13,8 @@ import {
 
 const matrix = {
   空正文: '',
+  受保护HTML块: '修改前\n\n<div data-note="原文">\n  <strong>保留格式</strong>\n</div>\n\n结束',
+  受保护脚本块: '<script>window.untrusted = true</script>',
   软换行与换行: '第一行\n第二行\n\n第三行  \n第四行',
   常规格式:
     '# 标题\n\n正文 **加粗**、*斜体*、~~删除~~和 [链接](https://example.com)。\n\n> 引用\n\n- 甲\n- 乙\n\n1. 一\n2. 二',
@@ -53,7 +55,6 @@ describe('UEditor Markdown compatibility contract', () => {
 
   it.each([
     '- 普通\n- [x] 完成\n- [ ] 待办',
-    '<script>alert(1)</script>',
     '文本 <span onclick="alert(1)">不可信</span>',
     '[危险](javascript:alert%281%29)',
     '![危险](data:image/svg+xml;base64,PHN2Zz4=)',
@@ -175,4 +176,50 @@ it('资源占位在 DOM 上保留稳定身份，附件不直接导航内部协�
   expect(linkDom[1]['data-editor-resource-link']).toBe('asset://42')
   expect(linkDom[1].href).toBeUndefined()
   editor.destroy()
+})
+
+it('修改相邻段落不改变受保护块源码，也不把作者 HTML 作为可执行 DOM', () => {
+  const manager = createBlogMarkdownManager()
+  const source = '<div onclick="alert(1)">\n  <img src="javascript:alert(1)">\n</div>'
+  const document = manager.parse('修改前\n\n' + source + '\n\n结束')
+  const block = document.content!.find((node) => node.type === 'preservedMarkdownBlock')!
+  expect(block.attrs!.source).toContain(source)
+  document.content![0]!.content![0]!.text = '修改后'
+  expect(manager.serialize(document)).toContain(source)
+
+  const schemaEditor = new Editor({
+    element: null,
+    content: { type: 'doc', content: [{ type: 'paragraph' }] },
+    extensions: [StarterKit.configure(EDITOR_STARTER_KIT), ...BLOG_EDITOR_EXTENSIONS, Markdown],
+  })
+  try {
+    const node = schemaEditor.schema.nodeFromJSON(block)
+    const dom = node.type.spec.toDOM!(node) as [string, Record<string, string>, string]
+    expect(dom[0]).toBe('pre')
+    expect(dom[1].contenteditable).toBe('false')
+    expect(dom[1].onclick).toBeUndefined()
+    expect(dom[2]).toContain(source)
+  } finally {
+    schemaEditor.destroy()
+  }
+})
+
+it('Markdown serializer 失败时不能用纯文本继续提交', () => {
+  const editor = new Editor({
+    element: null,
+    extensions: [StarterKit.configure(EDITOR_STARTER_KIT), ...BLOG_EDITOR_EXTENSIONS, Markdown],
+    content: '**必须保留**',
+    contentType: 'markdown',
+  })
+  const originalDocument = editor.state.doc
+  editor.getMarkdown = () => {
+    throw new Error('serializer failed')
+  }
+  try {
+    expect(() => readEditorMarkdown(editor, '必须保留')).toThrow('serializer failed')
+    expect(editor.state.doc).toBe(originalDocument)
+    expect(editor.state.doc.firstChild!.firstChild!.marks[0]!.type.name).toBe('bold')
+  } finally {
+    editor.destroy()
+  }
 })

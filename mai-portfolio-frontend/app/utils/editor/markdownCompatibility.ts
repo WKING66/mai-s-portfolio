@@ -27,9 +27,11 @@ export function createBlogMarkdownManager() {
 function tokenMeaning(token: MarkdownToken): unknown {
   const children = (tokens: MarkdownToken[] | undefined) =>
     tokens?.filter((item) => item.type !== 'space').map(tokenMeaning)
+  // HTML 块尾空行只分隔相邻块；正文内的空格、属性和源码仍逐字参与校验。
+  const text = token.type === 'html' && token.block ? token.text?.replace(/\n+$/, '') : token.text
   return {
     type: token.type,
-    text: token.tokens?.length ? undefined : token.text,
+    text: token.tokens?.length ? undefined : text,
     depth: token.depth,
     ordered: token.ordered,
     start: token.ordered ? token.start : undefined,
@@ -51,18 +53,21 @@ export function inspectBlogMarkdown(source: string, manager = createBlogMarkdown
   }
   try {
     const tokens = manager.instance.lexer(source)
-    // 1. HTML、引用定义和不安全 URL 不交给富文本 HTML 解析，原文留在源码模式。
+    // 1. 跨块引用定义无法安全独立保护；整篇保留源码，避免丢失定义和引用关系。
     if (Object.keys(tokens.links).length) {
       return '含引用式链接或脚注定义，请在源码模式编辑，以保留定义和引用关系。'
     }
     let unsafe = false
     manager.instance.walkTokens(tokens, (token) => {
-      if (token.type === 'html' || ('href' in token && !isEditorUrl(String(token.href)))) {
+      if (
+        (token.type === 'html' && !token.block) ||
+        ('href' in token && !isEditorUrl(String(token.href)))
+      ) {
         unsafe = true
       }
     })
     if (unsafe) {
-      return '含原始 HTML、特殊路径或不安全链接，请在源码模式编辑；这些内容不会直接进入编辑器 DOM。'
+      return '含无法独立保护的行内 HTML、特殊路径或不安全链接，请在源码模式编辑；这些内容不会直接进入编辑器 DOM。'
     }
     // 2. 真正转换并比较语义；不能仅因解析未报错就认为表格、资源或公式没有丢失。
     const document = manager.parse(source)
