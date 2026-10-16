@@ -3,6 +3,7 @@ import BlogCodeBlock from './BlogCodeBlock.vue'
 import BlogImage from './BlogImage.vue'
 import BlogLink from './BlogLink.vue'
 import BlogToc from './BlogToc.vue'
+import BlogTocResizeHandle from './BlogTocResizeHandle.vue'
 import BlogChapter from './BlogChapter.vue'
 import BlogMath from './BlogMath.vue'
 import BlogMathML from './BlogMathML.vue'
@@ -412,6 +413,7 @@ onBeforeUnmount(() => {
       <Markdown v-if="chapterDocument" :value="chapterDocument" :components="components" />
     </div>
     <aside v-if="showToc && toc.length" class="blog-reading-toc">
+      <BlogTocResizeHandle />
       <BlogToc
         :items="toc"
         :root="bodyRoot"

@@ -347,6 +347,16 @@ defineExpose({ focus: () => viewport.value?.focus({ preventScroll: true }) })
         <!-- eslint-disable-next-line vue/no-v-html -- SVG 已由 DOMPurify 及 safeSvg 过滤脚本、外部引用和越界样式，不接受作者 HTML。 -->
         <div ref="plane" class="blog-mermaid-plane" :style="planeStyle" v-html="svg" />
       </div>
+      <UButton
+        class="absolute right-2 top-2 z-10"
+        color="neutral"
+        variant="soft"
+        size="sm"
+        icon="i-lucide-scan"
+        aria-label="图表适应容器"
+        title="适应容器"
+        @click.stop="fit"
+      />
     </div>
   </div>
 </template>
