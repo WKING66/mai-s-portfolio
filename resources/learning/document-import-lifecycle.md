@@ -821,12 +821,12 @@ BlogController.export()
 | 选择 | 实际输出 | 正文里的资源地址 |
 | --- | --- | --- |
 | 只导出正文 | `.md` | 临时 OSS 签名 URL，有效期过后不能当永久离线地址 |
-| 包含资源且确有资源 | `.zip` | `resources/key/安全文件名`，包内真实带文件 |
+| 包含资源且确有资源 | `.zip` | `resources/安全文件名`，包内真实带文件 |
 | 正文没有资源，即使勾选包含资源 | `.md` | 无资源需要打包 |
 
 当前 `prepare()` **无论输出 MD 还是 ZIP，都会先检查全部资源就绪**；有坏资源时不是简单忽略坏图然后继续导出。
 
-ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage.open()`，按缓冲区从 OSS 读流、写 ZIP，逐个关闭读取流并检查字节数。包内文件名会清理目录穿越、Windows 危险字符和保留名，每个 key 独立目录避免同名覆盖。
+ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage.open()`，按缓冲区从 OSS 读流、写 ZIP，逐个关闭读取流并检查字节数。包内文件名会清理目录穿越、Windows 危险字符和保留名，图片和附件平铺在同一个目录；重名时添加序号，避免解压到 Windows 时互相覆盖。导出文件和 ZIP 根目录正文均使用文章标题。
 
 完整写入才 `finish()`；中途失败不把缺资源 ZIP 包装成完整成功文件。流响应已经开始后，不能保证还能变回一个整齐的 JSON 错误响应。
 

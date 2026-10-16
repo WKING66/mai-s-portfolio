@@ -81,6 +81,33 @@ export async function requestApi<T>(
   return response
 }
 
+/** 优先读取 RFC 5987 的 UTF-8 文件名；普通 filename 仅作兼容，不能把编码文本当成用户文件名。 */
+function downloadFilename(headers: Headers): string {
+  const disposition = headers.get('content-disposition') || ''
+  const plain = /(?:^|;)\s*filename\s*=\s*(?:"((?:\\.|[^"])*)"|([^;]*))/i.exec(disposition)
+  let filename = (plain?.[1] ?? plain?.[2])?.replace(/\\(["\\])/g, '$1')
+  const extended = /(?:^|;)\s*filename\*\s*=\s*UTF-8'[^']*'([^;]+)/i.exec(disposition)?.[1]
+  if (extended) {
+    try {
+      filename = decodeURIComponent(extended.trim())
+    } catch {
+      // 无效扩展参数不阻断下载，继续使用普通文件名或容器类型兜底。
+    }
+  }
+  if (
+    filename?.trim() &&
+    filename !== '.' &&
+    filename !== '..' &&
+    !Array.from(filename).some(
+      (character) => character === '/' || character === '\\' ||
+        character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    )
+  ) {
+    return filename
+  }
+  return headers.get('content-type')?.includes('zip') ? 'article.zip' : 'article.md'
+}
+
 /** 二进制下载仍保留统一错误码，供同一个会话拦截器处理 401/403。 */
 export async function requestDownload(
   path: string,
@@ -118,10 +145,5 @@ export async function requestDownload(
   if (!response._data) {
     throw new ApiRequestError(fallbackMessage, response.status, null)
   }
-  // 当前后端文件名为 ASCII；优先使用服务端命名，缺少响应头时才按容器类型兜底。
-  const disposition = response.headers.get('content-disposition') || ''
-  const filename =
-    /filename="?([^";]+)"?/.exec(disposition)?.[1] ||
-    (response.headers.get('content-type')?.includes('zip') ? 'article.zip' : 'article.md')
-  return { blob: response._data, filename }
+  return { blob: response._data, filename: downloadFilename(response.headers) }
 }
