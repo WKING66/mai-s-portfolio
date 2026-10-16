@@ -4,7 +4,7 @@ import { useRoute } from '#app'
 import { AUTH_ACCESS, AUTH_MESSAGES } from '../constants/auth'
 import { ADMIN_NAVIGATION, ADMIN_PATHS } from '../constants/admin'
 
-defineProps<{ title: string; description: string; wide?: boolean }>()
+defineProps<{ title: string; description: string; wide?: boolean; immersive?: boolean }>()
 const route = useRoute()
 const activePage = computed(() => {
   if (route.path.startsWith(ADMIN_PATHS.blogs)) {
@@ -22,11 +22,15 @@ const activePage = computed(() => {
 
 <template>
   <div>
-    <main class="site-container site-page" :class="{ 'admin-wide': wide }">
+    <main
+      class="site-container site-page"
+      :class="{ 'admin-wide': wide, 'admin-immersive': immersive }"
+    >
       <Auth :access="AUTH_ACCESS.OWNER">
         <!-- 统一在框架内挂载业务组件，权限撤销时销毁管理快照和未保存表单。 -->
         <div class="admin-workspace grid items-start gap-8">
           <nav
+            v-if="!immersive"
             class="admin-navigation flex flex-wrap gap-2 border-b border-line pb-5"
             aria-label="作品集管理导航"
           >
@@ -43,7 +47,7 @@ const activePage = computed(() => {
             </UButton>
           </nav>
           <div class="min-w-0">
-            <header class="mb-8 flex flex-wrap items-start justify-between gap-5">
+            <header v-if="!immersive" class="mb-8 flex flex-wrap items-start justify-between gap-5">
               <div class="max-w-2xl">
                 <p class="eyebrow mb-3">作品集管理</p>
                 <h1 class="site-page-title">{{ title }}</h1>
@@ -103,5 +107,8 @@ const activePage = computed(() => {
     border-bottom: 1px solid var(--site-line);
     padding: 0 0 1rem;
   }
+}
+.admin-immersive {
+  padding-top: 0.75rem;
 }
 </style>

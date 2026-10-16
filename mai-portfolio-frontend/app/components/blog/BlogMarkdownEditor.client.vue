@@ -21,6 +21,7 @@ const emit = defineEmits<{
   'update:modelValue': [markdown: string]
   'update:blocked': [blocked: boolean]
   'update:mode': [mode: 'rich' | 'source']
+  editor: [editor: Editor | null]
 }>()
 const richEditor = useTemplateRef('richEditor')
 const mode = ref<'rich' | 'source'>('rich')
@@ -43,7 +44,10 @@ let richSessionMarkdown = ''
 let validationTimer: ReturnType<typeof setTimeout> | undefined
 let pendingMarkdown: string | undefined
 watch(mode, (value) => emit('update:mode', value), { immediate: true })
-onBeforeUnmount(() => clearTimeout(validationTimer))
+onBeforeUnmount(() => {
+  clearTimeout(validationTimer)
+  emit('editor', null)
+})
 
 // 1. 外部载入/重载和上传只接收 Markdown；自发的更新不重建编辑器，保留当前选择与撤销栈。
 function prepareRichEditor(markdown: string) {
@@ -79,6 +83,7 @@ watch(
 watch(
   () => richEditor.value?.editor,
   (editor) => {
+    emit('editor', editor ? markRaw(editor as Editor) : null)
     if (editor) {
       initialDocument = editor.state.doc
       initialMarkdown = props.modelValue
@@ -288,9 +293,9 @@ const editorProps = {
     }
     return true
   },
-  handleDrop() {
-    // 文件统一通过现有上传入口；阻止浏览器把本地路径或 data URL 写入正文。
-    return true
+  handleDrop(_view: unknown, _event: DragEvent, _slice: unknown, moved: boolean) {
+    // 编辑器内部的块和文本拖动交给 ProseMirror；外部文件仍使用显式上传入口。
+    return !moved
   },
 }
 </script>
@@ -371,34 +376,31 @@ const editorProps = {
       :ui="{
         root: embedded ? 'editor-rich-root' : 'min-w-0 rounded-lg border border-default bg-default',
         content: embedded ? 'editor-rich-content' : 'min-w-0 max-h-[65svh] overflow-auto',
-        base: 'min-h-96 px-4 py-5 sm:px-6',
+        base: 'blog-renderer min-h-96 px-4 py-5 sm:px-6',
       }"
       @update:model-value="updateRich"
     >
       <UEditorSuggestionMenu :editor="editor" :items="suggestionItems" />
       <UEditorToolbar
         :editor="editor"
-        :items="toolbarItems"
+        :items="[
+          ...toolbarItems,
+          [{ icon: 'i-lucide-table', tooltip: { text: '表格操作' }, items: tableActions(editor) }],
+        ]"
         layout="bubble"
         :ui="{ base: 'max-w-[calc(100vw-2rem)] flex-wrap' }"
       />
-      <div
-        class="editor-toolbar flex min-w-0 flex-wrap items-center gap-1 border-b border-default p-2"
-      >
-        <UEditorToolbar
-          :editor="editor"
-          :items="toolbarItems"
-          :ui="{ base: 'min-w-0 max-w-full flex-wrap' }"
-        />
-        <UDropdownMenu :items="tableActions(editor)"
-          ><UButton
-            color="neutral"
-            variant="ghost"
-            icon="i-lucide-table"
-            aria-label="表格操作"
-            :disabled="disabled"
-        /></UDropdownMenu>
-      </div>
+      <UEditorToolbar
+        :editor="editor"
+        :items="[
+          toolbarItems[1]!,
+          toolbarItems[3]!,
+          [{ icon: 'i-lucide-table', tooltip: { text: '表格操作' }, items: tableActions(editor) }],
+        ]"
+        layout="floating"
+        :ui="{ base: 'max-w-[calc(100vw-2rem)] flex-wrap' }"
+      />
+      <BlogEditorBlockMenu :editor="editor" :disabled="disabled" />
     </UEditor>
     <p v-if="!embedded" class="text-xs leading-6 text-muted">
       正文始终保存为 Markdown。公式保留原文；表达式、代码语言与文件名可在源码模式修改。
@@ -413,10 +415,19 @@ const editorProps = {
 .embedded :deep(.editor-rich-root) {
   border: 0;
   border-radius: 0;
-  background: var(--ui-bg);
+  background: transparent;
 }
 .embedded :deep(.editor-rich-content) {
   min-width: 0;
+  width: min(100%, 58rem);
+  margin-inline: auto;
+  padding: clamp(1rem, 3vw, 3rem) clamp(1rem, 4vw, 3rem) 6rem;
+}
+.embedded :deep(.tiptap) {
+  padding: 0;
+}
+.embedded :deep(.tiptap p) {
+  line-height: inherit;
 }
 .embedded :deep(textarea) {
   min-height: 65svh;

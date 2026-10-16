@@ -53,7 +53,7 @@ function session(markdown = '**保留原文**') {
   const emit = vi.fn()
   const runtime = runInNewContext(
     script +
-      ';({ prepareRichEditor, switchMode, updateRich, flushRichUpdate, mode, sessionId, conversionIssue, keepOriginalMarkdown });',
+      ';({ prepareRichEditor, switchMode, updateRich, flushRichUpdate, mode, sessionId, conversionIssue, keepOriginalMarkdown, editorProps });',
     {
       exports: {},
       Error,
@@ -133,4 +133,10 @@ describe('Markdown 模式切换事务', () => {
     expect(props.modelValue).toContain('onclick')
     expect(emit).not.toHaveBeenCalledWith('update:modelValue', expect.anything())
   })
+})
+
+it('内部块拖动保留 ProseMirror 默认处理，外部文件不写入临时 URL', () => {
+  const { runtime } = session()
+  expect(runtime.editorProps.handleDrop(null, null, null, true)).toBe(false)
+  expect(runtime.editorProps.handleDrop(null, null, null, false)).toBe(true)
 })
