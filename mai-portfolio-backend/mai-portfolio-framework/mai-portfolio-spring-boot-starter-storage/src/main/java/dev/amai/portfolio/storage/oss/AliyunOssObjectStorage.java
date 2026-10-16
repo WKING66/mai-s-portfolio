@@ -3,6 +3,7 @@ package dev.amai.portfolio.storage.oss;
 import com.aliyun.oss.ClientException;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSException;
+import com.aliyun.oss.model.GeneratePresignedUrlRequest;
 import com.aliyun.oss.model.OSSObject;
 import com.aliyun.oss.model.ObjectMetadata;
 import com.aliyun.oss.model.PutObjectRequest;
@@ -21,6 +22,8 @@ import dev.amai.portfolio.storage.exception.ObjectStorageException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -60,12 +63,39 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
 
     @Override
     public StoredObjectAccessUrl accessUrl(String objectKey) {
+        return signedUrl(objectKey, null);
+    }
+
+    @Override
+    public StoredObjectAccessUrl downloadUrl(String objectKey, String filename) {
+        if (filename == null
+                || filename.isBlank()
+                || filename.indexOf('/') >= 0
+                || filename.indexOf('\\') >= 0
+                || filename.codePoints().anyMatch(Character::isISOControl)) {
+            throw new ObjectStorageException(StorageMessageConstants.DOWNLOAD_FILENAME_INVALID);
+        }
+        return signedUrl(objectKey, filename);
+    }
+
+    private StoredObjectAccessUrl signedUrl(String objectKey, String filename) {
         // 1. 校验对象身份并将到期时间对齐到 SDK 使用的毫秒精度。
         String key = ObjectStorageKeyValidator.validate(objectKey);
         Instant expiresAt = Instant.ofEpochMilli(Instant.now().plus(signedUrlTtl).toEpochMilli());
         try {
-            // 2. 只生成 HTTPS 签名地址，不查询或下载对象；业务授权由上层完成。
-            var signedUrl = ossClient.generatePresignedUrl(bucketName, key, Date.from(expiresAt));
+            // 2. 下载文件名随响应头一起签名；旧 .bin 对象也能使用原始名称，无需迁移文件。
+            var request = new GeneratePresignedUrlRequest(bucketName, key);
+            request.setExpiration(Date.from(expiresAt));
+            if (filename != null) {
+                // RFC 5987 使用 UTF-8 百分号编码；空格不能变成 +，星号不能原样进入 filename*。
+                String encoded = URLEncoder.encode(filename, StandardCharsets.UTF_8)
+                        .replace("+", "%20")
+                        .replace("*", "%2A");
+                request.getResponseHeaders().setContentDisposition(
+                        "attachment; filename=\"" + encoded + "\"; filename*=UTF-8''" + encoded);
+            }
+            // 3. 只生成 HTTPS 签名地址，不查询或下载对象；业务授权由上层完成。
+            var signedUrl = ossClient.generatePresignedUrl(request);
             if (signedUrl == null || !"https".equalsIgnoreCase(signedUrl.getProtocol())) {
                 throw new ObjectStorageException(StorageMessageConstants.ACCESS_URL_FAILED);
             }

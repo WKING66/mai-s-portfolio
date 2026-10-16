@@ -77,6 +77,12 @@ public final class LocalObjectStorage implements ObjectStorage {
     }
 
     @Override
+    public StoredObjectAccessUrl downloadUrl(String objectKey, String filename) {
+        ObjectStorageKeyValidator.validate(objectKey);
+        throw new ObjectStorageException(StorageMessageConstants.LOCAL_DIRECT_ACCESS_UNAVAILABLE);
+    }
+
+    @Override
     public StoredObjectContent open(String objectKey) {
         String key = ObjectStorageKeyValidator.validate(objectKey);
         Path objectPath = resolve(key);
