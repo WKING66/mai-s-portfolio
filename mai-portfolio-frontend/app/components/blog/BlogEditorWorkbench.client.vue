@@ -3,6 +3,8 @@ import { BLOG_RESOURCES } from '../../utils/blogResources'
 import type { DocumentResource } from '../../api/blogs'
 import BlogRenderer from './BlogRenderer.vue'
 import BlogMarkdownEditor from './BlogMarkdownEditor.client.vue'
+import BlogEditorOutline from './BlogEditorOutline.vue'
+import type { Editor } from '@tiptap/core'
 
 const props = defineProps<{
   modelValue: string
@@ -18,14 +20,18 @@ const workspace = useTemplateRef<HTMLElement>('workspace')
 const markdownEditor = useTemplateRef('markdownEditor')
 const editorMode = ref<'rich' | 'source'>('rich')
 const previewOnly = ref(false)
-const isSplit = ref(false)
+const isWide = ref(false)
+const isSplit = computed(() => isWide.value && editorMode.value === 'source')
+const runtimeEditor = shallowRef<Editor | null>(null)
+const editPane = useTemplateRef<HTMLElement>('editPane')
+const outlineOpen = ref(false)
 const containerWidth = ref(0)
 const minimumPercent = computed(() =>
   containerWidth.value ? Math.min(45, (320 / containerWidth.value) * 100) : 30,
 )
 const previewVisited = ref(false)
 const previewMarkdown = ref(props.modelValue)
-const previewPercent = ref(42)
+const previewPercent = ref(60)
 const isResizing = ref(false)
 const previewId = useId()
 let resizeObserver: ResizeObserver | undefined
@@ -45,12 +51,14 @@ watch(
   { immediate: true },
 )
 function chooseEditor(mode: 'rich' | 'source') {
-  markdownEditor.value?.switchMode(mode)
-  previewOnly.value = false
+  if (markdownEditor.value?.switchMode(mode)) {
+    previewOnly.value = false
+  }
 }
 function choosePreview() {
-  markdownEditor.value?.flushRichUpdate()
-  previewOnly.value = true
+  if (markdownEditor.value?.flushRichUpdate()) {
+    previewOnly.value = true
+  }
 }
 
 // 2. 宽度只影响 CSS 列尺寸，既不改变 Markdown，也不重建编辑器/阅读器实例。
@@ -98,14 +106,14 @@ function resizeWithKeyboard(event: KeyboardEvent) {
     setPreviewWidth(event.key === 'Home' ? 100 : 0)
   } else if (event.key === 'Enter') {
     event.preventDefault()
-    previewPercent.value = 42
+    setPreviewWidth(60)
   }
 }
 onMounted(() => {
   resizeObserver = new ResizeObserver(([entry]) => {
     if (entry) {
       containerWidth.value = entry.contentRect.width
-      isSplit.value = containerWidth.value >= 896
+      isWide.value = containerWidth.value >= 896
       if (!isSplit.value) {
         finishResize()
       }
@@ -128,7 +136,12 @@ onBeforeUnmount(() => {
   <section
     ref="workspace"
     class="editor-workbench"
-    :class="{ 'is-split': isSplit, 'is-resizing': isResizing }"
+    :class="{
+      'is-split': isSplit,
+      'is-resizing': isResizing,
+      'is-immersive': editorMode === 'rich' && !previewOnly,
+      'is-wide': isWide,
+    }"
     :style="{ '--preview-width': previewPercent + '%' }"
     aria-label="博客正文工作台"
   >
@@ -141,7 +154,7 @@ onBeforeUnmount(() => {
           :aria-pressed="!previewOnly && editorMode === 'rich'"
           :disabled="disabled"
           @click="chooseEditor('rich')"
-          >富文本编辑</UButton
+          >沉浸编辑</UButton
         >
         <UButton
           :variant="!previewOnly && editorMode === 'source' ? 'soft' : 'ghost'"
@@ -162,10 +175,28 @@ onBeforeUnmount(() => {
           >阅读预览</UButton
         >
       </div>
-      <span v-if="isSplit" class="text-xs text-muted">实时预览 · 当前草稿</span>
+      <UButton
+        v-if="editorMode === 'rich' && !previewOnly && !isWide"
+        icon="i-lucide-list-tree"
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        aria-label="打开编辑目录"
+        @click="outlineOpen = true"
+      />
+      <span v-if="isSplit" class="text-xs text-muted">Markdown · 实时预览</span>
     </header>
     <div class="workbench-panes">
-      <div v-show="isSplit || !previewOnly" class="workbench-edit-pane">
+      <div v-show="editorMode === 'rich' && !previewOnly" class="workbench-outline-container">
+        <BlogEditorOutline
+          v-if="runtimeEditor"
+          v-model:open="outlineOpen"
+          :editor="runtimeEditor"
+          :compact="!isWide"
+          :scroll-root="editPane"
+        />
+      </div>
+      <div v-show="isSplit || !previewOnly" ref="editPane" class="workbench-edit-pane">
         <BlogMarkdownEditor
           ref="markdownEditor"
           :model-value="modelValue"
@@ -174,6 +205,7 @@ onBeforeUnmount(() => {
           @update:model-value="emit('update:modelValue', $event)"
           @update:blocked="emit('update:blocked', $event)"
           @update:mode="editorMode = $event"
+          @editor="runtimeEditor = $event"
         />
       </div>
       <div
@@ -193,7 +225,7 @@ onBeforeUnmount(() => {
         @pointercancel="finishResize"
         @lostpointercapture="finishResize"
         @keydown="resizeWithKeyboard"
-        @dblclick="previewPercent = 42"
+        @dblclick="setPreviewWidth(60)"
       >
         <span aria-hidden="true" />
       </div>
@@ -226,7 +258,7 @@ onBeforeUnmount(() => {
 .editor-workbench {
   min-width: 0;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius);
+  border-radius: calc(var(--ui-radius) * 1.5);
   background: var(--ui-bg);
 }
 .workbench-header {
@@ -240,7 +272,22 @@ onBeforeUnmount(() => {
 }
 .workbench-panes {
   min-width: 0;
-  height: clamp(28rem, 72svh, 58rem);
+  height: max(28rem, calc(100svh - var(--site-header-height) - 12rem));
+  max-height: 68rem;
+}
+.editor-workbench:not(.is-wide) .workbench-outline-container {
+  height: 0;
+}
+.is-immersive.is-wide .workbench-panes {
+  display: grid;
+  grid-template-columns: minmax(13rem, 16rem) minmax(0, 1fr);
+}
+.is-immersive .workbench-edit-pane {
+  background: var(--site-bg);
+}
+.workbench-outline-container {
+  min-height: 0;
+  height: 100%;
 }
 .workbench-edit-pane,
 .workbench-preview-pane {
