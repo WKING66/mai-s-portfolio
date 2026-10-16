@@ -374,7 +374,7 @@
 @media (min-width: 1200px) {
   .blog-reading-layout {
     max-width: none;
-    grid-template-columns: var(--blog-toc-width, 30%) minmax(0, 1fr);
+    grid-template-columns: var(--blog-toc-width, 18rem) minmax(0, 1fr);
   }
   .blog-reading-layout > .blog-renderer {
     grid-column: 2;

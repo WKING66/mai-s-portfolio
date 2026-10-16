@@ -85,12 +85,12 @@ function resizeHandle() {
 }
 
 describe('reading TOC width controls', () => {
-  it('starts at 30%, coalesces pointer updates and keeps the width within bounds', () => {
+  it('starts at 18rem, coalesces pointer updates and keeps the width within bounds', () => {
     const view = resizeHandle()
-    expect(view.api.percentage.value).toBe(30)
+    expect(view.api.percentage.value).toBe(24)
     view.api.start({ button: 0, pointerId: 1, preventDefault() {} })
     view.api.move({ pointerId: 2, clientX: 700 })
-    expect(view.api.percentage.value).toBe(30)
+    expect(view.api.percentage.value).toBe(24)
     view.api.move({ pointerId: 1, clientX: 550 })
     view.api.move({ pointerId: 1, clientX: 580 })
     view.flush()
@@ -106,15 +106,15 @@ describe('reading TOC width controls', () => {
   it('supports keyboard adjustment/reset, container resize and teardown', () => {
     const view = resizeHandle()
     view.key('ArrowRight')
-    expect(view.api.percentage.value).toBe(32)
+    expect(view.api.percentage.value).toBe(26)
     view.key('ArrowLeft')
-    expect(view.api.percentage.value).toBe(30)
+    expect(view.api.percentage.value).toBe(24)
     view.key('End')
     expect(view.api.percentage.value).toBe(50)
     view.key('Home')
     expect(view.api.percentage.value).toBeCloseTo((256 / 1200) * 100)
     view.key('Enter')
-    expect(view.api.percentage.value).toBe(30)
+    expect(view.api.percentage.value).toBe(24)
     view.key('End')
     view.measure(1000)
     expect(view.api.percentage.value).toBe(50)

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const handle = useTemplateRef<HTMLElement>('handle')
 const percentage = ref(30)
+let defaultPercentage = 30
 const bounds = shallowRef({ minimum: 20, maximum: 50 })
 let layout: HTMLElement | null = null
 let observer: ResizeObserver | undefined
@@ -53,7 +54,7 @@ function keyboard(event: KeyboardEvent) {
   } else if (event.key === 'End') {
     setWidth(bounds.value.maximum)
   } else if (event.key === 'Enter') {
-    setWidth(30)
+    setWidth(defaultPercentage)
   } else {
     return
   }
@@ -72,13 +73,16 @@ onMounted(() => {
       return
     }
     finish()
+    const isInitialSize = width === 0
     width = entry.contentRect.width
     const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
     bounds.value = {
       minimum: Math.min(30, ((16 * rem) / width) * 100),
       maximum: Math.max(30, Math.min(50, (1 - (28 * rem) / width) * 100)),
     }
-    setWidth(percentage.value)
+    // 默认比 16rem 的拖拽下限多留 2rem，恢复宽度时使用同一尺寸。
+    defaultPercentage = ((18 * rem) / width) * 100
+    setWidth(isInitialSize ? defaultPercentage : percentage.value)
   })
   observer.observe(layout)
 })
@@ -108,7 +112,7 @@ onBeforeUnmount(() => {
     @pointercancel="finish"
     @lostpointercapture="finish"
     @keydown="keyboard"
-    @dblclick="setWidth(30)"
+    @dblclick="setWidth(defaultPercentage)"
   >
     <span aria-hidden="true" />
   </div>
