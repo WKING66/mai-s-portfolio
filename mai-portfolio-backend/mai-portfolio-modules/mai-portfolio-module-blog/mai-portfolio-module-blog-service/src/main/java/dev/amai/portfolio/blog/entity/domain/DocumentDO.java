@@ -1,6 +1,7 @@
 package dev.amai.portfolio.blog.entity.domain;
 
 import com.baomidou.mybatisplus.annotation.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,9 +14,14 @@ public class DocumentDO {
     private Long id;
 
     private Long ownerId;
+
     private Integer originType;
+
     private Long currentVersionId;
+
     private Long lockVersion;
-    private java.time.LocalDateTime createdAt;
-    private java.time.LocalDateTime updatedAt;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
 }

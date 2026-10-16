@@ -9,22 +9,23 @@ import jakarta.validation.constraints.Size;
 @Schema(description = "本人密码修改；两份密码分别使用当前登录 RSA-OAEP SHA-256 公钥加密")
 public record AccountPasswordRequest(
         @NotBlank(message = SystemMessageConstants.LOGIN_CIPHERTEXT_REQUIRED)
-                @Size(
+        @Size(
                         max = PasswordCipherConstants.MAX_ENCRYPTED_PASSWORD_CHARACTERS,
                         message = SystemMessageConstants.LOGIN_CIPHERTEXT_INVALID)
-                @Schema(
+        @Schema(
                         description = "原密码的 RSA Base64 密文；原密码保持原样校验",
                         format = "byte",
                         accessMode = Schema.AccessMode.WRITE_ONLY,
                         requiredMode = Schema.RequiredMode.REQUIRED)
-                String oldEncryptedPassword,
+        String oldEncryptedPassword,
+
         @NotBlank(message = SystemMessageConstants.LOGIN_CIPHERTEXT_REQUIRED)
-                @Size(
+        @Size(
                         max = PasswordCipherConstants.MAX_ENCRYPTED_PASSWORD_CHARACTERS,
                         message = SystemMessageConstants.LOGIN_CIPHERTEXT_INVALID)
-                @Schema(
+        @Schema(
                         description = "新密码的 RSA Base64 密文；去首尾空白，只支持可见 ASCII，至少 12 位",
                         format = "byte",
                         accessMode = Schema.AccessMode.WRITE_ONLY,
                         requiredMode = Schema.RequiredMode.REQUIRED)
-                String newEncryptedPassword) {}
+        String newEncryptedPassword) {}

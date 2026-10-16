@@ -54,7 +54,14 @@ public class TaxonomyBootstrapServiceImpl implements TaxonomyBootstrapService {
         }
     }
 
-    private record Tech(String slug, String name, TechGroup group, int order) {}
+    private record Tech(
+            String slug,
+
+            String name,
+
+            TechGroup group,
+
+            int order) {}
 
     private static final List<Tech> TECH_STACK =
             List.of(

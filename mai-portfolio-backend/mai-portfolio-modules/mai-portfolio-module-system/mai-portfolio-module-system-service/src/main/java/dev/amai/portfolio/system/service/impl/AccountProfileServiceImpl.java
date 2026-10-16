@@ -8,6 +8,7 @@ import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.constant.AccountMessageConstants;
+import dev.amai.portfolio.system.convert.AccountConvert;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.entity.domain.UserProfileDO;
 import dev.amai.portfolio.system.entity.request.AccountAvatarRequest;
@@ -213,11 +214,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
                 profile == null || profile.getNickname() == null || profile.getNickname().isBlank()
                         ? account.getUsername()
                         : profile.getNickname();
-        return new AccountProfileVo(
-                account.getUsername(),
-                nickname,
-                avatar == null ? null : avatar.resourceUrl(),
-                avatar == null ? null : avatar.expiresAt());
+        return AccountConvert.MAPPER.to(account, nickname, avatar);
     }
 
     private String nickname(String value) {

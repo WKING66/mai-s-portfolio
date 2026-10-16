@@ -1,8 +1,11 @@
 package dev.amai.portfolio.blog.convert;
 
-import dev.amai.portfolio.blog.entity.domain.*;
-import dev.amai.portfolio.blog.entity.request.BlogRequest;
-import dev.amai.portfolio.blog.entity.vo.*;
+import dev.amai.portfolio.blog.entity.domain.BlogPostDO;
+import dev.amai.portfolio.blog.entity.domain.Document;
+import dev.amai.portfolio.blog.entity.domain.DocumentSummary;
+import dev.amai.portfolio.blog.entity.vo.BlogCardVo;
+import dev.amai.portfolio.blog.entity.vo.BlogVo;
+import dev.amai.portfolio.blog.entity.vo.DocumentResourceVo;
 import java.util.List;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -15,8 +18,6 @@ public interface BlogConvert {
     BlogConvert MAPPER = Mappers.getMapper(BlogConvert.class);
 
     /** 文章身份与已选版本摘要合成列表条目，状态由业务层提供。 */
-    @Mapping(target = "id", source = "blogPost.id")
-    @Mapping(target = "version", source = "documentSummary.version")
     @Mapping(target = "status", source = "status")
     BlogCardVo to(BlogPostDO blogPost, DocumentSummary documentSummary, String status);
 
@@ -35,14 +36,4 @@ public interface BlogConvert {
             boolean allowDownload,
             String previewIssue,
             List<DocumentResourceVo> resources);
-
-    /** 导入结果装配为新草稿请求；调用方先确定标题及本次授权。 */
-    @Mapping(target = "version", ignore = true)
-    @Mapping(target = "slug", constant = "")
-    @Mapping(target = "summary", constant = "")
-    BlogRequest to(
-            PreparedDocument prepared,
-            String title,
-            boolean allowDownload,
-            boolean remoteRightsConfirmed);
 }

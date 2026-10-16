@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -103,9 +104,9 @@ public class GlobalExceptionHandler {
                                 List.of()));
     }
 
-    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
     ResponseEntity<R<Void>> handlePayloadTooLarge(
-            org.springframework.web.multipart.MaxUploadSizeExceededException exception) {
+            MaxUploadSizeExceededException exception) {
         return ResponseEntity.status(ApiErrorCode.PAYLOAD_TOO_LARGE.status())
                 .body(
                         R.failure(

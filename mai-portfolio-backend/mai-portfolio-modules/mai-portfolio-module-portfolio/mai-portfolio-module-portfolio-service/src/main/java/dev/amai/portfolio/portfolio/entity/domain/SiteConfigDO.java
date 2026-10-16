@@ -13,14 +13,24 @@ import lombok.Setter;
 public class SiteConfigDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private String displayName;
+
     private String headline;
+
     private String intro;
+
     private String githubUrl;
+
     private String email;
+
     private Long avatarMediaId;
+
     private Long resumeMediaId;
+
     private String seoTitle;
+
     private String seoDescription;
+
     private LocalDateTime updatedAt;
 }

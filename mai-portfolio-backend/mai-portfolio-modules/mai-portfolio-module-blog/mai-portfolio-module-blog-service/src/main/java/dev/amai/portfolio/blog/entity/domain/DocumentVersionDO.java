@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 /** 不可变的正文、标题与摘要快照；新增保存追加记录，公开发布只改变博客指针。 */
 @Getter
 @Setter
@@ -13,11 +15,19 @@ public class DocumentVersionDO {
     private Long id;
 
     private Long documentId;
+
     private Long versionNumber;
+
     private String title;
+
     private String summary;
-    private String markdownContent;
+
+    @TableField("markdown_content")
+    private String content;
+
     private Short readingTimeMinutes;
+
     private Long createdBy;
-    private java.time.LocalDateTime createdAt;
+
+    private LocalDateTime createdAt;
 }

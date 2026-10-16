@@ -1,7 +1,5 @@
 package dev.amai.portfolio.blog.service.impl;
 
-import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
-
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -21,16 +19,19 @@ import dev.amai.portfolio.web.exception.*;
 import java.io.IOException;
 import java.time.*;
 import java.util.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
+import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
 
 /** 博客发布/权限与文档生命周期分别承载业务事实；外部文件 IO 不占用数据库事务。 */
 @Service
 public class BlogServiceImpl implements BlogService {
-    private static final org.slf4j.Logger LOG =
-            org.slf4j.LoggerFactory.getLogger(BlogServiceImpl.class);
+    private static final Logger LOG =
+            LoggerFactory.getLogger(BlogServiceImpl.class);
     private final BlogPostMapper blogPostMapper;
     private final DocumentService documentService;
     private final DocumentResourceResolver documentResourceResolver;
@@ -42,7 +43,10 @@ public class BlogServiceImpl implements BlogService {
     private final DocumentProperties documentProperties;
     private final TransactionTemplate transactionTemplate;
 
-    private record SavedDraft(BlogPostDO blog, Document document) {}
+    private record SavedDraft(
+            BlogPostDO blog,
+
+            Document document) {}
 
     public BlogServiceImpl(
             BlogPostMapper blogPostMapper,
@@ -197,9 +201,15 @@ public class BlogServiceImpl implements BlogService {
         var prepared =
                 documentResourceResolver.prepare(
                         parsed.content(), Map.of(), parsed.resources(), rights, accountId);
-        var request =
-                BlogConvert.MAPPER.to(
-                        prepared, StrUtil.subPre(parsed.title(), MAX_TITLE_LENGTH), true, rights);
+        // 导入草稿的缺省值属于创建流程，不作为通用对象转换规则。
+        var request = new BlogRequest(
+                null,
+                "",
+                StrUtil.subPre(parsed.title(), MAX_TITLE_LENGTH),
+                "",
+                prepared.content(),
+                true,
+                rights);
         return persist(null, request, prepared, parsed.origin().code(), accountId);
     }
 
@@ -336,7 +346,7 @@ public class BlogServiceImpl implements BlogService {
                             .map(
                                     r ->
                                             DocumentConvert.MAPPER.to(
-                                                    r, null, r.status(), r.originalUri()))
+                                                    r, null, r.status(), r.originalUri(), r.errorMessage()))
                             .toList();
         }
         return BlogConvert.MAPPER.to(

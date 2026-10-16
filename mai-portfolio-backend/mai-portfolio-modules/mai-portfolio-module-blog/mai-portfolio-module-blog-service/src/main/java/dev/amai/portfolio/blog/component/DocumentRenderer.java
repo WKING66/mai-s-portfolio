@@ -52,9 +52,17 @@ public class DocumentRenderer {
                                             : r.status();
                             // 当前失效状态和来源可见性由此处决定；空资产字段交给生成映射统一处理。
                             return DocumentConvert.MAPPER.to(
-                                    r, assetResource, status, manage ? r.originalUri() : null);
+                                    r, assetResource, status, manage ? r.originalUri() : null,
+                                    manage ? resourceError(r, assetResource) : null);
                         })
                 .toList();
+    }
+
+    private static String resourceError(DocumentResource resource, AssetResourceData asset) {
+        if (resource.status() == ResourceStatus.READY && asset == null) {
+            return "已绑定的资源不存在或尚未就绪，请重新上传";
+        }
+        return resource.errorMessage();
     }
 
     /** 展示 URL 和 ZIP 内路径都通过相同 AST 替换，不用字符串正则替换整篇 Markdown。 */

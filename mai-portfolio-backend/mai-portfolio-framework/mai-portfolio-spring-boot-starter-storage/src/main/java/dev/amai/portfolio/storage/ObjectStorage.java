@@ -15,6 +15,9 @@ public interface ObjectStorage {
     /** 浏览器直连对象存储；不读取或代理对象字节。 */
     StoredObjectAccessUrl accessUrl(String objectKey);
 
+    /** 浏览器直连下载，使用业务保存的文件名；不依赖对象键的扩展名，不读取对象字节。 */
+    StoredObjectAccessUrl downloadUrl(String objectKey, String filename);
+
     /** 查询存储侧是否存在；不能代替业务授权或无覆盖的条件写入。 */
     boolean exists(String objectKey);
 

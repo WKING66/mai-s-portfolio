@@ -5,8 +5,8 @@ import dev.amai.portfolio.asset.api.AssetMetadataData;
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
-import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.constant.AssetMessageConstants;
+import dev.amai.portfolio.asset.convert.AssetConvert;
 import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
 import dev.amai.portfolio.asset.enums.MediaAssetType;
 import dev.amai.portfolio.asset.enums.MediaStatus;
@@ -48,12 +48,7 @@ public class AssetQueryServiceImpl implements AssetQueryService {
                 || asset.getStatus() != MediaStatus.READY.code()) {
             return Optional.empty();
         }
-        return Optional.of(
-                new AssetMetadataData(
-                        asset.getId(),
-                        MediaAssetType.toApiType(asset.getAssetType()),
-                        AssetUsage.valueOf(asset.getUsage()),
-                        asset.getUploaderAccountId()));
+        return Optional.of(AssetConvert.MAPPER.to(asset));
     }
 
     @Override
@@ -82,22 +77,25 @@ public class AssetQueryServiceImpl implements AssetQueryService {
                                 .in(MediaAssetDO::getId, ids)
                                 .eq(MediaAssetDO::getStatus, MediaStatus.READY.code())
                                 .eq(
-                                        MediaAssetDO::getAssetType,
+                                        MediaAssetDO::getType,
                                         MediaAssetType.from(expectedType).code()));
         var resourcesById = new HashMap<Long, AssetResourceData>();
         for (MediaAssetDO asset : mediaAssets) {
             if (asset.getStorageKey() == null
                     || asset.getStorageKey().isBlank()
                     || asset.getUsage() == null
-                    || asset.getMimeType() == null
+                    || asset.getContentType() == null
                     || asset.getByteSize() == null
                     || asset.getByteSize() < 1) {
                 continue;
             }
             StoredObjectAccessUrl storedObjectAccessUrl;
             try {
-                // 3. 每个有效资产生成独立签名，不读取对象字节；任一生成失败按既有契约报错。
-                storedObjectAccessUrl = objectStorage.accessUrl(asset.getStorageKey());
+                // 3. 图片直接展示；文档与普通文件按原始文件名下载，不能用内部 .bin 对象键命名。
+                // 文件名来自资产元数据，旧附件也适用；只签名响应头，不读取或重新上传对象字节。
+                storedObjectAccessUrl = expectedType == AssetType.IMAGE
+                        ? objectStorage.accessUrl(asset.getStorageKey())
+                        : objectStorage.downloadUrl(asset.getStorageKey(), asset.getOriginalFilename());
             } catch (ObjectStorageException error) {
                 LOG.warn(
                         "Asset address generation failed, assetId={}, failureType={}",
@@ -112,16 +110,7 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             }
             resourcesById.put(
                     asset.getId(),
-                    new AssetResourceData(
-                            asset.getId(),
-                            expectedType,
-                            AssetUsage.valueOf(asset.getUsage()),
-                            asset.getUploaderAccountId(),
-                            asset.getOriginalFilename(),
-                            asset.getMimeType(),
-                            asset.getByteSize(),
-                            storedObjectAccessUrl.url(),
-                            storedObjectAccessUrl.expiresAt()));
+                    AssetConvert.MAPPER.to(asset, storedObjectAccessUrl));
         }
         return Map.copyOf(resourcesById);
     }

@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckRole;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.TaxonomyQueryService;
+import dev.amai.portfolio.system.convert.TaxonomyConvert;
 import dev.amai.portfolio.system.entity.vo.TechTagOptionVo;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -35,14 +36,7 @@ public class TagController {
 
         return R.success(
                 taxonomyQueryService.techTagOptions(kind).stream()
-                        .map(
-                                tag ->
-                                        new TechTagOptionVo(
-                                                tag.id(),
-                                                tag.name(),
-                                                tag.slug(),
-                                                tag.group(),
-                                                tag.logoKey()))
+                        .map(TaxonomyConvert.MAPPER::to)
                         .toList());
     }
 }

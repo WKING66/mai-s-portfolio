@@ -1,7 +1,5 @@
 package dev.amai.portfolio.asset.service.impl;
 
-import static dev.amai.portfolio.asset.constant.AssetPolicy.MAX_FILENAME_LENGTH;
-
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.asset.api.*;
 import dev.amai.portfolio.asset.component.ImageContentValidator;
@@ -11,11 +9,13 @@ import dev.amai.portfolio.asset.enums.MediaStatus;
 import dev.amai.portfolio.asset.mapper.MediaAssetMapper;
 import dev.amai.portfolio.storage.ObjectStorage;
 import dev.amai.portfolio.web.exception.*;
+import java.util.Objects;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import static dev.amai.portfolio.asset.constant.AssetPolicy.MAX_FILENAME_LENGTH;
 
 /** 文档导入等服务端调用复用统一文件校验、上传、读取及失败补偿，不建立第二套 OSS 生命周期。 */
 @Service
@@ -96,7 +96,7 @@ public class AssetFileServiceImpl implements AssetFileService {
                     content.inputStream(),
                     content.byteSize(),
                     asset.getOriginalFilename(),
-                    asset.getMimeType());
+                    asset.getContentType());
         } catch (RuntimeException failure) {
             LOG.warn(
                     "Asset read failed, assetId={}, failureType={}",
@@ -114,7 +114,7 @@ public class AssetFileServiceImpl implements AssetFileService {
             try {
                 var asset = mediaAssetMapper.selectById(id);
                 if (asset == null
-                        || !java.util.Objects.equals(asset.getUploaderAccountId(), uploader)) {
+                        || !Objects.equals(asset.getUploaderAccountId(), uploader)) {
                     continue;
                 }
                 // 先删除数据库记录；任何已绑定资源会被 FK 拒绝，不能先删除 OSS。

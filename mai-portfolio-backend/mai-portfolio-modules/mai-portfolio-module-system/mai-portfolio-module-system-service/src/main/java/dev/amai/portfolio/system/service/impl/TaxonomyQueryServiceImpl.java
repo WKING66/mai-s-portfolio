@@ -5,6 +5,7 @@ import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.api.TechTagData;
 import dev.amai.portfolio.system.api.TechTagOptionData;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
+import dev.amai.portfolio.system.convert.TaxonomyConvert;
 import dev.amai.portfolio.system.entity.domain.TagDO;
 import dev.amai.portfolio.system.enums.FeaturedStatus;
 import dev.amai.portfolio.system.enums.TagKind;
@@ -34,11 +35,8 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
                 .stream()
                 .map(
                         tag ->
-                                new TechTagData(
-                                        tag.getName(),
-                                        tag.getSlug(),
-                                        TechGroup.fromCode(tag.getGroupCode()).name(),
-                                        tag.getLogoKey()))
+                                TaxonomyConvert.MAPPER.to(
+                                        tag, TechGroup.fromCode(tag.getGroupCode()).name()))
                 .toList();
     }
 
@@ -61,12 +59,8 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
                 .stream()
                 .map(
                         tag ->
-                                new TechTagOptionData(
-                                        tag.getId(),
-                                        tag.getName(),
-                                        tag.getSlug(),
-                                        TechGroup.fromCode(tag.getGroupCode()).name(),
-                                        tag.getLogoKey()))
+                                TaxonomyConvert.MAPPER.toOption(
+                                        tag, TechGroup.fromCode(tag.getGroupCode()).name()))
                 .toList();
     }
 }

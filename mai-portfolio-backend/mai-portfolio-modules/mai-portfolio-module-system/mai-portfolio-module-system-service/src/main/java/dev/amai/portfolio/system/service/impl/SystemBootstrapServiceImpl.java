@@ -10,6 +10,7 @@ import dev.amai.portfolio.system.enums.AccountStatus;
 import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.SystemBootstrapService;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
@@ -56,7 +57,7 @@ public class SystemBootstrapServiceImpl implements SystemBootstrapService {
         }
         if (bootstrapProperties
                         .initialPassword()
-                        .getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                        .getBytes(StandardCharsets.UTF_8)
                         .length
                 > PasswordCipherConstants.MAX_PLAINTEXT_BYTES) {
             throw new IllegalStateException(SystemMessageConstants.OWNER_PASSWORD_TOO_LONG);

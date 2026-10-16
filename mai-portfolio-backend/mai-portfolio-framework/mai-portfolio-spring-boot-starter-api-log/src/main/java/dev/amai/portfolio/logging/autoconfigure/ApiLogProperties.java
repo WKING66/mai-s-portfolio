@@ -12,9 +12,16 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public record ApiLogProperties(
         boolean enabled,
-        @Min(ApiLogProperties.MIN_PAYLOAD_LENGTH) @Max(ApiLogProperties.MAX_PAYLOAD_LENGTH)
-                int maxPayloadLength,
-        @NotNull List<String> additionalSensitiveFields) {
+
+        @Min(ApiLogProperties.MIN_PAYLOAD_LENGTH)
+        @Max(ApiLogProperties.MAX_PAYLOAD_LENGTH)
+        int maxPayloadLength,
+
+        @NotNull
+        List<String> additionalSensitiveFields
+
+    ) {
     private static final int MIN_PAYLOAD_LENGTH = 256;
+
     private static final int MAX_PAYLOAD_LENGTH = 16_384;
 }

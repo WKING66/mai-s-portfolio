@@ -3,6 +3,7 @@ package dev.amai.portfolio.portfolio.entity.domain;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,17 +14,30 @@ import lombok.Setter;
 public class ProjectDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private String slug;
+
     private String title;
+
     private String summary;
+
     private String contribution;
+
     private String outcome;
+
     private String timeLabel;
+
     private Integer status;
+
     private Integer isFeatured;
+
     private Integer sortOrder;
+
     private Long version;
-    private java.time.LocalDateTime publishedAt;
-    private java.time.LocalDateTime createdAt;
-    private java.time.LocalDateTime updatedAt;
+
+    private LocalDateTime publishedAt;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
 }

@@ -13,9 +13,14 @@ import lombok.Setter;
 public class ProjectMediaDO {
     @TableId(type = IdType.AUTO)
     private Long id;
+
     private Long projectId;
+
     private Long mediaId;
+
     private Integer role;
+
     private String altText;
+
     private Integer sortOrder;
 }

@@ -138,13 +138,13 @@ public class AssetUploadComponentImpl implements AssetUploadComponent {
 
     private MediaAssetDO pendingAsset(AssetUploadRequest request, byte[] bytes, String key) {
         MediaAssetDO asset = new MediaAssetDO();
-        asset.setAssetType(MediaAssetType.from(request.usage().assetType()).code());
+        asset.setType(MediaAssetType.from(request.usage().assetType()).code());
         asset.setUsage(request.usage().name());
         asset.setUploaderAccountId(request.uploaderAccountId());
         asset.setSourceType(EDITOR_UPLOAD_SOURCE);
         asset.setStorageKey(key);
         asset.setOriginalFilename(request.filename());
-        asset.setMimeType(request.contentType());
+        asset.setContentType(request.contentType());
         asset.setByteSize((long) bytes.length);
         asset.setWidth(request.width());
         asset.setHeight(request.height());
