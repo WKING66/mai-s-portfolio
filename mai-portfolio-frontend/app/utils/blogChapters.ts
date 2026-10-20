@@ -20,6 +20,17 @@ export interface BlogChapter extends TocLink {
   parentId?: string
 }
 
+/** 阅读与编辑共用边界：同级/更高标题结束上一章，引用或列表内部标题由调用方排除。 */
+export function headingParent<T extends { depth: number }>(
+  ancestors: T[],
+  depth: number,
+): T | undefined {
+  while (ancestors.length && ancestors.at(-1)!.depth >= depth) {
+    ancestors.pop()
+  }
+  return ancestors.at(-1)
+}
+
 /** 单次遍历 Comark 顶层 AST，章节直到下一个同级或更高标题；引用/列表内部标题不割裂块。 */
 export function buildBlogChapters(nodes: Node[]) {
   countBlogReading('chapterTree')
@@ -31,10 +42,7 @@ export function buildBlogChapters(nodes: Node[]) {
   for (const node of nodes) {
     if (Array.isArray(node) && /^h[1-6]$/.test(String(node[0]))) {
       const depth = Number(String(node[0]).slice(1))
-      while (ancestorStack.length && ancestorStack.at(-1)!.depth >= depth) {
-        ancestorStack.pop()
-      }
-      const parentChapter = ancestorStack.at(-1)
+      const parentChapter = headingParent(ancestorStack, depth)
       const chapter: BlogChapter = {
         id: String(node[1].id),
         text: String(node[1]['data-toc-label'] ?? textContent(node)),
@@ -76,7 +84,7 @@ export function visibleToc(
   ])
 }
 
-export function chapterAncestors(id: string, chapters: Map<string, BlogChapter>) {
+export function chapterAncestors(id: string, chapters: ReadonlyMap<string, { parentId?: string }>) {
   const ancestorIds: string[] = []
   let parentId = chapters.get(id)?.parentId
   while (parentId) {

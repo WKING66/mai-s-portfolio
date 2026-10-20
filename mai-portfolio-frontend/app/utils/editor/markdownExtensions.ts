@@ -1,4 +1,6 @@
+import Code from '@tiptap/extension-code'
 import Paragraph from '@tiptap/extension-paragraph'
+import Heading from '@tiptap/extension-heading'
 import { Node, type JSONContent } from '@tiptap/core'
 import CodeBlock from '@tiptap/extension-code-block'
 import Image from '@tiptap/extension-image'
@@ -185,7 +187,9 @@ export const StableImage = Image.extend({
 
 export const EDITOR_STARTER_KIT = {
   paragraph: false,
+  heading: false,
   codeBlock: false,
+  code: false,
   link: false,
   underline: false,
   trailingNode: false,
@@ -193,6 +197,17 @@ export const EDITOR_STARTER_KIT = {
 
 /** UEditor 和保真预检共用扩展集合，不能各自维护不同 Markdown 方言。 */
 export const BLOG_EDITOR_EXTENSIONS = [
+  // Markdown 支持加粗/链接与行内代码组合；默认互斥规则会把合法长文判成损坏结构。
+  Code.extend({ excludes: '' }),
+  Heading.extend({
+    renderMarkdown(node, helpers) {
+      // 跨块剪切可以留下空标题；默认实现会丢弃它，必须保留合法的 ATX 标题语义。
+      return (
+        '#'.repeat(Number(node.attrs?.level) || 1) +
+        (node.content?.length ? ' ' + helpers.renderChildren(node.content) : '')
+      )
+    },
+  }),
   Paragraph.extend({
     parseMarkdown(token, helpers) {
       // TipTap 默认会把独立图片从段落中提到根部；行内图片必须留在段落内，保证 Schema 有效。

@@ -91,7 +91,7 @@ describe('Markdown 模式切换事务', () => {
   it('切换前同步处理待校验输入，失败留在原模式和原文档', () => {
     const { editor, runtime, emit, props } = session()
     const originalDocument = editor.state.doc
-    vi.spyOn(editor, 'getMarkdown').mockImplementation(() => {
+    vi.spyOn(editor.markdown!, 'serialize').mockImplementation(() => {
       throw new Error('serializer failed')
     })
     runtime.updateRich('保留原文')

@@ -212,7 +212,7 @@ it('Markdown serializer 失败时不能用纯文本继续提交', () => {
     contentType: 'markdown',
   })
   const originalDocument = editor.state.doc
-  editor.getMarkdown = () => {
+  editor.markdown!.serialize = () => {
     throw new Error('serializer failed')
   }
   try {

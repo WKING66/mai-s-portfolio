@@ -26,8 +26,10 @@ const highlighter = createHighlighterCore({
   langs: [java, typescript, javascript, python, json, sql, bash],
   engine: createOnigurumaEngine(import('shiki/wasm')),
 })
-// 真实算法文章使用 C/C++；只在遇到该语言时加载，仍复用同一个 Shiki 实例。
+// 附加语言遇到时再加载；代码编辑和公开阅读仍复用同一个 Shiki 实例。
 const extraLanguages = {
+  html: () => import('shiki/dist/langs/html.mjs'),
+  css: () => import('shiki/dist/langs/css.mjs'),
   c: () => import('shiki/dist/langs/c.mjs'),
   cpp: () => import('shiki/dist/langs/cpp.mjs'),
   'c++': () => import('shiki/dist/langs/cpp.mjs'),
