@@ -129,7 +129,8 @@ function preservedMath(block: boolean) {
       name,
       level: block ? 'block' : 'inline',
       start(source) {
-        return source.search(block ? /\$\$|\\\[/ : /\$|\\\(/)
+        // 块公式只能从行首开始；段落内的转义方括号仍是普通文字。
+        return source.search(block ? /^ {0,3}(?:\$\$|\\\[)/m : /\$|\\\(/)
       },
       tokenize(source) {
         const match = source.match(pattern)
