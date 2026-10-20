@@ -7,6 +7,7 @@ import mermaid from 'comark/plugins/mermaid'
 import { MATH_LIMITS, mathFallback, renderBlogMath, compactBlogMath } from './blogMath.ts'
 import { textContent } from 'comark/utils'
 import { countBlogReading } from './blogReadingProbe.ts'
+import { parseCodeInfo } from './codeInfo'
 
 // 不注册 HTML、属性、组件、Frontmatter 插件，Markdown 只能渲染允许的正文元素。
 const parserOptions = { registerDefaultPlugins: false, autoClose: false, linkify: false } as const
@@ -86,6 +87,12 @@ const highlightPlugin: ComarkPlugin = {
             : await renderBlogMath(source, block)
         node.splice(0, node.length, ...(await compactBlogMath(rendered)))
         return
+      }
+      if (node[0] === 'pre' && !node[1].filename) {
+        const filename = parseCodeInfo(String(node[1].meta ?? '')).filename
+        if (filename) {
+          node[1].filename = filename
+        }
       }
       if (node[0] === 'th' || node[0] === 'td') {
         const alignment = String(node[1].style || '').match(/^text-align:\s*(left|center|right);?$/)
