@@ -56,7 +56,7 @@ describe('Showcase 第六批编辑可靠性', () => {
 
 describe('换段与源码缩进', () => {
   it.each(['正文', '# 标题', '- 列表', '> 引用', '| A | B |\n|---|---|\n| 表格 | 其他 |'])(
-    '新段落或单元格导航重置输入样式：%s',
+    '段末结束格式，导航到普通单元格后输入正常文字：%s',
     (source) => {
       const editor = editorFor()
       try {
@@ -71,7 +71,6 @@ describe('换段与源码缩进', () => {
         editor.commands.setMark('bold')
         editor.commands.insertContent({ type: 'text', text: '加粗', marks: [{ type: 'bold' }] })
         expect(editor.commands.command(newImmersiveParagraph)).toBe(true)
-        expect(editor.state.storedMarks).toEqual([])
         editor.commands.insertContent({ type: 'text', text: '正常' })
         expect(() => serializeEditorDocument(editor, editor.state.doc)).not.toThrow()
         let normalMarks: string[] = []

@@ -1,27 +1,31 @@
 import { TextSelection } from '@tiptap/pm/state'
 import { Extension, type Command } from '@tiptap/core'
 
-/** Enter 新建段落时重置输入样式；原段落和 Shift+Enter 的 Mark 不受影响。 */
+/** 在文字中间拆段保留格式；在段末结束格式，单元格导航由目标位置决定格式。 */
 export const newImmersiveParagraph: Command = ({ editor, commands, tr }) => {
   if (editor.isActive('codeBlock')) {
     return false
   }
-  const changed = editor.isActive('table')
+  const atEnd =
+    tr.selection.empty && tr.selection.$from.parentOffset === tr.selection.$from.parent.content.size
+  const inTable = editor.isActive('table')
+  const changed = inTable
     ? commands.goToNextCell()
     : commands.first([
         () => commands.splitListItem('listItem'),
         () => commands.splitListItem('taskItem'),
         () => commands.createParagraphNear(),
         () => commands.liftEmptyBlock(),
-        () => commands.splitBlock({ keepMarks: false }),
+        () => commands.splitBlock({ keepMarks: !atEnd }),
       ])
   if (changed) {
-    // 只重置下一次输入的状态，不移除文档内已经设置的样式。
-    if (editor.isActive('table')) {
+    if (inTable) {
       // GFM 单元格不支持新段落；进入下一格末尾，不能用选中整格的默认 Tab 状态覆盖原内容。
       tr.setSelection(TextSelection.near(tr.doc.resolve(tr.selection.to)))
+    } else if (atEnd) {
+      // 新空段落从自身推导输入格式，不把上一段显式 storedMarks 带过来。
+      tr.setStoredMarks(null)
     }
-    tr.setStoredMarks([])
   }
   return changed
 }
