@@ -2,8 +2,11 @@
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import BlogImage from '../blog/BlogImage.vue'
 import { BLOG_RESOURCES } from '../../utils/blogResources'
+import { CANVAS_RESOURCE_PREVIEW } from '../../utils/editor/canvasResources'
 const props = defineProps<NodeViewProps>()
 const resources = inject(BLOG_RESOURCES, ref([]))
+const localPreview = inject(CANVAS_RESOURCE_PREVIEW, undefined)
+const previewSource = computed(() => localPreview?.(String(props.node.attrs.src)))
 // 仅开发测试清单内的本地图片可使用只读地址；编辑器与 Markdown 始终保存原始引用。
 const originalSource = computed(() => {
   try {
@@ -33,7 +36,16 @@ const displaySource = computed(
     :title="node.attrs.title"
     contenteditable="false"
   >
-    <BlogImage :src="displaySource" :alt="node.attrs.alt" :title="node.attrs.title" />
+    <img
+      v-if="previewSource"
+      :src="previewSource"
+      :alt="node.attrs.alt || ''"
+      :title="node.attrs.title"
+      class="max-w-full"
+      loading="lazy"
+      decoding="async"
+    />
+    <BlogImage v-else :src="displaySource" :alt="node.attrs.alt" :title="node.attrs.title" />
   </NodeViewWrapper>
 </template>
 <style scoped>

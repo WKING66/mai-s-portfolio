@@ -10,6 +10,11 @@ import {
   type CanvasSaveSnapshot,
 } from '../utils/editor/canvasSave'
 import { useCanvasSave } from './useCanvasSave'
+import {
+  CANVAS_RESOURCE_NORMALIZATION,
+  createCanvasResources,
+  normalizeCanvasResources,
+} from '../utils/editor/canvasResources'
 
 /** 编辑期间只读写同一 PM 文档；Markdown 与 JSON 快照仅在显式转换边界创建。 */
 export function useCanvasDocument(
@@ -17,11 +22,14 @@ export function useCanvasDocument(
   metadata: Ref<CanvasMetadata>,
   resources: DocumentResource[],
   fail: () => boolean,
+  resourceFailure: () => boolean = () => false,
 ) {
   const initialDocument = markRaw(importCanvasMarkdown(initial, resources))
   const editor = shallowRef<Editor | null>(null)
   const validator = createImmersiveValidator()
   const adapter = createCanvasMockAdapter(fail)
+  const localResources = createCanvasResources(resourceFailure)
+  let disposed = false
   const snapshot = (): CanvasSaveSnapshot => {
     if (!editor.value) {
       throw new Error('编辑器尚未就绪。')
@@ -32,11 +40,15 @@ export function useCanvasDocument(
     }
   }
   async function prepare(value: CanvasSaveSnapshot): Promise<CanvasSaveSnapshot> {
-    const result = await validator.check({ kind: 'canvas', document: value.document })
+    const prepared = await localResources.prepare(value.document)
+    const result = await validator.check({ kind: 'canvas', document: prepared.document })
     if (result.kind !== 'canvas') {
       throw new Error('保存校验结果不匹配，当前正文未改变。')
     }
-    return { ...value, markdown: result.markdown }
+    if (!disposed && editor.value && !editor.value.isDestroyed) {
+      normalizeCanvasResources(editor.value, prepared.replacements)
+    }
+    return { ...value, document: prepared.document, markdown: result.markdown }
   }
   const saved = useCanvasSave(snapshot, prepare, adapter)
   let detach = () => {}
@@ -51,7 +63,7 @@ export function useCanvasDocument(
     const modelUpdate = instance.options.onUpdate
     instance.off('update', modelUpdate)
     const changed = ({ transaction }: { transaction: Transaction }) => {
-      if (transaction.docChanged) {
+      if (transaction.docChanged && !transaction.getMeta(CANVAS_RESOURCE_NORMALIZATION)) {
         saved.changed()
       }
     }
@@ -79,9 +91,11 @@ export function useCanvasDocument(
     return (await prepare(snapshot())).markdown!
   }
   function dispose() {
+    disposed = true
     detach()
     saved.dispose()
     validator.dispose()
+    localResources.dispose()
   }
-  return { initialDocument, editor, attach, status, saved, exportMarkdown, dispose }
+  return { initialDocument, editor, attach, status, saved, localResources, exportMarkdown, dispose }
 }

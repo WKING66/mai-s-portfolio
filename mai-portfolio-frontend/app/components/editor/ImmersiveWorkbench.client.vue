@@ -43,6 +43,7 @@ import { BLOG_RESOURCES } from '../../utils/blogResources'
 import type { DocumentResource } from '../../api/blogs'
 import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS } from '../../constants/blogs'
 import { useCanvasDocument } from '../../composables/useCanvasDocument'
+import { CANVAS_RESOURCE_PREVIEW, insertCanvasFiles } from '../../utils/editor/canvasResources'
 import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_OVERLAY_HOST,
@@ -68,12 +69,15 @@ provide(IMMERSIVE_CODE_THEMES, reactive(new Map()))
 const overlayHost = useTemplateRef<HTMLElement>('overlayHost')
 provide(IMMERSIVE_OVERLAY_HOST, overlayHost)
 const simulateFailure = ref(false)
+const simulateResourceFailure = ref(false)
 const canvas = useCanvasDocument(
   props.initialMarkdown,
   metadata,
   props.resources ?? [],
   () => simulateFailure.value,
+  () => simulateResourceFailure.value,
 )
+provide(CANVAS_RESOURCE_PREVIEW, canvas.localResources.preview)
 const { initialDocument, editor, status: saveStatus } = canvas
 const { dirty, saving } = canvas.saved
 const title = computed({
@@ -133,6 +137,31 @@ function richPointer(event: PointerEvent) {
 }
 const settingsDraft = reactive({ ...metadata.value })
 const toast = useToast()
+const fileInput = useTemplateRef<HTMLInputElement>('fileInput')
+function insertFiles(files: File[]) {
+  const current = editor.value
+  if (!current || !files.length) {
+    return false
+  }
+  try {
+    if (!insertCanvasFiles(current, canvas.localResources, files)) {
+      throw new Error('当前位置无法插入文件，请在正文段落中重试。')
+    }
+    current.view.focus()
+  } catch (cause) {
+    toast.add({
+      title: '无法插入文件',
+      description: cause instanceof Error ? cause.message : '请重试。',
+      color: 'error',
+    })
+  }
+  return true
+}
+function chooseFiles(event: Event) {
+  const input = event.target as HTMLInputElement
+  insertFiles(Array.from(input.files ?? []))
+  input.value = ''
+}
 let barObserver: ResizeObserver | undefined
 async function saveDemo() {
   const hadChanges = dirty.value
@@ -592,6 +621,23 @@ defineExpose({ requestLeave })
         <span class="hidden text-xs text-muted sm:inline">{{ saveStatus }}</span>
       </div>
       <div class="flex flex-wrap items-center gap-1">
+        <input
+          ref="fileInput"
+          type="file"
+          multiple
+          hidden
+          aria-label="选择本地图片或附件"
+          @change="chooseFiles"
+        />
+        <UButton
+          v-if="isEditing"
+          icon="i-lucide-paperclip"
+          color="neutral"
+          variant="ghost"
+          aria-label="插入图片或附件"
+          @mousedown.prevent
+          @click="fileInput?.click()"
+        />
         <UButton
           icon="i-lucide-save"
           color="neutral"
@@ -676,6 +722,30 @@ defineExpose({ requestLeave })
                 :mention="false"
                 :editor-props="{
                   attributes: { 'aria-label': '直接编辑文章正文', spellcheck: 'false' },
+                  handlePaste: (_view, event) => {
+                    const files = Array.from(event.clipboardData?.files ?? [])
+                    if (!files.length) {
+                      return false
+                    }
+                    event.preventDefault()
+                    return insertFiles(files)
+                  },
+                  handleDrop: (view, event, moved) => {
+                    const files = Array.from(event.dataTransfer?.files ?? [])
+                    if (moved || view.dragging || !files.length) {
+                      return false
+                    }
+                    event.preventDefault()
+                    const position = view.posAtCoords({ left: event.clientX, top: event.clientY })
+                    if (position) {
+                      view.dispatch(
+                        view.state.tr.setSelection(
+                          TextSelection.near(view.state.doc.resolve(position.pos)),
+                        ),
+                      )
+                    }
+                    return insertFiles(files)
+                  },
                 }"
                 :ui="{
                   root: 'immersive-editor-root',
@@ -775,6 +845,11 @@ defineExpose({ requestLeave })
               label="已确认远程图片与附件的使用权"
             />
             <USwitch v-model="simulateFailure" label="模拟保存失败（用于验证重试）" />
+            <USwitch
+              v-model="simulateResourceFailure"
+              label="模拟图片与附件处理失败"
+              description="文件仅留在本页，不上传服务器；刷新后不可恢复。"
+            />
           </div>
           <div class="flex justify-end gap-2 border-t border-default pt-4">
             <UButton type="button" color="neutral" variant="ghost" @click="settingsOpen = false"
