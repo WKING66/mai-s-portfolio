@@ -70,10 +70,11 @@ export function validateImmersiveChange(
 /** 入口禁用之外的最后一道事务门禁：拒绝粘贴、拖入等无法无损保存的结构。 */
 export const ImmersiveMarkdownGuard = Extension.create<{
   reject: (failure: ImmersiveRejection) => void
+  roundtrip: boolean
 }>({
   name: 'immersiveMarkdownGuard',
   addOptions() {
-    return { reject: () => {} }
+    return { reject: () => {}, roundtrip: true }
   },
   addProseMirrorPlugins() {
     const editor = this.editor
@@ -103,7 +104,7 @@ export const ImmersiveMarkdownGuard = Extension.create<{
           if (plainText) {
             transaction.setMeta('immersive-plain-text', true)
           }
-          if (!failure && !plainText) {
+          if (!failure && !plainText && this.options.roundtrip) {
             try {
               const markdown = validateImmersiveChange(editor, transaction)
               if (markdown !== undefined) {

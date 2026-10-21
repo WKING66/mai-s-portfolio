@@ -3,7 +3,6 @@ import {
   ImmersiveMarkdownGuard,
   type ImmersiveRejection,
 } from '../../utils/editor/immersiveCapabilities'
-import { indentMarkdownSource } from '../../utils/editor/immersiveSourceIndent'
 import type { Node as TiptapNode } from '@tiptap/core'
 import {
   ImmersiveChapters,
@@ -16,16 +15,12 @@ import { TextSelection, type Transaction } from '@tiptap/pm/state'
 import type { EditorToolbarItem, FormError } from '@nuxt/ui'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import { useMediaQuery, useElementSize } from '@vueuse/core'
-import {
-  BLOG_EDITOR_EXTENSIONS,
-  EDITOR_STARTER_KIT,
-  PreservedCodeBlock,
-} from '../../utils/editor/markdownExtensions'
+import { EDITOR_STARTER_KIT, PreservedCodeBlock } from '../../utils/editor/markdownExtensions'
 import { Markdown } from '@tiptap/markdown'
 import {
-  createImmersiveMarkdownOptions,
-  createImmersiveMarkdownManager,
-} from '../../utils/editor/immersiveMarkdown'
+  CANVAS_EDITOR_EXTENSIONS,
+  createCanvasMarkdownOptions,
+} from '../../utils/editor/canvasMarkdown'
 import {
   collectEditorHeadings,
   editorHeadingTree,
@@ -34,32 +29,30 @@ import {
 import ImmersiveCode from './ImmersiveCode.vue'
 import ImmersiveMath from './ImmersiveMath.vue'
 import ImmersiveImage from './ImmersiveImage.vue'
-import ImmersivePreserved from './ImmersivePreserved.vue'
 import { nodeInputRule } from '@tiptap/core'
 import { openImmersiveLink } from '../../utils/editor/immersiveLinks'
 import { openImmersiveMenu } from '../../utils/editor/immersiveCommands'
 import { ImmersiveParagraphInput } from '../../utils/editor/immersiveParagraphInput'
 import { ImmersiveSelection } from '../../utils/editor/immersiveSelection'
-import { ImmersivePositionHighlight } from '../../utils/editor/immersivePositionHighlight'
+import {
+  ImmersivePositionHighlight,
+  IMMERSIVE_POSITION_KEY,
+} from '../../utils/editor/immersivePositionHighlight'
 import { ImmersiveDecorations } from '../../utils/editor/immersiveDecorations'
 import { BLOG_RESOURCES } from '../../utils/blogResources'
 import type { DocumentResource } from '../../api/blogs'
-import { useImmersiveDraft } from '../../composables/useImmersiveDraft'
-import { inspectImmersiveSource } from '../../utils/editor/immersiveDraft'
+import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS } from '../../constants/blogs'
+import { useCanvasDocument } from '../../composables/useCanvasDocument'
 import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_OVERLAY_HOST,
   stopImmersiveControlEvent,
 } from '../../utils/editor/immersiveContext'
-import { useImmersivePosition, type ImmersiveAnchor } from '../../composables/useImmersivePosition'
 
 const props = defineProps<{
-  modelValue: string
+  initialMarkdown: string
   resources?: DocumentResource[]
-  backupStatus?: string
-  persistLocal?: () => boolean
 }>()
-const emit = defineEmits<{ 'update:modelValue': [markdown: string] }>()
 const metadata = defineModel<{
   title: string
   slug: string
@@ -74,17 +67,15 @@ provide(
 provide(IMMERSIVE_CODE_THEMES, reactive(new Map()))
 const overlayHost = useTemplateRef<HTMLElement>('overlayHost')
 provide(IMMERSIVE_OVERLAY_HOST, overlayHost)
-const localResourceUris = () =>
-  new Set(
-    (props.resources ?? [])
-      .filter((item) => item.resourceUrl?.startsWith('/__poc/editor-fixture-resource'))
-      .map((item) => item.originalUri)
-      .filter((uri): uri is string => Boolean(uri)),
-  )
-const initialIssue = inspectImmersiveSource(props.modelValue, undefined, localResourceUris())
-const initialMarkdown = initialIssue ? '' : props.modelValue
-// UEditor 即时事件使用原生 JSON；草稿、源码和保存仍执行 Markdown 往返校验。
-const initialDocument = markRaw(createImmersiveMarkdownManager().parse(initialMarkdown))
+const simulateFailure = ref(false)
+const canvas = useCanvasDocument(
+  props.initialMarkdown,
+  metadata,
+  props.resources ?? [],
+  () => simulateFailure.value,
+)
+const { initialDocument, editor, status: saveStatus } = canvas
+const { dirty, saving } = canvas.saved
 const title = computed({
   get: () => metadata.value.title,
   set: (title) => {
@@ -98,23 +89,9 @@ const summary = computed({
   },
 })
 const isEditing = ref(true)
-const draft = useImmersiveDraft(
-  props.modelValue,
-  (value) => emit('update:modelValue', value),
-  isEditing,
-  localResourceUris,
-)
-const { source, issue, sourcePending, checking, unvalidated, editor } = draft
-const sourceOpen = ref(Boolean(initialIssue))
-if (initialIssue) {
-  issue.value = initialIssue
-  sourcePending.value = true
-}
 const settingsOpen = ref(false)
 const tocOpen = ref(false)
 const compact = useMediaQuery('(max-width: 1199px)')
-const sourceCompact = useMediaQuery('(max-width: 899px)')
-const mobilePane = ref<'source' | 'canvas'>('source')
 const canvasPane = useTemplateRef<HTMLElement>('canvasPane')
 const { width: canvasWidth, height: canvasHeight } = useElementSize(canvasPane)
 const desktopTocVisible = computed(() => canvasWidth.value >= 1050)
@@ -125,74 +102,6 @@ watch(desktopTocVisible, (visible) => {
 })
 const splitRoot = useTemplateRef<HTMLElement>('splitRoot')
 const actionBar = useTemplateRef<HTMLElement>('actionBar')
-const sourceInput = useTemplateRef<HTMLTextAreaElement>('sourceInput')
-const positions = useImmersivePosition({
-  editor,
-  source,
-  prepared: draft.positionMap,
-  pending: sourcePending,
-  split: sourceOpen,
-  sourceElement: sourceInput,
-  canvas: canvasPane,
-  bar: actionBar,
-  reveal: (position) => {
-    editor.value?.commands.command(revealImmersivePosition(position))
-  },
-})
-let modeAnchor: ImmersiveAnchor | undefined
-function rememberModePosition() {
-  modeAnchor = sourcePending.value ? undefined : positions.capture()
-}
-async function sourceAction(event?: Event) {
-  if (sourceComposing.value) {
-    return
-  }
-  if (
-    event instanceof KeyboardEvent &&
-    ![
-      'ArrowLeft',
-      'ArrowRight',
-      'ArrowUp',
-      'ArrowDown',
-      'Home',
-      'End',
-      'PageUp',
-      'PageDown',
-    ].includes(event.key) &&
-    !(event.key.toLowerCase() === 'a' && (event.ctrlKey || event.metaKey))
-  ) {
-    return
-  }
-  if (sourcePending.value && !(await draft.applySource())) {
-    return
-  }
-  positions.sourceAction()
-}
-let positionFrame = 0
-function scheduleRichPosition(force = false) {
-  cancelAnimationFrame(positionFrame)
-  // Selection 更新结束后再派发定位装饰，避免嵌套事务重置浏览器尚未提交的选区。
-  positionFrame = requestAnimationFrame(async () => {
-    positionFrame = 0
-    const instance = editor.value
-    const document = instance?.state.doc
-    const selection = instance?.state.selection
-    await draft.flushRich()
-    if (
-      instance &&
-      instance === editor.value &&
-      instance.state.doc === document &&
-      selection?.eq(instance.state.selection)
-    ) {
-      positions.richAction(force)
-    }
-  })
-}
-function followEditPosition(payload?: { transaction?: Transaction }) {
-  if (!payload?.transaction?.docChanged) {
-    scheduleRichPosition()
-  }
-}
 function richPointer(event: PointerEvent) {
   if (
     event.target instanceof Element &&
@@ -220,60 +129,22 @@ function richPointer(event: PointerEvent) {
         current.view.dispatch(current.view.state.tr.setSelection(selection))
       }
     }
-    scheduleRichPosition()
   }
 }
-const sourceWidth = ref(40)
-const publishOpen = ref(false)
 const settingsDraft = reactive({ ...metadata.value })
 const toast = useToast()
-const sourceComposing = ref(false)
 let barObserver: ResizeObserver | undefined
-let pointer: number | undefined
-let dragLeft = 0
-let dragWidth = 1
-const paneStyle = computed(() => ({ '--source-width': sourceWidth.value + '%' }))
-const sourceLabel = computed(() => (sourceOpen.value ? '退出源码分栏' : '源码'))
-async function toggleSource() {
-  if (!(await draft.ensureCurrent())) {
-    return
-  }
-  const anchor = modeAnchor ?? positions.capture()
-  modeAnchor = undefined
-  sourceOpen.value = !sourceOpen.value
-  mobilePane.value = 'source'
-  tocOpen.value = false
-  await nextTick()
-  await positions.restore(anchor)
-  followPage()
-}
-async function switchMobilePane(pane: 'source' | 'canvas') {
-  if (!(await draft.ensureCurrent())) {
-    return
-  }
-  const anchor = modeAnchor ?? positions.capture(mobilePane.value === 'source')
-  modeAnchor = undefined
-  mobilePane.value = pane
-  await positions.restore(anchor)
-}
 async function saveDemo() {
-  if (!(await draft.ensureCurrent())) {
-    toast.add({
-      id: 'immersive-save-pending',
-      title: '当前输入尚未备份',
-      description: issue.value || '请结束当前输入后重试。',
-      color: 'warning',
-    })
-    return
-  }
-  await nextTick()
-  const backedUp = props.persistLocal?.()
+  const hadChanges = dirty.value
+  const success = await canvas.saved.save()
+  const successTitle = hadChanges ? '模拟保存完成' : '没有需要保存的修改'
   toast.add({
-    title: backedUp ? '已备份到本机' : '当前为演示模式',
-    description: backedUp
-      ? '当前草稿仅保存在本机，未提交服务器。'
-      : props.backupStatus || '当前草稿仅保留在页面中。',
+    id: 'canvas-save',
+    title: success ? successTitle : '当前内容未保存',
+    description: saveStatus.value,
+    color: success ? 'success' : 'error',
   })
+  return success
 }
 function workbenchKeydown(event: KeyboardEvent) {
   if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's' || event.altKey) {
@@ -288,81 +159,9 @@ function workbenchKeydown(event: KeyboardEvent) {
     saveDemo()
   }
 }
-function sourceKeydown(event: KeyboardEvent) {
-  const input = sourceInput.value
-  if (
-    event.key !== 'Tab' ||
-    event.ctrlKey ||
-    event.metaKey ||
-    event.altKey ||
-    event.isComposing ||
-    sourceComposing.value ||
-    !isEditing.value ||
-    !input
-  ) {
-    return
-  }
-  event.preventDefault()
-  const edit = indentMarkdownSource(
-    input.value,
-    input.selectionStart,
-    input.selectionEnd,
-    event.shiftKey,
-  )
-  if (input.value.slice(edit.from, edit.to) === edit.text) {
-    return
-  }
-  const direction = input.selectionDirection
-  input.setSelectionRange(edit.from, edit.to)
-  // 原生插入保留浏览器 textarea 撤销栈，并由 input 事件进入同一源码同步流程。
-  if (document.execCommand('insertText', false, edit.text)) {
-    input.setSelectionRange(edit.anchor, edit.head, direction)
-  }
-}
-function onSourceInput(event: Event) {
-  draft.updateSource((event.target as HTMLTextAreaElement).value, sourceComposing.value)
-}
-function endSourceComposition(event: CompositionEvent) {
-  sourceComposing.value = false
-  draft.updateSource((event.target as HTMLTextAreaElement).value)
-}
-async function toggleEditing() {
-  if (!(await draft.ensureCurrent())) {
-    return
-  }
+function toggleEditing() {
   isEditing.value = !isEditing.value
-}
-function resizeStart(event: PointerEvent) {
-  if (event.button !== 0 || !splitRoot.value) {
-    return
-  }
-  event.preventDefault()
-  const rect = splitRoot.value.getBoundingClientRect()
-  dragLeft = rect.left
-  dragWidth = rect.width
-  pointer = event.pointerId
-  ;(event.currentTarget as HTMLElement).setPointerCapture(pointer)
-}
-function resizeMove(event: PointerEvent) {
-  if (pointer === event.pointerId) {
-    sourceWidth.value = Math.max(25, Math.min(60, ((event.clientX - dragLeft) / dragWidth) * 100))
-  }
-}
-function resizeEnd() {
-  pointer = undefined
-}
-function resizeKeyboard(event: KeyboardEvent) {
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    sourceWidth.value = Math.max(
-      25,
-      Math.min(60, sourceWidth.value + (event.key === 'ArrowRight' ? 2 : -2)),
-    )
-  } else if (event.key === 'Enter' || event.key === 'Home') {
-    sourceWidth.value = 40
-  } else {
-    return
-  }
-  event.preventDefault()
+  editor.value?.setEditable(isEditing.value, false)
 }
 function validateMetadata(state: typeof settingsDraft): FormError[] {
   const errors: FormError[] = []
@@ -380,12 +179,14 @@ function validateMetadata(state: typeof settingsDraft): FormError[] {
   }
   return errors
 }
-function confirmPublishDemo() {
-  publishOpen.value = false
-  toast.add({ title: '演示结束', description: '没有调用保存或发布接口。' })
-}
 function applySettings() {
-  metadata.value = { ...settingsDraft }
+  if (
+    Object.entries(settingsDraft).some(
+      ([key, value]) => metadata.value[key as keyof typeof settingsDraft] !== value,
+    )
+  ) {
+    metadata.value = { ...settingsDraft }
+  }
   settingsOpen.value = false
 }
 watch(settingsOpen, (open) => {
@@ -393,14 +194,7 @@ watch(settingsOpen, (open) => {
     Object.assign(settingsDraft, metadata.value)
   }
 })
-watch(
-  () => props.modelValue,
-  (value) => {
-    if (value !== source.value) {
-      draft.updateSource(value)
-    }
-  },
-)
+watch(metadata, () => canvas.saved.changed(false), { deep: true })
 const richEditor = useTemplateRef('richEditor')
 const headings = shallowRef<EditorHeading[]>([])
 let headingPositions: EditorHeading[] = []
@@ -427,18 +221,12 @@ function toggleToc(id: string) {
   tocCollapsedIds.value = next
 }
 const minimumDepth = computed(() => Math.min(6, ...headings.value.map((heading) => heading.depth)))
-const markdownOptions = createImmersiveMarkdownOptions()
-const extensions = BLOG_EDITOR_EXTENSIONS.map((extension) => {
+const markdownOptions = createCanvasMarkdownOptions()
+const extensions = CANVAS_EDITOR_EXTENSIONS.map((extension) => {
   if (extension === PreservedCodeBlock) {
     return PreservedCodeBlock.extend({
       addNodeView: () =>
         VueNodeViewRenderer(ImmersiveCode, { stopEvent: stopImmersiveControlEvent }),
-    })
-  }
-  if (extension.name === 'preservedMarkdownBlock') {
-    return (extension as TiptapNode).extend({
-      addNodeView: () =>
-        VueNodeViewRenderer(ImmersivePreserved, { stopEvent: stopImmersiveControlEvent }),
     })
   }
   if (extension.name === 'image') {
@@ -474,7 +262,7 @@ function rejectEdit(failure: ImmersiveRejection) {
     toast.add({
       id: 'immersive-edit-rejection',
       duration: 4500,
-      actions: [{ label: '源码定位', onClick: inspectRejection }],
+      actions: [{ label: '定位内容', onClick: inspectRejection }],
       title: '无法完成本次编辑',
       description: failure.reason + ' 操作已取消，原文未被修改。',
       color: 'error',
@@ -487,23 +275,8 @@ function clearRejection() {
   rejection.value = undefined
   lastRejection = ''
 }
-async function openPreservedSource(event: Event) {
-  const position = (event as CustomEvent<{ position: number }>).detail.position
-  if (!sourceOpen.value) {
-    await toggleSource()
-  }
-  positions.navigate(position)
-  sourceInput.value?.focus({ preventScroll: true })
-}
-async function inspectRejection() {
-  if (!sourceOpen.value) {
-    await toggleSource()
-  }
-  await positions.restore({
-    position: Math.min(rejection.value?.position || 1, editor.value?.state.doc.content.size || 1),
-    offset: 24,
-    focus: 'source',
-  })
+function inspectRejection() {
+  void navigatePosition(rejection.value?.position ?? 1)
 }
 const editorExtensions = [
   Markdown.configure(markdownOptions),
@@ -518,7 +291,7 @@ const editorExtensions = [
     notice: (description) =>
       toast.add({ title: 'Markdown 格式限制', description, color: 'warning' }),
   }),
-  ImmersiveMarkdownGuard.configure({ reject: rejectEdit }),
+  ImmersiveMarkdownGuard.configure({ reject: rejectEdit, roundtrip: false }),
 ]
 let identity = 0
 let frame = 0
@@ -608,7 +381,7 @@ function selectHeading() {
 watch(
   () => richEditor.value?.editor,
   (instance, _, cleanup) => {
-    draft.attach(instance ? markRaw(instance) : null)
+    canvas.attach(instance ? markRaw(instance) : null)
     if (!editor.value) {
       return
     }
@@ -623,16 +396,43 @@ watch(
     current.on('transaction', recoverRejection)
     current.on('transaction', updateHeadings)
     current.on('selectionUpdate', selectHeading)
-    current.on('selectionUpdate', followEditPosition)
     cleanup(() => {
       current.off('transaction', recoverRejection)
       current.off('transaction', updateHeadings)
       current.off('selectionUpdate', selectHeading)
-      current.off('selectionUpdate', followEditPosition)
     })
   },
 )
-watch(isEditing, draft.updateEditable)
+let navigationTimer: ReturnType<typeof setTimeout> | undefined
+async function navigatePosition(position: number) {
+  const current = editor.value
+  if (!current) {
+    return
+  }
+  current.commands.command(revealImmersivePosition(position))
+  current.view.dispatch(
+    current.state.tr.setSelection(
+      TextSelection.near(
+        current.state.doc.resolve(Math.min(position, current.state.doc.content.size)),
+      ),
+    ),
+  )
+  await nextTick()
+  const block = current.state.selection.$from.depth ? current.state.selection.$from.before(1) : 0
+  const element = current.view.nodeDOM(block)
+  if (element instanceof HTMLElement && canvasPane.value) {
+    canvasPane.value.scrollTop +=
+      element.getBoundingClientRect().top - canvasPane.value.getBoundingClientRect().top - 24
+  }
+  current.view.focus()
+  current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_POSITION_KEY, { from: block }))
+  clearTimeout(navigationTimer)
+  navigationTimer = setTimeout(() => {
+    if (!current.isDestroyed) {
+      current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_POSITION_KEY, null))
+    }
+  }, 1200)
+}
 async function navigate(id: string) {
   tocOpen.value = false
   await nextTick()
@@ -640,14 +440,11 @@ async function navigate(id: string) {
   if (!heading || !editor.value) {
     return
   }
-  if (!(await draft.ensureCurrent())) {
-    return
-  }
   const currentHeading = headingPositions.find((item) => item.id === id)
   if (!currentHeading) {
     return
   }
-  positions.navigate(currentHeading.position + 1)
+  await navigatePosition(currentHeading.position + 1)
   activeId.value = id
 }
 // 2. 所有模式只监听内部画布；根据实际可见标题更新目录，卸载时释放监听。
@@ -695,7 +492,7 @@ function followPage() {
   })
 }
 watch(
-  [sourceOpen, canvasPane],
+  canvasPane,
   (_, __, cleanup) => {
     const scrollTarget = canvasPane.value
     scrollTarget?.addEventListener('scroll', followPage, { passive: true })
@@ -705,7 +502,7 @@ watch(
 )
 onMounted(() => {
   document.addEventListener('keydown', workbenchKeydown)
-  window.addEventListener('pagehide', persistDraft)
+  window.addEventListener('beforeunload', beforeUnload)
   barObserver = new ResizeObserver(([entry]) => {
     if (entry && splitRoot.value) {
       splitRoot.value.style.setProperty(
@@ -718,43 +515,81 @@ onMounted(() => {
     barObserver.observe(actionBar.value)
   }
 })
-function persistDraft() {
-  props.persistLocal?.()
-}
 onBeforeUnmount(() => {
-  persistDraft()
-  window.removeEventListener('pagehide', persistDraft)
+  window.removeEventListener('beforeunload', beforeUnload)
   document.removeEventListener('keydown', workbenchKeydown)
-  draft.dispose()
-  cancelAnimationFrame(positionFrame)
-  positions.dispose()
+  canvas.dispose()
+  clearTimeout(navigationTimer)
   barObserver?.disconnect()
   cancelAnimationFrame(frame)
+  finishLeave(false)
 })
+const leaveOpen = ref(false)
+let resolveLeave: ((allow: boolean) => void) | undefined
+function requestLeave(): Promise<boolean> {
+  if (!dirty.value) {
+    return Promise.resolve(true)
+  }
+  if (resolveLeave) {
+    return Promise.resolve(false)
+  }
+  leaveOpen.value = true
+  return new Promise((resolve) => {
+    resolveLeave = resolve
+  })
+}
+function finishLeave(allow: boolean) {
+  leaveOpen.value = false
+  resolveLeave?.(allow)
+  resolveLeave = undefined
+}
+async function saveAndLeave() {
+  const pendingLeave = resolveLeave
+  if ((await saveDemo()) && !dirty.value && resolveLeave === pendingLeave) {
+    finishLeave(true)
+  }
+}
+onBeforeRouteLeave(requestLeave)
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (dirty.value) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+async function exportDemo() {
+  try {
+    const markdown = await canvas.exportMarkdown()
+    const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }))
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = metadata.value.slug.replace(/[^\w-]/g, '-') + '.md'
+    anchor.hidden = true
+    document.body.append(anchor)
+    try {
+      anchor.click()
+    } finally {
+      anchor.remove()
+      setTimeout(() => URL.revokeObjectURL(url), BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS)
+    }
+  } catch (cause) {
+    toast.add({
+      title: '无法导出',
+      description: cause instanceof Error ? cause.message : '转换失败，正文未改变。',
+      color: 'error',
+    })
+  }
+}
+defineExpose({ requestLeave })
 </script>
 <template>
-  <main
-    ref="splitRoot"
-    class="site-container site-page blog-reading-page immersive-workbench"
-    :class="{ 'source-layout': sourceOpen, 'narrow-source': sourceCompact && sourceOpen }"
-    :style="paneStyle"
-    @pointerdown="positions.cancelRestore"
-    @wheel.passive="positions.cancelRestore"
-    @keydown="positions.cancelRestore"
-  >
+  <main ref="splitRoot" class="site-container site-page blog-reading-page immersive-workbench">
     <div ref="overlayHost" class="workbench-overlays" />
     <div ref="actionBar" class="workbench-actions">
       <div class="flex min-w-0 flex-wrap items-center gap-2 text-sm">
         <UIcon name="i-lucide-file-pen-line" class="size-4" />
         <span class="font-medium">沉浸写作</span>
         <UBadge color="neutral" variant="subtle" size="sm">草稿 · 仅本页</UBadge>
-        <span class="hidden text-xs text-muted sm:inline">{{
-          checking
-            ? '正在同步当前输入…'
-            : unvalidated
-              ? '当前输入等待同步'
-              : backupStatus || '未连接服务器，刷新后恢复'
-        }}</span>
+        <span class="hidden text-xs text-muted sm:inline">{{ saveStatus }}</span>
       </div>
       <div class="flex flex-wrap items-center gap-1">
         <UButton
@@ -766,15 +601,13 @@ onBeforeUnmount(() => {
         />
         <UButton
           color="neutral"
-          :variant="sourceOpen ? 'soft' : 'ghost'"
-          icon="i-lucide-code"
-          :aria-pressed="sourceOpen"
-          @pointerdown="rememberModePosition"
-          @click="toggleSource"
-          >{{ sourceLabel }}</UButton
-        >
+          variant="ghost"
+          icon="i-lucide-download"
+          aria-label="导出 Markdown"
+          @click="exportDemo"
+        />
         <UButton
-          v-if="compact && isEditing && !sourcePending"
+          v-if="compact && isEditing"
           icon="i-lucide-plus"
           color="neutral"
           variant="ghost"
@@ -795,124 +628,23 @@ onBeforeUnmount(() => {
           >{{ isEditing ? '完成编辑' : '继续编辑' }}</UButton
         >
       </div>
-      <div
-        v-if="sourceOpen && sourceCompact"
-        class="flex w-full gap-1"
-        role="group"
-        aria-label="窄屏源码工作区"
-      >
-        <UButton
-          color="neutral"
-          :variant="mobilePane === 'source' ? 'soft' : 'ghost'"
-          size="sm"
-          @pointerdown="rememberModePosition"
-          @click="switchMobilePane('source')"
-          >Markdown 源码</UButton
-        >
-        <UButton
-          color="neutral"
-          :variant="mobilePane === 'canvas' ? 'soft' : 'ghost'"
-          size="sm"
-          @pointerdown="rememberModePosition"
-          @click="switchMobilePane('canvas')"
-          >正文编辑</UButton
-        >
-      </div>
     </div>
     <div class="workbench-panes">
-      <section
-        v-show="sourceOpen && (!sourceCompact || mobilePane === 'source')"
-        class="source-pane"
-        aria-label="Markdown 源码工作区"
-      >
-        <div class="source-caption">
-          <span>Markdown</span
-          ><span class="min-w-0 truncate text-xs text-muted" :title="issue" role="status">{{
-            issue || '与右侧同一草稿'
-          }}</span>
-        </div>
-        <textarea
-          ref="sourceInput"
-          wrap="soft"
-          :value="source"
-          aria-label="Markdown 源码编辑"
-          spellcheck="false"
-          :readOnly="!isEditing"
-          @focus="draft.flushRich"
-          @pointerdown="draft.flushRich"
-          @click="sourceAction"
-          @keyup="sourceAction"
-          @keydown="sourceKeydown"
-          @input="onSourceInput"
-          @compositionstart="sourceComposing = true"
-          @compositionend="endSourceComposition"
-        />
-      </section>
-      <div
-        v-if="sourceOpen && !sourceCompact"
-        class="source-separator"
-        role="separator"
-        tabindex="0"
-        aria-label="调整源码分栏比例"
-        aria-orientation="vertical"
-        :aria-valuenow="Math.round(sourceWidth)"
-        :aria-valuemin="25"
-        :aria-valuemax="60"
-        @pointerdown="resizeStart"
-        @pointermove="resizeMove"
-        @pointerup="resizeEnd"
-        @pointercancel="resizeEnd"
-        @lostpointercapture="resizeEnd"
-        @keydown="resizeKeyboard"
-        @dblclick="sourceWidth = 40"
-      >
-        <span />
-      </div>
-      <div v-show="!sourceOpen || !sourceCompact || mobilePane === 'canvas'" class="canvas-stage">
+      <div class="canvas-stage">
         <section
-          v-show="!sourceOpen || !sourceCompact || mobilePane === 'canvas'"
           ref="canvasPane"
           class="canvas-pane"
           :style="{ '--immersive-canvas-height': canvasHeight + 'px' }"
           aria-label="沉浸正文画布"
           @pointerup="richPointer"
-          @immersive-source-request="openPreservedSource"
         >
           <article
             class="blog-reading-layout blog-reading-with-header workbench-article"
             :class="{ 'has-desktop-toc': desktopTocVisible }"
           >
             <header class="blog-reading-title min-w-0">
-              <UTextarea
-                v-if="isEditing"
-                v-model="title"
-                autoresize
-                :rows="1"
-                variant="none"
-                aria-label="文章标题"
-                class="workbench-title w-full"
-                :ui="{
-                  base: 'p-0 resize-none font-bold tracking-tight text-highlighted shadow-none ring-0',
-                }"
-              />
-              <h1 v-else class="site-page-title break-words">{{ title }}</h1>
-              <p
-                class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-sm text-muted"
-              >
-                <span>2026-10-17</span
-                ><span class="font-sans text-xs">{{ isEditing ? '正在编辑' : '阅读效果' }}</span>
-              </p>
-              <UTextarea
-                v-if="isEditing"
-                v-model="summary"
-                autoresize
-                :rows="1"
-                variant="none"
-                aria-label="文章摘要"
-                class="workbench-summary my-6 w-full"
-                :ui="{ base: 'p-0 resize-none text-lg leading-8 text-muted shadow-none ring-0' }"
-              />
-              <p v-else class="my-6 text-lg leading-8 text-muted">{{ summary }}</p>
+              <h1 class="site-page-title break-words">{{ title }}</h1>
+              <p class="my-6 text-lg leading-8 text-muted">{{ summary }}</p>
             </header>
             <aside v-if="desktopTocVisible" class="blog-reading-toc">
               <BlogTocResizeHandle />
@@ -933,13 +665,13 @@ onBeforeUnmount(() => {
               <UEditor
                 ref="richEditor"
                 v-slot="{ editor: currentEditor }"
-                v-memo="[isEditing, sourcePending]"
+                v-memo="[isEditing]"
                 :model-value="initialDocument"
                 content-type="json"
                 :markdown="markdownOptions"
                 :starter-kit="EDITOR_STARTER_KIT"
                 :extensions="editorExtensions"
-                :editable="isEditing && !sourcePending"
+                :editable="isEditing"
                 :image="false"
                 :mention="false"
                 :editor-props="{
@@ -953,12 +685,12 @@ onBeforeUnmount(() => {
               >
                 <EditorImmersiveTools
                   :editor="currentEditor"
-                  :enabled="isEditing && !sourcePending"
+                  :enabled="isEditing"
                   :toolbar-items="toolbarItems"
                 />
               </UEditor>
               <p class="workbench-end text-xs text-muted">
-                {{ backupStatus || '演示草稿仅保留在当前页面，未保存到服务器。' }}
+                {{ saveStatus }}
               </p>
             </div>
           </article>
@@ -1042,14 +774,7 @@ onBeforeUnmount(() => {
               v-model="settingsDraft.remoteRightsConfirmed"
               label="已确认远程图片与附件的使用权"
             />
-            <UButton
-              type="button"
-              color="neutral"
-              variant="outline"
-              icon="i-lucide-send"
-              @click="publishOpen = true"
-              >查看发布确认示例</UButton
-            >
+            <USwitch v-model="simulateFailure" label="模拟保存失败（用于验证重试）" />
           </div>
           <div class="flex justify-end gap-2 border-t border-default pt-4">
             <UButton type="button" color="neutral" variant="ghost" @click="settingsOpen = false"
@@ -1060,19 +785,25 @@ onBeforeUnmount(() => {
       </template>
     </UModal>
     <UModal
-      v-model:open="publishOpen"
-      title="发布确认 · 演示"
-      description="正式接入时，只有确认操作才会通过现有接口发布。当前没有发送请求。"
+      :open="leaveOpen"
+      title="有未保存修改"
+      description="当前仅为模拟保存，不会上传服务器。"
+      :dismissible="false"
+      @update:open="
+        (open) => {
+          if (!open) {
+            finishLeave(false)
+          }
+        }
+      "
     >
-      <template #body
-        ><p class="text-sm text-muted">
-          发布前需要确认文章地址、正文转换和资源引用均有效。本原型始终保持草稿状态。
-        </p></template
-      >
-      <template #footer
-        ><UButton color="neutral" variant="ghost" @click="publishOpen = false">返回设置</UButton
-        ><UButton @click="confirmPublishDemo">确认演示</UButton></template
-      >
+      <template #footer>
+        <UButton :disabled="saving" @click="saveAndLeave">保存并离开</UButton>
+        <UButton color="error" variant="soft" :disabled="saving" @click="finishLeave(true)"
+          >放弃并离开</UButton
+        >
+        <UButton color="neutral" variant="ghost" @click="finishLeave(false)">取消</UButton>
+      </template>
     </UModal>
   </main>
 </template>
@@ -1091,6 +822,24 @@ onBeforeUnmount(() => {
   color: var(--ui-text-muted);
   background: transparent;
   cursor: pointer;
+}
+.workbench-body :deep(.canvas-alert) {
+  margin-block: 1.25rem;
+  padding: 0.75rem 1rem;
+  border-inline-start: 3px solid var(--ui-primary);
+  background: color-mix(in srgb, var(--ui-primary) 6%, transparent);
+}
+.workbench-body :deep(.canvas-alert::before) {
+  content: attr(data-canvas-alert);
+  display: block;
+  margin-bottom: 0.5rem;
+  color: var(--ui-primary);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+.workbench-body :deep(.canvas-alert[data-canvas-alert='WARNING']),
+.workbench-body :deep(.canvas-alert[data-canvas-alert='CAUTION']) {
+  border-inline-start-color: var(--ui-warning);
 }
 .workbench-body :deep(.immersive-chapter-toggle:hover) {
   background: var(--ui-bg-elevated);
@@ -1114,28 +863,7 @@ onBeforeUnmount(() => {
   position: relative;
   min-width: 0;
   min-height: 0;
-}
-.canvas-stage {
   height: 100%;
-}
-
-.source-pane > textarea {
-  background-color: var(--site-bg-muted);
-  background-image: linear-gradient(
-    color-mix(
-      in srgb,
-      var(--ui-primary) calc(var(--source-highlight-opacity, 0) * 14%),
-      transparent
-    ),
-    color-mix(in srgb, var(--ui-primary) calc(var(--source-highlight-opacity, 0) * 6%), transparent)
-  );
-  background-repeat: no-repeat;
-  background-size: 100% var(--source-range-height, 1.8em);
-  background-position: 0 var(--source-line-y, -9999px);
-  background-attachment: local;
-}
-.source-pane > textarea::selection {
-  background: color-mix(in srgb, var(--ui-primary) 22%, transparent);
 }
 .workbench-body :deep(.immersive-selected-block::selection),
 .workbench-body :deep(.immersive-selected-block *::selection) {
@@ -1188,23 +916,6 @@ onBeforeUnmount(() => {
   margin-bottom: 0;
   background: var(--site-bg);
   border-bottom: 1px solid var(--ui-border);
-}
-.workbench-title :deep(textarea) {
-  font-size: clamp(1.875rem, 3.2vw, 3rem);
-  line-height: 1.25;
-  overflow: hidden;
-  field-sizing: content;
-  height: auto;
-}
-.workbench-summary :deep(textarea) {
-  font-size: 1.125rem;
-  overflow: hidden;
-}
-.workbench-title :deep(textarea:focus-visible),
-.workbench-summary :deep(textarea:focus-visible) {
-  outline: 1px solid color-mix(in srgb, var(--ui-primary) 40%, transparent);
-  outline-offset: 5px;
-  border-radius: 0.25rem;
 }
 .workbench-article {
   position: relative;
@@ -1321,81 +1032,6 @@ onBeforeUnmount(() => {
 .workbench-article :deep(.blog-toc-scroll) {
   max-height: max(6rem, calc(var(--immersive-canvas-height) - 3rem));
 }
-.draft-issue {
-  position: sticky;
-  top: 0;
-  z-index: 3;
-  padding: 0.6rem 0.85rem;
-  border-left: 2px solid var(--ui-warning);
-  background: var(--ui-bg);
-  color: var(--ui-text-muted);
-  font-size: 0.8125rem;
-}
-.source-layout .workbench-actions {
-  margin-bottom: 0;
-}
-.source-layout .workbench-panes {
-  display: grid;
-  grid-template-columns: minmax(0, var(--source-width)) 0.75rem minmax(0, 1fr);
-  min-height: 0;
-}
-.source-pane {
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--ui-border);
-  border-top: 0;
-  background: var(--ui-bg);
-}
-.source-caption {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--ui-border);
-  font-size: 0.8125rem;
-}
-.source-pane > textarea {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  resize: none;
-  overflow: auto;
-  border: 0;
-  outline-offset: -2px;
-  padding: 1rem;
-  color: var(--ui-text);
-  font: 0.875rem/1.8 var(--font-mono);
-  tab-size: 2;
-  font-variant-ligatures: none;
-  font-kerning: none;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.source-separator {
-  display: grid;
-  place-items: center;
-  cursor: col-resize;
-  touch-action: none;
-}
-.source-separator span {
-  width: 2px;
-  height: 3rem;
-  background: var(--ui-border-accented);
-  border-radius: 1rem;
-}
-.source-separator:hover span,
-.source-separator:focus-visible span {
-  background: var(--ui-primary);
-}
-/* 为完整的文档加号和块手柄预留画布内侧空间，不能让加号落进源码栏后被裁切。 */
-.source-layout .workbench-body :deep(.tiptap) {
-  padding-inline-start: 3.5rem;
-}
 .workbench-article {
   display: block;
 }
@@ -1418,9 +1054,6 @@ onBeforeUnmount(() => {
   padding: 0 0.75rem 0 0;
 }
 
-.narrow-source .workbench-panes {
-  grid-template-columns: minmax(0, 1fr);
-}
 @media (max-width: 1199px) {
   .workbench-article > .blog-reading-title {
     padding-right: 3rem;
@@ -1434,23 +1067,19 @@ onBeforeUnmount(() => {
     margin-left: auto;
   }
 }
-.canvas-pane,
-.source-pane > textarea {
+.canvas-pane {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--ui-text-muted) 28%, transparent) transparent;
   scrollbar-gutter: stable;
 }
-.canvas-pane:hover,
-.source-pane > textarea:hover {
+.canvas-pane:hover {
   scrollbar-color: color-mix(in srgb, var(--ui-text-muted) 50%, transparent) transparent;
 }
-.canvas-pane::-webkit-scrollbar,
-.source-pane > textarea::-webkit-scrollbar {
+.canvas-pane::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-.canvas-pane::-webkit-scrollbar-thumb,
-.source-pane > textarea::-webkit-scrollbar-thumb {
+.canvas-pane::-webkit-scrollbar-thumb {
   background: color-mix(in srgb, var(--ui-text-muted) 35%, transparent);
   border-radius: 1rem;
 }

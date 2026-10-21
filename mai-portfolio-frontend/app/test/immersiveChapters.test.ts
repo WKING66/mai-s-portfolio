@@ -11,6 +11,7 @@ import {
   revealImmersivePosition,
 } from '../utils/editor/immersiveChapters'
 import { patchImmersiveDocument } from '../utils/editor/immersiveDraft'
+import { ImmersiveMarkdownGuard } from '../utils/editor/immersiveCapabilities'
 const source =
   '# 第一章\n\n首段\n\n## 1.1\n\n子段\n\n### 更深\n\n~~~ts\nconst a = 1\n~~~\n\n## 1.2\n\n同级\n\n# 第二章\n\n末段'
 function make() {
@@ -21,6 +22,7 @@ function make() {
       ...BLOG_EDITOR_EXTENSIONS,
       Markdown.configure(createBlogMarkdownOptions()),
       ImmersiveChapters,
+      ImmersiveMarkdownGuard.configure({ roundtrip: false }),
     ],
     content: source,
     contentType: 'markdown',
@@ -29,6 +31,30 @@ function make() {
   return editor
 }
 describe('章节折叠与源码补丁', () => {
+  it('普通正文输入只映射原有章节与折叠状态，标题输入仍刷新目录文字', () => {
+    const editor = make()
+    try {
+      const before = immersiveChapters(editor.state)!
+      const chapter = before.chapters[0]!
+      editor.commands.command(toggleImmersiveChapter(chapter.id))
+      const folded = immersiveChapters(editor.state)!
+      // 在第一章标题后插入文字，只推动后续标题和边界的位置。
+      const at = chapter.bodyFrom + 1
+      editor.view.dispatch(editor.state.tr.insertText('新增', at))
+      const after = immersiveChapters(editor.state)!
+      expect(after.collapsed).toBe(folded.collapsed)
+      expect(after.chapters[1]!.id).toBe(before.chapters[1]!.id)
+      expect(after.chapters[1]!.position).toBe(before.chapters[1]!.position + 2)
+      expect(after.chapters[0]!.end).toBe(before.chapters[0]!.end + 2)
+      expect(after.decorations.find().map((item) => item.from)).toEqual(
+        after.chapters.map((item) => item.position + 1),
+      )
+      editor.view.dispatch(editor.state.tr.insertText('改名', chapter.position + 1))
+      expect(immersiveChapters(editor.state)!.chapters[0]!.text).toBe('改名第一章')
+    } finally {
+      editor.destroy()
+    }
+  })
   it('H1-H6 同级边界、子章节边界及祖先展开与阅读规则一致', () => {
     const editor = make()
     try {

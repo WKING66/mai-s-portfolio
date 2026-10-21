@@ -1,7 +1,6 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
 import { PluginKey } from '@tiptap/pm/state'
 import { immersiveInsertionProblem, immersiveDocumentProblem } from './immersiveCapabilities'
-import { serializeEditorDocument } from './markdownOutput'
 
 export interface ImmersiveMenuTarget {
   kind: 'block' | 'slash'
@@ -15,6 +14,7 @@ export interface ImmersiveCommandItem {
   icon: string
   aliases: string[]
   level?: 1 | 2 | 3 | 4 | 5 | 6
+  alertKind?: string
 }
 export const IMMERSIVE_MENU_KEY = new PluginKey<ImmersiveMenuTarget | null>(
   'immersive-command-menu',
@@ -31,6 +31,13 @@ export const IMMERSIVE_COMMANDS: ImmersiveCommandItem[] = [
   { kind: 'bulletList', label: '无序列表', icon: 'i-lucide-list', aliases: ['list', 'ul'] },
   { kind: 'orderedList', label: '有序列表', icon: 'i-lucide-list-ordered', aliases: ['ol'] },
   { kind: 'blockquote', label: '引用', icon: 'i-lucide-quote', aliases: ['quote'] },
+  ...['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'].map((alertKind) => ({
+    kind: 'alert',
+    alertKind,
+    label: alertKind + ' 提示块',
+    icon: 'i-lucide-info',
+    aliases: ['alert', alertKind.toLowerCase(), '提示'],
+  })),
   { kind: 'codeBlock', label: '代码块', icon: 'i-lucide-code', aliases: ['code'] },
   { kind: 'table', label: '表格', icon: 'i-lucide-table', aliases: ['table'] },
   {
@@ -98,6 +105,12 @@ function insertionChain(
       return chain.toggleOrderedList()
     case 'blockquote':
       return chain.toggleBlockquote()
+    case 'alert':
+      return chain.insertContent({
+        type: 'canvasAlert',
+        attrs: { kind: item.alertKind },
+        content: [{ type: 'paragraph' }],
+      })
     case 'codeBlock':
       return chain.setCodeBlock()
     case 'table':
@@ -123,6 +136,10 @@ export function immersiveCommandProblem(
 ) {
   if (!editor.isEditable) {
     return '当前正文只读。'
+  }
+  const needed = item.kind === 'alert' ? 'canvasAlert' : undefined
+  if (needed && !editor.schema.nodes[needed]) {
+    return '当前文档未启用此语法。'
   }
   if (target.kind === 'slash') {
     const problem = immersiveInsertionProblem(editor, item.kind)
@@ -155,9 +172,6 @@ export function executeImmersiveCommand(
     ?.command(({ tr }) => {
       try {
         problem = immersiveDocumentProblem(tr.doc)?.reason ?? ''
-        if (!problem) {
-          tr.setMeta('immersive-markdown', serializeEditorDocument(editor, tr.doc))
-        }
       } catch (error) {
         problem = error instanceof Error ? error.message : '无法转换为 Markdown。'
       }

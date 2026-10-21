@@ -2,6 +2,7 @@ import { Extension } from '@tiptap/core'
 import { NodeSelection, Plugin, PluginKey, type EditorState } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { isHistoryTransaction } from '@tiptap/pm/history'
+import { parseCodeInfo } from '../codeInfo'
 import type { Node as DocumentNode } from '@tiptap/pm/model'
 import type { ElementNode, Node } from 'comark'
 
@@ -104,7 +105,7 @@ export const ImmersiveDecorations = Extension.create({
     let identity = 0
     function sourceKey(node: DocumentNode) {
       const info = String(node.attrs.language || '')
-      const filename = info.match(/\[([^\]]+)\]/)?.[1]
+      const filename = parseCodeInfo(info).filename
       return filename ? 'file:' + filename : 'language:' + info
     }
     function preserveSourceIdentities(before: DocumentNode, after: DocumentNode) {

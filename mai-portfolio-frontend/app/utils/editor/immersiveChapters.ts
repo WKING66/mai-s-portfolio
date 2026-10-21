@@ -2,6 +2,7 @@ import { Extension, type Command } from '@tiptap/core'
 import type { Node as DocumentNode } from '@tiptap/pm/model'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
+import { ReplaceStep } from '@tiptap/pm/transform'
 import { chapterAncestors, headingParent } from '../blogChapters'
 import { collectEditorHeadings, type EditorHeading } from './editorOutline'
 
@@ -163,6 +164,29 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
           apply(transaction, previous) {
             if (!transaction.docChanged && !transaction.getMeta(IMMERSIVE_CHAPTER_KEY)) {
               return previous
+            }
+            // 同段正文输入不改变标题结构，直接使用 PM 映射，保留目录/折叠状态身份。
+            // 标题自身的编辑与任何结构变化仍走完整章节计算。
+            if (
+              transaction.docChanged &&
+              !transaction.getMeta(IMMERSIVE_CHAPTER_KEY) &&
+              transaction.getMeta('immersive-plain-text') &&
+              transaction.steps.every(
+                (step, index) =>
+                  step instanceof ReplaceStep &&
+                  transaction.docs[index]!.resolve(step.from).parent.type.name !== 'heading',
+              )
+            ) {
+              return {
+                chapters: previous.chapters.map((chapter) => ({
+                  ...chapter,
+                  position: transaction.mapping.map(chapter.position),
+                  bodyFrom: transaction.mapping.map(chapter.bodyFrom),
+                  end: transaction.mapping.map(chapter.end),
+                })),
+                collapsed: previous.collapsed,
+                decorations: previous.decorations.map(transaction.mapping, transaction.doc),
+              }
             }
             const chapters = transaction.docChanged
               ? buildImmersiveChapters(

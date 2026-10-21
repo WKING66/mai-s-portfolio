@@ -4,6 +4,7 @@ import { useClipboard } from '@vueuse/core'
 import { CODE_THEMES, codeLabel, type CodeTheme } from '../../constants/codeThemes'
 import ImmersiveDiagram from './ImmersiveDiagram.vue'
 import { IMMERSIVE_CODE_THEMES, IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/immersiveContext'
+import { parseCodeInfo, formatCodeInfo } from '../../utils/codeInfo'
 const props = defineProps<NodeViewProps>()
 const languageOptions = [
   { label: 'Java', value: 'java' },
@@ -59,9 +60,7 @@ const theme = computed<CodeTheme>({
 const portal = useTemplateRef<HTMLElement>('portal')
 const diagram = useTemplateRef<InstanceType<typeof ImmersiveDiagram>>('diagram')
 const language = computed(() => String(props.node.attrs.language || '').split(/\s/)[0] || '')
-const filename = computed(
-  () => String(props.node.attrs.language || '').match(/\[([^\]]+)\]/)?.[1] || '',
-)
+const filename = computed(() => parseCodeInfo(String(props.node.attrs.language || '')).filename)
 const label = computed(() => codeLabel(filename.value, language.value))
 const lineNumbers = computed(() =>
   Array.from({ length: props.node.textContent.split('\n').length }, (_, index) => index + 1).join(
@@ -83,9 +82,7 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
   if (!props.editor.isEditable) {
     return
   }
-  const language = nextLanguage.replace(/[\s[\]]/g, '')
-  const filename = nextFilename.replace(/[\r\n[\]]/g, '')
-  props.updateAttributes({ language: language + (filename ? ' [' + filename + ']' : '') })
+  props.updateAttributes({ language: formatCodeInfo(nextLanguage, nextFilename) })
 }
 </script>
 <template>

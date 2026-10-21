@@ -4,11 +4,14 @@ import { inspectImmersiveSource } from './immersiveDraft'
 import { editorSchema } from './markdownCompatibility'
 import { buildImmersiveSourceMap, type ImmersiveSourceRange } from './immersiveSourceMap'
 import { serializeEditorDocument } from './markdownOutput'
+import { exportCanvasMarkdown } from './canvasMarkdown'
 
 export type ImmersiveValidationInput =
+  | { kind: 'canvas'; document: JSONContent }
   | { kind: 'rich'; document: JSONContent }
   | { kind: 'source'; markdown: string; resources: string[] }
 export type ImmersiveValidationResult =
+  | { kind: 'canvas'; markdown: string }
   | { kind: 'rich'; markdown: string; ranges: ImmersiveSourceRange[] }
   | { kind: 'source'; issue: string; document?: JSONContent; ranges: ImmersiveSourceRange[] }
 export type ImmersiveValidationReply = { id: number } & (
@@ -32,6 +35,9 @@ export function createImmersiveValidation() {
     }
   }
   return (input: ImmersiveValidationInput): ImmersiveValidationResult => {
+    if (input.kind === 'canvas') {
+      return { kind: 'canvas', markdown: exportCanvasMarkdown(input.document) }
+    }
     if (input.kind === 'rich') {
       const document = editorSchema.nodeFromJSON(input.document)
       document.check()
