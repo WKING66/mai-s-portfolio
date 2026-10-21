@@ -1,12 +1,12 @@
-%% Generated from docs/architecture/document-import-export.md; edit that document first.
 flowchart TD
-    input[编辑器输入与当前锁版本] --> prepare[校验并准备规范正文和资源]
-    prepare --> cas{事务内 CAS 锁版本匹配}
-    cas -->|否| conflict[409 DATA_CONFLICT，补偿本次新资产]
-    cas -->|是| saved[追加不可变 DocumentVersion，切换 current 指针]
-    saved --> same[Blog 公开版本指针保持原值]
-    same --> action{站长后续操作}
-    action -->|发布| check[校验 slug、标题、正文与全部资源]
-    check --> publish[推进锁并切换 published 指针，状态 PUBLISHED]
-    action -->|下架| unpublish[推进锁并改为 DRAFT，保留版本和资源]
-    action -->|继续编辑| input
+    save[保存] --> prepare[事务外准备资源]
+    prepare --> lock[事务内锁 Document / 校验 revision 与 requestId]
+    lock --> asset[锁定 READY Asset / 校验引用]
+    asset --> persist[更新唯一草稿 / 差量写资源与标签 / 更新博客设置]
+    persist --> receipt[revision 加一 / 保存重试摘要 / 共同提交]
+    publish[发布已保存草稿] --> promote[同一身份锁内校验就绪 / 删除旧正式关系 / 提升草稿]
+    down[下架] --> hide[只关闭公开入口]
+    restore[恢复] --> show[只重新开放正式正文 / 不提升草稿]
+    discard[丢弃草稿] --> keep[已有正式正文时删除草稿 / 正式正文不变]
+    delete[整篇删除] --> guard[必须已下架 / 有正式正文时不得还有草稿]
+    guard --> unlink[删除内容与关系及博客身份 / 保留共享 Asset]

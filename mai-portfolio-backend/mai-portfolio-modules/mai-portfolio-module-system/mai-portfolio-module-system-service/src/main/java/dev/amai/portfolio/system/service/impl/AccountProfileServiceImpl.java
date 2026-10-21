@@ -24,6 +24,8 @@ import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -89,9 +91,8 @@ public class AccountProfileServiceImpl implements AccountProfileService {
             throw invalid(AccountMessageConstants.AVATAR_BINDING_INVALID);
         }
         // 2. 只允许本人上传、AVATAR 用途且 READY 的图片；复用 Asset，不重复上传。
-        var asset =
-                assetQueryService
-                        .findReadyMetadata(request.assetId())
+        var asset = Optional.ofNullable(
+                assetQueryService.lockReady(Set.of(request.assetId())).get(request.assetId()))
                         .filter(
                                 resource ->
                                         resource.type() == AssetType.IMAGE

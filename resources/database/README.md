@@ -13,7 +13,8 @@
 | [V5](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V5__document_resources.sql) | 文档资源 |
 | [V6](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V6__credential_version_description.sql) | 凭据版本说明 |
 | [V7](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V7__document_resource_error_message.sql) | 资源失败原因 |
+| [V8](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V8__document_content_slots.sql) | 草稿/正式正文槽位、内容资源与标签、导入追踪；升级前备份 |
 
-博客相关表的完整导出见 [SQL 结构快照](blog-schema.sql)，表职责、真实外键及当前使用状态见 [博客表关系图](blog-schema.md)。仅供查阅或独立空 schema，不在已有业务库重复执行，也不替代完整 Flyway 初始化。
+博客相关表的完整导出见 [SQL 结构快照](blog-schema.sql)，表职责、业务关系及共享外键见 [博客表关系图](blog-schema.md)。仅供查阅或独立空 schema，不在已有业务库重复执行，也不替代完整 Flyway 初始化。
 
 已执行的迁移不改写；后续 Schema 变化通过新增迁移处理。运行配置和启动入口见 [快速开始](../quickstart.md)。

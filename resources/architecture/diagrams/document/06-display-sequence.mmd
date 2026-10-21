@@ -1,21 +1,12 @@
-%% Generated from docs/architecture/document-import-export.md; edit that document first.
 sequenceDiagram
-    participant Nuxt as Nuxt 公开页或编辑页
-    participant Blog as BlogController 与 BlogService
-    participant Document as DocumentService
-    participant Query as DocumentRenderer 与 AssetQueryService
-    participant Storage as ObjectStorage
-    participant Browser as 浏览器
-    participant OSS as 私有 OSS
-    Nuxt->>Blog: 公开 slug 查询或管理 id 查询
-    Blog->>Blog: 校验公开状态或 OWNER
-    Blog->>Document: 指定 published 版本或 current 版本
-    Document-->>Blog: 正文与版本资源关系
-    Blog->>Query: 批量投影就绪资源
-    Query->>Storage: accessUrl(storageKey)
-    Storage-->>Query: 签名 URL 与 expiresAt
-    Query-->>Blog: 资源投影与净化 HTML
-    Blog-->>Nuxt: BlogVo
-    Nuxt-->>Browser: 展示 HTML
-    Browser->>OSS: 直接请求图片或附件签名 URL
-    Note over Nuxt,Blog: 地址临近到期时重新查询业务投影
+    participant UI as Nuxt
+    participant B as BlogService
+    participant D as DocumentService.read
+    participant A as DocumentRenderer / AssetQueryService
+    participant O as OSS
+    UI->>B: 管理详情 / 公开 slug
+    B->>D: 管理优先草稿；公开只读正式正文
+    D-->>B: Markdown / 资源与标签 / contentId
+    B->>A: resources（批量查询并签名）
+    B-->>UI: 稳定正文 + 临时 URL
+    UI->>O: 浏览器直接请求资源

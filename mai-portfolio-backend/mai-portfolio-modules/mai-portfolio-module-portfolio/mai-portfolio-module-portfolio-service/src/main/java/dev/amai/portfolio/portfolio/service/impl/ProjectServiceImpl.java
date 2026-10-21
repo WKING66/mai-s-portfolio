@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -238,7 +239,8 @@ public class ProjectServiceImpl implements ProjectService {
             throw invalid(ProjectMessageConstants.INVALID_SLUG);
         }
         validateTagIds(ObjectUtil.defaultIfNull(request.tagIds(), List.of()));
-        if (request.coverMediaId() != null && assetQueryService.findReadyMetadata(request.coverMediaId())
+        if (request.coverMediaId() != null && Optional.ofNullable(assetQueryService.lockReady(Set.of(request.coverMediaId()))
+                .get(request.coverMediaId()))
                 .filter(asset -> asset.type() == AssetType.IMAGE && asset.usage() == AssetUsage.IMAGE)
                 .isEmpty()) {
             throw invalid(ProjectMessageConstants.INVALID_COVER);

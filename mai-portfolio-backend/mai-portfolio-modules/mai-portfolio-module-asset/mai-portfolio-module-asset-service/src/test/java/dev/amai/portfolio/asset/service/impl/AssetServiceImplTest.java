@@ -33,7 +33,8 @@ class AssetServiceImplTest {
                             new ImageContentValidator(new AvatarUploadProperties(2097152, 2048)),
                             upload,
                             mock(dev.amai.portfolio.asset.mapper.MediaAssetMapper.class),
-                            mock(dev.amai.portfolio.storage.ObjectStorage.class)),
+                            mock(dev.amai.portfolio.storage.ObjectStorage.class),
+                            mock(org.springframework.transaction.PlatformTransactionManager.class)),
                     assets,
                     identity,
                     owners);
@@ -81,6 +82,8 @@ class AssetServiceImplTest {
         verify(upload, times(3)).upload(requests.capture());
         assertThat(requests.getAllValues())
                 .allSatisfy(request -> assertThat(request.uploaderAccountId()).isEqualTo(7L));
+        assertThat(requests.getAllValues().get(0).filename()).isEqualTo("name.png");
+        assertThat(requests.getAllValues().get(1).filename()).isEqualTo("name.png");
         assertThat(requests.getAllValues().get(2).contentType())
                 .isEqualTo("application/octet-stream");
         assertThat(requests.getAllValues().get(2).filename()).isEqualTo("name.html");

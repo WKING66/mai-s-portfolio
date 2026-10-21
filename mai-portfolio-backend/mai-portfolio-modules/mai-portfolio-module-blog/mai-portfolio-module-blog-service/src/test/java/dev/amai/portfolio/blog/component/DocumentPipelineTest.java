@@ -47,7 +47,7 @@ class DocumentPipelineTest {
     @Test
     void exportDestinationRewritePreservesDialectAndDoesNotTouchCodeExamples() {
         String body = "| A |\n|---|\n| ~~x~~ |\n\n- [x] done\n\n```md\n![example](resource://keep)\n```\n\n![real](resource://keep)\n";
-        var doc = new Document(1, 2, 1, 1, "t", "", body, List.of());
+        var doc = new Document(1, 2, 1, ContentStage.DRAFT, true, false, "t", "", body, List.of(), List.of());
         assertThat(new DocumentRenderer(assets).markdown(doc, Map.of("keep", "resources/a.png")))
                 .isEqualTo(body.replace("![real](resource://keep)", "![real](resources/a.png)"));
     }
@@ -236,12 +236,15 @@ class DocumentPipelineTest {
                         1,
                         2,
                         1,
-                        1,
+                        ContentStage.DRAFT,
+                        true,
+                        false,
                         "title",
                         "",
                         "<script>alert(1)</script>\n\n"
                                 + "[bad](javascript:alert(1))\n\n"
                                 + "![image](resource://missing)",
+                        List.of(),
                         List.of());
         assertThat(renderer.markdown(doc, Map.of()))
                 .isEqualTo(doc.content().replace("resource://missing", "#resource-unavailable"));
@@ -320,7 +323,7 @@ class DocumentPipelineTest {
                         9L,
                         ResourceStatus.READY);
         var document =
-                new Document(1, 2, 1, 1, "Title", "", "![a](resource://image)", List.of(resource));
+                new Document(1, 2, 1, ContentStage.DRAFT, true, false, "Title", "", "![a](resource://image)", List.of(resource), List.of());
         when(assets.findReady(Set.of(9L), AssetType.IMAGE))
                 .thenReturn(
                         Map.of(

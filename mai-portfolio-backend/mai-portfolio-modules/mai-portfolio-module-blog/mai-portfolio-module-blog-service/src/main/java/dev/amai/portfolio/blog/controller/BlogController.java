@@ -1,11 +1,14 @@
 package dev.amai.portfolio.blog.controller;
 
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
+import static dev.amai.portfolio.blog.constant.DocumentPolicy.REQUEST_ID_PATTERN;
 
 import cn.dev33.satoken.annotation.*;
 import cn.hutool.core.collection.CollUtil;
+import dev.amai.portfolio.blog.convert.DocumentImportTaskConvert;
 import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
+import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.service.*;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.api.AuthConstants;
@@ -18,6 +21,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.springframework.http.*;
@@ -34,9 +42,13 @@ public class BlogController {
     private final BlogService blogService;
     private final DocumentExportService documentExportService;
 
-    public BlogController(BlogService blogService, DocumentExportService documentExportService) {
+    private final DocumentImportTaskService documentImportTaskService;
+
+    public BlogController(BlogService blogService, DocumentExportService documentExportService,
+            DocumentImportTaskService documentImportTaskService) {
         this.blogService = blogService;
         this.documentExportService = documentExportService;
+        this.documentImportTaskService = documentImportTaskService;
     }
 
     @GetMapping
@@ -90,8 +102,8 @@ public class BlogController {
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @PatchMapping("/{id}")
     @Operation(
-            summary = "保存新文档版本",
-            description = "带回 version；保存不修改公开版本。",
+            summary = "保存工作草稿",
+            description = "带回 revision 和唯一 requestId；原地更新草稿，标签随草稿保存，公开正文不变；allowDownload 立即生效。",
             parameters =
                     @Parameter(
                             name = AuthConstants.CSRF_HEADER_NAME,
@@ -117,24 +129,32 @@ public class BlogController {
     public R<BlogVo> importDocument(
             @RequestPart MultipartFile file,
             @RequestPart(required = false) List<MultipartFile> resources,
-            @RequestParam(defaultValue = "false") boolean remoteRightsConfirmed) {
+            @RequestParam(defaultValue = "false") boolean remoteRightsConfirmed,
+            @RequestParam(required = false)
+            @Size(max = MAX_TAGS)
+            List<@NotNull @Positive Long> tagIds,
+            @RequestParam
+            @NotBlank
+            @Pattern(regexp = REQUEST_ID_PATTERN)
+            String requestId) {
         return R.success(
                 blogService.importDocument(
-                        file, CollUtil.emptyIfNull(resources), remoteRightsConfirmed));
+                        file, CollUtil.emptyIfNull(resources), remoteRightsConfirmed,
+                        CollUtil.emptyIfNull(tagIds), requestId));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @PostMapping("/{id}/publish")
     @Operation(
-            summary = "发布当前文档版本",
+            summary = "发布已保存草稿并替换正式正文",
             parameters =
                     @Parameter(
                             name = AuthConstants.CSRF_HEADER_NAME,
                             in = ParameterIn.HEADER,
                             required = true))
-    public R<BlogVo> publish(@PathVariable long id, @Valid @RequestBody BlogVersionRequest input) {
-        return R.success(blogService.publish(id, input.version(), true));
+    public R<BlogVo> publish(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.PUBLISH));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -148,8 +168,50 @@ public class BlogController {
                             in = ParameterIn.HEADER,
                             required = true))
     public R<BlogVo> unpublish(
-            @PathVariable long id, @Valid @RequestBody BlogVersionRequest input) {
-        return R.success(blogService.publish(id, input.version(), false));
+            @PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.UNPUBLISH));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "恢复已下架的正式正文", description = "不提升草稿，不改变最近正式正文和发布时间。")
+    public R<BlogVo> restore(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.RESTORE));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @DeleteMapping("/{id}/draft")
+    @Operation(summary = "丢弃工作草稿", description = "必须已有正式正文；正式正文和公开状态不变。只有草稿的新文章请整篇删除。")
+    public R<BlogVo> discardDraft(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.DISCARD_DRAFT));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @DeleteMapping("/{id}")
+    @Operation(summary = "删除未上架文章", description = "上架中拒绝删除；正式正文仍有草稿也拒绝。仅解绑资源，不删除共享 Asset。")
+    public R<Void> delete(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        blogService.delete(id, input);
+        return R.success(null);
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @GetMapping("/imports")
+    @Operation(summary = "读取最近 50 次导入记录", description = "可按 documentId 查询。处理中记录不等同于后台任务。")
+    public R<List<DocumentImportTaskVo>> imports(@RequestParam(required = false) Long documentId) {
+        return R.success(documentImportTaskService.recent(documentId).stream()
+                .map(DocumentImportTaskConvert.MAPPER::to).toList());
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @GetMapping("/imports/{taskId}")
+    @Operation(summary = "读取导入来源、结果和具体问题")
+    public R<DocumentImportTaskVo> importTask(@PathVariable long taskId) {
+        return R.success(DocumentImportTaskConvert.MAPPER.to(documentImportTaskService.get(taskId)));
     }
 
     @SaCheckLogin

@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
-/** 文档身份及最新保存指针；currentVersionId 不能用来判断访客当前应看到哪个版本。 */
+/** 文档身份及统一写修订；草稿与正式正文由内容槽位表达。 */
 @Getter
 @Setter
 @TableName("document")
@@ -17,9 +17,15 @@ public class DocumentDO {
 
     private Integer originType;
 
-    private Long currentVersionId;
+    private Long revision;
 
-    private Long lockVersion;
+    private String createRequestId;
+
+    private String createRequestHash;
+
+    private String lastRequestId;
+
+    private String lastRequestHash;
 
     private LocalDateTime createdAt;
 

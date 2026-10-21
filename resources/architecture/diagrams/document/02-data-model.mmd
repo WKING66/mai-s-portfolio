@@ -1,46 +1,8 @@
-%% Generated from docs/architecture/document-import-export.md; edit that document first.
 erDiagram
-    DOCUMENT ||--o{ DOCUMENT_VERSION : contains
-    DOCUMENT ||--o| BLOG_POST : used_by
-    DOCUMENT_VERSION ||--o{ DOCUMENT_VERSION_ASSET : references
-    MEDIA_ASSET o|--o{ DOCUMENT_VERSION_ASSET : backs_ready_resource
-    DOCUMENT {
-        bigint id PK
-        bigint owner_id
-        int origin_type
-        bigint current_version_id FK
-        bigint lock_version
-    }
-    DOCUMENT_VERSION {
-        bigint id PK
-        bigint document_id FK
-        bigint version_number
-        string title
-        string summary
-        string markdown_content
-    }
-    BLOG_POST {
-        bigint id PK
-        bigint document_id FK
-        bigint published_version_id FK
-        string slug
-        int status
-        int allow_visitor_download
-    }
-    DOCUMENT_VERSION_ASSET {
-        bigint document_version_id FK
-        bigint media_id FK
-        string resource_key
-        int resource_type
-        int source_kind
-        int status
-        string source_reference
-    }
-    MEDIA_ASSET {
-        bigint id PK
-        string storage_key
-        string usage
-        int status
-        string mime_type
-        bigint byte_size
-    }
+    BLOG_POST ||--|| DOCUMENT : owns
+    DOCUMENT ||--o{ DOCUMENT_CONTENT : "最多 DRAFT 与 PUBLISHED 各一条"
+    DOCUMENT_CONTENT ||--o{ DOCUMENT_RESOURCE : references
+    DOCUMENT_CONTENT ||--o{ DOCUMENT_CONTENT_TAG : selects
+    MEDIA_ASSET o|--o{ DOCUMENT_RESOURCE : backs
+    TAG ||--o{ DOCUMENT_CONTENT_TAG : snapshots
+    DOCUMENT_IMPORT_TASK }o--o| DOCUMENT : "追踪历史定位"

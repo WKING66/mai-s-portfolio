@@ -15,6 +15,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import static dev.amai.portfolio.asset.constant.AssetPolicy.MAX_FILENAME_LENGTH;
 
 /** 文档导入等服务端调用复用统一文件校验、上传、读取及失败补偿，不建立第二套 OSS 生命周期。 */
@@ -26,15 +31,21 @@ public class AssetFileServiceImpl implements AssetFileService {
     private final MediaAssetMapper mediaAssetMapper;
     private final ObjectStorage objectStorage;
 
+    private final TransactionTemplate cleanupTransaction;
+
     public AssetFileServiceImpl(
             ImageContentValidator imageContentValidator,
             AssetUploadComponent assetUploadComponent,
             MediaAssetMapper mediaAssetMapper,
-            ObjectStorage objectStorage) {
+            ObjectStorage objectStorage,
+            PlatformTransactionManager transactionManager) {
         this.imageContentValidator = imageContentValidator;
         this.assetUploadComponent = assetUploadComponent;
         this.mediaAssetMapper = mediaAssetMapper;
         this.objectStorage = objectStorage;
+        this.cleanupTransaction = new TransactionTemplate(transactionManager);
+        this.cleanupTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.cleanupTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
     }
 
     @Override
@@ -55,7 +66,7 @@ public class AssetFileServiceImpl implements AssetFileService {
                     new AssetUploadRequest(
                             usage,
                             uploader,
-                            "image." + image.extension(),
+                            imageFilename(filename, image.extension()),
                             image.mime(),
                             image.bytes(),
                             image.width(),
@@ -108,31 +119,43 @@ public class AssetFileServiceImpl implements AssetFileService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void discardUnbound(Set<Long> ids, long uploader) {
-        // 逐项尽力清理，单项失败只记安全摘要，不扩大为整个导入补偿失败。
-        for (long id : ids) {
+        // 1. 每项独立事务：锁定、验证上传者、检查所有引用，确认未绑定后才删元数据。
+        for (long id : ids.stream().sorted().toList()) {
             try {
-                var asset = mediaAssetMapper.selectById(id);
-                if (asset == null
-                        || !Objects.equals(asset.getUploaderAccountId(), uploader)) {
-                    continue;
-                }
-                // 先删除数据库记录；任何已绑定资源会被 FK 拒绝，不能先删除 OSS。
-                if (mediaAssetMapper.delete(
-                                Wrappers.<MediaAssetDO>lambdaQuery()
-                                        .eq(MediaAssetDO::getId, id)
-                                        .eq(MediaAssetDO::getUploaderAccountId, uploader))
-                        == 1) {
-                    // 数据库删除成功后才删除对象；OSS 失败可能留下孤儿对象，不恢复元数据。
-                    objectStorage.delete(asset.getStorageKey());
+                String storageKey = cleanupTransaction.execute(status -> {
+                    var asset = mediaAssetMapper.selectOne(Wrappers.<MediaAssetDO>lambdaQuery()
+                            .eq(MediaAssetDO::getId, id).last("FOR UPDATE"));
+                    if (asset == null || !Objects.equals(asset.getUploaderAccountId(), uploader)
+                            || mediaAssetMapper.isReferenced(id)) {
+                        return null;
+                    }
+                    return mediaAssetMapper.deleteById(id) == 1 ? asset.getStorageKey() : null;
+                });
+                // 2. 数据库提交后才清理 OSS；失败留下可排查的孤儿对象，不反向恢复无引用元数据。
+                if (storageKey != null) {
+                    objectStorage.delete(storageKey);
                 }
             } catch (RuntimeException failure) {
-                LOG.warn(
-                        "Unbound asset cleanup failed, assetId={}, failureType={}",
-                        id,
-                        failure.getClass().getSimpleName());
+                LOG.warn("Unbound asset cleanup failed, assetId={}, failureType={}",
+                        id, failure.getClass().getSimpleName());
             }
         }
+    }
+
+    private String imageFilename(String filename, String extension) {
+        String name = filename == null ? "image" : filename.replace('\\', '/');
+        name = name.substring(name.lastIndexOf('/') + 1).strip();
+        if (name.isBlank() || name.length() > MAX_FILENAME_LENGTH
+                || name.codePoints().anyMatch(Character::isISOControl)) {
+            throw invalid();
+        }
+        int dot = name.lastIndexOf('.');
+        String basename = dot > 0 ? name.substring(0, dot) : name;
+        // WebP 等经转码后保留可读文件名，但扩展名必须与实际编码一致。
+        return basename.substring(0, Math.min(basename.length(),
+                MAX_FILENAME_LENGTH - extension.length() - 1)) + "." + extension;
     }
 
     private ApiException invalid() {

@@ -123,8 +123,8 @@ public class DocumentExportServiceImpl implements DocumentExportService {
                         zipArchive.flush();
                     } catch (IOException | RuntimeException failure) {
                         LOG.warn(
-                                "Document export interrupted, documentId={}, versionId={}, failureType={}",
-                                document.id(), document.versionId(), failure.getClass().getSimpleName());
+                                "Document export interrupted, documentId={}, contentId={}, failureType={}",
+                                document.id(), document.contentId(), failure.getClass().getSimpleName());
                         throw failure;
                     } finally {
                         zipArchive.release();

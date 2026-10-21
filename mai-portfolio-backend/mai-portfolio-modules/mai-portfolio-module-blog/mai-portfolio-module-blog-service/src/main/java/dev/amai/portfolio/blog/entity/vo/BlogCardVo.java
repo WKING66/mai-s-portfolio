@@ -1,8 +1,9 @@
 package dev.amai.portfolio.blog.entity.vo;
 
+import dev.amai.portfolio.blog.enums.ContentStage;
 import java.time.LocalDateTime;
 
-/** 列表摘要不携带正文或资源 URL；version 与所属 MANAGE/PUBLIC 投影的版本语义一致。 */
+/** 列表摘要与详情使用相同的槽位和修订语义。 */
 public record BlogCardVo(
         long id,
 
@@ -14,6 +15,14 @@ public record BlogCardVo(
 
         String status,
 
-        long version,
+        Long revision,
+
+        long contentId,
+
+        ContentStage stage,
+
+        Boolean hasDraft,
+
+        boolean hasPublished,
 
         LocalDateTime publishedAt) {}

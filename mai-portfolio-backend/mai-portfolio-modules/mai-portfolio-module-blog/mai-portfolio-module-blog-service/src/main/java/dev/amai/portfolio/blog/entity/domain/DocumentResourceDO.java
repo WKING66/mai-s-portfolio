@@ -1,27 +1,24 @@
 package dev.amai.portfolio.blog.entity.domain;
 
 import com.baomidou.mybatisplus.annotation.*;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
-/** 版本资源关系；Java 字段与文档资源语义一致，旧表列名通过 TableField 保留，失败时允许不绑定资产。 */
+/** 内容资源关系；删除关系不等于删除共享 Asset。 */
 @Getter
 @Setter
-@TableName("document_version_asset")
+@TableName("document_resource")
 public class DocumentResourceDO {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    private Long documentVersionId;
+    private Long contentId;
 
-    @TableField("media_id")
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private Long assetId;
 
-    private Integer role;
-
-    private String altText;
-
-    @TableField("source_reference")
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String originalUri;
 
     private Integer sortOrder;
@@ -37,5 +34,6 @@ public class DocumentResourceDO {
 
     private Integer status;
 
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String errorMessage;
 }
