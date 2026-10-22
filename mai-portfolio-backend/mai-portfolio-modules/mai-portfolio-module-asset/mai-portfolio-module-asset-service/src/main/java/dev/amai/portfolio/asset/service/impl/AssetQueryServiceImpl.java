@@ -49,10 +49,12 @@ public class AssetQueryServiceImpl implements AssetQueryService {
                 .in(MediaAssetDO::getId, assetIds)
                 .orderByAsc(MediaAssetDO::getId).last("FOR UPDATE"));
         if (assets.size() != assetIds.size()
-                || assets.stream().anyMatch(asset -> asset.getStatus() != MediaStatus.READY.code())) {
+                || assets.stream()
+                        .anyMatch(asset -> asset.getStatus() != MediaStatus.READY.code())) {
             throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "引用资源不存在或尚未就绪，请重新上传");
         }
-        return assets.stream().collect(Collectors.toMap(MediaAssetDO::getId, AssetConvert.MAPPER::to));
+        return assets.stream()
+                .collect(Collectors.toMap(MediaAssetDO::getId, AssetConvert.MAPPER::to));
     }
 
     @Override
@@ -84,7 +86,9 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             return Map.of();
         }
         Set<Long> ids =
-                assetIds.stream().filter(id -> id != null && id > 0).collect(Collectors.toSet());
+                assetIds.stream()
+                        .filter(id -> id != null && id > 0)
+                        .collect(Collectors.toSet());
         if (ids.isEmpty()) {
             return Map.of();
         }

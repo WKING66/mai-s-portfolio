@@ -1,7 +1,6 @@
 package dev.amai.portfolio.blog.entity.domain;
 
 import com.baomidou.mybatisplus.annotation.*;
-import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -21,5 +20,5 @@ public class DocumentContentTagDO {
 
     private String slug;
 
-    private String kind;
+    private Integer kind;
 }

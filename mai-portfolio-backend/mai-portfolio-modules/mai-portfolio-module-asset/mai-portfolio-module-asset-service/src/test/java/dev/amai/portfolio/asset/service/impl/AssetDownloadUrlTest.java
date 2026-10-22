@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import dev.amai.portfolio.asset.api.AssetType;
+import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.entity.domain.MediaAssetDO;
 import dev.amai.portfolio.asset.enums.MediaAssetType;
 import dev.amai.portfolio.asset.enums.MediaStatus;
@@ -75,7 +76,7 @@ class AssetDownloadUrlTest {
         asset.setId(19L);
         asset.setType(MediaAssetType.from(type).code());
         asset.setStatus(MediaStatus.READY.code());
-        asset.setUsage(usage);
+        asset.setUsage(AssetUsage.valueOf(usage).code());
         asset.setOriginalFilename(filename);
         asset.setStorageKey(storageKey);
         asset.setContentType(type == AssetType.IMAGE ? "image/png" : "application/octet-stream");

@@ -1,20 +1,19 @@
 package dev.amai.portfolio.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.api.TagData;
-import java.util.LinkedHashSet;
+import dev.amai.portfolio.system.api.TagKind;
+import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.api.TechTagData;
 import dev.amai.portfolio.system.api.TechTagOptionData;
-import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.convert.TaxonomyConvert;
 import dev.amai.portfolio.system.entity.domain.TagDO;
 import dev.amai.portfolio.system.enums.FeaturedStatus;
-import dev.amai.portfolio.system.enums.TagKind;
 import dev.amai.portfolio.system.enums.TechGroup;
 import dev.amai.portfolio.system.mapper.TagMapper;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
@@ -27,6 +26,7 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
         this.tagMapper = tagMapper;
     }
 
+    /** 博客可选两类标签；项目指定 TECH 仍只得到技术标签，不另建一套目录查询。 */
     @Override
     public List<TagData> tagOptions(String kind) {
         TagKind selected = null;
@@ -41,10 +41,15 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
         if (selected != null) {
             query.eq(TagDO::getKind, selected.code());
         }
-        return tagMapper.selectList(query.orderByAsc(TagDO::getKind, TagDO::getSortOrder, TagDO::getId))
-                .stream().map(this::tagData).toList();
+        return tagMapper.selectList(query.orderByAsc(TagDO::getKind)
+                .orderByAsc(selected == TagKind.TECH, TagDO::getGroupCode)
+                .orderByAsc(TagDO::getSortOrder, TagDO::getId))
+                .stream()
+                .map(this::tagData)
+                .toList();
     }
 
+    /** 保存前确认所选标签存在且不重复，避免文章保存了界面无法展示的无效标签。 */
     @Override
     public List<TagData> requireTags(List<Long> tagIds) {
         if (tagIds.isEmpty()) {
@@ -59,12 +64,15 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
             throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "所选标签不存在，请重新选择");
         }
         // 单次批量查询，按请求顺序返回；不为每个标签发起循环数据库查询。
-        var byId = tags.stream().collect(Collectors.toMap(TagDO::getId, this::tagData));
-        return tagIds.stream().map(byId::get).toList();
+        var byId = tags.stream()
+                .collect(Collectors.toMap(TagDO::getId, this::tagData));
+        return tagIds.stream()
+                .map(byId::get)
+                .toList();
     }
 
     private TagData tagData(TagDO tag) {
-        String kind = tag.getKind() == TagKind.TOPIC.code() ? TagKind.TOPIC.name() : TagKind.TECH.name();
+        String kind = TagKind.fromCode(tag.getKind()).name();
         String group = tag.getKind() == TagKind.TECH.code()
                 ? TechGroup.fromCode(tag.getGroupCode()).name() : null;
         return TaxonomyConvert.MAPPER.to(tag, kind, group);
@@ -86,27 +94,12 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
                 .toList();
     }
 
+    /** 项目仍使用既有技术标签投影，查询和分类规则复用共享标签列表。 */
     @Override
     public List<TechTagOptionData> techTagOptions() {
-        return techTagOptions(TagKind.TECH.name());
-    }
-
-    @Override
-    public List<TechTagOptionData> techTagOptions(String requestedKind) {
-        if (!TagKind.TECH.name().equals(requestedKind)) {
-            throw new ApiException(
-                    ApiErrorCode.VALIDATION_FAILED, SystemMessageConstants.TAG_KIND_INVALID);
-        }
-        return tagMapper
-                .selectList(
-                        Wrappers.<TagDO>lambdaQuery()
-                                .eq(TagDO::getKind, TagKind.TECH.code())
-                                .orderByAsc(TagDO::getGroupCode, TagDO::getSortOrder, TagDO::getId))
+        return tagOptions(TagKind.TECH.name())
                 .stream()
-                .map(
-                        tag ->
-                                TaxonomyConvert.MAPPER.toOption(
-                                        tag, TechGroup.fromCode(tag.getGroupCode()).name()))
+                .map(TaxonomyConvert.MAPPER::toOption)
                 .toList();
     }
 }

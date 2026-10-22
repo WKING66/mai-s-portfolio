@@ -2,6 +2,7 @@ package dev.amai.portfolio.blog.convert;
 
 import dev.amai.portfolio.blog.entity.domain.DocumentImportTaskDO;
 import dev.amai.portfolio.blog.entity.vo.DocumentImportTaskVo;
+import dev.amai.portfolio.blog.enums.ImportTaskStatus;
 import org.mapstruct.Mapper;
 import org.mapstruct.ReportingPolicy;
 import org.mapstruct.factory.Mappers;
@@ -12,4 +13,8 @@ public interface DocumentImportTaskConvert {
     DocumentImportTaskConvert MAPPER = Mappers.getMapper(DocumentImportTaskConvert.class);
 
     DocumentImportTaskVo to(DocumentImportTaskDO task);
+
+    default String toStatus(Integer status) {
+        return ImportTaskStatus.fromCode(status).name();
+    }
 }

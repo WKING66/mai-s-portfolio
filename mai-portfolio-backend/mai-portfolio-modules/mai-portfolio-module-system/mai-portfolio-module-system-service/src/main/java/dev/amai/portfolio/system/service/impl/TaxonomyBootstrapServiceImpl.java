@@ -1,9 +1,9 @@
 package dev.amai.portfolio.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import dev.amai.portfolio.system.api.TagKind;
 import dev.amai.portfolio.system.entity.domain.TagDO;
 import dev.amai.portfolio.system.enums.FeaturedStatus;
-import dev.amai.portfolio.system.enums.TagKind;
 import dev.amai.portfolio.system.enums.TechGroup;
 import dev.amai.portfolio.system.mapper.TagMapper;
 import dev.amai.portfolio.system.service.TaxonomyBootstrapService;

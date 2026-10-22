@@ -16,6 +16,7 @@ import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.convert.AccountConvert;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.entity.domain.UserProfileDO;
+import dev.amai.portfolio.system.entity.request.AccountAccessRequest;
 import dev.amai.portfolio.system.entity.request.AccountAvatarRequest;
 import dev.amai.portfolio.system.entity.request.AccountPasswordRequest;
 import dev.amai.portfolio.system.entity.request.AccountProfileRequest;
@@ -36,7 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** 本人资料维护与公开站长资料分离；不读取客户端账号 ID 或客户端权限字段。 */
+/** 本人资料与站长的账号访问管理；本人操作从上下文取身份，访问管理的目标账号由路径指定。 */
 @Service
 public class AccountProfileServiceImpl implements AccountProfileService {
     private static final int MAX_NICKNAME_CHARACTERS = 64;
@@ -62,12 +63,14 @@ public class AccountProfileServiceImpl implements AccountProfileService {
         this.newPasswordPolicy = newPasswordPolicy;
     }
 
+    /** 读取当前登录账号的昵称和头像地址；与网站首页展示的站长介绍是两份不同资料。 */
     @Override
     public AccountProfileVo current() {
         var account = AccountContext.currentAccount();
         return view(account, findProfile(account.id()));
     }
 
+    /** 只修改本人的昵称，保留已有头像；昵称未填写时使用账号用户名展示。 */
     @Override
     @Transactional
     public AccountProfileVo update(AccountProfileRequest request) {
@@ -82,6 +85,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
         return view(identity, profile);
     }
 
+    /** 从本人上传的头像资产中选择新头像；这里只改变绑定，不能拿别人的文件，也不删除旧头像文件。 */
     @Override
     @Transactional
     public AccountProfileVo bindAvatar(AccountAvatarRequest request) {
@@ -105,6 +109,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
         return view(identity, profile);
     }
 
+    /** 原密码正确才修改密码；输错或保存失败仍保留登录，成功后要求该账号在所有设备重新登录。 */
     @Override
     @Transactional
     public void changePassword(AccountPasswordRequest request) {
@@ -153,6 +158,37 @@ public class AccountProfileServiceImpl implements AccountProfileService {
         // 4. 只有数据库提交成功后才注销 Redis 会话；回滚不影响原登录。
         TransactionSynchronizationManager.registerSynchronization(
                 new LogoutAfterCommit(account.getId()));
+    }
+
+    /**
+     * 站长调整账号访问能力。被停用或改变类型的账号必须重新登录，
+     * 不能继续沿用 Redis 中原来的可用状态或 OWNER 身份。
+     */
+    @Override
+    @Transactional
+    public void updateAccess(long accountId, AccountAccessRequest request) {
+        // 1. 只选择路径中的目标账号；入口已经限制为 OWNER，Service 不重复查角色。
+        var account = userAccountMapper.selectForUpdate(accountId);
+        if (account == null) {
+            throw new ApiException(ApiErrorCode.NOT_FOUND, "账号不存在");
+        }
+        boolean typeChanged = request.type() != null && account.getType() != request.type().code();
+        boolean statusChanged = request.status() != null && account.getStatus() != request.status().code();
+        // 2. 只修改明确传入且有变化的字段，不影响密码、昵称和头像。
+        if (typeChanged || statusChanged) {
+            userAccountMapper.update(null, Wrappers.<UserAccountDO>lambdaUpdate()
+                    .eq(UserAccountDO::getId, accountId)
+                    .set(request.type() != null, UserAccountDO::getType,
+                            request.type() == null ? null : request.type().code())
+                    .set(request.status() != null, UserAccountDO::getStatus,
+                            request.status() == null ? null : request.status().code())
+                    .set(UserAccountDO::getUpdatedAt, LocalDateTime.now(ZoneOffset.UTC)));
+        }
+        // 3. 数据库成功提交后注销全部登录；失败回滚不能把仍有权限的用户意外踢下线。
+        // 对已停用账号再次执行停用也注销，确保这次明确的停用操作清掉可能残留的旧会话。
+        if (typeChanged || request.status() == AccountStatus.DISABLED) {
+            TransactionSynchronizationManager.registerSynchronization(new LogoutAfterCommit(accountId));
+        }
     }
 
     /** 只有账号资料写入才锁定数据库账号；普通鉴权不经过这里。 */

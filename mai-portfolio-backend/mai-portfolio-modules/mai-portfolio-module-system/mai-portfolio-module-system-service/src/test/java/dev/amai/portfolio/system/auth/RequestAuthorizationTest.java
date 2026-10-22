@@ -20,6 +20,9 @@ import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.system.config.SecurityProperties;
+import dev.amai.portfolio.system.controller.AccountProfileController;
+import dev.amai.portfolio.system.service.AccountProfileService;
+import dev.amai.portfolio.system.entity.request.AccountAccessRequest;
 import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.web.advice.GlobalExceptionHandler;
 import java.time.Duration;
@@ -47,6 +50,8 @@ class RequestAuthorizationTest {
 
     private MockMvc mvc;
 
+    private final AccountProfileService profileService = mock(AccountProfileService.class);
+
     @BeforeEach
     void arrange() {
         previousConfig = SaManager.getConfig();
@@ -60,7 +65,7 @@ class RequestAuthorizationTest {
         var policy = new SecurityProperties(List.of("https://example.test"),
                 new ByteArrayResource(new byte[0]), true, 5, Duration.ofMinutes(10),
                 5, Duration.ofMinutes(5));
-        mvc = MockMvcBuilders.standaloneSetup(new Endpoints())
+        mvc = MockMvcBuilders.standaloneSetup(new Endpoints(), new AccountProfileController(profileService))
                 .addInterceptors(new AuthenticationInterceptor(policy), new SaInterceptor())
                 .setControllerAdvice(new SaTokenExceptionHandler(), new GlobalExceptionHandler()).build();
     }
@@ -80,6 +85,7 @@ class RequestAuthorizationTest {
         StpUtil.login(7L);
         AccountContext.set(new AccountContext.Account(7L, "visitor",
                 type == AccountType.OWNER ? List.of(AuthConstants.OWNER_ROLE) : List.of()));
+        StpUtil.getSession().set(AuthConstants.CSRF_SESSION_KEY, "test-csrf");
         String token = StpUtil.getTokenValue();
         RequestContextHolder.resetRequestAttributes();
         clearInvocations(roles);
@@ -121,6 +127,38 @@ class RequestAuthorizationTest {
         String token = login(AccountType.OWNER);
         mvc.perform(post("/api/v1/check/write").secure(true).header("test-token", token))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void accountAccessEndpointRequiresOwnerAndValidPatch() throws Exception {
+        String token = login(AccountType.OWNER);
+        mvc.perform(patch("/api/v1/account/8/access").secure(true)
+                        .header("test-token", token)
+                        .header(AuthConstants.CSRF_HEADER_NAME, "test-csrf")
+                        .contentType("application/json")
+                        .content("{\"status\":\"DISABLED\"}"))
+                .andExpect(status().isOk());
+        verify(profileService).updateAccess(eq(8L), any(AccountAccessRequest.class));
+
+        mvc.perform(patch("/api/v1/account/8/access").secure(true)
+                        .header("test-token", token)
+                        .header(AuthConstants.CSRF_HEADER_NAME, "test-csrf")
+                        .contentType("application/json").content("{}"))
+                .andExpect(status().isUnprocessableEntity());
+        verifyNoMoreInteractions(profileService);
+
+        String normal = login(AccountType.NORMAL);
+        mvc.perform(patch("/api/v1/account/8/access").secure(true)
+                        .header("test-token", normal)
+                        .header(AuthConstants.CSRF_HEADER_NAME, "test-csrf")
+                        .contentType("application/json")
+                        .content("{\"type\":\"OWNER\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(patch("/api/v1/account/8/access").secure(true)
+                        .contentType("application/json")
+                        .content("{\"status\":\"DISABLED\"}"))
+                .andExpect(status().isUnauthorized());
+        verifyNoMoreInteractions(profileService);
     }
 
     @RestController

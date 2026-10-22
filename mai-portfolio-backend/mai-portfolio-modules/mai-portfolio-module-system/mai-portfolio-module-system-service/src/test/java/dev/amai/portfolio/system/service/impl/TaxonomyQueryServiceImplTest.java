@@ -14,8 +14,8 @@ class TaxonomyQueryServiceImplTest {
     private final TagMapper tags = mock(TagMapper.class);
     private final TaxonomyQueryServiceImpl service = new TaxonomyQueryServiceImpl(tags);
     @Test void unsupportedSelectionKindsAreRejectedBeforeQuery() {
-        for (String kind : new String[] {"TOPIC", "INVALID", "tech", ""}) {
-            assertThatThrownBy(() -> service.techTagOptions(kind)).isInstanceOfSatisfying(ApiException.class,
+        for (String kind : new String[] {"INVALID", "tech", ""}) {
+            assertThatThrownBy(() -> service.tagOptions(kind)).isInstanceOfSatisfying(ApiException.class,
                 error -> assertThat(error.code()).isEqualTo(ApiErrorCode.VALIDATION_FAILED));
         }
         verifyNoInteractions(tags);
@@ -23,7 +23,7 @@ class TaxonomyQueryServiceImplTest {
     @Test void existingTechnicalTagProviderKeepsItsContract() {
         when(tags.selectList(any())).thenReturn(List.of());
         assertThat(service.techTagOptions()).isEmpty();
-        assertThat(service.techTagOptions("TECH")).isEmpty();
+        assertThat(service.tagOptions("TECH")).isEmpty();
         verify(tags, times(2)).selectList(any());
     }
 

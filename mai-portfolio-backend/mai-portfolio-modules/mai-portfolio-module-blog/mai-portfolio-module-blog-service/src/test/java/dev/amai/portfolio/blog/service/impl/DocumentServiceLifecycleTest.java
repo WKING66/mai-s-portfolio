@@ -6,10 +6,15 @@ import static org.mockito.Mockito.*;
 
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.blog.entity.domain.*;
+import dev.amai.portfolio.blog.enums.ContentStage;
 import dev.amai.portfolio.blog.mapper.*;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.mockito.ArgumentCaptor;
 
 class DocumentServiceLifecycleTest {
@@ -20,6 +25,15 @@ class DocumentServiceLifecycleTest {
     private final DocumentServiceImpl documentService = new DocumentServiceImpl(documentMapper,
             documentContentMapper, documentResourceMapper, documentContentTagMapper,
             mock(AssetQueryService.class));
+
+    @BeforeAll
+    static void initializeMetadata() {
+        var builder = new MapperBuilderAssistant(new MybatisConfiguration(), "document-lifecycle-test");
+        TableInfoHelper.initTableInfo(builder, DocumentDO.class);
+        TableInfoHelper.initTableInfo(builder, DocumentContentDO.class);
+        TableInfoHelper.initTableInfo(builder, DocumentResourceDO.class);
+        TableInfoHelper.initTableInfo(builder, DocumentContentTagDO.class);
+    }
 
     @Test
     void staleWriteCannotChangeContent() {
@@ -89,10 +103,68 @@ class DocumentServiceLifecycleTest {
         var replacement = ArgumentCaptor.forClass(DocumentContentDO.class);
         verify(documentContentMapper).updateById(replacement.capture());
         assertThat(replacement.getValue().getId()).isEqualTo(11);
-        assertThat(replacement.getValue().getStage()).isEqualTo("PUBLISHED");
+        assertThat(replacement.getValue().getStage()).isEqualTo(ContentStage.PUBLISHED.code());
         verify(documentResourceMapper).delete(any());
         verify(documentContentTagMapper).delete(any());
         verify(documentMapper, never()).deleteById(anyLong());
+    }
+
+    @Test
+    void noContentCannotReadResourcesFromOtherDocuments() {
+        when(documentMapper.selectById(7L)).thenReturn(identity());
+        when(documentContentMapper.selectList(any())).thenReturn(List.of());
+
+        assertThat(documentService.references(7)).isEmpty();
+
+        verifyNoInteractions(documentResourceMapper);
+    }
+
+    @Test
+    void currentDraftReferenceWinsRegardlessOfDatabaseRowOrder() {
+        when(documentMapper.selectById(7L)).thenReturn(identity());
+        when(documentContentMapper.selectList(any()))
+                .thenReturn(List.of(content(10, "PUBLISHED"), content(11, "DRAFT")));
+        var formal = relation(10, 100);
+        var draft = relation(11, 101);
+        when(documentResourceMapper.selectList(any())).thenReturn(List.of(draft, formal));
+
+        assertThat(documentService.references(7).get("same-key").assetId()).isEqualTo(101);
+        verify(documentResourceMapper).selectList(any());
+    }
+
+    @Test
+    void numericStagesKeepDraftAndPublicContentSeparateAndTagNameContractStable() {
+        when(documentMapper.selectById(7L)).thenReturn(identity());
+        var formal = content(10, "PUBLISHED");
+        formal.setTitle("公开标题");
+        formal.setContent("公开正文");
+        var draft = content(11, "DRAFT");
+        draft.setTitle("未发布标题");
+        draft.setContent("未发布正文");
+        var tag = new DocumentContentTagDO();
+        tag.setTagId(2L);
+        tag.setName("主题");
+        tag.setSlug("topic");
+        tag.setKind(0);
+        when(documentContentMapper.selectList(any())).thenReturn(List.of(formal, draft));
+        when(documentResourceMapper.selectList(any())).thenReturn(List.of());
+        when(documentContentTagMapper.selectList(any())).thenReturn(List.of(tag));
+
+        assertThat(documentService.read(7, false).content()).isEqualTo("公开正文");
+        assertThat(documentService.read(7, true).content()).isEqualTo("未发布正文");
+        assertThat(documentService.read(7, false).stage()).isEqualTo(ContentStage.PUBLISHED);
+        assertThat(documentService.read(7, false).tags().getFirst().kind()).isEqualTo("TOPIC");
+    }
+
+    private DocumentResourceDO relation(long contentId, long assetId) {
+        var relation = new DocumentResourceDO();
+        relation.setContentId(contentId);
+        relation.setAssetId(assetId);
+        relation.setKey("same-key");
+        relation.setType(0);
+        relation.setSource(1);
+        relation.setStatus(0);
+        return relation;
     }
 
     private DocumentDO identity() {
@@ -106,7 +178,7 @@ class DocumentServiceLifecycleTest {
         var content = new DocumentContentDO();
         content.setId(id);
         content.setDocumentId(7L);
-        content.setStage(stage);
+        content.setStage(ContentStage.valueOf(stage).code());
         return content;
     }
 }

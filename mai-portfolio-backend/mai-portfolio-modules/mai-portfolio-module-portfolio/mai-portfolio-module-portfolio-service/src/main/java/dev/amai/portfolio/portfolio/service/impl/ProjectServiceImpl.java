@@ -32,8 +32,8 @@ import dev.amai.portfolio.portfolio.mapper.ProjectMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectMediaMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectTagMapper;
 import dev.amai.portfolio.portfolio.service.ProjectService;
-import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.api.TagData;
+import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.net.URI;
@@ -269,7 +269,8 @@ public class ProjectServiceImpl implements ProjectService {
             }
             throw invalid(ProjectMessageConstants.INVALID_TAGS);
         }
-        if (tags.stream().anyMatch(tag -> !"TECH".equals(tag.kind()))) {
+        if (tags.stream()
+                .anyMatch(tag -> !"TECH".equals(tag.kind()))) {
             throw invalid(ProjectMessageConstants.INVALID_TAGS);
         }
     }
@@ -322,14 +323,18 @@ public class ProjectServiceImpl implements ProjectService {
             return List.of();
         }
         // 1. 批量读取封面、外链和标签；资产签名继续复用 Asset 的统一能力。
-        List<Long> ids = records.stream().map(ProjectDO::getId).toList();
+        List<Long> ids = records.stream()
+                .map(ProjectDO::getId)
+                .toList();
         Map<Long, ProjectMediaDO> covers = projectMediaMapper.selectList(Wrappers.<ProjectMediaDO>lambdaQuery()
                         .in(ProjectMediaDO::getProjectId, ids)
                         .eq(ProjectMediaDO::getRole, ProjectConstants.COVER_ROLE))
                 .stream()
                 .collect(Collectors.toMap(ProjectMediaDO::getProjectId, Function.identity()));
         Map<Long, AssetResourceData> coverAssets = assetQueryService.findReady(
-                covers.values().stream().map(ProjectMediaDO::getMediaId).collect(Collectors.toSet()),
+                covers.values().stream()
+                        .map(ProjectMediaDO::getMediaId)
+                        .collect(Collectors.toSet()),
                 AssetType.IMAGE);
         List<ProjectLinkDO> allLinks = projectLinkMapper.selectList(Wrappers.<ProjectLinkDO>lambdaQuery()
                 .in(ProjectLinkDO::getProjectId, ids)
@@ -364,7 +369,9 @@ public class ProjectServiceImpl implements ProjectService {
                     .toList();
             if (view == ProjectView.PUBLIC) {
                 result.add(ProjectConvert.MAPPER.to(
-                        project, projectTags, projectLinks.stream().map(ProjectConvert.MAPPER::to).toList(), coverVo));
+                        project, projectTags, projectLinks.stream()
+                                .map(ProjectConvert.MAPPER::to)
+                                .toList(), coverVo));
             } else {
                 result.add(ProjectConvert.MAPPER.to(
                         project,

@@ -1,9 +1,11 @@
 package dev.amai.portfolio.system.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.annotation.SaCheckRole;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.logging.annotation.ApiLog;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.entity.request.AccountAccessRequest;
 import dev.amai.portfolio.system.entity.request.AccountAvatarRequest;
 import dev.amai.portfolio.system.entity.request.AccountPasswordRequest;
 import dev.amai.portfolio.system.entity.request.AccountProfileRequest;
@@ -64,6 +66,18 @@ public class AccountProfileController {
                             required = true))
     public R<AccountProfileVo> avatar(@Valid @RequestBody AccountAvatarRequest request) {
         return R.success(accountProfileService.bindAvatar(request));
+    }
+
+    /** 只开放账号访问能力修改，不扩展账号列表、角色管理或另一套管理模块。 */
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @PatchMapping("/{accountId}/access")
+    @ApiLog
+    @Operation(summary = "调整账号状态或类型", description = "仅站长可用；停用或改变类型后注销目标账号全部会话，后续请求需要重新登录。")
+    public R<Void> updateAccess(
+            @PathVariable long accountId,
+            @Valid @RequestBody AccountAccessRequest request) {
+        accountProfileService.updateAccess(accountId, request);
+        return R.success(null);
     }
 
     @PutMapping("/password")

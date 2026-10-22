@@ -1,6 +1,6 @@
 package dev.amai.portfolio.system.entity.request;
 
-import dev.amai.portfolio.system.enums.TagKind;
+import dev.amai.portfolio.system.api.TagKind;
 import dev.amai.portfolio.system.enums.TechGroup;
 import jakarta.validation.constraints.*;
 

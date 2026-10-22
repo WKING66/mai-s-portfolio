@@ -32,7 +32,7 @@ public class DocumentResourceResolver {
     }
 
     /**
-     * previous 仅来自当前文档旧版本，local 仅来自本次上传；返回的新增 Asset 集合用于失败补偿。
+     * previous 仅来自当前文档的草稿和正式正文，local 仅来自本次上传；返回的新增 Asset 集合用于失败补偿。
      * 缺失或抓取失败的资源保留在草稿中，不能静默删除正文引用。
      */
     public PreparedDocument prepare(
@@ -57,7 +57,7 @@ public class DocumentResourceResolver {
             return new PreparedDocument(normalized, context.resources(), context.newlyCreatedAssets());
         } catch (RuntimeException failure) {
             // todo 补偿走异步
-            // 只补偿本次新建的未绑定文件，不能删除旧版本或已存在的编辑器上传资源。
+            // 这次准备没有形成可保存结果，只清理本次新增且没有任何内容使用的文件；正文、草稿和编辑器先前上传的文件不受影响。
             assetFileService.discardUnbound(context.newlyCreatedAssets(), uploader);
             throw failure;
         }
