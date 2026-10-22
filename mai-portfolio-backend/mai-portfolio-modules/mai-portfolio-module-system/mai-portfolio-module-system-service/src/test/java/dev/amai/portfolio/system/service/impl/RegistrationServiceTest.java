@@ -6,7 +6,6 @@ import dev.amai.portfolio.system.entity.request.LoginRequest;
 import dev.amai.portfolio.system.exception.InvalidCredentialPayloadException;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
-import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -53,7 +52,7 @@ class RegistrationServiceTest {
     private final AuthServiceImpl auth = new AuthServiceImpl(accounts, passwords,
         new SecurityProperties(List.of(ORIGIN), new ByteArrayResource(new byte[0]),
             false, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5)), crypto, throttle,
-        mock(AccountAuthenticationService.class), new NewPasswordPolicy(),
+        new NewPasswordPolicy(),
         new AuthRequestValidator(validators.getValidator()), transactions);
 
     @BeforeEach void configureTransaction() {

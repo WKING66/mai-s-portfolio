@@ -12,7 +12,6 @@ public final class SystemMessageConstants {
     public static final String LOGIN_USERNAME_REQUIRED = "用户名不能为空";
     public static final String LOGIN_USERNAME_TOO_LONG = "用户名不能超过 64 个字符";
     public static final String LOGIN_CIPHERTEXT_REQUIRED = "加密密码不能为空";
-    public static final String SESSION_EXPIRED = "登录凭据已失效，请重新登录";
     public static final String OWNER_PASSWORD_TOO_LONG = "OWNER_PASSWORD 超出固定 RSA 登录协议的明文容量";
     public static final String ACCOUNT_UNAVAILABLE = "账号不存在或已停用";
     public static final String REGISTER_USERNAME_INVALID = "用户名须为 3–64 位字母、数字、下划线或连字符";

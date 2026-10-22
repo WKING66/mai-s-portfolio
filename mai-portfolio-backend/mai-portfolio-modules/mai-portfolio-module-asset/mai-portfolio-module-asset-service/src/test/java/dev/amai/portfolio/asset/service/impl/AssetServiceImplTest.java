@@ -11,6 +11,10 @@ import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.web.exception.*;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.mockito.MockedStatic;
+import dev.amai.portfolio.security.context.AccountContext;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -24,7 +28,19 @@ import javax.imageio.ImageIO;
 class AssetServiceImplTest {
     private final AssetUploadComponent upload = mock(AssetUploadComponent.class);
     private final AssetQueryService assets = mock(AssetQueryService.class);
-    private final AccountIdentityService identity = mock(AccountIdentityService.class);
+    private MockedStatic<AccountContext> identity;
+
+    @BeforeEach
+    void openContext() {
+        identity = mockStatic(AccountContext.class);
+        identity.when(AccountContext::currentAccount).thenReturn(
+                new AccountContext.Account(7L, "visitor", java.util.List.of()));
+    }
+
+    @AfterEach
+    void closeContext() {
+        identity.close();
+    }
     private final AssetServiceImpl service =
             new AssetServiceImpl(
                     new ImageContentValidator(new AvatarUploadProperties(2097152, 2048)),
@@ -34,12 +50,10 @@ class AssetServiceImplTest {
                             mock(dev.amai.portfolio.asset.mapper.MediaAssetMapper.class),
                             mock(dev.amai.portfolio.storage.ObjectStorage.class),
                             mock(org.springframework.transaction.PlatformTransactionManager.class)),
-                    assets,
-                    identity);
+                    assets);
 
     @Test
     void sameEntryHandlesAvatarImageAndAttachmentWithDeclaredProvenance() throws Exception {
-        when(identity.currentAccountId()).thenReturn(7L);
         when(upload.upload(any())).thenReturn(19L);
         for (AssetUsage usage : AssetUsage.values()) {
             var asset =
@@ -89,7 +103,6 @@ class AssetServiceImplTest {
 
     @Test
     void invalidOrOversizedFileDoesNotUploadOrCreateAsset() {
-        when(identity.currentAccountId()).thenReturn(7L);
         assertThatThrownBy(() -> service.upload(null, AssetUsage.AVATAR))
                 .isInstanceOf(ApiException.class);
         assertThatThrownBy(
@@ -114,13 +127,11 @@ class AssetServiceImplTest {
 
     @Test
     void resourceRefreshChecksUploaderOrOwnerBeforeGeneratingSignature() {
-        when(identity.currentAccountId()).thenReturn(7L);
         when(assets.findReadyMetadata(19L))
                 .thenReturn(
                         Optional.of(
                                 new AssetMetadataData(
                                         19L, AssetType.IMAGE, AssetUsage.AVATAR, 8L)));
-        when(identity.currentRoles()).thenReturn(java.util.List.of());
         assertThatThrownBy(() -> service.resource(19L)).isInstanceOf(ApiException.class);
         verify(assets, never()).findReady(anyLong(), any(AssetType.class));
         when(assets.findReadyMetadata(19L)).thenReturn(Optional.empty());
@@ -132,7 +143,6 @@ class AssetServiceImplTest {
 
     @Test
     void ownAssetCanBeRefreshedWithoutOwnerRole() {
-        when(identity.currentAccountId()).thenReturn(7L);
         when(assets.findReadyMetadata(19L))
                 .thenReturn(
                         Optional.of(

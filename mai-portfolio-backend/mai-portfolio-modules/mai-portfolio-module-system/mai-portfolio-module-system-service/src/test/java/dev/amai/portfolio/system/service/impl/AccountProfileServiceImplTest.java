@@ -36,6 +36,8 @@ import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.io.ByteArrayInputStream;
 import java.util.Optional;
+import java.util.List;
+import dev.amai.portfolio.security.context.AccountContext;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +65,7 @@ class AccountProfileServiceImplTest {
     private final TransactionTemplate transaction = new TransactionTemplate(manager);
     private final AccountProfileServiceImpl service = new AccountProfileServiceImpl(
         accounts, profiles, assets, crypto, passwords,
-        new AccountAuthenticationServiceImpl(accounts), new NewPasswordPolicy());
+        new NewPasswordPolicy());
     private final UserAccountDO account = new UserAccountDO();
 
     @BeforeAll
@@ -289,12 +291,10 @@ class AccountProfileServiceImplTest {
     }
 
     @Test
-    void disabledAccountCannotReadOrModifyProfile() {
+    void disabledDatabaseAccountCannotModifyProfile() {
         account.setStatus(AccountStatus.DISABLED.code());
         try (var stp = authenticatedSession()) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
-            assertThatThrownBy(service::current).isInstanceOfSatisfying(ApiException.class,
-                error -> assertThat(error.code()).isEqualTo(ApiErrorCode.FORBIDDEN));
             assertThatThrownBy(() -> transaction.execute(status -> service.update(new AccountProfileRequest("新昵称"))))
                 .isInstanceOf(ApiException.class);
         }
@@ -304,7 +304,8 @@ class AccountProfileServiceImplTest {
     private org.mockito.MockedStatic<StpUtil> authenticatedSession() {
         var stp = mockStatic(StpUtil.class);
         var session = new cn.dev33.satoken.session.SaSession("test-account");
-        session.set("account", account);
+        session.set("identity", new dev.amai.portfolio.security.context.AccountContext.Account(
+                account.getId(), account.getUsername(), List.of()));
         stp.when(() -> StpUtil.getSessionByLoginId(7L, false)).thenReturn(session);
         return stp;
     }

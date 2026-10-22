@@ -59,7 +59,7 @@ class ServiceArchitectureTest {
         assertThat(AuthController.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(AuthService.class);
         assertThat(AuthenticationInterceptor.class.getDeclaredConstructors()[0].getParameterTypes())
-            .containsExactly(dev.amai.portfolio.system.auth.RequestSecurityPolicy.class, dev.amai.portfolio.system.service.AccountAuthenticationService.class);
+            .containsExactly(SecurityProperties.class);
         assertThat(AccountRoleProvider.class.getDeclaredConstructors()[0].getParameterTypes())
             .isEmpty();
         assertThat(SystemBootstrapRunner.class.getDeclaredConstructors()[0].getParameterTypes())

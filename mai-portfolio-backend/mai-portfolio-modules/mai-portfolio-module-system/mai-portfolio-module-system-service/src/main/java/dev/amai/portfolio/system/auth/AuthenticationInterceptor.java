@@ -3,10 +3,11 @@ package dev.amai.portfolio.system.auth;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
+import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
+import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
-import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,14 +30,10 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
     private static final int AUTHENTICATION_INTERCEPTOR_ORDER = -100;
 
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");
-    private final RequestSecurityPolicy requestSecurityPolicy;
-    private final AccountAuthenticationService accountAuthenticationService;
+    private final SecurityProperties securityProperties;
 
-    public AuthenticationInterceptor(
-            RequestSecurityPolicy requestSecurityPolicy,
-            AccountAuthenticationService accountAuthenticationService) {
-        this.requestSecurityPolicy = requestSecurityPolicy;
-        this.accountAuthenticationService = accountAuthenticationService;
+    public AuthenticationInterceptor(SecurityProperties securityProperties) {
+        this.securityProperties = securityProperties;
     }
 
     @Override
@@ -65,7 +62,9 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         }
         // 2. 先校验传输安全；仅会话查询/登录和注册豁免已有会话及 CSRF。
         // 只信任容器重建的连接状态，不自行信任客户端转发头。
-        requestSecurityPolicy.requireSecureTransport(request);
+        if (securityProperties.requireHttps() && !request.isSecure()) {
+            throw new ApiException(ApiErrorCode.HTTPS_REQUIRED, SystemMessageConstants.LOGIN_HTTPS_REQUIRED);
+        }
         if (AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method)) {
             // 只豁免精确注册路由的登录/CSRF；HTTPS 已校验，来源与额度由服务层核对。
             return true;
@@ -74,12 +73,11 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
             // GET 在服务中读取匿名/Redis 身份状态，POST 通过凭据建立登录态。
             return true;
         }
-        // 3. 校验 Redis 登录身份上下文；合法注销仍允许停用账号退出。
-        // 停用账号仍允许显式注销；其他入口统一读取 Redis 会话中的身份上下文。
+        // 3. 注销只需有效登录；其他受保护入口直接读取 Redis 身份上下文。
         if (sessionEndpoint && "DELETE".equals(method)) {
             StpUtil.getLoginIdAsLong();
         } else {
-            accountAuthenticationService.currentAccount();
+            AccountContext.currentAccount();
         }
         // 混合视图只在管理查询时授权；固定权限接口继续由 @SaCheckRole 统一处理。
         if (ownerView) {

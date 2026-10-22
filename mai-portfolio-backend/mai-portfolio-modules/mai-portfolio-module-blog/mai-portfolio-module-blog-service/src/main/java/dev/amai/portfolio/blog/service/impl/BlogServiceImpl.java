@@ -2,7 +2,6 @@ package dev.amai.portfolio.blog.service.impl;
 
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
 import static dev.amai.portfolio.blog.constant.DocumentPolicy.MAX_SOURCE_FILENAME_LENGTH;
-
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -16,6 +15,7 @@ import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
 import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.web.exception.*;
 import java.io.IOException;
@@ -54,8 +54,6 @@ public class BlogServiceImpl implements BlogService {
 
     private final TaxonomyQueryService taxonomyQueryService;
 
-    private final AccountIdentityService accountIdentityService;
-
     private final DocumentProperties documentProperties;
 
     private final TransactionTemplate transactionTemplate;
@@ -70,7 +68,7 @@ public class BlogServiceImpl implements BlogService {
             DocumentResourceResolver documentResourceResolver, DocumentParser documentParser,
             DocumentRenderer documentRenderer, AssetFileService assetFileService,
             AssetQueryService assetQueryService, TaxonomyQueryService taxonomyQueryService,
-            AccountIdentityService accountIdentityService, DocumentProperties documentProperties,
+            DocumentProperties documentProperties,
             PlatformTransactionManager transactionManager) {
         this.blogPostMapper = blogPostMapper;
         this.documentService = documentService;
@@ -81,7 +79,6 @@ public class BlogServiceImpl implements BlogService {
         this.assetFileService = assetFileService;
         this.assetQueryService = assetQueryService;
         this.taxonomyQueryService = taxonomyQueryService;
-        this.accountIdentityService = accountIdentityService;
         this.documentProperties = documentProperties;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
@@ -129,7 +126,7 @@ public class BlogServiceImpl implements BlogService {
     @Override
     public BlogVo save(Long id, BlogRequest request) {
         // 1. 使用入口已验证的账号核对已提交请求；已完成的重试直接返回结果。
-        long account = accountIdentityService.currentAccountId();
+        long account = AccountContext.currentAccount().id();
         String hash = DocumentWriteFingerprint.save(request);
         BlogPostDO existing = id == null ? null : required(id);
         var creation = id == null ? documentService.findCreation(account, request.requestId()) : null;
@@ -169,7 +166,7 @@ public class BlogServiceImpl implements BlogService {
     @Override
     public BlogVo importDocument(MultipartFile file, List<MultipartFile> input,
             boolean rights, List<Long> tagIds, String requestId) {
-        long account = accountIdentityService.currentAccountId();
+        long account = AccountContext.currentAccount().id();
         // 1. 来源记录独立提交；解析或正文事务失败仍有可追溯入口。
         String filename = sourceFilename(file == null ? null : file.getOriginalFilename());
         var task = documentImportTaskService.begin(account, requestId, filename,

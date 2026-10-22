@@ -11,7 +11,6 @@ import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.exception.InvalidCredentialPayloadException;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
-import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import dev.amai.portfolio.system.service.LoginThrottleService;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.system.service.impl.AuthServiceImpl;
@@ -45,12 +44,11 @@ class AuthContractTest {
     private final PasswordHasher passwords = mock(PasswordHasher.class);
     private final PasswordCryptoService crypto = mock(PasswordCryptoService.class);
     private final LoginThrottleService throttle = mock(LoginThrottleService.class);
-    private final AccountAuthenticationService sessions = mock(AccountAuthenticationService.class);
     private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
     private final AuthService auth = spy(new AuthServiceImpl(accounts, passwords,
         new SecurityProperties(List.of(ORIGIN), new ByteArrayResource(new byte[0]),
             false, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5)), crypto, throttle,
-        sessions, new NewPasswordPolicy(),
+        new NewPasswordPolicy(),
         new AuthRequestValidator(validators.getValidator()), transactions));
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new AuthController(auth), new OtherController())
         .setControllerAdvice(new AuthRequestExceptionHandler(), new GlobalExceptionHandler()).build();
@@ -64,6 +62,7 @@ class AuthContractTest {
         doReturn(new RegistrationVo("visitor")).when(auth).register(any(), any(), any());
         doReturn(new SessionVo(true, "visitor", "csrf", List.of())).when(auth).login(any(), any(), any());
         doReturn(new SessionVo(false, null, null, List.of())).when(auth).current();
+        doNothing().when(auth).logout();
         mvc.perform(post("/api/v1/auth/register").header("Origin", "https://example.test")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"visitor\",\"encryptedPassword\":\"cipher\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.username").value("visitor"));
@@ -88,7 +87,7 @@ class AuthContractTest {
         }
         mvc.perform(post("/test/business").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        verifyNoInteractions(accounts, passwords, crypto, throttle, sessions, transactions);
+        verifyNoInteractions(accounts, passwords, crypto, throttle, transactions);
     }
 
     @Test void malformedJsonUsesProtocolErrorRatherThanCredentialError() throws Exception {
@@ -110,7 +109,7 @@ class AuthContractTest {
                 .andExpect(result -> assertThat(result.getResolvedException())
                     .isInstanceOf(InvalidCredentialPayloadException.class));
         }
-        verifyNoInteractions(accounts, passwords, crypto, throttle, sessions, transactions);
+        verifyNoInteractions(accounts, passwords, crypto, throttle, transactions);
     }
 
     @Test void realBusinessFailuresRemainDistinctFromRequestValidation() throws Exception {
@@ -135,7 +134,7 @@ class AuthContractTest {
                 .content("{\"username\":\"visitor\",\"encryptedPassword\":\"cipher\"}"))
             .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DATA_CONFLICT"));
         verify(accounts, never()).insert(any(dev.amai.portfolio.system.entity.domain.UserAccountDO.class));
-        verifyNoInteractions(passwords, sessions);
+        verifyNoInteractions(passwords);
     }
     @RestController static class OtherController {
         record Input(@NotBlank String name) { }

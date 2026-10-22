@@ -1,8 +1,11 @@
 package dev.amai.portfolio.system.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.security.password.PasswordHasher;
-import dev.amai.portfolio.system.auth.AccountContext;
+import dev.amai.portfolio.security.context.AccountContext;
+import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.component.AuthRequestValidator;
 import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.config.SecurityProperties;
@@ -16,14 +19,15 @@ import dev.amai.portfolio.system.entity.vo.SessionVo;
 import dev.amai.portfolio.system.enums.AccountStatus;
 import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
-import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import dev.amai.portfolio.system.service.AuthService;
 import dev.amai.portfolio.system.service.LoginThrottleService;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
@@ -37,14 +41,15 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class AuthServiceImpl implements AuthService {
     private static final Logger LOG = LoggerFactory.getLogger(AuthServiceImpl.class);
+    private static final int CSRF_BYTES = 32;
     private static final Pattern REGISTER_USERNAME = Pattern.compile("[A-Za-z0-9_-]{3,64}");
 
+    private final SecureRandom secureRandom = new SecureRandom();
     private final UserAccountMapper userAccountMapper;
     private final PasswordHasher passwordHasher;
     private final SecurityProperties securityProperties;
     private final PasswordCryptoService passwordCryptoService;
     private final LoginThrottleService loginThrottleService;
-    private final AccountAuthenticationService accountAuthenticationService;
     private final NewPasswordPolicy newPasswordPolicy;
     private final AuthRequestValidator authRequestValidator;
     private final TransactionTemplate transactionTemplate;
@@ -55,7 +60,6 @@ public class AuthServiceImpl implements AuthService {
             SecurityProperties securityProperties,
             PasswordCryptoService passwordCryptoService,
             LoginThrottleService loginThrottleService,
-            AccountAuthenticationService accountAuthenticationService,
             NewPasswordPolicy newPasswordPolicy,
             AuthRequestValidator authRequestValidator,
             PlatformTransactionManager transactionManager) {
@@ -64,7 +68,6 @@ public class AuthServiceImpl implements AuthService {
         this.securityProperties = securityProperties;
         this.passwordCryptoService = passwordCryptoService;
         this.loginThrottleService = loginThrottleService;
-        this.accountAuthenticationService = accountAuthenticationService;
         this.newPasswordPolicy = newPasswordPolicy;
         this.authRequestValidator = authRequestValidator;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -72,15 +75,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SessionVo current() {
-        UserAccountDO account = accountAuthenticationService.findCurrentAccount().orElse(null);
-        if (account == null) {
+        if (!StpUtil.isLogin()) {
             return new SessionVo(false, null, null, List.of());
         }
-        return AccountConvert.MAPPER.to(
-                account,
-                true,
-                accountAuthenticationService.csrfToken(),
-                AccountContext.roles(account));
+        return AccountConvert.MAPPER.to(AccountContext.currentAccount(), true,
+                (String) StpUtil.getSession().get(AuthConstants.CSRF_SESSION_KEY));
     }
 
     @Override
@@ -98,13 +97,13 @@ public class AuthServiceImpl implements AuthService {
         // 2. 来源校验通过后解密；只规范化用户名，登录密码保持原样匹配。
         String password = passwordCryptoService.decryptPassword(input.encryptedPassword());
         String username = input.username().trim().toLowerCase(Locale.ROOT);
-        // 3. 在事务内锁定账号并校验密码，令牌绑定对应凭据版本。
+        // 3. 在事务内锁定账号并校验密码，成功后建立必要的会话身份。
         return transactionTemplate.execute(status -> authenticateLocked(username, password));
     }
 
     private SessionVo authenticateLocked(String username, String password) {
         // PostgreSQL 默认区分大小写；查询语义须与 LOWER(username) 唯一索引一致。
-        // 与改密共用账号行锁，令牌必须绑定与所验证密码一致的已持久化凭据版本。
+        // 与改密共用账号行锁，避免使用被并发替换的密码创建会话。
         UserAccountDO account =
                 userAccountMapper.selectOne(
                         Wrappers.<UserAccountDO>lambdaQuery()
@@ -115,16 +114,33 @@ public class AuthServiceImpl implements AuthService {
             throw new ApiException(
                     ApiErrorCode.AUTH_INVALID_CREDENTIALS, SystemMessageConstants.BAD_CREDENTIALS);
         }
-        String csrf = accountAuthenticationService.startSession(account);
+        SessionVo session = startSession(account);
         // IP 窗口统计所有尝试；不能因某个账号成功而放行对其他账号的持续猜测。
         LOG.info("User logged in, accountId={}", account.getId());
-        return AccountConvert.MAPPER.to(
-                account, true, csrf, AccountContext.roles(account));
+        return session;
+    }
+
+    private SessionVo startSession(UserAccountDO account) {
+        if (account.getStatus() != AccountStatus.ENABLED.code()) {
+            throw new ApiException(ApiErrorCode.FORBIDDEN, SystemMessageConstants.ACCOUNT_UNAVAILABLE);
+        }
+        // 角色在登录时由账号类型确定，后续请求直接读取同一份 Redis 身份。
+        var roles = account.getType() == AccountType.OWNER.code()
+                ? List.of(AuthConstants.OWNER_ROLE) : List.<String>of();
+        var identity = AccountConvert.MAPPER.to(account, roles);
+        StpUtil.login(account.getId(), new SaLoginParameter().setIsShare(false));
+        AccountContext.set(identity);
+        byte[] bytes = new byte[CSRF_BYTES];
+        secureRandom.nextBytes(bytes);
+        String csrf = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+        StpUtil.getSession().set(AuthConstants.CSRF_SESSION_KEY, csrf);
+        return AccountConvert.MAPPER.to(identity, true, csrf);
     }
 
     @Override
     public void logout() {
-        long accountId = accountAuthenticationService.logout();
+        long accountId = StpUtil.getLoginIdAsLong();
+        StpUtil.logout();
         LOG.info("User logged out, accountId={}", accountId);
     }
 

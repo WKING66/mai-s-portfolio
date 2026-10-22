@@ -1,6 +1,7 @@
 package dev.amai.portfolio.system.auth;
 
 import cn.dev33.satoken.stp.StpInterface;
+import dev.amai.portfolio.security.context.AccountContext;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
