@@ -8,19 +8,36 @@ import dev.amai.portfolio.system.api.TechTagData;
 import dev.amai.portfolio.system.api.TechTagOptionData;
 import dev.amai.portfolio.system.convert.TaxonomyConvert;
 import dev.amai.portfolio.system.entity.domain.TagDO;
+import dev.amai.portfolio.system.entity.event.TagCatalogChanged;
 import dev.amai.portfolio.system.enums.FeaturedStatus;
 import dev.amai.portfolio.system.enums.TechGroup;
 import dev.amai.portfolio.system.mapper.TagMapper;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 @Service
 public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
     private final TagMapper tagMapper;
+
+    @Value("${portfolio.taxonomy.cache-ttl:PT1M}")
+    private Duration catalogCacheTtl = Duration.ofMinutes(1);
+
+    private CachedCatalog cachedCatalog;
+
+    /** 缓存只保存内部标签目录，不包含登录权限、草稿内容或会过期的 OSS 地址。 */
+    private record CachedCatalog(
+            List<TagDO> tags,
+
+            Instant expiresAt) {}
 
     public TaxonomyQueryServiceImpl(TagMapper tagMapper) {
         this.tagMapper = tagMapper;
@@ -37,16 +54,41 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
                 throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "标签类别仅支持 TOPIC 或 TECH");
             }
         }
-        var query = Wrappers.<TagDO>lambdaQuery();
+        var tags = catalog().stream();
         if (selected != null) {
-            query.eq(TagDO::getKind, selected.code());
+            int kindCode = selected.code();
+            tags = tags.filter(tag -> tag.getKind() == kindCode);
         }
-        return tagMapper.selectList(query.orderByAsc(TagDO::getKind)
-                .orderByAsc(selected == TagKind.TECH, TagDO::getGroupCode)
-                .orderByAsc(TagDO::getSortOrder, TagDO::getId))
-                .stream()
+        if (selected == TagKind.TECH) {
+            tags = tags.sorted(Comparator.comparing(TagDO::getGroupCode)
+                    .thenComparing(TagDO::getSortOrder)
+                    .thenComparing(TagDO::getId));
+        }
+        return tags
                 .map(this::tagData)
                 .toList();
+    }
+
+    /**
+     * 标签选项和首页技术栈反复读取同一份小目录，只查一次后在内存筛选。
+     * 本地缓存默认一分钟；其他实例或手工改库最多等待该时长，设 PT0S 可停用。
+     * 保存文章时的标签存在性仍直接批量查库，不拿展示缓存决定业务有效性。
+     */
+    private synchronized List<TagDO> catalog() {
+        Instant now = Instant.now();
+        if (cachedCatalog != null && now.isBefore(cachedCatalog.expiresAt())) {
+            return cachedCatalog.tags();
+        }
+        var tags = List.copyOf(tagMapper.selectList(Wrappers.<TagDO>lambdaQuery()
+                .orderByAsc(TagDO::getKind, TagDO::getSortOrder, TagDO::getId)));
+        cachedCatalog = new CachedCatalog(tags, now.plus(catalogCacheTtl));
+        return tags;
+    }
+
+    /** 新标签提交后再使目录失效；回滚不清缓存，监听与加载串行，避免正在加载的旧目录覆盖清除结果。 */
+    @TransactionalEventListener
+    public synchronized void clearCatalog(TagCatalogChanged event) {
+        cachedCatalog = null;
     }
 
     /** 保存前确认所选标签存在且不重复，避免文章保存了界面无法展示的无效标签。 */
@@ -80,13 +122,12 @@ public class TaxonomyQueryServiceImpl implements TaxonomyQueryService {
 
     @Override
     public List<TechTagData> featuredTechTags() {
-        return tagMapper
-                .selectList(
-                        Wrappers.<TagDO>lambdaQuery()
-                                .eq(TagDO::getKind, TagKind.TECH.code())
-                                .eq(TagDO::getIsFeatured, FeaturedStatus.FEATURED.code())
-                                .orderByAsc(TagDO::getGroupCode, TagDO::getSortOrder, TagDO::getId))
-                .stream()
+        return catalog().stream()
+                .filter(tag -> tag.getKind() == TagKind.TECH.code()
+                        && tag.getIsFeatured() == FeaturedStatus.FEATURED.code())
+                .sorted(Comparator.comparing(TagDO::getGroupCode)
+                        .thenComparing(TagDO::getSortOrder)
+                        .thenComparing(TagDO::getId))
                 .map(
                         tag ->
                                 TaxonomyConvert.MAPPER.to(

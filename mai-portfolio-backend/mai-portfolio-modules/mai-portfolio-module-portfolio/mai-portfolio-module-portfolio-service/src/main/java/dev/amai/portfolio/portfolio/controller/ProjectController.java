@@ -2,13 +2,14 @@ package dev.amai.portfolio.portfolio.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
 import dev.amai.portfolio.common.R;
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.logging.annotation.ApiLog;
 import dev.amai.portfolio.portfolio.constant.ProjectMessageConstants;
 import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectEditorVo;
-import dev.amai.portfolio.portfolio.entity.vo.ProjectPageVo;
+import dev.amai.portfolio.portfolio.entity.vo.ProjectItemVo;
 import dev.amai.portfolio.portfolio.service.ProjectService;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
@@ -61,7 +62,7 @@ public class ProjectController {
         @ApiResponse(responseCode = "403", description = "MANAGE 无站长权限、账号停用或传输不安全"),
         @ApiResponse(responseCode = "422", description = "非法视图、重复参数、分页或状态")
     })
-    public ResponseEntity<R<ProjectPageVo>> list(
+    public ResponseEntity<R<ViewPageVO<ProjectItemVo>>> list(
             @Valid @ParameterObject @ModelAttribute ProjectListRequest input,
             HttpServletRequest request) {
         // 不接受重复参数，避免 MVC 将重复值静默绑定为某个视图。

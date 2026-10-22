@@ -66,11 +66,11 @@ public class DocumentServiceImpl implements DocumentService {
                         DocumentContentDO::getStage, DocumentContentDO::getTitle,
                         DocumentContentDO::getSummary)
                 .in(DocumentContentDO::getDocumentId, ids));
+        var byDocument = contents.stream()
+                .collect(Collectors.groupingBy(DocumentContentDO::getDocumentId));
         Map<Long, DocumentSummary> result = new HashMap<>();
         for (long id : ids) {
-            var slots = contents.stream()
-                    .filter(value -> value.getDocumentId() == id)
-                    .toList();
+            var slots = byDocument.getOrDefault(id, List.of());
             var selected = select(slots, manage);
             var identity = identities.get(id);
             if (selected != null && identity != null) {
@@ -100,6 +100,19 @@ public class DocumentServiceImpl implements DocumentService {
         if (content == null) {
             throw new ApiException(ApiErrorCode.NOT_FOUND, "所需文档内容不存在");
         }
+        return readContent(identity, content, hasDraft(slots), hasPublished(slots));
+    }
+
+    @Override
+    @Transactional(readOnly = true, isolation = REPEATABLE_READ)
+    public Document readPublished(DocumentDO identity, DocumentContentDO content) {
+        // 公开文章主体已经按 PUBLISHED 过滤；只补充相同 contentId 的关联，避免正文和图片来自不同内容。
+        // 公开投影不泄露草稿是否存在，因此无需再查询草稿槽位。
+        return readContent(identity, content, false, true);
+    }
+
+    private Document readContent(DocumentDO identity, DocumentContentDO content,
+            boolean hasDraft, boolean hasPublished) {
         var resources = documentResourceMapper.selectList(Wrappers.<DocumentResourceDO>lambdaQuery()
                 .eq(DocumentResourceDO::getContentId, content.getId())
                 .orderByAsc(DocumentResourceDO::getSortOrder, DocumentResourceDO::getId));
@@ -110,7 +123,7 @@ public class DocumentServiceImpl implements DocumentService {
                 .map(tag -> new TagData(tag.getTagId(), tag.getName(), tag.getSlug(),
                         TagKind.fromCode(tag.getKind()).name(), null, null))
                 .toList();
-        return DocumentConvert.MAPPER.to(identity, content, hasDraft(slots), hasPublished(slots),
+        return DocumentConvert.MAPPER.to(identity, content, hasDraft, hasPublished,
                 DocumentConvert.MAPPER.to(resources), tags);
     }
 
@@ -268,17 +281,26 @@ public class DocumentServiceImpl implements DocumentService {
         var old = documentResourceMapper.selectList(Wrappers.<DocumentResourceDO>lambdaQuery()
                         .eq(DocumentResourceDO::getContentId, contentId)).stream()
                 .collect(Collectors.toMap(DocumentResourceDO::getKey, value -> value));
+        List<DocumentResourceDO> additions = new ArrayList<>();
+        List<DocumentResourceDO> updates = new ArrayList<>();
         int order = 0;
         for (var resource : resources) {
             var relation = DocumentConvert.MAPPER.to(resource, contentId, order++);
             var existing = old.remove(resource.key());
             if (existing == null) {
-                documentResourceMapper.insert(relation);
+                additions.add(relation);
             } else if (!DocumentConvert.MAPPER.to(existing).equals(resource)
                     || !Objects.equals(existing.getSortOrder(), relation.getSortOrder())) {
                 relation.setId(existing.getId());
-                documentResourceMapper.updateById(relation);
+                updates.add(relation);
             }
+        }
+        // 没变的引用不写库；新增和变更分别使用现有 MyBatis-Plus 批执行，仍随整篇草稿一起提交或回滚。
+        if (!additions.isEmpty()) {
+            documentResourceMapper.insert(additions);
+        }
+        if (!updates.isEmpty()) {
+            documentResourceMapper.updateById(updates);
         }
         if (!old.isEmpty()) {
             documentResourceMapper.deleteByIds(old.values().stream()
@@ -291,15 +313,24 @@ public class DocumentServiceImpl implements DocumentService {
         var old = documentContentTagMapper.selectList(Wrappers.<DocumentContentTagDO>lambdaQuery()
                         .eq(DocumentContentTagDO::getContentId, contentId)).stream()
                 .collect(Collectors.toMap(DocumentContentTagDO::getTagId, value -> value));
+        List<DocumentContentTagDO> additions = new ArrayList<>();
+        List<DocumentContentTagDO> updates = new ArrayList<>();
         for (var tag : tags) {
             var existing = old.remove(tag.id());
             var relation = DocumentConvert.MAPPER.to(tag, contentId);
             if (existing == null) {
-                documentContentTagMapper.insert(relation);
+                additions.add(relation);
             } else {
                 relation.setId(existing.getId());
-                documentContentTagMapper.updateById(relation);
+                updates.add(relation);
             }
+        }
+        // 标签只改这一份草稿；批处理不改变正式正文的标签，也不在循环中逐项发起数据库调用。
+        if (!additions.isEmpty()) {
+            documentContentTagMapper.insert(additions);
+        }
+        if (!updates.isEmpty()) {
+            documentContentTagMapper.updateById(updates);
         }
         if (!old.isEmpty()) {
             documentContentTagMapper.deleteByIds(old.values().stream()

@@ -70,6 +70,30 @@ class AssetDownloadUrlTest {
         verifyNoMoreInteractions(objectStorage);
     }
 
+    @Test
+    void mixedDocumentAssetsUseOneMetadataQueryAndKeepEachDownloadMode() {
+        MediaAssetMapper mediaAssetMapper = mock(MediaAssetMapper.class);
+        ObjectStorage objectStorage = mock(ObjectStorage.class);
+        var image = readyAsset(AssetType.IMAGE, "IMAGE", "image.png", "assets/image.png");
+        var attachment = readyAsset(AssetType.FILE, "ATTACHMENT", "原文件.pdf", "assets/file.bin");
+        attachment.setId(20L);
+        when(mediaAssetMapper.selectList(any())).thenReturn(List.of(image, attachment));
+        when(objectStorage.accessUrl(image.getStorageKey())).thenReturn(
+                new StoredObjectAccessUrl("https://oss.test/image", Instant.now().plusSeconds(600)));
+        when(objectStorage.downloadUrl(attachment.getStorageKey(), attachment.getOriginalFilename())).thenReturn(
+                new StoredObjectAccessUrl("https://oss.test/file", Instant.now().plusSeconds(600)));
+
+        var result = new AssetQueryServiceImpl(mediaAssetMapper, objectStorage)
+                .findReady(Set.of(image.getId(), attachment.getId()));
+
+        assertThat(result).hasSize(2);
+        verify(mediaAssetMapper).selectList(any());
+        verifyNoMoreInteractions(mediaAssetMapper);
+        verify(objectStorage).accessUrl(image.getStorageKey());
+        verify(objectStorage).downloadUrl(attachment.getStorageKey(), "原文件.pdf");
+        verifyNoMoreInteractions(objectStorage);
+    }
+
     private static MediaAssetDO readyAsset(
             AssetType type, String usage, String filename, String storageKey) {
         var asset = new MediaAssetDO();

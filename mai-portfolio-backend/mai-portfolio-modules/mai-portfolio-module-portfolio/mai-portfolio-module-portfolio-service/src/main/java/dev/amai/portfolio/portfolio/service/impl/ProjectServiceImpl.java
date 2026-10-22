@@ -8,6 +8,8 @@ import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.portfolio.constant.ProjectConstants;
 import dev.amai.portfolio.portfolio.constant.ProjectMessageConstants;
 import dev.amai.portfolio.portfolio.convert.ProjectConvert;
@@ -22,7 +24,6 @@ import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectCoverVo;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectEditorVo;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectItemVo;
-import dev.amai.portfolio.portfolio.entity.vo.ProjectPageVo;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectTagVo;
 import dev.amai.portfolio.portfolio.enums.ProjectLinkType;
 import dev.amai.portfolio.portfolio.enums.ProjectStatus;
@@ -81,23 +82,23 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public ProjectPageVo list(ProjectListRequest request) {
+    public ViewPageVO<ProjectItemVo> list(ProjectListRequest request) {
         // 1. 先确定查询视图；管理视图权限由 Controller 声明并在请求入口校验。
-        ProjectView view = parseView(request.view());
-        int page = ObjectUtil.defaultIfNull(request.page(), ProjectConstants.FIRST_PAGE);
+        ProjectView view = parseView(request.getView());
+        int page = request.getPage();
         int defaultSize = view == ProjectView.PUBLIC
-                ? ProjectConstants.PUBLIC_PAGE_SIZE : ProjectConstants.MANAGE_PAGE_SIZE;
-        int size = ObjectUtil.defaultIfNull(request.size(), defaultSize);
+                ? PageRequest.DEFAULT_SIZE : ProjectConstants.MANAGE_PAGE_SIZE;
+        int size = request.sizeOrDefault(defaultSize);
 
         // 2. 公开列表固定为已发布状态，管理列表才接受状态过滤。
         var query = Wrappers.<ProjectDO>lambdaQuery();
         if (view == ProjectView.PUBLIC) {
-            if (request.status() != null) {
+            if (request.getStatus() != null) {
                 throw invalid(ProjectMessageConstants.INVALID_QUERY);
             }
             query.eq(ProjectDO::getStatus, ProjectStatus.PUBLISHED.code());
-        } else if (request.status() != null && !request.status().isBlank()) {
-            query.eq(ProjectDO::getStatus, parseStatus(request.status()).code());
+        } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            query.eq(ProjectDO::getStatus, parseStatus(request.getStatus()).code());
         }
         query.orderByDesc(ProjectDO::getIsFeatured)
                 .orderByAsc(ProjectDO::getSortOrder)
@@ -105,7 +106,7 @@ public class ProjectServiceImpl implements ProjectService {
         // 3. 在同一只读快照内分页并批量装配关联，避免卡片逐条查询。
         var result = projectMapper.selectPage(new Page<>(page, size), query);
         List<ProjectItemVo> items = projectViews(result.getRecords(), view);
-        return new ProjectPageVo(view.name(), page, size, result.getTotal(), items);
+        return new ViewPageVO<>(view.name(), page, size, result.getTotal(), items);
     }
 
     @Override
@@ -299,12 +300,14 @@ public class ProjectServiceImpl implements ProjectService {
         }
         projectLinkMapper.delete(Wrappers.<ProjectLinkDO>lambdaQuery().eq(ProjectLinkDO::getProjectId, id));
         projectTagMapper.delete(Wrappers.<ProjectTagDO>lambdaQuery().eq(ProjectTagDO::getProjectId, id));
+        List<ProjectTagDO> tags = new ArrayList<>();
         for (Long tagId : ObjectUtil.defaultIfNull(request.tagIds(), List.<Long>of())) {
             ProjectTagDO tag = new ProjectTagDO();
             tag.setProjectId(id);
             tag.setTagId(tagId);
-            projectTagMapper.insert(tag);
+            tags.add(tag);
         }
+        List<ProjectLinkDO> links = new ArrayList<>();
         for (ProjectLinkRequest input : ObjectUtil.defaultIfNull(request.links(), List.<ProjectLinkRequest>of())) {
             ProjectLinkDO link = new ProjectLinkDO();
             link.setProjectId(id);
@@ -313,7 +316,14 @@ public class ProjectServiceImpl implements ProjectService {
             link.setUrl(clean(input.url()));
             link.setIsVisible(input.visible() ? 1 : 0);
             link.setSortOrder(input.sortOrder());
-            projectLinkMapper.insert(link);
+            links.add(link);
+        }
+        // 标签和外链已经整组替换，集中批写；任一批次失败仍回滚项目及全部关联，不留下半份项目。
+        if (!tags.isEmpty()) {
+            projectTagMapper.insert(tags);
+        }
+        if (!links.isEmpty()) {
+            projectLinkMapper.insert(links);
         }
     }
 

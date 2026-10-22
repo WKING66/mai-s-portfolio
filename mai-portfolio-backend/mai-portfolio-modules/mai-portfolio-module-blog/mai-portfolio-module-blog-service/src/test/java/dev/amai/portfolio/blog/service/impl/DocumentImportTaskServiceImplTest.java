@@ -12,6 +12,7 @@ import dev.amai.portfolio.blog.enums.ImportTaskStatus;
 import dev.amai.portfolio.blog.mapper.DocumentImportTaskMapper;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.util.List;
+import dev.amai.portfolio.common.PageRequest;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -37,12 +38,12 @@ class DocumentImportTaskServiceImplTest {
             return result.setTotal(31).setRecords(List.of(task));
         });
 
-        var result = service.page(7L, 2, 12);
+        var result = service.page(7L, new PageRequest(2, 12));
 
-        assertThat(result.page()).isEqualTo(2);
-        assertThat(result.size()).isEqualTo(12);
-        assertThat(result.total()).isEqualTo(31);
-        assertThat(result.items()).singleElement().satisfies(item -> {
+        assertThat(result.getPage()).isEqualTo(2);
+        assertThat(result.getSize()).isEqualTo(12);
+        assertThat(result.getTotal()).isEqualTo(31);
+        assertThat(result.getItems()).singleElement().satisfies(item -> {
             assertThat(item.id()).isEqualTo(8);
             assertThat(item.status()).isEqualTo("SUCCEEDED_WITH_ISSUES");
         });

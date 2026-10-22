@@ -8,6 +8,9 @@ import dev.amai.portfolio.system.entity.domain.TagDO;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.util.List;
+import java.time.Duration;
+import dev.amai.portfolio.system.entity.event.TagCatalogChanged;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.junit.jupiter.api.Test;
 
 class TaxonomyQueryServiceImplTest {
@@ -24,7 +27,7 @@ class TaxonomyQueryServiceImplTest {
         when(tags.selectList(any())).thenReturn(List.of());
         assertThat(service.techTagOptions()).isEmpty();
         assertThat(service.tagOptions("TECH")).isEmpty();
-        verify(tags, times(2)).selectList(any());
+        verify(tags).selectList(any());
     }
 
     @Test
@@ -47,6 +50,28 @@ class TaxonomyQueryServiceImplTest {
         assertThat(result).extracting(tag -> tag.kind()).containsExactly("TOPIC", "TECH");
         assertThat(result.getFirst().group()).isNull();
         assertThat(result.getLast().group()).isEqualTo("LANGUAGE");
+    }
+
+    @Test
+    void committedTagChangeInvalidatesAllCatalogProjections() {
+        when(tags.selectList(any())).thenReturn(List.of());
+        service.tagOptions(null);
+        service.techTagOptions();
+        service.featuredTechTags();
+        verify(tags).selectList(any());
+
+        service.clearCatalog(new TagCatalogChanged());
+        service.tagOptions(null);
+        verify(tags, times(2)).selectList(any());
+    }
+
+    @Test
+    void disabledCacheReadsAgainWithoutSleeping() {
+        ReflectionTestUtils.setField(service, "catalogCacheTtl", Duration.ZERO);
+        when(tags.selectList(any())).thenReturn(List.of());
+        service.tagOptions(null);
+        service.tagOptions(null);
+        verify(tags, times(2)).selectList(any());
     }
 
     @Test

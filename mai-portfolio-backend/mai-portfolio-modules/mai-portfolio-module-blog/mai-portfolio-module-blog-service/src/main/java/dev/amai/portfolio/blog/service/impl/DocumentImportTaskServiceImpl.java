@@ -4,11 +4,12 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import dev.amai.portfolio.blog.convert.DocumentImportTaskConvert;
 import dev.amai.portfolio.blog.entity.domain.DocumentImportTaskDO;
-import dev.amai.portfolio.blog.entity.vo.DocumentImportTaskPageVo;
 import dev.amai.portfolio.blog.entity.vo.DocumentImportTaskVo;
 import dev.amai.portfolio.blog.enums.ImportTaskStatus;
 import dev.amai.portfolio.blog.mapper.DocumentImportTaskMapper;
 import dev.amai.portfolio.blog.service.DocumentImportTaskService;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.web.exception.*;
 import java.time.*;
 import org.springframework.dao.DuplicateKeyException;
@@ -104,7 +105,9 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
 
     /** 按时间倒序分页；即使文章已经删除，未按文档筛选时仍可查看保留的导入记录。 */
     @Override
-    public DocumentImportTaskPageVo page(Long documentId, int page, int size) {
+    public PageVO<DocumentImportTaskVo> page(Long documentId, PageRequest pagination) {
+        int page = pagination.getPage();
+        int size = pagination.sizeOrDefault();
         var result = documentImportTaskMapper.selectPage(new Page<DocumentImportTaskDO>(page, size),
                 Wrappers.<DocumentImportTaskDO>lambdaQuery()
                         .eq(documentId != null, DocumentImportTaskDO::getDocumentId, documentId)
@@ -113,6 +116,6 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
                 .stream()
                 .map(DocumentImportTaskConvert.MAPPER::to)
                 .toList();
-        return new DocumentImportTaskPageVo(page, size, result.getTotal(), items);
+        return new PageVO<>(page, size, result.getTotal(), items);
     }
 }

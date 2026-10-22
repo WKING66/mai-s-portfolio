@@ -16,6 +16,8 @@ import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
 import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.web.exception.*;
@@ -92,8 +94,10 @@ public class BlogServiceImpl implements BlogService {
     /** 公开列表只展示已上架正文；管理列表优先展示草稿，方便站长继续编辑。 */
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public BlogPageVo list(String view, int page, int size) {
+    public ViewPageVO<BlogCardVo> list(String view, PageRequest pagination) {
         boolean manage = manage(view);
+        int page = pagination.getPage();
+        int size = pagination.sizeOrDefault();
         var query = Wrappers.<BlogPostDO>lambdaQuery();
         if (!manage) {
             query.eq(BlogPostDO::getStatus, PUBLISHED);
@@ -113,7 +117,7 @@ public class BlogServiceImpl implements BlogService {
                             manage ? summary.hasDraft() : null);
                 })
                 .toList();
-        return new BlogPageVo(manage ? MANAGE_VIEW : PUBLIC_VIEW, page, size, result.getTotal(), cards);
+        return new ViewPageVO<>(manage ? MANAGE_VIEW : PUBLIC_VIEW, page, size, result.getTotal(), cards);
     }
 
     /** 读取当前编辑内容；没有草稿时以正式正文初始化编辑，不因打开页面就创建一份草稿。 */
@@ -128,12 +132,14 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public BlogVo publicArticle(String slug) {
-        var blog = blogPostMapper.selectOne(Wrappers.<BlogPostDO>lambdaQuery()
-                .eq(BlogPostDO::getSlug, slug).eq(BlogPostDO::getStatus, PUBLISHED));
-        if (blog == null) {
+        // 先在三表关联中定位上架的正式正文；不能为了少查一次而取草稿，也不把长正文与每张图片重复 JOIN。
+        var article = blogPostMapper.selectPublishedArticle(slug, PUBLISHED, ContentStage.PUBLISHED.code());
+        if (article == null) {
+            // 下架、没有正式正文或 slug 不存在均不提供公开文章；原有 OSS 地址不由这里撤销。
             throw missing();
         }
-        return project(blog, documentService.read(blog.getDocumentId(), false), false);
+        var document = documentService.readPublished(article.getDocument(), article.getContent());
+        return project(article.getBlog(), document, false);
     }
 
     /**

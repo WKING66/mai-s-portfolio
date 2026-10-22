@@ -1,8 +1,9 @@
 package dev.amai.portfolio.blog.service;
 
 import dev.amai.portfolio.blog.entity.domain.DocumentImportTaskDO;
-import dev.amai.portfolio.blog.entity.vo.DocumentImportTaskPageVo;
 import dev.amai.portfolio.blog.entity.vo.DocumentImportTaskVo;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.PageVO;
 
 /** 同步导入的可追溯记录，与文档内容生命周期分离。 */
 public interface DocumentImportTaskService {
@@ -16,5 +17,5 @@ public interface DocumentImportTaskService {
 
     DocumentImportTaskVo get(long id);
 
-    DocumentImportTaskPageVo page(Long documentId, int page, int size);
+    PageVO<DocumentImportTaskVo> page(Long documentId, PageRequest pagination);
 }

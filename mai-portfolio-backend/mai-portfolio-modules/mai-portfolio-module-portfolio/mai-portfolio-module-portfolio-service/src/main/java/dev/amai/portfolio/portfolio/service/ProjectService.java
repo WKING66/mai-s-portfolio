@@ -1,15 +1,16 @@
 package dev.amai.portfolio.portfolio.service;
 
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectEditorVo;
-import dev.amai.portfolio.portfolio.entity.vo.ProjectPageVo;
+import dev.amai.portfolio.portfolio.entity.vo.ProjectItemVo;
 
 /** 项目展示业务；写入口由认证层保护，统一列表的 MANAGE 视图还在服务内核对 OWNER。 */
 public interface ProjectService {
     /** 公开列表只查已发布项目，管理列表返回编辑投影；分页与关联读取处于一致快照。 */
-    ProjectPageVo list(ProjectListRequest request);
+    ViewPageVO<ProjectItemVo> list(ProjectListRequest request);
 
     /** 读取编辑快照，供已授权的管理入口及事务内写入结果使用。 */
     ProjectEditorVo get(Long id);

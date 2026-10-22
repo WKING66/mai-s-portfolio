@@ -75,7 +75,7 @@
 
 列表条目也使用 contentId/revision/stage/hasDraft/hasPublished，不再返回旧 version。
 
-导入列表响应为 `{page, size, total, items}`，`items` 为本页记录，详情接口仍返回单条记录。分页参数范围与博客列表一致，不再固定截取最近 50 条。
+导入列表响应为 `{page, size, total, items}`，`items` 为本页记录，详情接口仍返回单条记录。分页参数共用 PageRequest，页码 1–10000、size 1–50，缺省 1/12；不再固定截取最近 50 条。所有分页共用 PageVO，博客/项目的 view 使用共享 ViewPageVO 扩展，JSON 字段不变。
 
 导入追踪包含 id、documentId、requestId、originalFilename、sourceSize、sourceSha256、status、issuesJson 和时间。issuesJson 为 JSON 文本：资源问题是数组，整体失败为含 code/message 的对象。状态为 PROCESSING / SUCCEEDED / SUCCEEDED_WITH_ISSUES / FAILED；迁移旧未结束记录为 INTERRUPTED。进程中断可能留 PROCESSING，需要核查，不代表仍有后台任务运行。
 
@@ -92,7 +92,7 @@
 
 ## 标签目录
 
-GET /tags：可选 kind=TOPIC 或 TECH，不传返回两类；项目调用端继续指定 TECH。旧技术标签内部 Provider 保持原接口。
+GET /tags：可选 kind=TOPIC 或 TECH，不传返回两类；项目调用端继续指定 TECH。旧技术标签内部 Provider 保持原接口。标签选项和首页技术栈共用只读目录缓存，默认一分钟；创建标签事务提交后本实例立即清除，回滚不清除。其他实例或直接改库最多等待 TTL；配置 `portfolio.taxonomy.cache-ttl=PT0S` 可关闭缓存。保存文章时的标签校验始终批量查库，不依赖此展示缓存。
 
 POST /tags（OWNER）：
 
@@ -108,3 +108,7 @@ HTTP 中的 stage、标签 kind、导入 status 和资产 usage 名称不变。�
 stage：0=DRAFT、1=PUBLISHED；kind：0=TOPIC、1=TECH（与 tag.kind 相同）；
 导入 status：0=PROCESSING、1=SUCCEEDED、2=SUCCEEDED_WITH_ISSUES、3=FAILED、4=INTERRUPTED；
 usage：0=AVATAR、1=IMAGE、2=ATTACHMENT。升级时由 V9 转换已有记录，不删除内容或引用。
+
+## 查询装配
+
+公开详情先 JOIN blog_post、document、document_content 读取唯一正式正文，再分别读取这份 contentId 的资源和标签，最后一次读取图片与附件 Asset 并生成 URL。含两类资源时最多 4 次查询，与资源数量无关；不是把正文和全部一对多关系拼成一条大 JOIN。正文及关系仍处于同一只读事务视图，未发布草稿不参与公开读取；签名 URL 是临时结果，不保存到正文或标签缓存中。

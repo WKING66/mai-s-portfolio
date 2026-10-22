@@ -80,9 +80,21 @@ public class AssetQueryServiceImpl implements AssetQueryService {
     }
 
     @Override
+    public Map<Long, AssetResourceData> findReady(Set<Long> assetIds) {
+        return readyResources(assetIds, null);
+    }
+
+    @Override
     public Map<Long, AssetResourceData> findReady(Set<Long> assetIds, AssetType expectedType) {
-        // 1. 规范化查询集合；无有效身份或类型时不访问数据库与存储。
-        if (assetIds == null || assetIds.isEmpty() || expectedType == null) {
+        if (expectedType == null) {
+            return Map.of();
+        }
+        return readyResources(assetIds, expectedType);
+    }
+
+    private Map<Long, AssetResourceData> readyResources(Set<Long> assetIds, AssetType expectedType) {
+        // 1. 没有文件引用就不读库；图片和附件可以共用一批查询，但每条仍按实际类型签名。
+        if (assetIds == null || assetIds.isEmpty()) {
             return Map.of();
         }
         Set<Long> ids =
@@ -98,9 +110,8 @@ public class AssetQueryServiceImpl implements AssetQueryService {
                         Wrappers.<MediaAssetDO>lambdaQuery()
                                 .in(MediaAssetDO::getId, ids)
                                 .eq(MediaAssetDO::getStatus, MediaStatus.READY.code())
-                                .eq(
-                                        MediaAssetDO::getType,
-                                        MediaAssetType.from(expectedType).code()));
+                                .eq(expectedType != null, MediaAssetDO::getType,
+                                        expectedType == null ? null : MediaAssetType.from(expectedType).code()));
         var resourcesById = new HashMap<Long, AssetResourceData>();
         for (MediaAssetDO asset : mediaAssets) {
             if (asset.getStorageKey() == null
@@ -115,7 +126,7 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             try {
                 // 3. 图片直接展示；文档与普通文件按原始文件名下载，不能用内部 .bin 对象键命名。
                 // 文件名来自资产元数据，旧附件也适用；只签名响应头，不读取或重新上传对象字节。
-                storedObjectAccessUrl = expectedType == AssetType.IMAGE
+                storedObjectAccessUrl = asset.getType() == MediaAssetType.IMAGE.code()
                         ? objectStorage.accessUrl(asset.getStorageKey())
                         : objectStorage.downloadUrl(asset.getStorageKey(), asset.getOriginalFilename());
             } catch (ObjectStorageException error) {

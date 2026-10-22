@@ -324,7 +324,7 @@ class DocumentPipelineTest {
                         ResourceStatus.READY);
         var document =
                 new Document(1, 2, 1, ContentStage.DRAFT, true, false, "Title", "", "![a](resource://image)", List.of(resource), List.of());
-        when(assets.findReady(Set.of(9L), AssetType.IMAGE))
+        when(assets.findReady(Set.of(9L)))
                 .thenReturn(
                         Map.of(
                                 9L,

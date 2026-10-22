@@ -9,7 +9,10 @@ import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.common.R;
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
@@ -19,8 +22,6 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -28,6 +29,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -54,19 +56,12 @@ public class BlogController {
     @OwnerView
     @GetMapping
     @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，读取草稿投影。")
-    public ResponseEntity<R<BlogPageVo>> list(
+    public ResponseEntity<R<ViewPageVO<BlogCardVo>>> list(
             @RequestParam(defaultValue = PUBLIC_VIEW) String view,
-            @Min(value = 1, message = "页码必须大于等于 {value}")
-                    @Max(value = MAX_PAGE_NUMBER, message = "页码不能超过 {value}")
-                    @RequestParam(defaultValue = DEFAULT_PAGE)
-                    int page,
-            @Min(value = 1, message = "每页条数必须大于等于 {value}")
-                    @Max(value = MAX_PAGE_SIZE, message = "每页条数不能超过 {value}")
-                    @RequestParam(defaultValue = DEFAULT_PAGE_SIZE)
-                    int size) {
+            @Valid @ParameterObject @ModelAttribute PageRequest pagination) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(R.success(blogService.list(view, page, size)));
+                .body(R.success(blogService.list(view, pagination)));
     }
 
     @GetMapping("/by-slug/{slug}")
@@ -202,19 +197,12 @@ public class BlogController {
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @GetMapping("/imports")
     @Operation(summary = "分页读取导入记录", description = "可按 documentId 筛选；按记录 ID 倒序，可继续翻页查看历史导入。")
-    public R<DocumentImportTaskPageVo> imports(
+    public R<PageVO<DocumentImportTaskVo>> imports(
             @RequestParam(required = false)
             @Positive
             Long documentId,
-            @RequestParam(defaultValue = DEFAULT_PAGE)
-            @Min(1)
-            @Max(MAX_PAGE_NUMBER)
-            int page,
-            @RequestParam(defaultValue = DEFAULT_PAGE_SIZE)
-            @Min(1)
-            @Max(MAX_PAGE_SIZE)
-            int size) {
-        return R.success(documentImportTaskService.page(documentId, page, size));
+            @Valid @ParameterObject @ModelAttribute PageRequest pagination) {
+        return R.success(documentImportTaskService.page(documentId, pagination));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
