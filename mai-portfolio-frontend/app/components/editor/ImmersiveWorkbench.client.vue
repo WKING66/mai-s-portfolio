@@ -231,7 +231,9 @@ let headingPositions: EditorHeading[] = []
 const activeId = ref('')
 const contentCollapsedIds = shallowRef(new Set<string>())
 const tocCollapsedIds = shallowRef(new Set<string>())
-const headingTree = computed(() => editorHeadingTree(headings.value))
+const headingTree = computed<ReturnType<typeof editorHeadingTree>>((previous) =>
+  editorHeadingTree(headings.value, previous),
+)
 const links = computed(() => visibleToc(headingTree.value, new Set(), new Set()))
 const visibleIds = computed(
   () =>

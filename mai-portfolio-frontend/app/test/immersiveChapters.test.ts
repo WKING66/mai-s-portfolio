@@ -51,6 +51,20 @@ describe('章节折叠与源码补丁', () => {
       )
       editor.view.dispatch(editor.state.tr.insertText('改名', chapter.position + 1))
       expect(immersiveChapters(editor.state)!.chapters[0]!.text).toBe('改名第一章')
+      expect(immersiveChapters(editor.state)!.decorations.find()[0]!.spec.key).not.toBe(
+        after.decorations.find()[0]!.spec.key,
+      )
+      expect(immersiveChapters(editor.state)!.decorations.find()[1]!.spec.key).toBe(
+        after.decorations.find()[1]!.spec.key,
+      )
+      expect(immersiveChapters(editor.state)!.decorations.find()[1]!.spec).toBe(
+        after.decorations.find()[1]!.spec,
+      )
+      expect(
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .map((item) => item.from),
+      ).toEqual(immersiveChapters(editor.state)!.chapters.map((item) => item.position + 1))
     } finally {
       editor.destroy()
     }

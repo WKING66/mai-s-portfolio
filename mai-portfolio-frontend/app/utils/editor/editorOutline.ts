@@ -39,7 +39,7 @@ export function collectEditorHeadings(
   return headings
 }
 
-export function editorHeadingTree(headings: EditorHeading[]): TocLink[] {
+export function editorHeadingTree(headings: EditorHeading[], previous: TocLink[] = []): TocLink[] {
   const roots: TocLink[] = []
   const ancestors: TocLink[] = []
   for (const heading of headings) {
@@ -55,5 +55,28 @@ export function editorHeadingTree(headings: EditorHeading[]): TocLink[] {
     }
     ancestors.push(link)
   }
-  return roots
+  if (!previous.length) {
+    return roots
+  }
+  const byId = new Map<string, TocLink>()
+  const remember = (items: TocLink[]) =>
+    items.forEach((item) => {
+      byId.set(item.id, item)
+      remember(item.children ?? [])
+    })
+  remember(previous)
+  // 保持无变化分支的身份，让目录行已有的 v-memo 只刷新真正变化的标题及祖先。
+  function share(items: TocLink[], prior: TocLink[]): TocLink[] {
+    const next = items.map((item) => {
+      const old = byId.get(item.id)
+      const children = share(item.children ?? [], old?.children ?? [])
+      return old && old.text === item.text && old.depth === item.depth && children === old.children
+        ? old
+        : { ...item, children }
+    })
+    return next.length === prior.length && next.every((item, index) => item === prior[index])
+      ? prior
+      : next
+  }
+  return share(roots, previous)
 }

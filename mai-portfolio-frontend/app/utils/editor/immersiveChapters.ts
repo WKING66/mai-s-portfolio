@@ -136,7 +136,8 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
               return button
             },
             {
-              key: 'chapter-' + chapter.id + '-' + collapsed.has(chapter.id),
+              key: 'chapter-' + chapter.id + '-' + collapsed.has(chapter.id) + '-' + chapter.text,
+              chapterId: chapter.id,
               side: 1,
               stopEvent: () => true,
             },
@@ -165,27 +166,50 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
             if (!transaction.docChanged && !transaction.getMeta(IMMERSIVE_CHAPTER_KEY)) {
               return previous
             }
-            // 同段正文输入不改变标题结构，直接使用 PM 映射，保留目录/折叠状态身份。
-            // 标题自身的编辑与任何结构变化仍走完整章节计算。
+            // 同段输入不改变标题层级；映射位置，并仅替换确实变化的标题按钮。
             if (
               transaction.docChanged &&
               !transaction.getMeta(IMMERSIVE_CHAPTER_KEY) &&
               transaction.getMeta('immersive-plain-text') &&
-              transaction.steps.every(
-                (step, index) =>
-                  step instanceof ReplaceStep &&
-                  transaction.docs[index]!.resolve(step.from).parent.type.name !== 'heading',
-              )
+              transaction.steps.every((step) => step instanceof ReplaceStep)
             ) {
+              const chapters = previous.chapters.map((chapter) => ({
+                ...chapter,
+                position: transaction.mapping.map(chapter.position),
+                bodyFrom: transaction.mapping.map(chapter.bodyFrom),
+                end: transaction.mapping.map(chapter.end),
+              }))
+              let decorations = previous.decorations.map(transaction.mapping, transaction.doc)
+              if (
+                transaction.steps.some(
+                  (step, index) =>
+                    step instanceof ReplaceStep &&
+                    transaction.docs[index]!.resolve(step.from).parent.type.name === 'heading',
+                )
+              ) {
+                const widgets = new Map(
+                  decorations.find().map((item) => [item.spec.chapterId, item]),
+                )
+                const changed = chapters.filter((chapter, index) => {
+                  chapter.text =
+                    transaction.doc.nodeAt(chapter.position)!.textContent || '未命名标题'
+                  return (
+                    chapter.text !== previous.chapters[index]!.text ||
+                    widgets.get(chapter.id)?.from !== chapter.position + 1
+                  )
+                })
+                const changedIds = new Set(changed.map((chapter) => chapter.id))
+                decorations = decorations
+                  .remove(decorations.find().filter((item) => changedIds.has(item.spec.chapterId)))
+                  .add(
+                    transaction.doc,
+                    decorate(transaction.doc, changed, previous.collapsed).find(),
+                  )
+              }
               return {
-                chapters: previous.chapters.map((chapter) => ({
-                  ...chapter,
-                  position: transaction.mapping.map(chapter.position),
-                  bodyFrom: transaction.mapping.map(chapter.bodyFrom),
-                  end: transaction.mapping.map(chapter.end),
-                })),
+                chapters,
                 collapsed: previous.collapsed,
-                decorations: previous.decorations.map(transaction.mapping, transaction.doc),
+                decorations,
               }
             }
             const chapters = transaction.docChanged
