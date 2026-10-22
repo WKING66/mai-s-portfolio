@@ -63,13 +63,9 @@ public class DocumentResourceResolver {
         }
     }
 
-    /** 上传映射只规范化键，不读取服务器文件；保留既有导入调用边界。 */
+    /** 上传映射只规范化文件名键，不解码文件名、不读取服务器文件。 */
     public static String localPath(String uri) {
         return DocumentResourceLoader.localPath(uri);
-    }
-
-    static String referencePath(String uri) {
-        return DocumentResourceLoader.referencePath(uri);
     }
 
     private void validateContent(String content) {

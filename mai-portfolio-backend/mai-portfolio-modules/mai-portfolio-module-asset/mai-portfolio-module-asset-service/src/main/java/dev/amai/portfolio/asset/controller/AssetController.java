@@ -1,6 +1,7 @@
 package dev.amai.portfolio.asset.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.asset.entity.vo.AssetVo;
 import dev.amai.portfolio.asset.service.AssetService;
@@ -59,6 +60,10 @@ public class AssetController {
                             required = true))
     public R<AssetVo> upload(
             @RequestPart("file") MultipartFile file, @RequestParam AssetUsage usage) {
+        // 用途授权在入口完成；上传 Service 只处理文件校验与归档。
+        if (usage != AssetUsage.AVATAR) {
+            StpUtil.checkRole(AuthConstants.OWNER_ROLE);
+        }
         return R.success(assetService.upload(file, usage));
     }
 }

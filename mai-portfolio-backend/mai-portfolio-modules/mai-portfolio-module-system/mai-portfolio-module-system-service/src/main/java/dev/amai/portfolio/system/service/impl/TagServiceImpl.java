@@ -17,17 +17,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class TagServiceImpl implements TagService {
     private final TagMapper tagMapper;
 
-    private final OwnerAuthorizationService ownerAuthorizationService;
-
-    public TagServiceImpl(TagMapper tagMapper, OwnerAuthorizationService ownerAuthorizationService) {
+    public TagServiceImpl(TagMapper tagMapper) {
         this.tagMapper = tagMapper;
-        this.ownerAuthorizationService = ownerAuthorizationService;
     }
 
     @Override
     @Transactional
     public TagData create(TagRequest request) {
-        ownerAuthorizationService.requireOwner();
         var tag = TaxonomyConvert.MAPPER.to(request);
         tag.setName(request.name().strip());
         tag.setNormalizedName(tag.getName().toLowerCase(Locale.ROOT));

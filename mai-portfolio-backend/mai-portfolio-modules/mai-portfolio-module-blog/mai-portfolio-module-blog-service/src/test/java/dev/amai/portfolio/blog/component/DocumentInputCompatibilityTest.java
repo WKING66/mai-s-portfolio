@@ -85,7 +85,7 @@ class DocumentInputCompatibilityTest {
     @Test
     void pathCompatibilityStillRejectsTraversalAbsolutePathsAndEncodedSeparators() {
         for (String path : new String[] {"..\\secret.png", "C:\\secret.png", "\\\\server\\a.png", "images%5ca.png"}) {
-            assertThatThrownBy(() -> DocumentResourceResolver.referencePath(path)).isInstanceOf(ApiException.class);
+            assertThatThrownBy(() -> DocumentResourceLoader.referencePath(path)).isInstanceOf(ApiException.class);
         }
         assertThatThrownBy(() -> DocumentResourceResolver.localPath("images\\a.png"))
                 .isInstanceOf(ApiException.class);

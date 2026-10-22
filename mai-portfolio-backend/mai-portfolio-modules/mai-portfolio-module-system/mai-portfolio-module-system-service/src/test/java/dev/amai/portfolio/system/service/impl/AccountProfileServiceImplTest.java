@@ -198,7 +198,7 @@ class AccountProfileServiceImplTest {
     }
 
     @Test
-    void passwordChangeCommitsCredentialVersionWithoutRedisEvictionAndTrimsOnlyNewValue() {
+    void passwordChangeRevokesRedisSessionsOnlyAfterCommitAndTrimsOnlyNewValue() {
         when(crypto.decryptPassword("old-cipher")).thenReturn(" old-password ");
         when(crypto.decryptPassword("new-cipher")).thenReturn(" \u00A0new-password-ab!\uFEFF ");
         when(passwords.matches(" old-password ", "old-hash")).thenReturn(true);
@@ -209,7 +209,7 @@ class AccountProfileServiceImplTest {
                 service.changePassword(new AccountPasswordRequest("old-cipher", "new-cipher"));
                 stp.verify(() -> StpUtil.logout(7L), never());
             });
-            stp.verify(() -> StpUtil.logout(7L), never());
+            stp.verify(() -> StpUtil.logout(7L));
         }
         verify(passwords).matches(" old-password ", "old-hash");
         verify(passwords).encode("new-password-ab!");
@@ -303,9 +303,9 @@ class AccountProfileServiceImplTest {
 
     private org.mockito.MockedStatic<StpUtil> authenticatedSession() {
         var stp = mockStatic(StpUtil.class);
-        var tokenSession = new cn.dev33.satoken.session.SaSession("test-token" );
-        tokenSession.set("credentialVersion", 0L);
-        stp.when(StpUtil::getTokenSession).thenReturn(tokenSession);
+        var session = new cn.dev33.satoken.session.SaSession("test-account");
+        session.set("account", account);
+        stp.when(() -> StpUtil.getSessionByLoginId(7L, false)).thenReturn(session);
         return stp;
     }
 

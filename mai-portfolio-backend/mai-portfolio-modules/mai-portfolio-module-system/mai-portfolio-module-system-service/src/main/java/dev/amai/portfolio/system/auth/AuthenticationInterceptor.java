@@ -4,14 +4,16 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
-import dev.amai.portfolio.system.service.AuthService;
+import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Arrays;
 import java.util.Set;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.stereotype.Component;
@@ -20,20 +22,21 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-/** 通用认证边界：HTTPS、登录态、账号状态与 CSRF，不负责站长角色授权。 */
+/** 请求认证入口：HTTPS、Redis 登录身份和 CSRF；管理视图的条件角色授权也在入口完成。 */
 @Component
 public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConfigurer {
-    /** 先于接口注解角色鉴权，统一完成请求与账号有效性检查。 */
+    /** 先于接口注解角色鉴权，统一完成请求与会话有效性检查。 */
     private static final int AUTHENTICATION_INTERCEPTOR_ORDER = -100;
 
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");
     private final RequestSecurityPolicy requestSecurityPolicy;
-    private final AuthService authService;
+    private final AccountAuthenticationService accountAuthenticationService;
 
     public AuthenticationInterceptor(
-            RequestSecurityPolicy requestSecurityPolicy, AuthService authService) {
+            RequestSecurityPolicy requestSecurityPolicy,
+            AccountAuthenticationService accountAuthenticationService) {
         this.requestSecurityPolicy = requestSecurityPolicy;
-        this.authService = authService;
+        this.accountAuthenticationService = accountAuthenticationService;
     }
 
     @Override
@@ -55,7 +58,8 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
                 sessionEndpoint && ("GET".equals(method) || "POST".equals(method))
                         || AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method);
         // 角色/页面路径不再决定领域分类；接口注解及写操作决定是否进入认证边界。
-        boolean protectedEndpoint = !SAFE_METHODS.contains(method) || requiresSession(handler);
+        boolean ownerView = isOwnerView(request, handler);
+        boolean protectedEndpoint = !SAFE_METHODS.contains(method) || requiresSession(handler) || ownerView;
         if (!credentialsEndpoint && !protectedEndpoint) {
             return true;
         }
@@ -67,16 +71,21 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
             return true;
         }
         if (sessionEndpoint && ("GET".equals(method) || "POST".equals(method))) {
-            // GET 在服务中查询匿名/账号状态，POST 通过凭据建立登录态。
+            // GET 在服务中读取匿名/Redis 身份状态，POST 通过凭据建立登录态。
             return true;
         }
-        // 3. 校验登录和数据库账号事实；合法注销仍允许停用账号退出。
-        StpUtil.checkLogin();
-        // 停用账号不能继续执行业务，但仍允许持有合法 CSRF 的用户主动注销。
-        if (!(sessionEndpoint && "DELETE".equals(method))) {
-            authService.checkActiveAccount();
+        // 3. 校验 Redis 登录身份上下文；合法注销仍允许停用账号退出。
+        // 停用账号仍允许显式注销；其他入口统一读取 Redis 会话中的身份上下文。
+        if (sessionEndpoint && "DELETE".equals(method)) {
+            StpUtil.getLoginIdAsLong();
+        } else {
+            accountAuthenticationService.currentAccount();
         }
-        // 4. 写操作采用恒定时间比较核对 CSRF，不将角色判断塞进此通用入口。
+        // 混合视图只在管理查询时授权；固定权限接口继续由 @SaCheckRole 统一处理。
+        if (ownerView) {
+            StpUtil.checkRole(AuthConstants.OWNER_ROLE);
+        }
+        // 4. 写操作采用恒定时间比较核对 CSRF。
         if (!SAFE_METHODS.contains(method)) {
             String expected = (String) StpUtil.getSession().get(AuthConstants.CSRF_SESSION_KEY);
             String supplied = request.getHeader(AuthConstants.CSRF_HEADER_NAME);
@@ -92,6 +101,19 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
             }
         }
         return true;
+    }
+
+    private boolean isOwnerView(HttpServletRequest request, Object handler) {
+        if (!(handler instanceof HandlerMethod method)
+                || !AnnotatedElementUtils.hasAnnotation(method.getMethod(), OwnerView.class)) {
+            return false;
+        }
+        String[] views = request.getParameterValues("view");
+        if (views == null) {
+            return false;
+        }
+        // 任一管理值都先要求授权，避免重复参数的绑定差异暴露管理投影。
+        return Arrays.asList(views).contains("MANAGE");
     }
 
     private boolean requiresSession(Object handler) {

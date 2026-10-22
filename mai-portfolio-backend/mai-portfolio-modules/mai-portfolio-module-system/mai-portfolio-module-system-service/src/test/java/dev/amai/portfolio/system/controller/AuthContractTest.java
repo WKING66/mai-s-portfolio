@@ -13,7 +13,6 @@ import dev.amai.portfolio.system.exception.InvalidCredentialPayloadException;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import dev.amai.portfolio.system.service.LoginThrottleService;
-import dev.amai.portfolio.system.service.OwnerRoleService;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.system.service.impl.AuthServiceImpl;
 import dev.amai.portfolio.security.password.PasswordHasher;
@@ -51,7 +50,7 @@ class AuthContractTest {
     private final AuthService auth = spy(new AuthServiceImpl(accounts, passwords,
         new SecurityProperties(List.of(ORIGIN), new ByteArrayResource(new byte[0]),
             false, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5)), crypto, throttle,
-        mock(OwnerRoleService.class), sessions, new NewPasswordPolicy(),
+        sessions, new NewPasswordPolicy(),
         new AuthRequestValidator(validators.getValidator()), transactions));
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new AuthController(auth), new OtherController())
         .setControllerAdvice(new AuthRequestExceptionHandler(), new GlobalExceptionHandler()).build();

@@ -12,6 +12,7 @@ import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.service.*;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -51,6 +52,7 @@ public class BlogController {
         this.documentImportTaskService = documentImportTaskService;
     }
 
+    @OwnerView
     @GetMapping
     @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取公开版本；MANAGE 需要 OWNER，读取草稿投影。")
     public ResponseEntity<R<BlogPageVo>> list(
@@ -216,6 +218,7 @@ public class BlogController {
 
     @SaCheckLogin
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @OwnerView
     @GetMapping("/{id}/export")
     @Operation(
             summary = "导出 Markdown 或资源 ZIP",

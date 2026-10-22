@@ -6,6 +6,7 @@ import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.security.password.PasswordHasher;
+import dev.amai.portfolio.system.auth.AccountSessionInvalidation;
 import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.constant.AccountMessageConstants;
 import dev.amai.portfolio.system.convert.AccountConvert;
@@ -26,17 +27,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.Set;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /** 本人资料维护与公开站长资料分离；不读取客户端账号 ID 或客户端权限字段。 */
 @Service
 public class AccountProfileServiceImpl implements AccountProfileService {
-    private static final Logger LOG = LoggerFactory.getLogger(AccountProfileServiceImpl.class);
     private static final int MAX_NICKNAME_CHARACTERS = 64;
     private final UserAccountMapper userAccountMapper;
     private final UserProfileMapper userProfileMapper;
@@ -65,7 +62,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
 
     @Override
     public AccountProfileVo current() {
-        UserAccountDO account = activeAccount(false);
+        UserAccountDO account = accountAuthenticationService.currentAccount();
         return view(account, findProfile(account.getId()));
     }
 
@@ -74,7 +71,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
     public AccountProfileVo update(AccountProfileRequest request) {
         // 1. 规范化昵称，再锁定当前账号，串行化同账号的资料创建与修改。
         String nickname = nickname(request.nickname());
-        UserAccountDO account = activeAccount(true);
+        UserAccountDO account = accountAuthenticationService.lockCurrentAccount();
         UserProfileDO profile = profileForWrite(account.getId());
         // 2. 仅写本人昵称；头像等其他资料保持原样，响应通过资产查询生成。
         profile.setNickname(nickname);
@@ -86,10 +83,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
     @Transactional
     public AccountProfileVo bindAvatar(AccountAvatarRequest request) {
         // 1. 锁定本人账号后校验资产引用，禁止以请求数据选择其他账号。
-        UserAccountDO account = activeAccount(true);
-        if (request == null || request.assetId() == null || request.assetId() < 1) {
-            throw invalid(AccountMessageConstants.AVATAR_BINDING_INVALID);
-        }
+        UserAccountDO account = accountAuthenticationService.lockCurrentAccount();
         // 2. 只允许本人上传、AVATAR 用途且 READY 的图片；复用 Asset，不重复上传。
         var asset = Optional.ofNullable(
                 assetQueryService.lockReady(Set.of(request.assetId())).get(request.assetId()))
@@ -120,7 +114,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
         String newPassword =
                 newPasswordPolicy.normalize(
                         passwordCryptoService.decryptPassword(request.newEncryptedPassword()));
-        UserAccountDO account = activeAccount(true);
+        UserAccountDO account = accountAuthenticationService.lockCurrentAccount();
         if (!passwordHasher.matches(oldPassword, account.getPasswordHash())) {
             // 422 保留当前登录态，不能把“旧密码输错”误当成会话失效的 401。
             throw invalid(AccountMessageConstants.CURRENT_PASSWORD_INVALID);
@@ -151,23 +145,9 @@ public class AccountProfileServiceImpl implements AccountProfileService {
             throw new ApiException(
                     ApiErrorCode.DATA_CONFLICT, AccountMessageConstants.ACCOUNT_WRITE_CONFLICT);
         }
-        // 4. 密码与凭据版本同事务提交；回滚不失效会话，提交不依赖外部会话删除。
-        long accountId = account.getId();
+        // 4. 只有数据库提交成功后才注销 Redis 会话；回滚不影响原登录。
         TransactionSynchronizationManager.registerSynchronization(
-                new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        LOG.info(
-                                "Account password changed; prior credentials invalidated, accountId={}",
-                                accountId);
-                    }
-                });
-    }
-
-    private UserAccountDO activeAccount(boolean forUpdate) {
-        return forUpdate
-                ? accountAuthenticationService.lockCurrentAccount()
-                : accountAuthenticationService.currentAccount();
+                new AccountSessionInvalidation(account.getId(), accountAuthenticationService));
     }
 
     private UserProfileDO findProfile(long accountId) {

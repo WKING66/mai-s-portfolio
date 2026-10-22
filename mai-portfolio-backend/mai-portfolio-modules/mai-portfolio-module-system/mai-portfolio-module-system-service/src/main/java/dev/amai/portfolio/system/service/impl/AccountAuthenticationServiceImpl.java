@@ -3,6 +3,7 @@ package dev.amai.portfolio.system.service.impl;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.auth.AccountContext;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.enums.AccountStatus;
@@ -12,15 +13,17 @@ import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
-/** 每个令牌绑定登录时的凭据版本；数据库版本决定失效，旧记录按已有 TTL 回收。 */
+/** 登录建立 Redis 身份上下文；普通读请求复用会话，账号写操作才读取并锁定账号表。 */
 @Service
 public class AccountAuthenticationServiceImpl implements AccountAuthenticationService {
-    private static final String CREDENTIAL_VERSION = "credentialVersion";
     private static final int CSRF_BYTES = 32;
+
     private final UserAccountMapper userAccountMapper;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AccountAuthenticationServiceImpl(UserAccountMapper userAccountMapper) {
@@ -33,80 +36,47 @@ public class AccountAuthenticationServiceImpl implements AccountAuthenticationSe
     }
 
     @Override
+    public List<String> currentRoles() {
+        return AccountContext.roles(currentAccount());
+    }
+
+    @Override
     public Optional<UserAccountDO> findCurrentAccount() {
-        if (!StpUtil.isLogin()) {
-            return Optional.empty();
-        }
-        return Optional.ofNullable(readSessionAccount(false));
+        return StpUtil.isLogin() ? Optional.of(currentAccount()) : Optional.empty();
     }
 
     @Override
     public UserAccountDO currentAccount() {
-        return requireAccount(false);
+        return AccountContext.currentAccount();
     }
 
     @Override
     public UserAccountDO lockCurrentAccount() {
-        return requireAccount(true);
-    }
-
-    private UserAccountDO requireAccount(boolean lock) {
-        StpUtil.checkLogin();
-        UserAccountDO account = readSessionAccount(lock);
-        if (account == null) {
-            throw new ApiException(
-                    ApiErrorCode.UNAUTHENTICATED, SystemMessageConstants.SESSION_EXPIRED);
-        }
-        return account;
-    }
-
-    private UserAccountDO readSessionAccount(boolean lock) {
-        // 1. 从已登录身份读取数据库事实；写入场景由当前事务持有账号行锁。
-        long accountId = StpUtil.getLoginIdAsLong();
-        UserAccountDO account =
-                lock
-                        ? userAccountMapper.selectForUpdate(accountId)
-                        : userAccountMapper.selectById(accountId);
-        // 账号事实已不存在，旧令牌必须撤销；会话查询可投影为匿名，业务入口继续拒绝。
-        // 禁用账号仍存在，沿用 403 并允许显式注销；不能与删除混为一谈。
+        // 账号写入需要数据库中的完整账号及密码摘要；此查询不是普通接口的权限检查。
+        UserAccountDO account = userAccountMapper.selectForUpdate(currentAccountId());
         if (account == null) {
             StpUtil.logout();
-            return null;
+            throw new ApiException(ApiErrorCode.UNAUTHENTICATED, SystemMessageConstants.SESSION_EXPIRED);
         }
-        // 2. 保留删除与禁用的不同契约，再核对令牌绑定的数据库凭据版本。
         requireEnabled(account);
-        var saTokenSession = StpUtil.getTokenSession();
-        Object version = saTokenSession == null ? null : saTokenSession.get(CREDENTIAL_VERSION);
-        if (!(version instanceof Number number)
-                || number.longValue() != account.getCredentialVersion()) {
-            // 缺少版本的历史会话也必须重新登录；不依赖失败的 Redis 删除确认失效。
-            throw new ApiException(
-                    ApiErrorCode.UNAUTHENTICATED, SystemMessageConstants.SESSION_EXPIRED);
-        }
         return account;
     }
 
     @Override
     public String startSession(UserAccountDO account) {
-        // 1. 只有启用账号可以建会话；令牌版本使用调用方已读取/锁定的账号事实。
         requireEnabled(account);
-        // 每次登录使用独立 token，禁止新登录改写旧 token 的凭据版本。
-        StpUtil.login(
-                account.getId(),
-                new SaLoginParameter().setIsShare(false));
-        // 2. 为本次登录生成写操作令牌，并分别保存凭据版本与账号会话 CSRF。
+        StpUtil.login(account.getId(), new SaLoginParameter().setIsShare(false));
+        AccountContext.set(account);
         byte[] bytes = new byte[CSRF_BYTES];
         secureRandom.nextBytes(bytes);
         String csrf = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        StpUtil.getTokenSession().set(CREDENTIAL_VERSION, account.getCredentialVersion());
         StpUtil.getSession().set(AuthConstants.CSRF_SESSION_KEY, csrf);
         return csrf;
     }
 
     private void requireEnabled(UserAccountDO account) {
         if (account == null || account.getStatus() != AccountStatus.ENABLED.code()) {
-            throw new ApiException(
-                    ApiErrorCode.FORBIDDEN, SystemMessageConstants.ACCOUNT_UNAVAILABLE);
+            throw new ApiException(ApiErrorCode.FORBIDDEN, SystemMessageConstants.ACCOUNT_UNAVAILABLE);
         }
     }
 
@@ -120,5 +90,10 @@ public class AccountAuthenticationServiceImpl implements AccountAuthenticationSe
         long accountId = StpUtil.getLoginIdAsLong();
         StpUtil.logout();
         return accountId;
+    }
+
+    @Override
+    public void invalidateSessions(long accountId) {
+        StpUtil.logout(accountId);
     }
 }

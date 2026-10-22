@@ -32,8 +32,8 @@ import dev.amai.portfolio.portfolio.mapper.ProjectMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectMediaMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectTagMapper;
 import dev.amai.portfolio.portfolio.service.ProjectService;
-import dev.amai.portfolio.system.api.OwnerAuthorizationService;
 import dev.amai.portfolio.system.api.TaxonomyQueryService;
+import dev.amai.portfolio.system.api.TagData;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.net.URI;
@@ -64,33 +64,26 @@ public class ProjectServiceImpl implements ProjectService {
     private final TaxonomyQueryService taxonomyQueryService;
     private final ProjectMediaMapper projectMediaMapper;
     private final AssetQueryService assetQueryService;
-    private final OwnerAuthorizationService ownerAuthorizationService;
-
     public ProjectServiceImpl(
             ProjectMapper projectMapper,
             ProjectLinkMapper projectLinkMapper,
             ProjectTagMapper projectTagMapper,
             TaxonomyQueryService taxonomyQueryService,
             ProjectMediaMapper projectMediaMapper,
-            AssetQueryService assetQueryService,
-            OwnerAuthorizationService ownerAuthorizationService) {
+            AssetQueryService assetQueryService) {
         this.projectMapper = projectMapper;
         this.projectLinkMapper = projectLinkMapper;
         this.projectTagMapper = projectTagMapper;
         this.taxonomyQueryService = taxonomyQueryService;
         this.projectMediaMapper = projectMediaMapper;
         this.assetQueryService = assetQueryService;
-        this.ownerAuthorizationService = ownerAuthorizationService;
     }
 
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ProjectPageVo list(ProjectListRequest request) {
-        // 1. 先确定查询视图；管理投影必须通过账号域核对 OWNER 权限。
+        // 1. 先确定查询视图；管理视图权限由 Controller 声明并在请求入口校验。
         ProjectView view = parseView(request.view());
-        if (view == ProjectView.MANAGE) {
-            ownerAuthorizationService.requireOwner();
-        }
         int page = ObjectUtil.defaultIfNull(request.page(), ProjectConstants.FIRST_PAGE);
         int defaultSize = view == ProjectView.PUBLIC
                 ? ProjectConstants.PUBLIC_PAGE_SIZE : ProjectConstants.MANAGE_PAGE_SIZE;
@@ -267,13 +260,16 @@ public class ProjectServiceImpl implements ProjectService {
     }
 
     private void validateTagIds(List<Long> ids) {
-        if (new HashSet<>(ids).size() != ids.size()) {
+        List<TagData> tags;
+        try {
+            tags = taxonomyQueryService.requireTags(ids);
+        } catch (ApiException failure) {
+            if (failure.code() != ApiErrorCode.VALIDATION_FAILED) {
+                throw failure;
+            }
             throw invalid(ProjectMessageConstants.INVALID_TAGS);
         }
-        Set<Long> available = taxonomyQueryService.techTagOptions().stream()
-                .map(tag -> tag.id())
-                .collect(Collectors.toSet());
-        if (!available.containsAll(ids)) {
+        if (tags.stream().anyMatch(tag -> !"TECH".equals(tag.kind()))) {
             throw invalid(ProjectMessageConstants.INVALID_TAGS);
         }
     }

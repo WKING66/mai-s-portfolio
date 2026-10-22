@@ -5,7 +5,6 @@ import dev.amai.portfolio.blog.entity.domain.DocumentImportTaskDO;
 import dev.amai.portfolio.blog.enums.ImportTaskStatus;
 import dev.amai.portfolio.blog.mapper.DocumentImportTaskMapper;
 import dev.amai.portfolio.blog.service.DocumentImportTaskService;
-import dev.amai.portfolio.system.api.OwnerAuthorizationService;
 import dev.amai.portfolio.web.exception.*;
 import java.time.*;
 import java.util.List;
@@ -22,12 +21,8 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
 
     private final DocumentImportTaskMapper documentImportTaskMapper;
 
-    private final OwnerAuthorizationService ownerAuthorizationService;
-
-    public DocumentImportTaskServiceImpl(DocumentImportTaskMapper documentImportTaskMapper,
-            OwnerAuthorizationService ownerAuthorizationService) {
+    public DocumentImportTaskServiceImpl(DocumentImportTaskMapper documentImportTaskMapper) {
         this.documentImportTaskMapper = documentImportTaskMapper;
-        this.ownerAuthorizationService = ownerAuthorizationService;
     }
 
     @Override
@@ -90,7 +85,6 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
 
     @Override
     public DocumentImportTaskDO get(long id) {
-        ownerAuthorizationService.requireOwner();
         var task = documentImportTaskMapper.selectById(id);
         if (task == null) {
             throw new ApiException(ApiErrorCode.NOT_FOUND, "导入记录不存在");
@@ -100,7 +94,6 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
 
     @Override
     public List<DocumentImportTaskDO> recent(Long documentId) {
-        ownerAuthorizationService.requireOwner();
         return documentImportTaskMapper.selectList(Wrappers.<DocumentImportTaskDO>lambdaQuery()
                 .eq(documentId != null, DocumentImportTaskDO::getDocumentId, documentId)
                 .orderByDesc(DocumentImportTaskDO::getId).last("LIMIT " + RECENT_TASK_LIMIT));

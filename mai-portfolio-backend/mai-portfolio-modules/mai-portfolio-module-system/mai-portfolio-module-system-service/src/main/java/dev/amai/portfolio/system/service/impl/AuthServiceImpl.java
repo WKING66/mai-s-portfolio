@@ -2,6 +2,7 @@ package dev.amai.portfolio.system.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.security.password.PasswordHasher;
+import dev.amai.portfolio.system.auth.AccountContext;
 import dev.amai.portfolio.system.component.AuthRequestValidator;
 import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.config.SecurityProperties;
@@ -18,7 +19,6 @@ import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import dev.amai.portfolio.system.service.AuthService;
 import dev.amai.portfolio.system.service.LoginThrottleService;
-import dev.amai.portfolio.system.service.OwnerRoleService;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
@@ -44,7 +44,6 @@ public class AuthServiceImpl implements AuthService {
     private final SecurityProperties securityProperties;
     private final PasswordCryptoService passwordCryptoService;
     private final LoginThrottleService loginThrottleService;
-    private final OwnerRoleService ownerRoleService;
     private final AccountAuthenticationService accountAuthenticationService;
     private final NewPasswordPolicy newPasswordPolicy;
     private final AuthRequestValidator authRequestValidator;
@@ -56,7 +55,6 @@ public class AuthServiceImpl implements AuthService {
             SecurityProperties securityProperties,
             PasswordCryptoService passwordCryptoService,
             LoginThrottleService loginThrottleService,
-            OwnerRoleService ownerRoleService,
             AccountAuthenticationService accountAuthenticationService,
             NewPasswordPolicy newPasswordPolicy,
             AuthRequestValidator authRequestValidator,
@@ -66,7 +64,6 @@ public class AuthServiceImpl implements AuthService {
         this.securityProperties = securityProperties;
         this.passwordCryptoService = passwordCryptoService;
         this.loginThrottleService = loginThrottleService;
-        this.ownerRoleService = ownerRoleService;
         this.accountAuthenticationService = accountAuthenticationService;
         this.newPasswordPolicy = newPasswordPolicy;
         this.authRequestValidator = authRequestValidator;
@@ -83,7 +80,7 @@ public class AuthServiceImpl implements AuthService {
                 account,
                 true,
                 accountAuthenticationService.csrfToken(),
-                ownerRoleService.findRoles(account.getId()));
+                AccountContext.roles(account));
     }
 
     @Override
@@ -122,7 +119,7 @@ public class AuthServiceImpl implements AuthService {
         // IP 窗口统计所有尝试；不能因某个账号成功而放行对其他账号的持续猜测。
         LOG.info("User logged in, accountId={}", account.getId());
         return AccountConvert.MAPPER.to(
-                account, true, csrf, ownerRoleService.findRoles(account.getId()));
+                account, true, csrf, AccountContext.roles(account));
     }
 
     @Override
@@ -184,8 +181,4 @@ public class AuthServiceImpl implements AuthService {
         return new RegistrationVo(username);
     }
 
-    @Override
-    public void checkActiveAccount() {
-        accountAuthenticationService.currentAccount();
-    }
 }

@@ -54,8 +54,6 @@ public class BlogServiceImpl implements BlogService {
 
     private final TaxonomyQueryService taxonomyQueryService;
 
-    private final OwnerAuthorizationService ownerAuthorizationService;
-
     private final AccountIdentityService accountIdentityService;
 
     private final DocumentProperties documentProperties;
@@ -72,7 +70,6 @@ public class BlogServiceImpl implements BlogService {
             DocumentResourceResolver documentResourceResolver, DocumentParser documentParser,
             DocumentRenderer documentRenderer, AssetFileService assetFileService,
             AssetQueryService assetQueryService, TaxonomyQueryService taxonomyQueryService,
-            OwnerAuthorizationService ownerAuthorizationService,
             AccountIdentityService accountIdentityService, DocumentProperties documentProperties,
             PlatformTransactionManager transactionManager) {
         this.blogPostMapper = blogPostMapper;
@@ -84,7 +81,6 @@ public class BlogServiceImpl implements BlogService {
         this.assetFileService = assetFileService;
         this.assetQueryService = assetQueryService;
         this.taxonomyQueryService = taxonomyQueryService;
-        this.ownerAuthorizationService = ownerAuthorizationService;
         this.accountIdentityService = accountIdentityService;
         this.documentProperties = documentProperties;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -94,9 +90,6 @@ public class BlogServiceImpl implements BlogService {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public BlogPageVo list(String view, int page, int size) {
         boolean manage = manage(view);
-        if (manage) {
-            ownerAuthorizationService.requireOwner();
-        }
         var query = Wrappers.<BlogPostDO>lambdaQuery();
         if (!manage) {
             query.eq(BlogPostDO::getStatus, PUBLISHED);
@@ -118,7 +111,6 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public BlogVo get(long id) {
-        ownerAuthorizationService.requireOwner();
         var blog = required(id);
         return project(blog, documentService.read(blog.getDocumentId(), true), true);
     }
@@ -136,8 +128,7 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     public BlogVo save(Long id, BlogRequest request) {
-        // 1. 核对权限与已提交请求；断线重试不得再次抓取资源或创建博客。
-        ownerAuthorizationService.requireOwner();
+        // 1. 使用入口已验证的账号核对已提交请求；已完成的重试直接返回结果。
         long account = accountIdentityService.currentAccountId();
         String hash = DocumentWriteFingerprint.save(request);
         BlogPostDO existing = id == null ? null : required(id);
@@ -178,7 +169,6 @@ public class BlogServiceImpl implements BlogService {
     @Override
     public BlogVo importDocument(MultipartFile file, List<MultipartFile> input,
             boolean rights, List<Long> tagIds, String requestId) {
-        ownerAuthorizationService.requireOwner();
         long account = accountIdentityService.currentAccountId();
         // 1. 来源记录独立提交；解析或正文事务失败仍有可追溯入口。
         String filename = sourceFilename(file == null ? null : file.getOriginalFilename());
@@ -300,7 +290,6 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     public BlogVo transition(long id, BlogRevisionRequest request, BlogAction action) {
-        ownerAuthorizationService.requireOwner();
         var initial = required(id);
         transactionTemplate.executeWithoutResult(status -> {
             // 1. 同一身份锁和修订保护所有状态动作，重试不重复改变正文。
@@ -359,7 +348,6 @@ public class BlogServiceImpl implements BlogService {
 
     @Override
     public void delete(long id, BlogRevisionRequest request) {
-        ownerAuthorizationService.requireOwner();
         var initial = required(id);
         transactionTemplate.executeWithoutResult(status -> {
             documentService.beginWrite(initial.getDocumentId(), request.revision(),
@@ -377,11 +365,7 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public Document exportDocument(long id, String view) {
-        accountIdentityService.currentAccountId();
         boolean manage = manage(view);
-        if (manage) {
-            ownerAuthorizationService.requireOwner();
-        }
         var blog = required(id);
         if (!manage && (blog.getStatus() != PUBLISHED
                 || blog.getAllowVisitorDownload() != VISITOR_DOWNLOAD_ENABLED)) {

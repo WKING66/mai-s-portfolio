@@ -200,7 +200,7 @@ class DocumentPipelineTest {
             assertThatThrownBy(() -> DocumentResourceResolver.localPath(path))
                     .isInstanceOf(ApiException.class);
         for (String path : List.of("a%2f..%2fsecret", "%2e%2e/secret", "%GG"))
-            assertThatThrownBy(() -> DocumentResourceResolver.referencePath(path))
+            assertThatThrownBy(() -> DocumentResourceLoader.referencePath(path))
                     .isInstanceOf(ApiException.class);
         for (String ip :
                 List.of(
