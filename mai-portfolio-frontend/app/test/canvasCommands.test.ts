@@ -4,12 +4,12 @@ import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
 import {
   CANVAS_EDITOR_EXTENSIONS,
+  CANVAS_STARTER_KIT,
   ALERT_KINDS,
   createCanvasMarkdownOptions,
   importCanvasMarkdown,
   exportCanvasMarkdown,
 } from '../utils/editor/canvasMarkdown'
-import { EDITOR_STARTER_KIT } from '../utils/editor/markdownExtensions'
 import { IMMERSIVE_COMMANDS, executeImmersiveCommand } from '../utils/editor/immersiveCommands'
 import { editorContentMeaning } from '../utils/editor/markdownOutput'
 
@@ -18,7 +18,7 @@ describe('Showcase 新语法的真实编辑命令', () => {
     const editor = new Editor({
       element: null,
       extensions: [
-        StarterKit.configure(EDITOR_STARTER_KIT),
+        StarterKit.configure(CANVAS_STARTER_KIT),
         ...CANVAS_EDITOR_EXTENSIONS,
         Markdown.configure(createCanvasMarkdownOptions()),
       ],

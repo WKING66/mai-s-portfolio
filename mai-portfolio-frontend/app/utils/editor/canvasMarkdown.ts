@@ -1,6 +1,7 @@
 import { getSchema, Node, type JSONContent } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
-import { MarkdownManager } from '@tiptap/markdown'
+import { OrderedList } from '@tiptap/extension-list'
+import { CanvasMarkdownWriter } from './canvasMarkdownOutput'
 import type { Token } from 'marked'
 import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT, isEditorUrl } from './markdownExtensions'
 import { createBlogMarkdownOptions } from './markdownCompatibility'
@@ -8,6 +9,27 @@ import { serializeEditorDocument } from './markdownOutput'
 import type { DocumentResource } from '../../api/blogs'
 
 export const ALERT_KINDS = ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'] as const
+export const CANVAS_STARTER_KIT = { ...EDITOR_STARTER_KIT, orderedList: false } as const
+
+// 保留列表 Schema/命令，只让标准数字列表交给 Marked 的 CommonMark tokenizer。
+// 库的扩展 tokenizer 支持非标准字母编号，但续行扣除宽度少算点号，不能用于交换正文。
+const CanvasOrderedList = OrderedList.extend({
+  markdownTokenizer: {
+    name: 'orderedList',
+    level: 'block',
+    start: () => -1,
+    tokenize: () => undefined,
+  },
+  parseMarkdown(token, helpers) {
+    const start = token.start ?? 1
+    // 原生 listItem 已正确区分紧凑列表中的行内 token，避免父类把它当字面文本。
+    return helpers.createNode(
+      'orderedList',
+      start === 1 ? undefined : { start },
+      helpers.parseChildren(token.items ?? []),
+    )
+  },
+})
 
 export const CanvasAlert = Node.create({
   name: 'canvasAlert',
@@ -78,11 +100,12 @@ export const CanvasAlert = Node.create({
 
 // 原有节点、表格与数学扩展保持；Showcase 不再引入只读原文封装节点。
 export const CANVAS_EDITOR_EXTENSIONS = [
+  CanvasOrderedList,
   ...BLOG_EDITOR_EXTENSIONS.filter((extension) => extension.name !== 'preservedMarkdownBlock'),
   CanvasAlert,
 ]
 export const canvasSchema = getSchema([
-  StarterKit.configure(EDITOR_STARTER_KIT),
+  StarterKit.configure(CANVAS_STARTER_KIT),
   ...CANVAS_EDITOR_EXTENSIONS,
 ])
 
@@ -155,8 +178,8 @@ export function createCanvasMarkdownOptions() {
 }
 
 export function createCanvasMarkdownManager() {
-  return new MarkdownManager({
-    extensions: [StarterKit.configure(EDITOR_STARTER_KIT), ...CANVAS_EDITOR_EXTENSIONS],
+  return new CanvasMarkdownWriter({
+    extensions: [StarterKit.configure(CANVAS_STARTER_KIT), ...CANVAS_EDITOR_EXTENSIONS],
     ...createCanvasMarkdownOptions(),
   })
 }
@@ -206,8 +229,15 @@ export function exportCanvasMarkdown(json: JSONContent): string {
       throw new Error('存在未处理的资源或不安全链接，当前内容未保存。')
     }
   })
-  return serializeEditorDocument(
-    { markdown: createCanvasMarkdownManager(), schema: canvasSchema },
-    document,
-  )
+  try {
+    return serializeEditorDocument(
+      { markdown: createCanvasMarkdownManager(), schema: canvasSchema },
+      document,
+    )
+  } catch (cause) {
+    if (cause instanceof Error && cause.message.includes('源码模式')) {
+      throw new Error('当前内容无法可靠转换为 Markdown，未保存；正文仍保留在画布中。', { cause })
+    }
+    throw cause
+  }
 }

@@ -36,7 +36,7 @@ describe('单画布 Markdown 边界契约', () => {
     const document = canvasSchema.nodeFromJSON(parsed)
     expect(document.textContent).toContain('<script>alert(1)</script>')
     const markdown = exportCanvasMarkdown(parsed)
-    expect(markdown).toContain('&lt;script&gt;')
+    expect(markdown).toMatch(/(?:&lt;|\\<)script(?:&gt;|>)/)
     expect(editorContentMeaning(importCanvasMarkdown(markdown))).toEqual(
       editorContentMeaning(parsed),
     )

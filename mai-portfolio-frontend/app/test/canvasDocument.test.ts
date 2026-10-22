@@ -3,8 +3,7 @@ import { ref } from 'vue'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { useCanvasDocument } from '../composables/useCanvasDocument'
-import { CANVAS_EDITOR_EXTENSIONS } from '../utils/editor/canvasMarkdown'
-import { EDITOR_STARTER_KIT } from '../utils/editor/markdownExtensions'
+import { CANVAS_EDITOR_EXTENSIONS, CANVAS_STARTER_KIT } from '../utils/editor/canvasMarkdown'
 
 describe('Showcase 单画布事件边界', () => {
   it('输入不调用未使用的整篇 JSON 输出回调，其他更新订阅与 dirty 仍正常', () => {
@@ -18,7 +17,7 @@ describe('Showcase 单画布事件边界', () => {
     const canvas = useCanvasDocument('正文', metadata, [], () => false)
     const editor = new Editor({
       element: null,
-      extensions: [StarterKit.configure(EDITOR_STARTER_KIT), ...CANVAS_EDITOR_EXTENSIONS],
+      extensions: [StarterKit.configure(CANVAS_STARTER_KIT), ...CANVAS_EDITOR_EXTENSIONS],
       content: canvas.initialDocument,
       // Nuxt UI UEditor 的 onUpdate 当前只生成并发出 modelValue；Showcase 不消费它。
       onUpdate: ({ editor }) => {

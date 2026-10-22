@@ -4,13 +4,16 @@ import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Plugin } from '@tiptap/pm/state'
 import { useCanvasDocument } from '../composables/useCanvasDocument'
-import { CANVAS_EDITOR_EXTENSIONS, exportCanvasMarkdown } from '../utils/editor/canvasMarkdown'
+import {
+  CANVAS_EDITOR_EXTENSIONS,
+  CANVAS_STARTER_KIT,
+  exportCanvasMarkdown,
+} from '../utils/editor/canvasMarkdown'
 import {
   CANVAS_RESOURCE_NORMALIZATION,
   createCanvasResources,
   insertCanvasFiles,
 } from '../utils/editor/canvasResources'
-import { EDITOR_STARTER_KIT } from '../utils/editor/markdownExtensions'
 import { ImmersiveMarkdownGuard } from '../utils/editor/immersiveCapabilities'
 
 // 资源和保存控制器定向测试使用真实转换函数；Worker 线程传输另有独立测试和浏览器检查。
@@ -46,7 +49,7 @@ function setup(resourceFailure = () => false) {
   const editor = new Editor({
     element: null,
     extensions: [
-      StarterKit.configure(EDITOR_STARTER_KIT),
+      StarterKit.configure(CANVAS_STARTER_KIT),
       ...CANVAS_EDITOR_EXTENSIONS,
       ImmersiveMarkdownGuard.configure({ roundtrip: false }),
     ],

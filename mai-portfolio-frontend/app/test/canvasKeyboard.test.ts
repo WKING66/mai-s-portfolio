@@ -4,16 +4,16 @@ import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
 import {
   CANVAS_EDITOR_EXTENSIONS,
+  CANVAS_STARTER_KIT,
   createCanvasMarkdownOptions,
 } from '../utils/editor/canvasMarkdown'
-import { EDITOR_STARTER_KIT } from '../utils/editor/markdownExtensions'
 import { newImmersiveParagraph } from '../utils/editor/immersiveParagraphInput'
 
 function createEditor(source: string) {
   return new Editor({
     element: null,
     extensions: [
-      StarterKit.configure(EDITOR_STARTER_KIT),
+      StarterKit.configure(CANVAS_STARTER_KIT),
       ...CANVAS_EDITOR_EXTENSIONS,
       Markdown.configure(createCanvasMarkdownOptions()),
     ],

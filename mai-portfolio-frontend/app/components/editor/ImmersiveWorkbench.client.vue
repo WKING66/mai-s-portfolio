@@ -15,10 +15,11 @@ import { TextSelection, type Transaction } from '@tiptap/pm/state'
 import type { EditorToolbarItem, FormError } from '@nuxt/ui'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import { useMediaQuery, useElementSize } from '@vueuse/core'
-import { EDITOR_STARTER_KIT, PreservedCodeBlock } from '../../utils/editor/markdownExtensions'
+import { PreservedCodeBlock } from '../../utils/editor/markdownExtensions'
 import { Markdown } from '@tiptap/markdown'
 import {
   CANVAS_EDITOR_EXTENSIONS,
+  CANVAS_STARTER_KIT,
   createCanvasMarkdownOptions,
 } from '../../utils/editor/canvasMarkdown'
 import {
@@ -715,7 +716,7 @@ defineExpose({ requestLeave })
                 :model-value="initialDocument"
                 content-type="json"
                 :markdown="markdownOptions"
-                :starter-kit="EDITOR_STARTER_KIT"
+                :starter-kit="CANVAS_STARTER_KIT"
                 :extensions="editorExtensions"
                 :editable="isEditing"
                 :image="false"
