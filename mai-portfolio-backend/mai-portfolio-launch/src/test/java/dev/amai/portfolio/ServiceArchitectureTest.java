@@ -18,11 +18,9 @@ import dev.amai.portfolio.system.config.SystemBootstrapRunner;
 import dev.amai.portfolio.system.controller.AuthController;
 import dev.amai.portfolio.system.service.AuthService;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
-import dev.amai.portfolio.system.service.OwnerRoleService;
 import dev.amai.portfolio.system.service.SystemBootstrapService;
 import dev.amai.portfolio.system.service.impl.AuthServiceImpl;
 import dev.amai.portfolio.system.service.impl.PasswordCryptoServiceImpl;
-import dev.amai.portfolio.system.service.impl.OwnerRoleServiceImpl;
 import dev.amai.portfolio.system.service.impl.SystemBootstrapServiceImpl;
 import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.config.TaxonomyBootstrapRunner;
@@ -46,7 +44,6 @@ class ServiceArchitectureTest {
         assertService(SiteProfileService.class, SiteProfileServiceImpl.class);
         assertService(PortfolioBootstrapService.class, PortfolioBootstrapServiceImpl.class);
         assertService(AuthService.class, AuthServiceImpl.class);
-        assertService(OwnerRoleService.class, OwnerRoleServiceImpl.class);
         assertThat(PasswordHasher.class.isAssignableFrom(Argon2PasswordHasher.class)).isTrue();
         assertService(SystemBootstrapService.class, SystemBootstrapServiceImpl.class);
         assertService(PasswordCryptoService.class, PasswordCryptoServiceImpl.class);
@@ -62,9 +59,9 @@ class ServiceArchitectureTest {
         assertThat(AuthController.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(AuthService.class);
         assertThat(AuthenticationInterceptor.class.getDeclaredConstructors()[0].getParameterTypes())
-            .containsExactly(dev.amai.portfolio.system.auth.RequestSecurityPolicy.class, AuthService.class);
+            .containsExactly(SecurityProperties.class);
         assertThat(AccountRoleProvider.class.getDeclaredConstructors()[0].getParameterTypes())
-            .containsExactly(OwnerRoleService.class);
+            .isEmpty();
         assertThat(SystemBootstrapRunner.class.getDeclaredConstructors()[0].getParameterTypes())
             .containsExactly(SystemBootstrapService.class);
         assertThat(PortfolioBootstrapRunner.class.getDeclaredConstructors()[0].getParameterTypes())

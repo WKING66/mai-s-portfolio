@@ -6,6 +6,8 @@
 
 先看每节的“大白话”，再看图中的类和方法。代码节选用于解释关键判断，不要求你先懂 Java 或 Vue。
 
+本文持久化模型已更新为 V8。新请求字段与动作以[博客 API 契约](../api/blog-document.md)为准；前端代码章节说明文件选择和相对路径原则，Nuxt 页面需同步适配。
+
 ## 1. 阅读范围
 
 - 本文以仓库当前源码为准，覆盖 Markdown 导入、资源归档、博客保存和展示。
@@ -30,7 +32,7 @@ flowchart TD
     E --> F["BlogServiceImpl.importDocument()<br/>OWNER 校验，建立文件清单"]
     F --> G["MarkdownDocumentParser.parse()<br/>解码、统一换行、提取标题"]
     G --> H["DocumentResourceResolver.prepare()<br/>处理正文中的资源引用"]
-    H --> I["BlogServiceImpl.persist()<br/>事务保存 Document、版本、资源关系、Blog"]
+    H --> I["BlogServiceImpl.persist()<br/>事务保存 Document、草稿、资源关系、Blog 和导入结果"]
     I --> J["BlogServiceImpl.project()<br/>DocumentRenderer.resources()<br/>生成资源展示信息"]
     J --> K["前端打开草稿编辑页<br/>resolveBlogResource() 找到实际 URL"]
     K --> L["浏览器直接请求 OSS 图片或附件"]
@@ -47,17 +49,17 @@ flowchart TD
 | 原始 `.md` | 你导入时交来的原稿 | 本次请求的 `MultipartFile`，不作为长期正文依据 |
 | `ParsedDocument` | 刚读懂的原稿：标题、正文、待查找的输入文件清单 | 内存对象，Parser 输出 |
 | `PreparedDocument` | 资源已处理、正文已换成稳定引用，但还没保存的结果 | 内存对象，含本次新增资产 ID |
-| `Document` | 数据库中的文档身份与某个正文版本的组合 | `document`、`document_version`、`document_version_asset` |
+| `Document` | 数据库文档身份与当前草稿或正式正文的组合 | `document`、`document_content`、`document_resource` |
 | `Asset` | 一个已经登记的实际文件，知道它放在 OSS 哪里、谁上传、是否就绪 | `media_asset`；文件内容在 OSS |
 
-`Blog` 则是“这篇文档作为博客，文章标识是什么、是否公开、允许下载哪个版本”的外层业务信息，保存在 `blog_post`。
+`Blog` 则是“这篇文档作为博客，文章标识是什么、是否公开、是否允许公开下载”的外层业务信息，保存在 `blog_post`。
 
 还要分清四种地址或编号：
 
 | 示例 | 表示什么 | 是否是浏览器最终请求地址 |
 | --- | --- | --- |
 | `images/a.png` | 原稿中相对正文位置的本地文件名 | 否；导入时用来查上传清单 |
-| `asset://48` | 编辑器已上传成功的资产 ID，尚待保存到文档版本 | 否 |
+| `asset://48` | 编辑器已上传成功的资产 ID，尚待保存到文档内容 | 否 |
 | `resource://某个key` | 文档资源的稳定引用编号 | 否 |
 | HTTPS 签名 URL | 有到期时间的 OSS 访问凭证 | 是 |
 
@@ -152,6 +154,8 @@ return folderFiles.value
 const body = new FormData()
 body.append('file', file)
 body.append('remoteRightsConfirmed', String(rights))
+body.append('requestId', requestId) // 同一次重试保持此 UUID
+tagIds.forEach(id => body.append('tagIds', String(id)))
 resources.forEach(({ file, path }) => body.append('resources', file, path))
 return request<Blog>(BLOG_PATH + '/imports', { method: 'POST', body })
 ```
@@ -236,7 +240,7 @@ flowchart TD
 
 | 状态 | 用途 |
 | --- | --- |
-| `previous` | 当前文档旧版本的资源，给后续编辑保存复用；首次导入是空 Map |
+| `previous` | 当前文档草稿与正式正文的资源，给后续编辑保存复用；首次导入是空 Map |
 | `local` | 本次上传的相对路径到输入文件的清单 |
 | `remoteRightsConfirmed`、`uploader` | 本次网络图片授权选择与真实操作者 |
 | `fetchDeadlineNanos` | 本次准备从开始计算的共享远程抓取截止时间 |
@@ -372,7 +376,7 @@ if (resource != null) {
 - 失败本地资源不会凭空补到文件；需要上传缺失文件后替换引用，或重新导入完整原目录。
 - 失败内嵌资源的来源只保留 MIME 描述，不能靠它还原已经丢弃的 Base64；应修正原稿重新导入。
 
-**首次导入传的是 `Map.of()`，没有旧版本资源可复用。** 从另一篇文章复制一个 `resource://key` 不代表获得那篇文章的资源；系统不会按 key 做全站搜索来帮你绑定。
+**首次导入传的是 `Map.of()`，没有已有内容资源可复用。** 从另一篇文章复制一个 `resource://key` 不代表获得那篇文章的资源；系统不会按 key 做全站搜索来帮你绑定。
 
 ### 10.2 复用已经上传的资产：`asset://id`
 
@@ -493,7 +497,7 @@ AssetFileServiceImpl.upload(usage, uploader, filename, contentType, bytes)
 
 上传时按 **Markdown 节点用途** 决定 `IMAGE` 或 `ATTACHMENT`，不是只看文件后缀。把 `.png` 作为普通链接附件使用，走的也是附件规则。
 
-图片存储元数据中的文件名可能成为 `image.png` / `image.jpg`，附件保留清理后的叶子名。原稿路径仍由文档资源的 `originalUri` 溯源，不要求 OSS 复制你的目录结构。
+图片保留安全原文件名主体，转码后扩展名与实际 PNG/JPEG 一致；附件保留安全叶子名。旧记录已丢失的原名不能靠 UUID 恢复。原稿路径仍由文档资源的 `originalUri` 溯源，不要求 OSS 复制你的目录结构。
 
 ### 13.2 OSS 对象键和原稿路径各管各的
 
@@ -567,69 +571,24 @@ for (var edit : outerEdits.reversed()) {
 
 此阶段针对后端 CommonMark 的处理，不等于前端编辑器完全没有自己的 Markdown 转换规则。
 
-## 15. 第五步：把文档、版本和博客一起存好
+## 15. 第五步：共同保存草稿、资源、标签和博客
 
-`PreparedDocument` 此时已经拿到：
+`BlogServiceImpl.persist()` 使用短事务。创建时 `DocumentService.create()` 插入文档身份；更新时先 `beginWrite()` 锁定身份并校验 revision/requestId，再 `save()` 更新唯一 DRAFT 槽位。资源按 key、标签按 tagId 差量更新，博客设置和导入成功记录共同提交。
 
-```text
-content：替换后的 Markdown
-resources：每个 key 对应的资源类型、来源、资产 ID、状态、错误原因
-newlyCreatedAssets：本次上传成功后返回的新增资产 ID
-```
+| 表 | 保存什么 |
+| --- | --- |
+| document | 身份、revision、创建与最近写请求的重试摘要 |
+| document_content | DRAFT/PUBLISHED 各最多一条，保存标题、摘要、Markdown |
+| document_resource | 内容的稳定 key、Asset、来源、状态和具体错误 |
+| document_content_tag | 当前内容的标签选择与名称、slug、类别快照 |
+| blog_post | slug、公开状态、下载许可，不保存版本指针 |
+| document_import_task | 来源、SHA-256、结果与问题 |
 
-**先上传成功，不等于文档已经保存成功。**
+保存只更新工作草稿，公开正文不变；管理详情无草稿时以正式正文作为编辑初值。标签随草稿发布，下载许可保存后立即生效。
 
-`BlogServiceImpl.importDocument()` 为新草稿设置初始字段：文章标识为空、标题按博客长度上限截断、摘要为空、默认允许下载，再调用 `persist(null, request, prepared, origin, accountId)`。这是导入创建业务，不由 Convert 偷偷决定默认值。
+`BlogServiceImpl.transition()` 区分四种动作：publish 校验已保存的 slug/标题/正文/资源，在同一事务删除旧正式关系并提升草稿；unpublish 只隐藏；restore 只重新开放正式正文；DISCARD_DRAFT 在已有正式正文时只删除草稿。整篇删除必须下架，有正式正文时还必须先处理草稿；从未发布的纯草稿文章可直接整篇删除。
 
-```mermaid
-sequenceDiagram
-    participant B as BlogServiceImpl<br/>.persist()
-    participant T as Transaction<br/>Template
-    participant D as DocumentService<br/>Impl
-    participant DB as PostgreSQL
-    participant P as BlogServiceImpl<br/>.project()
-    B->>T: execute(...)<br/>开始文档与博客事务
-    T->>D: create(...)<br/>后续保存则 append(...)
-    D->>DB: DocumentMapper<br/>.insert(document)
-    D->>D: persist(...)<br/>构造不可变正文版本
-    D->>DB: DocumentVersionMapper<br/>.insert(version)
-    loop 每个正文资源，包括失败资源
-        D->>DB: DocumentResourceMapper<br/>.insert(relation)
-    end
-    D->>DB: DocumentMapper<br/>.update(current_version_id)
-    D-->>T: Document 快照
-    T->>DB: BlogPostMapper.insert(blog)<br/>status=DRAFT
-    T->>DB: 一起提交
-    T-->>B: SavedDraft
-    B->>P: project(...)<br/>生成管理端展示结果
-```
-
-`DocumentServiceImpl.create()` 的 `@Transactional` 加入调用方的事务，不是把同一次 Blog 保存拆成两个独立提交。
-
-### 15.1 具体哪些表保存什么
-
-| 表 | 保存的事实 | 关键字段/关系 |
-| --- | --- | --- |
-| `media_asset` | 文件本身的身份、存储位置、上传者、类型、大小、状态 | `id`、`storage_key`、`usage`、`uploader_account_id`、`status` |
-| `document` | 文档身份和当前草稿指针 | `id`、`current_version_id`、`lock_version` |
-| `document_version` | 某一次保存的不可变正文快照 | `id`、`document_id`、`version_number`、`markdown_content`、标题/摘要 |
-| `document_version_asset` | 这一版正文的资源 key 与 Asset 对应关系 | `resource_key`、`media_id`、`resource_type`、`source_kind`、`status`、`source_reference`、`error_message` |
-| `blog_post` | 博客信息与公开版本选择 | `document_id`、`status`、`published_version_id`、`slug` |
-
-Java 字段 `assetId` 对应旧 SQL 列 `media_id`，`originalUri` 对应 `source_reference`；不要看到数据库旧列名就以为还有第二套媒体服务。MapStruct 的 `DocumentConvert.to(...)` 只装配字段和编码，不决定上传、权限或事务。
-
-`document_version_asset.media_id` 允许为空，才能保存失败资源。资源 key 在同一个版本内唯一。V7 新增 `error_message VARCHAR(512)` 保存安全诊断，READY 资源没有错误原因。
-
-### 15.2 之后编辑、发布分别做什么
-
-- `BlogServiceImpl.save()` 读取旧资源，`prepare()` 尽量复用，再由 `DocumentServiceImpl.append()` 新增正文版本，不原地覆盖旧版本。
-- `advanceLock()` 使用版本条件更新，避免两个编辑者同时保存时互相覆盖；失败返回冲突，应重新读取后处理。
-- 保存草稿不会改已经公开的正文指针。
-- `BlogServiceImpl.publish()` 验证文章标识、标题、正文和资源可用性，再把 `published_version_id` 指向确认发布的版本。
-- 管理端 `get()` 读当前草稿；公开端 `publicArticle()` 只读已发布的那个版本。
-- 下架改变公开入口可见性，不要求已签发的图片 URL 立即失效。
-
-本阶段没有调用 MQ、RAG、知识库同步或异步文档解析任务。数据库里即使存在预留任务表，也不能据此推断当前导入在走异步任务系统。
+`revision` 是统一写修订，不是历史版本。乱序请求和发布后迟到的旧保存返回 409；同一请求 ID/输入可识别近期已提交重试。删除内容或关系不删除共享 Asset。
 
 ## 16. 最需要理解的地方：失败后到底删什么、不删什么
 
@@ -650,11 +609,11 @@ flowchart TD
     F["资源数量或规范化正文容量超限"] --> E
     G["准备成功，进入 BlogServiceImpl.persist()"] --> H{"文档/博客事务是否成功？"}
     H -- "失败并回滚" --> I["persist() 的 catch<br/>回收 prepared.newlyCreatedAssets()"]
-    H -- "成功" --> J["资源已绑定到版本<br/>进入签名与结果投影"]
+    H -- "成功" --> J["资源已绑定到内容<br/>进入签名与结果投影"]
     E --> K["AssetFileServiceImpl.discardUnbound()"]
     I --> K
     K --> L["逐项检查：ID 存在且上传者相同"]
-    L --> M["先删除资产数据库记录<br/>已有外键绑定则拒绝"]
+    L --> M["锁定资产并检查全部引用<br/>未绑定才删元数据"]
     M --> N["仅数据库删除成功后<br/>objectStorage.delete(storageKey)"]
 ```
 
@@ -677,7 +636,7 @@ context.recordCreatedAsset(assetId);
 
 ### 16.2 为什么先删数据库，再删 OSS
 
-`AssetFileServiceImpl.discardUnbound()` 会先核对上传者，再尝试删除资产记录。`document_version_asset` 等引用有 `ON DELETE RESTRICT` 外键；资产已经被历史或当前版本引用，就删不掉。
+`AssetFileServiceImpl.discardUnbound()` 在独立事务中锁定 Asset，核对上传者并检查 Document、项目、账号头像和站点资料的全部引用，确认未绑定后删除元数据。绑定方通过 `AssetQueryService.lockReady()` 使用同一行锁，补偿等待绑定提交后会看到新引用。数据库提交后才删除 OSS，不依赖外键报错保护共享文件。
 
 只有数据库删除确实成功，才调用 `objectStorage.delete()`。这样不会先把已被其他业务使用的文件删掉，最后才发现数据库不准删。
 
@@ -728,7 +687,7 @@ sequenceDiagram
     S-->>N: 文件字节
 ```
 
-普通 Markdown 展示中，`BlogRenderer.vue` 注入版本资源列表；`BlogImage.vue`、`BlogLink.vue` 调用 `resolveBlogResource()`：先按 key 找当前版本资源，再检查 READY、图片类型及安全 URL，最后设置实际图片地址或附件链接。没有就绪资源则显示占位，不让浏览器把 `resource://` 当真实网络协议发出去。
+普通 Markdown 展示中，`BlogRenderer.vue` 注入内容资源列表；`BlogImage.vue`、`BlogLink.vue` 调用 `resolveBlogResource()`：先按 key 找当前内容资源，再检查 READY、图片类型及安全 URL，最后设置实际图片地址或附件链接。没有就绪资源则显示占位，不让浏览器把 `resource://` 当真实网络协议发出去。
 
 管理编辑器也利用资源投影展示图片；其“待修复资源”面板在 `BlogEditor.vue` 中优先显示 `resource.errorMessage`。资源 URL 到期刷新由 `useAssetUrlRefresh()` 根据到期时间调度，不是每刷新一次就重新上传。
 
@@ -738,7 +697,7 @@ sequenceDiagram
 
 `BlogServiceImpl.persist()` 先提交数据库，再调用 `project()`。若管理投影的资源签名发生已知 5xx，`project()` 返回 `previewIssue`，说明正文已保存、预览暂不可用。
 
-若资产元数据当前已找不到，投影会把原来 READY 的资源展示为不可用，并给出“已绑定的资源不存在或尚未就绪，请重新上传”；它不会原地修改旧版本的资源状态。
+若资产元数据当前已找不到，投影会把原来 READY 的资源展示为不可用，并给出“已绑定的资源不存在或尚未就绪，请重新上传”；它不会回写已保存内容的资源状态。
 
 签名生成也不意味着真的请求过 OSS 确认图片存在；例如元数据还在但对象已被外部删除，最终浏览器仍可能加载失败。网络超时或未知错误发生在提交之后时，也不能据响应失败断言数据库完全没有写入。
 
@@ -759,11 +718,11 @@ sequenceDiagram
 | 网络图片读取失败 | `RemoteResourceFetcher.fetch()` 等 | 检查地址、网络、访问限制和远程 MIME；此文案未细分全部网络根因 |
 | 无权引用其他账号资产、用途不匹配 | `existingAsset()` | 使用本人上传且用途正确的资产，不手填别人的 ID |
 | 文件上传失败 | `AssetUploadComponentImpl.upload()` | 检查存储服务和服务端安全日志，再按实际情况重试 |
-| 历史版本未记录具体原因 | 旧资源没有 `error_message` | 原因不能事后猜回去，重新导入原文件获得新诊断 |
+| 遗留资源未记录具体原因 | 旧资源没有 `error_message` | 原因不能事后猜回去，重新导入原文件获得新诊断 |
 
 新的错误原因由 `DocumentResourceLoader.load()` 形成安全摘要，随资源关系保存。数据库一行失败资源还能读回相同原因，页面刷新不会只剩下一个笼统 INVALID。异常的原始 SDK 文本、签名 URL、Base64 内容不作为错误提示直接回传。
 
-这里的 512 字符是诊断摘要容量，不是把任意详细日志都塞进数据库。READY 资源的诊断为空；旧版本也允许为空。
+这里的 512 字符是诊断摘要容量，不是把任意详细日志都塞进数据库。READY 资源的诊断为空；迁移遗留资源也可能为空。
 
 ## 19. 用一篇原稿完整走一遍
 
@@ -799,7 +758,7 @@ testmarkdown/
 6. 附件节点：按 `files/guide.pdf` 精确查找 → 统一附件上传 → 得到 Asset C、资源 key C。
 7. 官网链接是普通 HTTP(S) 超链接，不下载、不建 Asset。
 8. 正文中的三个资源地址分别换成 `resource://keyA`、`resource://keyB`、`resource://keyC`。这里的 A/B/C 仅示意，实际新 key 为 UUID。
-9. 一次文档/博客事务保存正文版本和三个资源关系，再创建 DRAFT 博客。
+9. 一次文档/博客事务保存唯一草稿、三个资源关系、标签和导入结果，再创建未公开博客。
 10. 管理响应给出稳定正文及 A/B/C 的签名地址；浏览器向 OSS 请求图片/附件。
 11. 后续保存继续沿用这些 key，不因重新显示或刷新签名而重复上传。
 
@@ -811,7 +770,7 @@ testmarkdown/
 
 ```text
 BlogController.export()
-  → BlogServiceImpl.exportDocument(id, view)【先登录/授权、选择文档版本】
+  → BlogServiceImpl.exportDocument(id, view)【先登录/授权、选择当前内容】
   → DocumentExportServiceImpl.prepare(document, includeResources)
   → DocumentRenderer.resources() 与 markdown()【准备输出地址】
   → StreamingResponseBody 调用 exportPlan.writer().write(output)
@@ -829,7 +788,7 @@ ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage
 
 完整写入才 `finish()`；中途失败不把缺资源 ZIP 包装成完整成功文件。流响应已经开始后，不能保证还能变回一个整齐的 JSON 错误响应。
 
-**普通图片展示走浏览器直连；受保护导出为了打包读取字节。二者不是同一个“图片代理接口”。** 导出不会回写正文，不创建新 Document 版本，也不要求重新解析原始导入文件。
+**普通图片展示走浏览器直连；受保护导出为了打包读取字节。二者不是同一个“图片代理接口”。** 导出不会回写正文，不修改 Document 内容，也不要求重新解析原始导入文件。
 
 ## 21. 这些限制具体从哪里来
 
@@ -871,7 +830,7 @@ ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage
 | [RemoteResourceFetcher.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/RemoteResourceFetcher.java) | `fetch()、validateUri()` | 共享预算及逐跳请求 |
 | [PublicAddressDnsResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/PublicAddressDnsResolver.java) | `resolve()、publicAddress()` | 实际连接时的公网地址筛选 |
 | [RemoteResourceResponseHandler.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/RemoteResourceResponseHandler.java) | `handleResponse()、readContent()` | 单跳响应、MIME 与有界读取 |
-| [DocumentServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/DocumentServiceImpl.java) | `create()、append()、persist()、read()、advanceLock()` | 不可变正文版本、版本资源关系、锁版本 |
+| [DocumentServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/DocumentServiceImpl.java) | `create()、save()、persistDraft()、read()、beginWrite()` | 唯一草稿、正式正文、内容关系和修订 |
 | [DocumentRenderer.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentRenderer.java) | `resources()、resourceError()、markdown()` | 资源展示信息与输出地址替换 |
 | [DocumentExportServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/DocumentExportServiceImpl.java) | `prepare()、safeFilename()` | MD/ZIP 输出计划及包内文件路径 |
 | [DocumentConvert.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/convert/DocumentConvert.java) | `to(...)` | 已有对象及数据库编码之间的字段映射 |
@@ -883,7 +842,7 @@ ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage
 | [AliyunOssObjectStorage.java](../../mai-portfolio-backend/mai-portfolio-framework/mai-portfolio-spring-boot-starter-storage/src/main/java/dev/amai/portfolio/storage/oss/AliyunOssObjectStorage.java) | `store()、stageAndVerify()、accessUrl()、open()、delete()` | OSS 条件上传、临时地址、读流和删除 |
 | [blogResources.ts](../../mai-portfolio-frontend/app/utils/blogResources.ts) | `resolveBlogResource()、safeBlogUrl()` | 稳定 key 到安全展示 URL |
 | [BlogEditor.vue](../../mai-portfolio-frontend/app/components/BlogEditor.vue) | `uploadResource()、saveDraft()` | 编辑器先上传再绑定，显示具体错误 |
-| [V1](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V1__portfolio_and_document_core.sql) / [V5](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V5__document_resources.sql) / [V7](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V7__document_resource_error_message.sql) | `表结构、资源状态扩展、错误原因列` | 历史资源外键和可空失败记录 |
+| [V1](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V1__portfolio_and_document_core.sql) / [V5](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V5__document_resources.sql) / [V7](../../mai-portfolio-backend/mai-portfolio-launch/src/main/resources/db/postgresql/V7__document_resource_error_message.sql) | `表结构、资源状态扩展、错误原因列` | 历史迁移来源；当前模型见 V8 |
 
 ## 23. 用几句话检查自己是否已经弄明白
 
@@ -895,6 +854,6 @@ ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage
 6. **签名过期为什么不改正文？** 正文存稳定 key，URL 是临时投影，重新获取即可。
 7. **普通图片为什么不用后端转发字节？** 浏览器已有临时 OSS 地址；只有导出打包等确有需要的业务才由后端读流。
 
-可以做的纸面练习：画三张小卡片，分别写“旧资产 10”“本次成功上传 20”“本次失败引用无 ID”，模拟一次文档事务失败。正确回收候选只有 20；再加一张“20 已被其他版本绑定”，此时外键应阻止删除。无需安装新框架或建立额外演示接口，就能检查你是否理解了补偿边界。
+可以做的纸面练习：画三张小卡片，分别写“旧资产 10”“本次成功上传 20”“本次失败引用无 ID”，模拟一次文档事务失败。正确回收候选只有 20；再加一张“20 已被其他内容绑定”，此时资产层持锁检查引用后应保留文件。无需安装新框架或建立额外演示接口，就能检查你是否理解了补偿边界。
 
 当前最需要掌握的是路径坐标系、稳定引用与临时 URL 的区别、两级资源状态、数据库事务和外部文件副作用。RAG、向量库和未来多格式 Parser 不属于这条已实现导入链路，不能用尚未存在的能力解释今天的行为。

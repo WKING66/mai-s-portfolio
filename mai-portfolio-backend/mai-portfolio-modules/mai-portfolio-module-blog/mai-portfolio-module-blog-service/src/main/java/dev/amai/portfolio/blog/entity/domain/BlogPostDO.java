@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
-/** 发布容器；一篇博客关联一个 Document，公开访问固定读取 publishedVersionId。 */
+/** 博客身份及公开状态；正式正文由 Document 的 PUBLISHED 槽位提供。 */
 @Getter
 @Setter
 @TableName("blog_post")
@@ -15,8 +15,7 @@ public class BlogPostDO {
 
     private Long documentId;
 
-    private Long publishedVersionId;
-
+    @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String slug;
 
     private Integer status;

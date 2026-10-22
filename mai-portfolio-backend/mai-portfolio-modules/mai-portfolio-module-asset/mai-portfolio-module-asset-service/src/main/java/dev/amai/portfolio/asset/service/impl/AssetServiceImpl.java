@@ -9,8 +9,8 @@ import dev.amai.portfolio.asset.constant.AssetMessageConstants;
 import dev.amai.portfolio.asset.convert.AssetConvert;
 import dev.amai.portfolio.asset.entity.vo.AssetVo;
 import dev.amai.portfolio.asset.service.AssetService;
-import dev.amai.portfolio.system.api.AccountIdentityService;
-import dev.amai.portfolio.system.api.OwnerAuthorizationService;
+import dev.amai.portfolio.security.context.AccountContext;
+import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.io.IOException;
@@ -24,26 +24,20 @@ public class AssetServiceImpl implements AssetService {
     private final ImageContentValidator imageContentValidator;
     private final AssetFileService assetFileService;
     private final AssetQueryService assetQueryService;
-    private final AccountIdentityService accountIdentityService;
-    private final OwnerAuthorizationService ownerAuthorizationService;
-
     public AssetServiceImpl(
             ImageContentValidator imageContentValidator,
             AssetFileService assetFileService,
-            AssetQueryService assetQueryService,
-            AccountIdentityService accountIdentityService,
-            OwnerAuthorizationService ownerAuthorizationService) {
+            AssetQueryService assetQueryService) {
         this.imageContentValidator = imageContentValidator;
         this.assetFileService = assetFileService;
         this.assetQueryService = assetQueryService;
-        this.accountIdentityService = accountIdentityService;
-        this.ownerAuthorizationService = ownerAuthorizationService;
     }
 
     @Override
     public AssetVo resource(Long assetId) {
-        // 1. 从认证域取得有效账号，资产入口不自行读取会话或接受客户端身份。
-        long accountId = accountIdentityService.currentAccountId();
+        // 1. 直接从共享上下文取当前账号，不接受客户端指定上传者。
+        var account = AccountContext.currentAccount();
+        long accountId = account.id();
         var metadata =
                 assetQueryService
                         .findReadyMetadata(assetId)
@@ -53,8 +47,9 @@ public class AssetServiceImpl implements AssetService {
                                                 ApiErrorCode.NOT_FOUND,
                                                 AssetMessageConstants.ASSET_NOT_FOUND));
         // 查询接口只允许上传者或 OWNER；公开引用地址从公开业务投影获取。
-        if (!Objects.equals(metadata.uploaderAccountId(), accountId)) {
-            ownerAuthorizationService.requireOwner();
+        if (!Objects.equals(metadata.uploaderAccountId(), accountId)
+                && !account.roles().contains(AuthConstants.OWNER_ROLE)) {
+            throw new ApiException(ApiErrorCode.FORBIDDEN, "无权访问他人上传的资产");
         }
         var resource =
                 assetQueryService
@@ -69,14 +64,11 @@ public class AssetServiceImpl implements AssetService {
 
     @Override
     public AssetVo upload(MultipartFile file, AssetUsage usage) {
-        // 1. 从认证域取得有效账号，资产入口不自行读取会话或接受客户端身份。
-        long accountId = accountIdentityService.currentAccountId();
+        // 1. 直接从共享上下文取当前账号，不接受客户端指定上传者。
+        var account = AccountContext.currentAccount();
+        long accountId = account.id();
         if (usage == null) {
             throw invalid(AssetMessageConstants.UPLOAD_INVALID);
-        }
-        // 普通账号仅能创建本人头像资产；网站内容资源由已有 OWNER 能力授权。
-        if (usage != AssetUsage.AVATAR) {
-            ownerAuthorizationService.requireOwner();
         }
         // 2. 先按用途校验声明大小，再有界读取，多读一字节识别不可靠的长度声明。
         if (file == null || file.isEmpty()) {

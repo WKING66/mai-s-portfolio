@@ -8,6 +8,6 @@ public interface AssetFileService {
 
     AssetFileContent openReady(long assetId);
 
-    /** 仅用于未绑定的新资源补偿；已被引用的资产受数据库外键保护。 */
+    /** 仅用于未绑定的新资源补偿；持锁检查全部业务引用后才允许删除，不依赖物理外键。 */
     void discardUnbound(Set<Long> newlyCreatedIds, long uploader);
 }

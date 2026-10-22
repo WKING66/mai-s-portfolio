@@ -17,5 +17,7 @@ public final class BlogPolicy {
             MAX_SUMMARY_LENGTH = 2000,
             MAX_SLUG_LENGTH = 160;
 
+    public static final int MAX_TAGS = 100;
+
     private BlogPolicy() {}
 }

@@ -1,5 +1,6 @@
 package dev.amai.portfolio.blog.service.impl;
 
+import dev.amai.portfolio.blog.enums.ContentStage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -141,7 +142,7 @@ class DocumentExportServiceImplTest {
     }
 
     private Document document(String title, String content, List<DocumentResource> resources) {
-        return new Document(3, 9, 3, 1, title, "", content, resources);
+        return new Document(3, 9, 1, ContentStage.DRAFT, true, false, title, "", content, resources, List.of());
     }
 
     private Map<String, byte[]> archive(DocumentExport plan) throws Exception {

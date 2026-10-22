@@ -1,23 +1,22 @@
 package dev.amai.portfolio.blog.entity.domain;
 
+import dev.amai.portfolio.blog.enums.ContentStage;
+import dev.amai.portfolio.system.api.TagData;
 import java.util.List;
 
-/**
- * 持久化后的统一文档快照；来源格式不影响展示和导出。
- *
- * @param versionId 不可变内容版本的数据库 ID，公开版本指针引用它
- * @param version 该内容版本生成时的版本号，发布/下架不会改写它
- * @param lockVersion 当前文档乐观锁计数，管理端保存及状态变更需带回它
- * @param content 规范化 Markdown，资源使用 resource://key，不持久化临时 OSS URL
- */
+/** 一致性读取的当前内容；contentId 是槽位身份，revision 是管理写修订。 */
 public record Document(
         long id,
 
-        long versionId,
+        long contentId,
 
-        long version,
+        long revision,
 
-        long lockVersion,
+        ContentStage stage,
+
+        boolean hasDraft,
+
+        boolean hasPublished,
 
         String title,
 
@@ -25,8 +24,11 @@ public record Document(
 
         String content,
 
-        List<DocumentResource> resources) {
+        List<DocumentResource> resources,
+
+        List<TagData> tags) {
     public Document {
         resources = List.copyOf(resources);
+        tags = List.copyOf(tags);
     }
 }

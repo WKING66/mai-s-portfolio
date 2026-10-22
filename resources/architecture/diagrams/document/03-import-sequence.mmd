@@ -1,39 +1,16 @@
-%% Generated from docs/architecture/document-import-export.md; edit that document first.
 sequenceDiagram
-    actor Owner as 站长
-    participant UI as BlogImportPanel
-    participant API as useBlogApi 与统一认证
-    participant HTTP as BlogController
-    participant Blog as BlogService
-    participant Parser as DocumentParser
-    participant Resolver as DocumentResourceResolver
-    participant Asset as 统一 Asset 能力
-    participant OSS as 私有 OSS
-    participant DB as PostgreSQL
-    Owner->>UI: 选择正文文件或文档文件夹
-    UI->>UI: 确定唯一正文及相对路径资源
-    UI->>API: importDocument(file, resources, rights)
-    API->>HTTP: POST imports，multipart + Cookie + CSRF
-    HTTP->>Blog: 导入草稿
-    Blog->>Blog: OWNER、输入数量、资源合计字节校验
-    Blog->>Parser: 严格 UTF-8 解码和正文解析
-    Parser-->>Blog: ParsedDocument
-    Blog->>Resolver: 准备正文资源
-    loop 需要归档的有效本地或网络资源
-        Resolver->>Asset: 校验并归档文件
-        Asset->>DB: 独立短事务创建 PENDING
-        Asset->>OSS: 写入不可覆盖对象
-        Asset->>DB: 独立短事务更新 READY 或 FAILED
-        Asset-->>Resolver: Asset ID 或失败
-    end
-    Resolver-->>Blog: PreparedDocument 与本次新增 Asset 集合
-    Blog->>DB: 短事务创建 Document、版本、资源关系、Blog 草稿
-    alt 文档事务失败
-        Blog->>Asset: 尽力回收本次新增且未绑定的文件
-        Blog-->>HTTP: 统一错误响应
-    else 文档事务成功
-        Blog-->>HTTP: BlogVo 管理投影
-        HTTP-->>API: JSON 响应
-        API-->>UI: 草稿快照与资源状态
-        UI->>UI: Toast 提示并进入编辑页
-    end
+    participant UI as 调用端
+    participant B as BlogServiceImpl.importDocument
+    participant T as DocumentImportTaskService
+    participant P as DocumentParser
+    participant R as DocumentResourceResolver
+    participant D as DocumentService
+    UI->>B: file / resources / tagIds / requestId
+    B->>T: begin（独立提交 PROCESSING）
+    B->>T: recordSource（独立保存文件摘要）
+    B->>P: parse
+    B->>R: prepare（事务外处理资源）
+    B->>D: create（短事务）
+    B->>T: succeeded（与正文共同提交）
+    B-->>UI: 草稿 + resourcesReady
+    Note over B,T: 失败：业务回滚后 failed 独立提交；仅补偿本次新增且未绑定资源

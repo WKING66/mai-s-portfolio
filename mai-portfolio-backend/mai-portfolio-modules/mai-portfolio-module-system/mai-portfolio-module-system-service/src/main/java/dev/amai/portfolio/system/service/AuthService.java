@@ -6,7 +6,7 @@ import dev.amai.portfolio.system.entity.vo.RegistrationVo;
 import dev.amai.portfolio.system.entity.vo.SessionVo;
 
 public interface AuthService {
-    /** 未登录返回安全的匿名状态；已有会话核对账号状态及凭据版本。 */
+    /** 未登录返回安全的匿名状态；已有身份从 Redis 会话读取。 */
     SessionVo current();
 
     /** 仅接受允许的页面来源，并为新会话签发独立的写操作令牌。 */
@@ -18,6 +18,4 @@ public interface AuthService {
     /** 注销当前登录会话；调用方必须先通过写操作 CSRF 检查。 */
     void logout();
 
-    /** 受保护请求统一检查账号状态，不把登录身份与 OWNER 角色绑定。 */
-    void checkActiveAccount();
 }

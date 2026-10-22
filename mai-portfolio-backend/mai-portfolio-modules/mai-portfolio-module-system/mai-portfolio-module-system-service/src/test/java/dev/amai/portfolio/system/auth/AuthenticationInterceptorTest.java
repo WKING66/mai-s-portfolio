@@ -10,7 +10,10 @@ import cn.dev33.satoken.session.SaSession;
 import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.config.SecurityProperties;
-import dev.amai.portfolio.system.service.AuthService;
+import dev.amai.portfolio.security.context.AccountContext;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.mockito.MockedStatic;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.Duration;
@@ -23,7 +26,17 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class AuthenticationInterceptorTest {
-    private final AuthService auth = mock(AuthService.class);
+    private MockedStatic<AccountContext> identity;
+
+    @BeforeEach
+    void openContext() {
+        identity = mockStatic(AccountContext.class);
+    }
+
+    @AfterEach
+    void closeContext() {
+        identity.close();
+    }
 
     @cn.dev33.satoken.annotation.SaCheckLogin
     static class LoginEndpoint { public void read() { } }
@@ -39,20 +52,19 @@ class AuthenticationInterceptorTest {
             var publicHandler = new org.springframework.web.method.HandlerMethod(new MixedEndpoint(),
                 MixedEndpoint.class.getMethod("publicRead"));
             assertThat(interceptor(false).preHandle(new MockHttpServletRequest("GET", "/api/v1/profile"), response, publicHandler)).isTrue();
-            verifyNoInteractions(auth);
+            identity.verifyNoInteractions();
             stp.verifyNoInteractions();
             var protectedHandler = new org.springframework.web.method.HandlerMethod(new MixedEndpoint(),
                 MixedEndpoint.class.getMethod("editRead"));
             assertThat(interceptor(false).preHandle(new MockHttpServletRequest("GET", "/api/v1/projects/1"), response, protectedHandler)).isTrue();
-            stp.verify(StpUtil::checkLogin);
-            verify(auth).checkActiveAccount();
+            identity.verify(AccountContext::currentAccount);
         }
     }
 
     private AuthenticationInterceptor interceptor(boolean https) {
-        return new AuthenticationInterceptor(new RequestSecurityPolicy(new SecurityProperties(List.of("https://example.test"),
+        return new AuthenticationInterceptor(new SecurityProperties(List.of("https://example.test"),
             new ByteArrayResource(new byte[0]), https, 5, Duration.ofMinutes(10),
-            5, Duration.ofMinutes(5))), auth);
+            5, Duration.ofMinutes(5)));
     }
 
     @Test
@@ -60,7 +72,7 @@ class AuthenticationInterceptorTest {
         var request = new MockHttpServletRequest("POST", "/portfolio/api/v1/auth/session");
         request.setContextPath("/portfolio");
         assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
-        verifyNoInteractions(auth);
+        identity.verifyNoInteractions();
     }
 
     @Test
@@ -73,7 +85,7 @@ class AuthenticationInterceptorTest {
                 error -> assertThat(error.code()).isEqualTo(ApiErrorCode.HTTPS_REQUIRED));
         request.setSecure(true);
         assertThat(interceptor(true).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
-        verifyNoInteractions(auth);
+        identity.verifyNoInteractions();
     }
 
     @ParameterizedTest
@@ -84,12 +96,11 @@ class AuthenticationInterceptorTest {
     void registrationExceptionDoesNotPermitOtherMethodsOrNeighboringPaths(String method, String path) {
         try (var stp = mockStatic(StpUtil.class)) {
             RuntimeException denied = new RuntimeException("test-login-required");
-            stp.when(StpUtil::checkLogin).thenThrow(denied);
+            identity.when(AccountContext::currentAccount).thenThrow(denied);
             var request = new MockHttpServletRequest(method, path);
             assertThatThrownBy(() -> interceptor(false).preHandle(request,
                 new MockHttpServletResponse(), new Object())).isSameAs(denied);
-            stp.verify(StpUtil::checkLogin);
-            verifyNoInteractions(auth);
+            identity.verify(AccountContext::currentAccount);
         }
     }
 
@@ -115,7 +126,7 @@ class AuthenticationInterceptorTest {
                 request, new MockHttpServletResponse(), new Object()))
                 .isInstanceOfSatisfying(ApiException.class,
                     error -> assertThat(error.code()).isEqualTo(ApiErrorCode.CSRF_INVALID));
-            verify(auth).checkActiveAccount();
+            identity.verify(AccountContext::currentAccount);
             request.addHeader(AuthConstants.CSRF_HEADER_NAME, "test-csrf");
             assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
         }
@@ -130,8 +141,8 @@ class AuthenticationInterceptorTest {
             var request = new MockHttpServletRequest("DELETE", "/api/v1/auth/session");
             request.addHeader(AuthConstants.CSRF_HEADER_NAME, "test-csrf");
             assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
-            stp.verify(StpUtil::checkLogin);
-            verifyNoInteractions(auth);
+            stp.verify(StpUtil::getLoginIdAsLong);
+            identity.verifyNoInteractions();
         }
     }
 }

@@ -15,6 +15,7 @@ import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.util.Base64;
 import java.util.Map;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class DocumentInputCompatibilityTest {
@@ -56,7 +57,7 @@ class DocumentInputCompatibilityTest {
         assertThat(failed.status()).isEqualTo(ResourceStatus.INVALID);
         assertThat(failed.errorMessage()).contains("Base64", "损坏");
         assertThat(failed.originalUri()).doesNotContain("broken");
-        var relation = DocumentConvert.MAPPER.to(failed, 12L, 0, 0);
+        var relation = DocumentConvert.MAPPER.to(failed, 12L, 0);
         assertThat(DocumentConvert.MAPPER.to(relation)).isEqualTo(failed);
         verifyNoInteractions(assetFileService, remoteResourceFetcher);
     }
@@ -84,7 +85,7 @@ class DocumentInputCompatibilityTest {
     @Test
     void pathCompatibilityStillRejectsTraversalAbsolutePathsAndEncodedSeparators() {
         for (String path : new String[] {"..\\secret.png", "C:\\secret.png", "\\\\server\\a.png", "images%5ca.png"}) {
-            assertThatThrownBy(() -> DocumentResourceResolver.referencePath(path)).isInstanceOf(ApiException.class);
+            assertThatThrownBy(() -> DocumentResourceLoader.referencePath(path)).isInstanceOf(ApiException.class);
         }
         assertThatThrownBy(() -> DocumentResourceResolver.localPath("images\\a.png"))
                 .isInstanceOf(ApiException.class);
@@ -95,7 +96,7 @@ class DocumentInputCompatibilityTest {
         var prepared = resolver.prepare("![a](images/missing.png)", Map.of(), Map.of(), false, 7);
         var failed = prepared.resources().getFirst();
         assertThat(failed.errorMessage()).contains("未找到", "相对路径", "文档文件夹");
-        var document = new Document(1L, 2L, 1L, 1L, "title", "", prepared.content(), prepared.resources());
+        var document = new Document(1L, 2L, 1L, ContentStage.DRAFT, true, false, "title", "", prepared.content(), prepared.resources(), List.of());
         var renderer = new DocumentRenderer(assetQueryService);
         assertThat(renderer.resources(document, true).getFirst().errorMessage()).isEqualTo(failed.errorMessage());
         assertThat(renderer.resources(document, false).getFirst().errorMessage()).isNull();

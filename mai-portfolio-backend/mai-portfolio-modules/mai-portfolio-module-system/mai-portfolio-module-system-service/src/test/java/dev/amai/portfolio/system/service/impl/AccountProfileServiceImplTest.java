@@ -36,6 +36,10 @@ import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.io.ByteArrayInputStream;
 import java.util.Optional;
+import java.util.List;
+import dev.amai.portfolio.security.context.AccountContext;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
@@ -61,7 +65,7 @@ class AccountProfileServiceImplTest {
     private final TransactionTemplate transaction = new TransactionTemplate(manager);
     private final AccountProfileServiceImpl service = new AccountProfileServiceImpl(
         accounts, profiles, assets, crypto, passwords,
-        new AccountAuthenticationServiceImpl(accounts), new NewPasswordPolicy());
+        new NewPasswordPolicy());
     private final UserAccountDO account = new UserAccountDO();
 
     @BeforeAll
@@ -86,7 +90,7 @@ class AccountProfileServiceImplTest {
         when(profiles.updateById(any(UserProfileDO.class))).thenReturn(1);
         when(accounts.update(isNull(), any())).thenReturn(1);
         when(assets.findReady(31L, AssetType.IMAGE)).thenReturn(Optional.of(asset(AssetUsage.AVATAR, 7L)));
-        when(assets.findReadyMetadata(31L)).thenReturn(Optional.of(new AssetMetadataData(31L, AssetType.IMAGE, AssetUsage.AVATAR, 7L)));    }
+        when(assets.lockReady(Set.of(31L))).thenReturn(Map.of(31L, new AssetMetadataData(31L, AssetType.IMAGE, AssetUsage.AVATAR, 7L)));    }
 
     @Test
     void passwordChangeWithoutTransactionDoesNotTouchCredentialsOrDatabase() {
@@ -179,11 +183,11 @@ class AccountProfileServiceImplTest {
         try (var stp = authenticatedSession()) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
             for (var asset : java.util.List.of(asset(AssetUsage.AVATAR, 8L), asset(AssetUsage.IMAGE, 7L))) {
-                when(assets.findReadyMetadata(31L)).thenReturn(Optional.of(new AssetMetadataData(asset.id(), asset.type(), asset.usage(), asset.uploaderAccountId())));
+                when(assets.lockReady(Set.of(31L))).thenReturn(Map.of(31L, new AssetMetadataData(asset.id(), asset.type(), asset.usage(), asset.uploaderAccountId())));
                 assertThatThrownBy(() -> transaction.execute(status -> service.bindAvatar(new AccountAvatarRequest(31L))))
                     .isInstanceOf(ApiException.class);
             }
-            when(assets.findReadyMetadata(31L)).thenReturn(Optional.empty());
+            when(assets.lockReady(Set.of(31L))).thenReturn(Map.of());
             assertThatThrownBy(() -> transaction.execute(status -> service.bindAvatar(new AccountAvatarRequest(31L))))
                 .isInstanceOf(ApiException.class);
         }
@@ -196,7 +200,7 @@ class AccountProfileServiceImplTest {
     }
 
     @Test
-    void passwordChangeCommitsCredentialVersionWithoutRedisEvictionAndTrimsOnlyNewValue() {
+    void passwordChangeRevokesRedisSessionsOnlyAfterCommitAndTrimsOnlyNewValue() {
         when(crypto.decryptPassword("old-cipher")).thenReturn(" old-password ");
         when(crypto.decryptPassword("new-cipher")).thenReturn(" \u00A0new-password-ab!\uFEFF ");
         when(passwords.matches(" old-password ", "old-hash")).thenReturn(true);
@@ -207,7 +211,7 @@ class AccountProfileServiceImplTest {
                 service.changePassword(new AccountPasswordRequest("old-cipher", "new-cipher"));
                 stp.verify(() -> StpUtil.logout(7L), never());
             });
-            stp.verify(() -> StpUtil.logout(7L), never());
+            stp.verify(() -> StpUtil.logout(7L));
         }
         verify(passwords).matches(" old-password ", "old-hash");
         verify(passwords).encode("new-password-ab!");
@@ -287,12 +291,10 @@ class AccountProfileServiceImplTest {
     }
 
     @Test
-    void disabledAccountCannotReadOrModifyProfile() {
+    void disabledDatabaseAccountCannotModifyProfile() {
         account.setStatus(AccountStatus.DISABLED.code());
         try (var stp = authenticatedSession()) {
             stp.when(StpUtil::getLoginIdAsLong).thenReturn(7L);
-            assertThatThrownBy(service::current).isInstanceOfSatisfying(ApiException.class,
-                error -> assertThat(error.code()).isEqualTo(ApiErrorCode.FORBIDDEN));
             assertThatThrownBy(() -> transaction.execute(status -> service.update(new AccountProfileRequest("新昵称"))))
                 .isInstanceOf(ApiException.class);
         }
@@ -301,9 +303,10 @@ class AccountProfileServiceImplTest {
 
     private org.mockito.MockedStatic<StpUtil> authenticatedSession() {
         var stp = mockStatic(StpUtil.class);
-        var tokenSession = new cn.dev33.satoken.session.SaSession("test-token" );
-        tokenSession.set("credentialVersion", 0L);
-        stp.when(StpUtil::getTokenSession).thenReturn(tokenSession);
+        var session = new cn.dev33.satoken.session.SaSession("test-account");
+        session.set("identity", new dev.amai.portfolio.security.context.AccountContext.Account(
+                account.getId(), account.getUsername(), List.of()));
+        stp.when(() -> StpUtil.getSessionByLoginId(7L, false)).thenReturn(session);
         return stp;
     }
 

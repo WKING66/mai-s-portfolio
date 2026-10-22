@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /** 元数据与位置归资产域，是否展示该引用归业务域；不从路径反推用途。 */
 @Service
@@ -35,6 +37,22 @@ public class AssetQueryServiceImpl implements AssetQueryService {
     public AssetQueryServiceImpl(MediaAssetMapper mediaAssetMapper, ObjectStorage objectStorage) {
         this.mediaAssetMapper = mediaAssetMapper;
         this.objectStorage = objectStorage;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Map<Long, AssetMetadataData> lockReady(Set<Long> assetIds) {
+        if (assetIds.isEmpty()) {
+            return Map.of();
+        }
+        var assets = mediaAssetMapper.selectList(Wrappers.<MediaAssetDO>lambdaQuery()
+                .in(MediaAssetDO::getId, assetIds)
+                .orderByAsc(MediaAssetDO::getId).last("FOR UPDATE"));
+        if (assets.size() != assetIds.size()
+                || assets.stream().anyMatch(asset -> asset.getStatus() != MediaStatus.READY.code())) {
+            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "引用资源不存在或尚未就绪，请重新上传");
+        }
+        return assets.stream().collect(Collectors.toMap(MediaAssetDO::getId, AssetConvert.MAPPER::to));
     }
 
     @Override

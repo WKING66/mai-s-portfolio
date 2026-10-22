@@ -11,6 +11,10 @@ import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.web.exception.*;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.mockito.MockedStatic;
+import dev.amai.portfolio.security.context.AccountContext;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockMultipartFile;
 
@@ -24,8 +28,19 @@ import javax.imageio.ImageIO;
 class AssetServiceImplTest {
     private final AssetUploadComponent upload = mock(AssetUploadComponent.class);
     private final AssetQueryService assets = mock(AssetQueryService.class);
-    private final AccountIdentityService identity = mock(AccountIdentityService.class);
-    private final OwnerAuthorizationService owners = mock(OwnerAuthorizationService.class);
+    private MockedStatic<AccountContext> identity;
+
+    @BeforeEach
+    void openContext() {
+        identity = mockStatic(AccountContext.class);
+        identity.when(AccountContext::currentAccount).thenReturn(
+                new AccountContext.Account(7L, "visitor", java.util.List.of()));
+    }
+
+    @AfterEach
+    void closeContext() {
+        identity.close();
+    }
     private final AssetServiceImpl service =
             new AssetServiceImpl(
                     new ImageContentValidator(new AvatarUploadProperties(2097152, 2048)),
@@ -33,14 +48,12 @@ class AssetServiceImplTest {
                             new ImageContentValidator(new AvatarUploadProperties(2097152, 2048)),
                             upload,
                             mock(dev.amai.portfolio.asset.mapper.MediaAssetMapper.class),
-                            mock(dev.amai.portfolio.storage.ObjectStorage.class)),
-                    assets,
-                    identity,
-                    owners);
+                            mock(dev.amai.portfolio.storage.ObjectStorage.class),
+                            mock(org.springframework.transaction.PlatformTransactionManager.class)),
+                    assets);
 
     @Test
     void sameEntryHandlesAvatarImageAndAttachmentWithDeclaredProvenance() throws Exception {
-        when(identity.currentAccountId()).thenReturn(7L);
         when(upload.upload(any())).thenReturn(19L);
         for (AssetUsage usage : AssetUsage.values()) {
             var asset =
@@ -81,29 +94,15 @@ class AssetServiceImplTest {
         verify(upload, times(3)).upload(requests.capture());
         assertThat(requests.getAllValues())
                 .allSatisfy(request -> assertThat(request.uploaderAccountId()).isEqualTo(7L));
+        assertThat(requests.getAllValues().get(0).filename()).isEqualTo("name.png");
+        assertThat(requests.getAllValues().get(1).filename()).isEqualTo("name.png");
         assertThat(requests.getAllValues().get(2).contentType())
                 .isEqualTo("application/octet-stream");
         assertThat(requests.getAllValues().get(2).filename()).isEqualTo("name.html");
-        verify(owners, times(2)).requireOwner();
-    }
-
-    @Test
-    void ownerRulePrecedesFileReadForSharedImagesAndAttachments() {
-        when(identity.currentAccountId()).thenReturn(7L);
-        doThrow(new ApiException(ApiErrorCode.FORBIDDEN, "owner required"))
-                .when(owners)
-                .requireOwner();
-        for (var usage : java.util.List.of(AssetUsage.IMAGE, AssetUsage.ATTACHMENT)) {
-            assertThatThrownBy(() -> service.upload(null, usage))
-                    .isInstanceOf(ApiException.class)
-                    .hasMessage("owner required");
-        }
-        verifyNoInteractions(upload, assets);
     }
 
     @Test
     void invalidOrOversizedFileDoesNotUploadOrCreateAsset() {
-        when(identity.currentAccountId()).thenReturn(7L);
         assertThatThrownBy(() -> service.upload(null, AssetUsage.AVATAR))
                 .isInstanceOf(ApiException.class);
         assertThatThrownBy(
@@ -123,20 +122,16 @@ class AssetServiceImplTest {
                                                 new byte[2097153]),
                                         AssetUsage.AVATAR))
                 .isInstanceOf(ApiException.class);
-        verifyNoInteractions(upload, assets, owners);
+        verifyNoInteractions(upload, assets);
     }
 
     @Test
     void resourceRefreshChecksUploaderOrOwnerBeforeGeneratingSignature() {
-        when(identity.currentAccountId()).thenReturn(7L);
         when(assets.findReadyMetadata(19L))
                 .thenReturn(
                         Optional.of(
                                 new AssetMetadataData(
                                         19L, AssetType.IMAGE, AssetUsage.AVATAR, 8L)));
-        doThrow(new ApiException(ApiErrorCode.FORBIDDEN, "owner required"))
-                .when(owners)
-                .requireOwner();
         assertThatThrownBy(() -> service.resource(19L)).isInstanceOf(ApiException.class);
         verify(assets, never()).findReady(anyLong(), any(AssetType.class));
         when(assets.findReadyMetadata(19L)).thenReturn(Optional.empty());
@@ -148,7 +143,6 @@ class AssetServiceImplTest {
 
     @Test
     void ownAssetCanBeRefreshedWithoutOwnerRole() {
-        when(identity.currentAccountId()).thenReturn(7L);
         when(assets.findReadyMetadata(19L))
                 .thenReturn(
                         Optional.of(
@@ -168,6 +162,6 @@ class AssetServiceImplTest {
                                         "https://oss.test/new",
                                         Instant.parse("2030-01-01T00:00:00Z"))));
         assertThat(service.resource(19L).resourceUrl()).isEqualTo("https://oss.test/new");
-        verifyNoInteractions(owners, upload);
+        verifyNoInteractions(upload);
     }
 }

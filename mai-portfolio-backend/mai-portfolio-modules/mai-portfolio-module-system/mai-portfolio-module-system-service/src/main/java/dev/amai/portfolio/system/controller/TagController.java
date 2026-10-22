@@ -2,41 +2,41 @@ package dev.amai.portfolio.system.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
 import dev.amai.portfolio.common.R;
-import dev.amai.portfolio.system.api.AuthConstants;
-import dev.amai.portfolio.system.api.TaxonomyQueryService;
-import dev.amai.portfolio.system.convert.TaxonomyConvert;
-import dev.amai.portfolio.system.entity.vo.TechTagOptionVo;
+import dev.amai.portfolio.system.api.*;
+import dev.amai.portfolio.system.entity.request.TagRequest;
+import dev.amai.portfolio.system.service.TagService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-/** System 三层目录内的只读入口，不新增嵌套标签模块或标签写接口。 */
+/** 共享标签入口；项目选择 TECH，博客可选择 TOPIC 与 TECH。 */
 @RestController
 @RequestMapping(value = "/api/v1/tags", produces = "application/json")
 @SaCheckRole(AuthConstants.OWNER_ROLE)
-@Tag(name = "技术标签")
+@SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+@Tag(name = "标签")
 public class TagController {
     private final TaxonomyQueryService taxonomyQueryService;
 
-    public TagController(TaxonomyQueryService taxonomyQueryService) {
+    private final TagService tagService;
+
+    public TagController(TaxonomyQueryService taxonomyQueryService, TagService tagService) {
         this.taxonomyQueryService = taxonomyQueryService;
+        this.tagService = tagService;
     }
 
     @GetMapping
-    @Operation(
-            summary = "读取项目可选技术标签",
-            description = "本轮仅支持 kind=TECH。",
-            security = @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME))
-    public R<List<TechTagOptionVo>> list(@RequestParam(defaultValue = "TECH") String kind) {
+    @Operation(summary = "读取可选标签", description = "kind=TOPIC 或 TECH；不传返回两类。项目继续指定 TECH。")
+    public R<List<TagData>> list(@RequestParam(required = false) String kind) {
+        return R.success(taxonomyQueryService.tagOptions(kind));
+    }
 
-        return R.success(
-                taxonomyQueryService.techTagOptions(kind).stream()
-                        .map(TaxonomyConvert.MAPPER::to)
-                        .toList());
+    @PostMapping
+    @Operation(summary = "创建主题或技术标签", description = "TECH 必须指定技术分组，TOPIC 不指定；名称和 slug 唯一冲突返回 409。")
+    public R<TagData> create(@Valid @RequestBody TagRequest request) {
+        return R.success(tagService.create(request));
     }
 }

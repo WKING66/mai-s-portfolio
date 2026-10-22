@@ -11,6 +11,7 @@ import dev.amai.portfolio.portfolio.entity.vo.ProjectEditorVo;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectPageVo;
 import dev.amai.portfolio.portfolio.service.ProjectService;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
@@ -38,7 +39,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 一个列表入口，两种显式视图；MANAGE 所需权限由项目服务声明并通过 System 能力核对。 */
+/** 一个列表入口，两种显式视图；MANAGE 所需权限在请求入口统一核对。 */
 @RestController
 @RequestMapping(value = "/api/v1/projects", produces = "application/json")
 @Tag(name = "项目")
@@ -49,6 +50,7 @@ public class ProjectController {
         this.projectService = projectService;
     }
 
+    @OwnerView
     @GetMapping
     @Operation(summary = "分页读取项目",
         description = "view 默认 PUBLIC，只返回已发布卡片。MANAGE 需要有效 OWNER Cookie，返回管理快照。"
