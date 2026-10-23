@@ -13,9 +13,12 @@ final class MarkdownDestinations {
     private MarkdownDestinations() {}
 
     static String rewrite(String content, BiFunction<String, Boolean, String> destination) {
-        // 1. 解析后交给具名 Visitor 改写真实节点，并收集其原始源码区间。
+        // 1. 公式先作为不可拆分源码消费，内部伪图片/附件没有资源回调，也不会被上传或导出打包。
+        // 其余内容沿用 CommonMark；Visitor 只改真实节点并保留原始源码区间。
         var markdownAst = Parser.builder()
                 .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
+                .customBlockParserFactory((state, matched) -> MarkdownMathBlockParser.start(state, content))
+                .customInlineContentParserFactory(new MarkdownMathInlineParser(content))
                 .build()
                 .parse(content);
         var visitor = new MarkdownDestinationVisitor(destination);
@@ -32,7 +35,9 @@ final class MarkdownDestinations {
             }
         }
         var rewrittenMarkdown = new StringBuilder(content);
-        var markdownRenderer = MarkdownRenderer.builder().build();
+        var markdownRenderer = MarkdownRenderer.builder()
+                .nodeRendererFactory(new MarkdownMathRenderer.Factory())
+                .build();
         // 3. 从尾向前应用变更，避免源码偏移失效；非资源内容保持原样。
         for (var edit : outerEdits.reversed()) {
             rewrittenMarkdown.replace(edit.start(), edit.end(), markdownRenderer.render(edit.node()));
