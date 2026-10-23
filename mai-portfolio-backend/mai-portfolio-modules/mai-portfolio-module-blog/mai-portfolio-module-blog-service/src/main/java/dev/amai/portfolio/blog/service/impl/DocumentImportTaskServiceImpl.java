@@ -1,23 +1,25 @@
 package dev.amai.portfolio.blog.service.impl;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import dev.amai.portfolio.blog.convert.DocumentImportTaskConvert;
 import dev.amai.portfolio.blog.entity.domain.DocumentImportTaskDO;
+import dev.amai.portfolio.blog.entity.vo.DocumentImportTaskVo;
 import dev.amai.portfolio.blog.enums.ImportTaskStatus;
 import dev.amai.portfolio.blog.mapper.DocumentImportTaskMapper;
 import dev.amai.portfolio.blog.service.DocumentImportTaskService;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.web.exception.*;
 import java.time.*;
-import java.util.List;
-import org.springframework.stereotype.Service;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 
 /** PROCESSING/失败单独提交；成功状态必须与博客、内容及资源关系共同提交。 */
 @Service
 public class DocumentImportTaskServiceImpl implements DocumentImportTaskService {
     private static final int SOURCE_FORMAT_MARKDOWN = 0;
-
-    private static final int RECENT_TASK_LIMIT = 50;
 
     private final DocumentImportTaskMapper documentImportTaskMapper;
 
@@ -28,6 +30,7 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public DocumentImportTaskDO begin(long uploader, String requestId, String filename, long size) {
+        // 先查本账号是否发起过同一导入，返回可定位的记录，避免超时后重复创建博客和上传文件。
         var previous = documentImportTaskMapper.selectOne(Wrappers.<DocumentImportTaskDO>lambdaQuery()
                 .eq(DocumentImportTaskDO::getUploaderAccountId, uploader)
                 .eq(DocumentImportTaskDO::getRequestId, requestId));
@@ -35,13 +38,14 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
             throw new ApiException(ApiErrorCode.DATA_CONFLICT,
                     "该导入请求已有记录，请读取导入记录确认结果后再操作，taskId=" + previous.getId());
         }
+        // 正文尚未解析也先保留来源记录；后续解析失败时，用户仍能看到本次导入及原因。
         var task = new DocumentImportTaskDO();
         task.setUploaderAccountId(uploader);
         task.setRequestId(requestId);
         task.setOriginalFilename(filename);
         task.setSourceSize(size);
         task.setSourceFormat(SOURCE_FORMAT_MARKDOWN);
-        task.setStatus(ImportTaskStatus.PROCESSING.name());
+        task.setStatus(ImportTaskStatus.PROCESSING.code());
         task.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC));
         task.setUpdatedAt(task.getCreatedAt());
         try {
@@ -56,9 +60,10 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void recordSource(long id, String sha256) {
+        // 只补充仍在处理中的原始文件摘要，已经结束的导入记录不能被迟到请求改写。
         int updated = documentImportTaskMapper.update(null, Wrappers.<DocumentImportTaskDO>lambdaUpdate()
                 .eq(DocumentImportTaskDO::getId, id)
-                .eq(DocumentImportTaskDO::getStatus, ImportTaskStatus.PROCESSING.name())
+                .eq(DocumentImportTaskDO::getStatus, ImportTaskStatus.PROCESSING.code())
                 .set(DocumentImportTaskDO::getSourceSha256, sha256)
                 .set(DocumentImportTaskDO::getUpdatedAt, LocalDateTime.now(ZoneOffset.UTC)));
         if (updated != 1) {
@@ -69,7 +74,10 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void succeeded(long id, long documentId, String sha256) {
-        if (documentImportTaskMapper.succeeded(id, documentId, sha256) != 1) {
+        // 正文和引用已经保存，再记录成功；存在坏图片/附件时标为“已保存但有问题”，供用户修正后发布。
+        if (documentImportTaskMapper.succeeded(id, documentId, sha256,
+                ImportTaskStatus.PROCESSING.code(), ImportTaskStatus.SUCCEEDED.code(),
+                ImportTaskStatus.SUCCEEDED_WITH_ISSUES.code()) != 1) {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, "导入记录已结束，不能重复提交");
         }
     }
@@ -77,25 +85,37 @@ public class DocumentImportTaskServiceImpl implements DocumentImportTaskService 
     @Override
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void failed(long id, RuntimeException failure) {
+        // 导入没有保存成功时，把失败原因写到最初的记录中；不因正文事务回滚而丢失记录。
         String code = failure instanceof ApiException api ? api.code().name() : ApiErrorCode.INTERNAL_ERROR.name();
         String message = failure instanceof ApiException ? failure.getMessage() : "导入未完成，请检查服务日志";
         // 只接受业务边界已经裁剪的说明；数据库/SDK 原始异常不写入任务记录。
-        documentImportTaskMapper.failed(id, code, message);
+        documentImportTaskMapper.failed(id, code, message,
+                ImportTaskStatus.PROCESSING.code(), ImportTaskStatus.FAILED.code());
     }
 
+    /** 管理员按记录 ID 查看一次导入的来源和失败说明，不返回数据库实体。 */
     @Override
-    public DocumentImportTaskDO get(long id) {
+    public DocumentImportTaskVo get(long id) {
         var task = documentImportTaskMapper.selectById(id);
         if (task == null) {
             throw new ApiException(ApiErrorCode.NOT_FOUND, "导入记录不存在");
         }
-        return task;
+        return DocumentImportTaskConvert.MAPPER.to(task);
     }
 
+    /** 按时间倒序分页；即使文章已经删除，未按文档筛选时仍可查看保留的导入记录。 */
     @Override
-    public List<DocumentImportTaskDO> recent(Long documentId) {
-        return documentImportTaskMapper.selectList(Wrappers.<DocumentImportTaskDO>lambdaQuery()
-                .eq(documentId != null, DocumentImportTaskDO::getDocumentId, documentId)
-                .orderByDesc(DocumentImportTaskDO::getId).last("LIMIT " + RECENT_TASK_LIMIT));
+    public PageVO<DocumentImportTaskVo> page(Long documentId, PageRequest pagination) {
+        int page = pagination.getPage();
+        int size = pagination.sizeOrDefault();
+        var result = documentImportTaskMapper.selectPage(new Page<DocumentImportTaskDO>(page, size),
+                Wrappers.<DocumentImportTaskDO>lambdaQuery()
+                        .eq(documentId != null, DocumentImportTaskDO::getDocumentId, documentId)
+                        .orderByDesc(DocumentImportTaskDO::getId));
+        var items = result.getRecords()
+                .stream()
+                .map(DocumentImportTaskConvert.MAPPER::to)
+                .toList();
+        return new PageVO<>(page, size, result.getTotal(), items);
     }
 }

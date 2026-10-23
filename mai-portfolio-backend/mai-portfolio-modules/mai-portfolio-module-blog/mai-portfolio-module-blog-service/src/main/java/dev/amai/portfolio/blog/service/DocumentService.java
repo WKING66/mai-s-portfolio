@@ -10,6 +10,9 @@ public interface DocumentService {
 
     Document read(long id, boolean manage);
 
+    /** 主体已由博客三表查询定位，只补充这份正式正文的资源和标签，避免再次读取身份和正文。 */
+    Document readPublished(DocumentDO identity, DocumentContentDO content);
+
     /** 同文档草稿优先、正式正文补充，绝不按 key 跨文档检索。 */
     Map<String, DocumentResource> references(long id);
 

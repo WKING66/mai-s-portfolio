@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.blog.mapper.DocumentImportTaskMapper">
+    <!-- 草稿及引用保存成功后，按这份草稿的资源问题记录导入结果；已结束的记录不能再次变更。 -->
+    <update id="succeeded">
+        UPDATE document_import_task SET document_id = #{documentId},
+            status = CASE WHEN EXISTS (
+                SELECT 1 FROM document_resource r JOIN document_content c ON c.id = r.content_id
+                WHERE c.document_id = #{documentId} AND c.stage = 0 AND r.status &lt;&gt; 0
+            ) THEN #{issuesStatus} ELSE #{successStatus} END,
+            issues_json = COALESCE((
+                SELECT jsonb_agg(jsonb_build_object('key', r.resource_key,
+                    'status', r.status, 'errorMessage', r.error_message) ORDER BY r.sort_order)
+                FROM document_resource r JOIN document_content c ON c.id = r.content_id
+                WHERE c.document_id = #{documentId} AND c.stage = 0 AND r.status &lt;&gt; 0
+            ), '[]'::jsonb),
+            source_sha256 = #{sha256}, updated_at = timezone('UTC', now()),
+            finished_at = timezone('UTC', now())
+        WHERE id = #{id} AND status = #{processingStatus}
+    </update>
+
+    <!-- 正文未保存成功时保留错误说明；只更新仍在处理中的记录，不覆盖已有成功结果。 -->
+    <update id="failed">
+        UPDATE document_import_task SET status = #{failedStatus},
+            issues_json = jsonb_build_object('code', #{code}, 'message', #{message}),
+            updated_at = timezone('UTC', now()), finished_at = timezone('UTC', now())
+        WHERE id = #{id} AND status = #{processingStatus}
+    </update>
+</mapper>

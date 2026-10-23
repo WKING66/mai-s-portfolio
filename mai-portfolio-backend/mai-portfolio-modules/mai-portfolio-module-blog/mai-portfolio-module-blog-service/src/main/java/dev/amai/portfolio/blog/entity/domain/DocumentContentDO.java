@@ -15,7 +15,7 @@ public class DocumentContentDO {
 
     private Long documentId;
 
-    private String stage;
+    private Integer stage;
 
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String title;

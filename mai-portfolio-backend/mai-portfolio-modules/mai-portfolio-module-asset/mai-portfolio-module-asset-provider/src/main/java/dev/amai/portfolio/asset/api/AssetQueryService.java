@@ -13,6 +13,9 @@ public interface AssetQueryService {
 
     Optional<AssetResourceData> findReady(Long assetId, AssetType expectedType);
 
+    /** 文档混合图片与附件一次查询；调用方逐条匹配引用类型，不因混合资源查询循环访问数据库。 */
+    Map<Long, AssetResourceData> findReady(Set<Long> assetIds);
+
     /** 项目列表等批量投影只查询一次资产表，不逐项产生数据库查询。 */
     Map<Long, AssetResourceData> findReady(Set<Long> assetIds, AssetType expectedType);
 }

@@ -1,4 +1,4 @@
--- 博客及其共享资源保护依赖的结构快照，V1-V8；仅结构，无业务数据。
+-- 博客及其共享资源保护依赖的结构快照，V1-V9；仅结构，无业务数据。
 -- 唯一运行时来源：mai-portfolio-launch/src/main/resources/db/postgresql/。
 -- 不在已有业务库重复执行，不替代完整 Flyway 初始化。
 
@@ -221,15 +221,14 @@ COMMENT ON COLUMN public.document.last_request_hash IS '最近写请求摘要，
 CREATE TABLE public.document_content (
     id bigint NOT NULL,
     document_id bigint NOT NULL,
-    stage character varying(16) NOT NULL,
+    stage smallint NOT NULL,
     title character varying(200),
     summary text,
     content text NOT NULL,
     reading_time_minutes smallint NOT NULL,
     updated_by bigint NOT NULL,
     created_at timestamp(3) without time zone NOT NULL,
-    updated_at timestamp(3) without time zone NOT NULL,
-    CONSTRAINT document_content_stage_check CHECK (((stage)::text = ANY ((ARRAY['DRAFT'::character varying, 'PUBLISHED'::character varying])::text[])))
+    updated_at timestamp(3) without time zone NOT NULL
 );
 
 
@@ -258,7 +257,7 @@ COMMENT ON COLUMN public.document_content.document_id IS '所属文档；存在�
 -- Name: COLUMN document_content.stage; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.document_content.stage IS 'DRAFT=工作草稿，PUBLISHED=正式正文；不等于博客是否公开';
+COMMENT ON COLUMN public.document_content.stage IS '内容阶段：0=工作草稿，1=正式正文；与博客上架状态独立';
 
 
 --
@@ -334,8 +333,7 @@ CREATE TABLE public.document_content_tag (
     tag_id bigint NOT NULL,
     name character varying(100) NOT NULL,
     slug character varying(120) NOT NULL,
-    kind character varying(16) NOT NULL,
-    CONSTRAINT document_content_tag_kind_check CHECK (((kind)::text = ANY ((ARRAY['TOPIC'::character varying, 'TECH'::character varying])::text[])))
+    kind smallint NOT NULL
 );
 
 
@@ -385,7 +383,7 @@ COMMENT ON COLUMN public.document_content_tag.slug IS '此内容保存时的标�
 -- Name: COLUMN document_content_tag.kind; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.document_content_tag.kind IS '标签类别 TOPIC 或 TECH';
+COMMENT ON COLUMN public.document_content_tag.kind IS '标签类别，与 tag.kind 一致：0=主题 TOPIC，1=技术 TECH';
 
 
 --
@@ -434,9 +432,8 @@ CREATE TABLE public.document_import_task (
     request_id character varying(36),
     source_size bigint,
     source_sha256 character varying(64),
-    status character varying(32) DEFAULT 'INTERRUPTED'::character varying NOT NULL,
-    finished_at timestamp(3) without time zone,
-    CONSTRAINT ck_import_task_status CHECK (((status)::text = ANY ((ARRAY['PROCESSING'::character varying, 'SUCCEEDED'::character varying, 'SUCCEEDED_WITH_ISSUES'::character varying, 'FAILED'::character varying, 'INTERRUPTED'::character varying])::text[])))
+    status smallint DEFAULT 4 NOT NULL,
+    finished_at timestamp(3) without time zone
 );
 
 
@@ -542,7 +539,7 @@ COMMENT ON COLUMN public.document_import_task.source_sha256 IS '原始正文文�
 -- Name: COLUMN document_import_task.status; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.document_import_task.status IS 'PROCESSING=处理中，SUCCEEDED=成功，SUCCEEDED_WITH_ISSUES=保存但有资源问题，FAILED=失败，INTERRUPTED=未确认结束的历史记录';
+COMMENT ON COLUMN public.document_import_task.status IS '导入状态：0=处理中，1=成功，2=已保存但有资源问题，3=失败，4=中断或未确认结束';
 
 
 --
@@ -819,7 +816,7 @@ CREATE TABLE public.media_asset (
     status smallint NOT NULL,
     created_at timestamp(3) without time zone NOT NULL,
     updated_at timestamp(3) without time zone NOT NULL,
-    usage character varying(32) NOT NULL,
+    usage smallint NOT NULL,
     uploader_account_id bigint
 );
 
@@ -933,7 +930,7 @@ COMMENT ON COLUMN public.media_asset.updated_at IS '资源状态或元数据最�
 -- Name: COLUMN media_asset.usage; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public.media_asset.usage IS '上传用途：AVATAR、IMAGE、ATTACHMENT；封面、截图和博客插图共用 IMAGE';
+COMMENT ON COLUMN public.media_asset.usage IS '上传用途：0=头像 AVATAR，1=公开图片 IMAGE，2=附件 ATTACHMENT';
 
 
 --

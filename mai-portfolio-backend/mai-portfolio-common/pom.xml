@@ -11,4 +11,10 @@
     <artifactId>mai-portfolio-common</artifactId>
     <name>mai-portfolio-common</name>
     <description>跨业务域复用的公共能力、通用工具与通用模型；按实际需求建设。</description>
+    <dependencies>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+    </dependencies>
 </project>

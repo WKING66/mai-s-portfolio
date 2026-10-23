@@ -19,6 +19,7 @@ import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetMetadataData;
 import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.system.entity.request.AccountAvatarRequest;
+import dev.amai.portfolio.system.entity.request.AccountAccessRequest;
 import java.time.Instant;
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetType;
@@ -299,6 +300,65 @@ class AccountProfileServiceImplTest {
                 .isInstanceOf(ApiException.class);
         }
         verifyNoInteractions(profiles, assets);
+    }
+
+    @Test
+    void disablingAccountRevokesSessionsOnlyAfterCommit() {
+        try (var stp = mockStatic(StpUtil.class)) {
+            transaction.executeWithoutResult(status -> {
+                service.updateAccess(7L, new AccountAccessRequest(AccountStatus.DISABLED, null));
+                stp.verify(() -> StpUtil.logout(7L), never());
+            });
+            stp.verify(() -> StpUtil.logout(7L));
+        }
+        verify(accounts).update(isNull(), any());
+    }
+
+    @Test
+    void accessChangeRollbackKeepsSessions() {
+        try (var stp = mockStatic(StpUtil.class)) {
+            transaction.executeWithoutResult(status -> {
+                service.updateAccess(7L, new AccountAccessRequest(null, AccountType.OWNER));
+                status.setRollbackOnly();
+            });
+            stp.verify(() -> StpUtil.logout(7L), never());
+        }
+    }
+
+    @Test
+    void typeChangeRevokesOldRoleButEnablingSameTypeDoesNotLogout() {
+        try (var stp = mockStatic(StpUtil.class)) {
+            transaction.executeWithoutResult(status -> service.updateAccess(
+                    7L, new AccountAccessRequest(AccountStatus.ENABLED, AccountType.NORMAL)));
+            stp.verify(() -> StpUtil.logout(7L), never());
+            transaction.executeWithoutResult(status -> service.updateAccess(
+                    7L, new AccountAccessRequest(null, AccountType.OWNER)));
+            stp.verify(() -> StpUtil.logout(7L));
+        }
+    }
+
+    @Test
+    void repeatedDisableStillRevokesExistingSessionsWithoutChangingProfile() {
+        account.setStatus(AccountStatus.DISABLED.code());
+        try (var stp = mockStatic(StpUtil.class)) {
+            transaction.executeWithoutResult(status -> service.updateAccess(
+                    7L, new AccountAccessRequest(AccountStatus.DISABLED, null)));
+            stp.verify(() -> StpUtil.logout(7L));
+        }
+        verifyNoInteractions(profiles, assets);
+        verify(accounts, never()).update(isNull(), any());
+    }
+
+    @Test
+    void missingAccessTargetDoesNotLogoutAnyone() {
+        when(accounts.selectForUpdate(7L)).thenReturn(null);
+        try (var stp = mockStatic(StpUtil.class)) {
+            assertThatThrownBy(() -> transaction.executeWithoutResult(status -> service.updateAccess(
+                    7L, new AccountAccessRequest(AccountStatus.DISABLED, null))))
+                    .isInstanceOfSatisfying(ApiException.class,
+                            error -> assertThat(error.code()).isEqualTo(ApiErrorCode.NOT_FOUND));
+            stp.verify(() -> StpUtil.logout(7L), never());
+        }
     }
 
     private org.mockito.MockedStatic<StpUtil> authenticatedSession() {

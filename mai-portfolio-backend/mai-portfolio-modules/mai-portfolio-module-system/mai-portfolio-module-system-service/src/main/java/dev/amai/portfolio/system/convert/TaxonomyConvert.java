@@ -1,12 +1,11 @@
 package dev.amai.portfolio.system.convert;
 
 import dev.amai.portfolio.system.api.TagData;
+import dev.amai.portfolio.system.api.TagKind;
 import dev.amai.portfolio.system.api.TechTagData;
 import dev.amai.portfolio.system.api.TechTagOptionData;
 import dev.amai.portfolio.system.entity.domain.TagDO;
 import dev.amai.portfolio.system.entity.request.TagRequest;
-import dev.amai.portfolio.system.entity.vo.TechTagOptionVo;
-import dev.amai.portfolio.system.enums.TagKind;
 import dev.amai.portfolio.system.enums.TechGroup;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -38,8 +37,6 @@ public interface TaxonomyConvert {
 
     TechTagData to(TagDO tag, String group);
 
-    /** 与技术栈投影参数相同，仅返回类型不同，使用明确名称避免非法重载。 */
-    TechTagOptionData toOption(TagDO tag, String group);
-
-    TechTagOptionVo to(TechTagOptionData tag);
+    /** 项目需要的字段直接来自共享标签，不再重复查询技术标签目录。 */
+    TechTagOptionData toOption(TagData tag);
 }

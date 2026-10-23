@@ -32,7 +32,7 @@ public interface AssetConvert {
     }
 
     /** 缺失或非法用途继续明确失败，不把损坏元数据投影成空用途。 */
-    default AssetUsage to(String usage) {
-        return AssetUsage.valueOf(usage);
+    default AssetUsage toUsage(Integer usage) {
+        return AssetUsage.fromCode(usage);
     }
 }

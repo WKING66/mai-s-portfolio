@@ -53,7 +53,7 @@ flowchart TD
 
 BlogServiceImpl、AssetServiceImpl 和账号资料服务直接读取共享上下文，不再通过身份 Service 转发。读写博客、资料和资源仍按业务需要访问数据库。
 
-## 注销与改密
+## 注销、改密与账号访问调整
 
 ```mermaid
 flowchart LR
@@ -65,6 +65,8 @@ flowchart LR
     E -- 回滚 --> H[保留原登录，不执行注销]
 ```
 
+站长通过 `PATCH /api/v1/account/{accountId}/access` 提交 `{status: "DISABLED"}` 或 `{type: "NORMAL"}`（也可同时传入两项）。停用或改变类型成功提交后，`AccountProfileServiceImpl.updateAccess` 注销目标账号全部登录；回滚不注销。启用账号后需要重新登录。接口只维护访问能力，不增加账号列表或另一套管理系统。
+
 账号资料写操作自己读取并锁定数据库账号，不把这一步放进所有请求的鉴权链。改密后的注销必须等数据库提交成功；这一步保留为账号资料服务内部的事务回调。
 
 ## 关键代码
@@ -75,7 +77,7 @@ flowchart LR
 | 登录、恢复、注销 | system：service.impl.AuthServiceImpl.login/current/logout |
 | HTTPS、身份与 CSRF | system：auth.AuthenticationInterceptor.preHandle |
 | 角色回调 | system：auth.AccountRoleProvider.getRoleList |
-| 改密与提交后注销 | system：service.impl.AccountProfileServiceImpl.changePassword、LogoutAfterCommit.afterCommit |
+| 改密、账号访问调整与提交后注销 | system：service.impl.AccountProfileServiceImpl.changePassword/updateAccess、LogoutAfterCommit.afterCommit |
 
 ## 已确认的取舍
 
@@ -83,4 +85,4 @@ flowchart LR
 - 旧会话不含当前身份结构时要求重新登录，不查库回填。
 - Redis 故障按错误处理，不回退到数据库鉴权。
 - 改密提交后 Redis 注销失败会报错，已提交的密码不会回滚；没有后台补偿或逐请求查库兜底。
-- API、角色含义、CSRF/HTTPS 规则及业务资源归属规则不变；本次不新增依赖、表或基础设施。
+- 角色含义、CSRF/HTTPS 与资源归属规则不变；新增的访问调整接口仅供 OWNER，不新增依赖、表或基础设施。

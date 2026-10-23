@@ -5,12 +5,14 @@ import static dev.amai.portfolio.blog.constant.DocumentPolicy.REQUEST_ID_PATTERN
 
 import cn.dev33.satoken.annotation.*;
 import cn.hutool.core.collection.CollUtil;
-import dev.amai.portfolio.blog.convert.DocumentImportTaskConvert;
 import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.common.R;
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
@@ -20,8 +22,6 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -29,13 +29,14 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-/** HTTP 参数与响应适配；权限/版本/资源规则由认证层及业务服务承担。 */
+/** HTTP 参数与响应适配；权限/修订/资源规则由认证层及业务服务承担。 */
 @RestController
 @RequestMapping("/api/v1/blogs")
 @Tag(name = "博客")
@@ -54,20 +55,13 @@ public class BlogController {
 
     @OwnerView
     @GetMapping
-    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取公开版本；MANAGE 需要 OWNER，读取草稿投影。")
-    public ResponseEntity<R<BlogPageVo>> list(
+    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，读取草稿投影。")
+    public ResponseEntity<R<ViewPageVO<BlogCardVo>>> list(
             @RequestParam(defaultValue = PUBLIC_VIEW) String view,
-            @Min(value = 1, message = "页码必须大于等于 {value}")
-                    @Max(value = MAX_PAGE_NUMBER, message = "页码不能超过 {value}")
-                    @RequestParam(defaultValue = DEFAULT_PAGE)
-                    int page,
-            @Min(value = 1, message = "每页条数必须大于等于 {value}")
-                    @Max(value = MAX_PAGE_SIZE, message = "每页条数不能超过 {value}")
-                    @RequestParam(defaultValue = DEFAULT_PAGE_SIZE)
-                    int size) {
+            @Valid @ParameterObject @ModelAttribute PageRequest pagination) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(R.success(blogService.list(view, page, size)));
+                .body(R.success(blogService.list(view, pagination)));
     }
 
     @GetMapping("/by-slug/{slug}")
@@ -81,7 +75,7 @@ public class BlogController {
     @SaCheckRole(AuthConstants.OWNER_ROLE)
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @GetMapping("/{id}")
-    @Operation(summary = "读取博客编辑快照")
+    @Operation(summary = "读取当前编辑内容")
     public R<BlogVo> get(@PathVariable long id) {
         return R.success(blogService.get(id));
     }
@@ -202,10 +196,13 @@ public class BlogController {
     @SaCheckRole(AuthConstants.OWNER_ROLE)
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @GetMapping("/imports")
-    @Operation(summary = "读取最近 50 次导入记录", description = "可按 documentId 查询。处理中记录不等同于后台任务。")
-    public R<List<DocumentImportTaskVo>> imports(@RequestParam(required = false) Long documentId) {
-        return R.success(documentImportTaskService.recent(documentId).stream()
-                .map(DocumentImportTaskConvert.MAPPER::to).toList());
+    @Operation(summary = "分页读取导入记录", description = "可按 documentId 筛选；按记录 ID 倒序，可继续翻页查看历史导入。")
+    public R<PageVO<DocumentImportTaskVo>> imports(
+            @RequestParam(required = false)
+            @Positive
+            Long documentId,
+            @Valid @ParameterObject @ModelAttribute PageRequest pagination) {
+        return R.success(documentImportTaskService.page(documentId, pagination));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -213,7 +210,7 @@ public class BlogController {
     @GetMapping("/imports/{taskId}")
     @Operation(summary = "读取导入来源、结果和具体问题")
     public R<DocumentImportTaskVo> importTask(@PathVariable long taskId) {
-        return R.success(DocumentImportTaskConvert.MAPPER.to(documentImportTaskService.get(taskId)));
+        return R.success(documentImportTaskService.get(taskId));
     }
 
     @SaCheckLogin

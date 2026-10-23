@@ -27,7 +27,7 @@ public class DocumentImportTaskDO {
 
     private String sourceSha256;
 
-    private String status;
+    private Integer status;
 
     private String issuesJson;
 

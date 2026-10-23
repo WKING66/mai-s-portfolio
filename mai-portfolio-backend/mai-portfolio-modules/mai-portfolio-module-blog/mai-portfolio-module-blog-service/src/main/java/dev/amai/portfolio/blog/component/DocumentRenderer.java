@@ -25,27 +25,22 @@ public class DocumentRenderer {
 
     /** 批量生成签名地址；manage 只控制来源字段投影，不赋予资源字节访问权限。 */
     public List<DocumentResourceVo> resources(Document document, boolean manage) {
-        // 1. 按图片/附件类型批量查询 READY 资产；这里不决定文章的公开可见性。
-        var assetResourcesById = new HashMap<Long, AssetResourceData>();
-        for (AssetType type : List.of(AssetType.IMAGE, AssetType.FILE)) {
-            var ids =
-                    document.resources().stream()
-                            .filter(
-                                    r ->
-                                            r.assetId() != null
-                                                    && (r.type() == ResourceType.IMAGE
-                                                                    ? AssetType.IMAGE
-                                                                    : AssetType.FILE)
-                                                            == type)
-                            .map(r -> r.assetId())
-                            .collect(Collectors.toSet());
-            assetResourcesById.putAll(assetQueryService.findReady(ids, type));
-        }
+        // 1. 去重后一次读取整篇文章的图片和附件，数量增加不会增加数据库查询次数。
+        var ids = document.resources().stream()
+                .map(DocumentResource::assetId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        var assetResourcesById = assetQueryService.findReady(ids);
         // 2. 当前可用性与版本资源状态分别投影；管理视图额外返回来源，但不提升权限。
         return document.resources().stream()
                 .map(
                         r -> {
                             var assetResource = assetResourcesById.get(r.assetId());
+                            AssetType expected = r.type() == ResourceType.IMAGE ? AssetType.IMAGE : AssetType.FILE;
+                            if (assetResource != null && assetResource.type() != expected) {
+                                // 同一 Asset 不能同时冒充图片和附件；错误绑定按不可用资源展示，不能发出错误类型链接。
+                                assetResource = null;
+                            }
                             ResourceStatus status =
                                     assetResource == null && r.status() == ResourceStatus.READY
                                             ? ResourceStatus.FETCH_FAILED

@@ -13,6 +13,10 @@
     <description>MyBatis-Plus、JSqlParser 与分页自动配置。</description>
     <dependencies>
         <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-common</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot4-starter</artifactId>
         </dependency>

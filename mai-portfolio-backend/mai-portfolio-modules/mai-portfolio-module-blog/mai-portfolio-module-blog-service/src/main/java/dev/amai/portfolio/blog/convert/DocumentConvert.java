@@ -5,6 +5,7 @@ import dev.amai.portfolio.blog.entity.domain.*;
 import dev.amai.portfolio.blog.entity.vo.DocumentResourceVo;
 import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.system.api.TagData;
+import dev.amai.portfolio.system.api.TagKind;
 import java.util.List;
 import org.mapstruct.*;
 import org.mapstruct.factory.Mappers;
@@ -49,6 +50,14 @@ public interface DocumentConvert {
     @Mapping(target = "errorMessage", source = "errorMessage")
     DocumentResourceVo to(DocumentResource resource, AssetResourceData asset,
             ResourceStatus status, String originalUri, String errorMessage);
+
+    default ContentStage toContentStage(Integer code) {
+        return ContentStage.fromCode(code);
+    }
+
+    default Integer toTagKind(String kind) {
+        return TagKind.valueOf(kind).code();
+    }
 
     default ResourceType toResourceType(Integer code) {
         return ResourceType.from(code);
