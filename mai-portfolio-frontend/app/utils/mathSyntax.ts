@@ -3,7 +3,8 @@ export function matchMathSource(source: string, block: boolean) {
   const match = source.match(
     block
       ? /^(?:\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\])(?:\n|$)/
-      : /^(?:\$(?!\$)(?:\\.|[^$\n])+?\$(?![$\d])|\\\([\s\S]+?\\\))/,
+      : // 转义和普通字符分支互斥，未闭合的长反斜线串不会指数回溯。
+        /^(?:\$(?!\$)(?:\\.|[^\\$\n])+?\$(?![$\d])|\\\([\s\S]+?\\\))/,
   )
   if (!match) {
     return
