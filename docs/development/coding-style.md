@@ -164,6 +164,7 @@ for (var relation : relations) {
 - POM/XML 四空格缩进，dependencies、dependencyManagement、plugins、executions、profiles、properties 等结构按层级换行。叶子文本可在同一行，禁止多个依赖元素挤在一行。
 - 保留依赖、插件、模块、属性和 executions 的现有顺序，不因排版改变 Maven 语义；纯排版后用 XML 解析核对结构和文本，构建配置改动明确说明意图。
 - 运行时 YAML、Mapper XML 和 SQL 可读性整改保持解析值、占位符、参数和顺序；不重写历史 Flyway SQL。注解中的 SQL 字符串按实际值核对。
+- 较长 SQL、多字段更新、JOIN、子查询、聚合及动态 SQL 统一写入所属 service 模块 `src/main/resources/mapper/<Mapper名>.xml`；Mapper 接口保留签名和 @Param。仅简单、短小的单表语句或锁函数调用可用 SQL 注解，不用字符串拼接或文本块把复杂 SQL 塞回注解。迁移时逐项核对 namespace、statement id、参数绑定、结果映射及 XML 转义，保持原业务和事务语义。
 - 所有自有 POM 纳入检查，包括不继承根 POM 的 BOM；不因独立父子关系遗漏文件。
 
 ## 提交前自检与验证
