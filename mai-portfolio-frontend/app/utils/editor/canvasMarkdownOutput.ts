@@ -90,7 +90,7 @@ export class CanvasMarkdownWriter extends MarkdownManager {
     let active: string[] = []
     const root: PhrasingParent = { type: 'paragraph', children: [] }
     const stack: PhrasingParent[] = [root]
-    pieces.forEach((node) => {
+    pieces.forEach((node, index) => {
       const link = node.marks?.find((mark) => mark.type === 'link')
       const next = [
         ...(link ? ['link:' + JSON.stringify([link.attrs?.href, link.attrs?.title])] : []),
@@ -120,6 +120,24 @@ export class CanvasMarkdownWriter extends MarkdownManager {
       const marks = node.marks?.filter(
         (mark) => !STYLE_TYPES.includes(mark.type) && mark.type !== 'link',
       )
+      const previous = pieces[index - 1]
+      if (
+        node.type === 'text' &&
+        !marks?.length &&
+        /^\d/.test(node.text ?? '') &&
+        previous?.type === 'preservedMathInline' &&
+        String(previous.attrs?.source).startsWith('$') &&
+        !String(previous.attrs?.source).startsWith('$$')
+      ) {
+        // 画布已有公式后接数字，用标准实体分开词法边界，不能误变成货币或拒绝保存。
+        stack
+          .at(-1)!
+          .children.push(
+            { type: 'inlineCode', value: '&#' + node.text!.charCodeAt(0) + ';' },
+            { type: 'text', value: node.text!.slice(1) },
+          )
+        return
+      }
       // 普通文本交给标准输出器判断分隔符边界；复杂行内节点仍保留原处理器结果。
       // inlineCode 仅作不透明生成片段载体，处理器原样输出；不改变 PM 节点类型。
       stack

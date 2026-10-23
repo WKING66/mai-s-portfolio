@@ -32,6 +32,10 @@ const readerStyles = (
   })
 const cases: [string, JSONContent][] = [
   [
+    '公式原子后直接输入数字仍可保存',
+    paragraph({ type: 'preservedMathInline', attrs: { source: '$x$' } }, text('2026')),
+  ],
+  [
     '公式前后的软换行保持原样',
     paragraph(
       text('前\n'),
