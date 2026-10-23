@@ -6,6 +6,7 @@ import dev.amai.portfolio.blog.entity.domain.Document;
 import dev.amai.portfolio.blog.entity.domain.DocumentResource;
 import dev.amai.portfolio.blog.entity.vo.DocumentResourceVo;
 import dev.amai.portfolio.blog.enums.*;
+import dev.amai.portfolio.markdown.MarkdownProcessor;
 import dev.amai.portfolio.web.exception.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -64,7 +65,7 @@ public class DocumentRenderer {
 
     /** 展示 URL 和 ZIP 内路径都通过相同 AST 替换，不用字符串正则替换整篇 Markdown。 */
     public String markdown(Document document, Map<String, String> destinations) {
-        return MarkdownDestinations.rewrite(
+        return MarkdownProcessor.rewriteDestinations(
                 document.content(),
                 (uri, image) -> {
                     if (!uri.startsWith(DocumentResource.REFERENCE_PREFIX)) {

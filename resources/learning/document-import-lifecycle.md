@@ -197,7 +197,7 @@ remoteRightsConfirmed：是否确认允许抓取网络图片
 
 文件夹里没有被正文引用的候选文件，也会先计入本次输入数量/容量并读取；但后续只有正文实际需要归档的资源才会调用 Asset 上传。不是“整个目录全部原样上传到 OSS”。
 
-接着调用 `MarkdownDocumentParser.parse(filename, input, resources)`：
+接着调用 `MarkdownDocumentParser.parse(filename, input, resources)`。它保留导入格式、容量与异常提示等业务校验；通用文本处理委托 framework 的 `MarkdownProcessor.normalizeUtf8()` 和 `firstHeading()`：
 
 | 处理 | 大白话 | 失败结果 |
 | --- | --- | --- |
@@ -208,7 +208,7 @@ remoteRightsConfirmed：是否确认允许抓取网络图片
 | 拒绝 NUL 字符 | 拒绝正文中的非法空字符 | 整次导入拒绝 |
 | 提取首个顶层 H1 | 例如 `# 我的文章` 作为标题；没有则用去掉 `.md` 的文件名 | 正常继续 |
 
-`appendHeadingText()` 只收集标题节点里的普通 `Text`，不把行内代码或 HTML 的字面内容作为标题拼进去。
+`MarkdownProcessor.firstHeading()` 内部只收集标题节点里的普通 `Text`，不把行内代码或 HTML 的字面内容作为标题拼进去。
 
 Parser 返回 `ParsedDocument`。它只负责“读懂原稿”，不上传文件、不写数据库。这里拒绝的是空输入等非法情况；全空白正文未在这个阶段一律拒绝，发布时另有正文非空白检查。
 
@@ -220,7 +220,7 @@ Parser 返回 `ParsedDocument`。它只负责“读懂原稿”，不上传文�
 flowchart TD
     A["DocumentResourceResolver.prepare()"] --> B["validateContent()<br/>校验原始正文"]
     B --> C["new DocumentPreparationContext(...)<br/>创建本次状态和绝对抓取截止时间"]
-    C --> D["MarkdownDestinations.rewrite()<br/>Visitor 逐个找到真实图片与链接"]
+    C --> D["MarkdownProcessor.rewriteDestinations()<br/>Visitor 逐个找到真实图片与链接"]
     D --> E["DocumentReferenceResolver.resolve()<br/>选择、去重、复用或处理资源"]
     E --> F["DocumentResourceLoader.load()<br/>校验、读取、上传并记录单项状态"]
     F --> G["validateNormalizedContent()<br/>再检查替换后正文容量"]
@@ -531,12 +531,13 @@ OSS 适配器先暂存输入流并核对长度，再上传；`finally` 清理这
 
 ## 14. 图片地址怎样被换掉，又不破坏代码块
 
-`MarkdownDestinations.rewrite()` 使用 CommonMark 解析得到语法树（AST）。你可以把 AST 理解成“编辑器已经区分好的正文结构”：这里是图片、那里是链接、那段是代码。
+`MarkdownProcessor.rewriteDestinations()` 使用 CommonMark 解析得到语法树（AST）。你可以把 AST 理解成“编辑器已经区分好的正文结构”：这里是图片、那里是链接、那段是代码。
 
 - `MarkdownDestinationVisitor.visit(Image)` 把 `image=true` 交给 `DocumentReferenceResolver.resolve()`。
 - `visit(Link)` 把 `image=false` 交给同一个方法。
 - `changed()` 记录**地址真的变化的节点**以及它在原文中的 `SourceSpan` 位置。
 - 代码中的 `![示例](a.png)` 属于代码节点，没有被当作图片节点访问，所以不会误上传。
+- 公式中的示例引用也由 starter 当作公式原文保留，不触发资源上传；是否复用、抓取或上传真实资源，仍由博客的 `DocumentReferenceResolver` 决定。
 
 返回的正文形如：
 
@@ -819,14 +820,14 @@ ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage
 | [authInterceptor.ts](../../mai-portfolio-frontend/app/api/authInterceptor.ts) | `createAuthInterceptor() 内 request()、execute()` | 会话、CSRF、401/403 与不自动重放 |
 | [BlogController.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/controller/BlogController.java) | `importDocument()、export()` | HTTP 参数及导入/导出响应 |
 | [BlogServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/BlogServiceImpl.java) | `importDocument()、read()、persist()、save()、project()` | 导入业务编排，文档/博客事务与结果投影 |
-| [MarkdownDocumentParser.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/MarkdownDocumentParser.java) | `parse()、appendHeadingText()` | 严格 UTF-8、BOM/换行、首个顶层 H1 |
+| [MarkdownDocumentParser.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/MarkdownDocumentParser.java) | `parse()` | 导入格式、容量、错误提示和 Document 输入；委托 framework 处理文本 |
 | [DocumentResourceResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentResourceResolver.java) | `prepare()` | 资源准备入口与整次准备失败回收 |
 | [DocumentPreparationContext.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentPreparationContext.java) | `resolvedReference()、recordCreatedAsset()` | 只属于单次准备的去重、输入及补偿状态 |
 | [DocumentReferenceResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentReferenceResolver.java) | `resolve()、previousResource()、shouldArchive()` | 哪些引用处理，去重、复用与远程重试 |
 | [DocumentResourceLoader.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentResourceLoader.java) | `load()、input()、existingAsset()、referencePath()、localPath()` | 资源读取、路径查找、资产归属与状态诊断 |
 | [DocumentDataUri.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentDataUri.java) | `matches()、decode()、sourceReference()` | 内嵌图片解码与不保存 Base64 来源 |
-| [MarkdownDestinations.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/MarkdownDestinations.java) | `rewrite()` | 选择非重叠源码区间，逆序替换 |
-| [MarkdownDestinationVisitor.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/MarkdownDestinationVisitor.java) | `visit(Image)、visit(Link)、changed()` | 遍历真实节点，记录源码位置 |
+| [MarkdownProcessor.java](../../mai-portfolio-backend/mai-portfolio-framework/mai-portfolio-spring-boot-starter-markdown/src/main/java/dev/amai/portfolio/markdown/MarkdownProcessor.java) | `normalizeUtf8()、firstHeading()、rewriteDestinations()` | 严格解码、标题提取与地址改写；选择非重叠区间、逆序替换 |
+| [MarkdownDestinationVisitor.java](../../mai-portfolio-backend/mai-portfolio-framework/mai-portfolio-spring-boot-starter-markdown/src/main/java/dev/amai/portfolio/markdown/MarkdownDestinationVisitor.java) | `visit(Image)、visit(Link)、changed()` | 遍历真实节点，记录源码位置 |
 | [RemoteResourceFetcher.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/RemoteResourceFetcher.java) | `fetch()、validateUri()` | 共享预算及逐跳请求 |
 | [PublicAddressDnsResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/PublicAddressDnsResolver.java) | `resolve()、publicAddress()` | 实际连接时的公网地址筛选 |
 | [RemoteResourceResponseHandler.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/RemoteResourceResponseHandler.java) | `handleResponse()、readContent()` | 单跳响应、MIME 与有界读取 |

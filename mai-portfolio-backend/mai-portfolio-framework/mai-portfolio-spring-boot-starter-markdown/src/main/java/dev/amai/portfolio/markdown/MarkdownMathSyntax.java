@@ -1,4 +1,4 @@
-package dev.amai.portfolio.blog.component;
+package dev.amai.portfolio.markdown;
 
 /** 编辑与阅读约定的四类公式边界；只识别源码范围，不验证 LaTeX 是否能渲染。 */
 final class MarkdownMathSyntax {

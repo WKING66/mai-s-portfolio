@@ -1,4 +1,4 @@
-package dev.amai.portfolio.blog.component;
+package dev.amai.portfolio.markdown;
 
 import org.commonmark.node.Block;
 import org.commonmark.parser.block.AbstractBlockParser;

@@ -1,4 +1,4 @@
-package dev.amai.portfolio.blog.component;
+package dev.amai.portfolio.markdown;
 
 import java.util.Set;
 import org.commonmark.parser.beta.InlineContentParser;

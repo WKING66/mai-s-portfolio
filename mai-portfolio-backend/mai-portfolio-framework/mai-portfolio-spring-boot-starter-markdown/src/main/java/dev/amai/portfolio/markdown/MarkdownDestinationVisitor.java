@@ -1,4 +1,4 @@
-package dev.amai.portfolio.blog.component;
+package dev.amai.portfolio.markdown;
 
 import java.util.ArrayList;
 import java.util.List;
