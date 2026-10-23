@@ -9,6 +9,7 @@ import security from 'comark/plugins/security'
 import toc from 'comark/plugins/toc'
 import taskList from 'comark/plugins/task-list'
 import math from 'comark/plugins/math'
+import { blogMathSyntax } from './blogMathSyntax'
 import mermaid from 'comark/plugins/mermaid'
 import { MATH_LIMITS, mathFallback, renderBlogMath, compactBlogMath } from './blogMath.ts'
 import { textContent } from 'comark/utils'
@@ -213,6 +214,7 @@ const markdownParser = createMarkdownParser({
     literalDefinitionPlugin,
     taskList(),
     math(),
+    blogMathSyntax,
     mermaid(),
     securityPlugin,
     highlightPlugin,

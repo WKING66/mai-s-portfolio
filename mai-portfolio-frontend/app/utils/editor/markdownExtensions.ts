@@ -8,6 +8,7 @@ import Link from '@tiptap/extension-link'
 import { TaskList, TaskItem } from '@tiptap/extension-list'
 import { TableKit } from '@tiptap/extension-table'
 import { safeBlogUrl } from '../blogResources'
+import { matchMathSource } from '../mathSyntax'
 
 /** 稳定身份可以进入 DOM 恢复标记，但不直接作为可导航 URL。 */
 function isStableReference(uri: string): boolean {
@@ -98,9 +99,6 @@ export const PreservedMarkdownBlock = Node.create({
 
 function preservedMath(block: boolean) {
   const name = block ? 'preservedMathBlock' : 'preservedMathInline'
-  const pattern = block
-    ? /^(?:\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\])(?:\n|$)/
-    : /^(?:\$(?!\$)(?:\\.|[^$\n])+?\$(?!\$)|\\\([\s\S]+?\\\))/
   return Node.create({
     name,
     group: block ? 'block' : 'inline',
@@ -133,9 +131,9 @@ function preservedMath(block: boolean) {
         return source.search(block ? /^ {0,3}(?:\$\$|\\\[)/m : /\$|\\\(/)
       },
       tokenize(source) {
-        const match = source.match(pattern)
+        const match = matchMathSource(source, block)
         if (match) {
-          return { type: name, raw: match[0], text: match[0].trimEnd() }
+          return { type: name, raw: match.raw, text: match.raw.trimEnd() }
         }
       },
     },

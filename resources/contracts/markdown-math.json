@@ -1,0 +1,132 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "dollar-link",
+      "source": "$[fake](resource://math)$",
+      "math": 1,
+      "targets": []
+    },
+    {
+      "id": "dollar-block-image",
+      "source": "$$\n![fake](resource://math)\n$$",
+      "math": 1,
+      "targets": []
+    },
+    {
+      "id": "parentheses-link",
+      "source": "\\([fake](resource://math)\\)",
+      "math": 1,
+      "targets": []
+    },
+    {
+      "id": "brackets-image",
+      "source": "\\[\n![fake](resource://math)\n\\]",
+      "math": 1,
+      "targets": []
+    },
+    {
+      "id": "numeric-formula",
+      "source": "第 i 层：$2^{i-1}$，$2$。",
+      "math": 2,
+      "targets": []
+    },
+    {
+      "id": "mixed-links",
+      "source": "[before](resource://before) $[fake](resource://math)$ [after](resource://after)",
+      "math": 1,
+      "targets": ["resource://before", "resource://after"]
+    },
+    {
+      "id": "reference-in-math",
+      "source": "$[fake][m]$\n\n[m]: resource://math",
+      "math": 1,
+      "targets": []
+    },
+    {
+      "id": "shared-reference",
+      "source": "$[fake][m]$ [real][m]\n\n[m]: resource://shared",
+      "math": 1,
+      "targets": ["resource://shared"]
+    },
+    {
+      "id": "escaped-dollar",
+      "source": "\\$[real](resource://real)",
+      "math": 0,
+      "targets": ["resource://real"]
+    },
+    {
+      "id": "unclosed-dollar",
+      "source": "$x + [real](resource://real)",
+      "math": 0,
+      "targets": ["resource://real"]
+    },
+    {
+      "id": "currency",
+      "source": "价格 $5，[real](resource://real)，另一价格 $10",
+      "math": 0,
+      "targets": ["resource://real"]
+    },
+    {
+      "id": "inline-code",
+      "source": "`$[fake](resource://math)$`",
+      "math": 0,
+      "targets": []
+    },
+    {
+      "id": "fenced-code",
+      "source": "~~~txt\n$[fake](resource://math)$\n~~~",
+      "math": 0,
+      "targets": []
+    },
+    {
+      "id": "mermaid",
+      "source": "~~~mermaid\nflowchart LR\nA[example]\n%% [fake](resource://math)\n~~~",
+      "math": 0,
+      "targets": []
+    },
+    {
+      "id": "table",
+      "source": "| 公式 | 附件 |\n|---|---|\n| $2^{i-1}$ | [real](resource://real) |",
+      "math": 1,
+      "targets": ["resource://real"]
+    },
+    {
+      "id": "quoted-formula",
+      "source": "> $$\n> [fake](resource://math)\n> $$\n>\n> [real](resource://real)",
+      "math": 1,
+      "targets": ["resource://real"]
+    },
+    {
+      "id": "escaped-closing-dollar",
+      "source": "$x + \\$ + y$ [real](resource://real)",
+      "math": 1,
+      "targets": ["resource://real"]
+    },
+    { "id": "empty-inline", "source": "公式 $ $", "math": 1, "targets": [] },
+    {
+      "id": "unclosed-parentheses",
+      "source": "\\(x + [real](resource://real)",
+      "math": 0,
+      "targets": ["resource://real"]
+    },
+    {
+      "id": "multiline-parentheses",
+      "source": "前 \\(x +\ny\\) 后",
+      "math": 1,
+      "targets": []
+    },
+    {
+      "id": "list-block",
+      "source": "- 数学\n\n  $$\n  [fake](resource://math)\n  $$\n\n  [real](resource://real)",
+      "math": 1,
+      "targets": ["resource://real"]
+    },
+    {
+      "id": "list-block-empty-line",
+      "source": "- 数学\n\n  $$\n  x\n\n  y\n  $$\n\n  [real](resource://real)",
+      "math": 1,
+      "targets": ["resource://real"]
+    }
+  ]
+}
