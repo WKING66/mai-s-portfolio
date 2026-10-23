@@ -8,6 +8,7 @@ import dev.amai.portfolio.asset.api.*;
 import dev.amai.portfolio.blog.config.DocumentProperties;
 import dev.amai.portfolio.blog.entity.domain.*;
 import dev.amai.portfolio.blog.enums.*;
+import dev.amai.portfolio.markdown.MarkdownProcessor;
 import dev.amai.portfolio.web.exception.*;
 
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,7 @@ class DocumentPipelineTest {
     @Test
     void referenceAndNestedResourceLinksChangeOnlyTheirOwnSourceRanges() {
         String body = "before\n\n[![图][image]](report.pdf)\n\n[image]: a.png \"图标题\"\n\n```md\n[code](report.pdf)\n```\n";
-        String rewritten = MarkdownDestinations.rewrite(body, (uri, image) -> "resource://" + (image ? "image" : "file"));
+        String rewritten = MarkdownProcessor.rewriteDestinations(body, (uri, image) -> "resource://" + (image ? "image" : "file"));
         assertThat(rewritten).contains("[![图](resource://image \"图标题\")](resource://file)",
                 "[image]: a.png \"图标题\"", "```md\n[code](report.pdf)\n```\n").startsWith("before\n\n");
     }

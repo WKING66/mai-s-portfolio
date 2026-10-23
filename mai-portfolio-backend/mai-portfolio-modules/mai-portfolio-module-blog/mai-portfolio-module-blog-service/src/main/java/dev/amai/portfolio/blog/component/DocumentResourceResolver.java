@@ -6,6 +6,7 @@ import dev.amai.portfolio.blog.config.DocumentProperties;
 import dev.amai.portfolio.blog.entity.domain.DocumentInputResource;
 import dev.amai.portfolio.blog.entity.domain.DocumentResource;
 import dev.amai.portfolio.blog.entity.domain.PreparedDocument;
+import dev.amai.portfolio.markdown.MarkdownProcessor;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +52,7 @@ public class DocumentResourceResolver {
             // 2. 只处理真正的 AST 资源节点，不重排整篇正文或代码中的示例。
             var referenceResolver = new DocumentReferenceResolver(
                     context, documentResourceLoader, documentProperties);
-            String normalized = MarkdownDestinations.rewrite(content, referenceResolver::resolve);
+            String normalized = MarkdownProcessor.rewriteDestinations(content, referenceResolver::resolve);
             validateNormalizedContent(normalized);
             // 3. 返回稳定引用与新增资产快照，已知的单项失败继续留在资源状态中。
             return new PreparedDocument(normalized, context.resources(), context.newlyCreatedAssets());

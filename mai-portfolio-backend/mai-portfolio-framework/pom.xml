@@ -22,5 +22,6 @@
         <module>mai-portfolio-spring-boot-starter-flyway</module>
         <module>mai-portfolio-spring-boot-starter-openapi</module>
         <module>mai-portfolio-spring-boot-starter-storage</module>
+        <module>mai-portfolio-spring-boot-starter-markdown</module>
     </modules>
 </project>

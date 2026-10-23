@@ -104,6 +104,11 @@
             </dependency>
             <dependency>
                 <groupId>dev.amai</groupId>
+                <artifactId>mai-portfolio-spring-boot-starter-markdown</artifactId>
+                <version>${portfolio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.amai</groupId>
                 <artifactId>mai-portfolio-module-system-provider</artifactId>
                 <version>${portfolio.version}</version>
             </dependency>
