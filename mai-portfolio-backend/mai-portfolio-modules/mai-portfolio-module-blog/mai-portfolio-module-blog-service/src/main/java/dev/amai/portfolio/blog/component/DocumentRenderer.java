@@ -35,7 +35,9 @@ public class DocumentRenderer {
         return document.resources().stream()
                 .map(
                         r -> {
-                            var assetResource = assetResourcesById.get(r.assetId());
+                            // 缺文件或抓取失败的引用本来就没有 Asset，仍需把草稿及具体问题返回给作者。
+                            // 不能以空 ID 查找批量结果，否则不可变 Map 会抛异常，让已保存草稿误报 500。
+                            var assetResource = r.assetId() == null ? null : assetResourcesById.get(r.assetId());
                             AssetType expected = r.type() == ResourceType.IMAGE ? AssetType.IMAGE : AssetType.FILE;
                             if (assetResource != null && assetResource.type() != expected) {
                                 // 同一 Asset 不能同时冒充图片和附件；错误绑定按不可用资源展示，不能发出错误类型链接。
