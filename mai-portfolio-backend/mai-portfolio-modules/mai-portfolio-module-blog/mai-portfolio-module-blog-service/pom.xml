@@ -52,8 +52,8 @@
             <artifactId>mai-portfolio-spring-boot-starter-openapi</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.commonmark</groupId>
-            <artifactId>commonmark</artifactId>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-spring-boot-starter-markdown</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
