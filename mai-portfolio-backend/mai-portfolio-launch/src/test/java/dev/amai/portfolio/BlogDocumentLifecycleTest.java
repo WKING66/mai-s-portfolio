@@ -52,7 +52,6 @@ import javax.imageio.ImageIO;
         matches = "jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/blog_document_test(?:_[a-z0-9_]+)?")
 class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
     @MockitoBean org.redisson.api.RedissonClient redis;
-    @MockitoBean OwnerAuthorizationService owners;
     @MockitoBean dev.amai.portfolio.system.service.impl.AccountAuthenticationServiceImpl identity;
     @MockitoBean ObjectStorage storage;
     @MockitoBean dev.amai.portfolio.blog.component.RemoteResourceFetcher remote;
@@ -148,10 +147,7 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
         assertThat(publicArticle.content()).isEqualTo(markdown);
         assertThat(new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
                 .valueToTree(publicArticle).has("html")).isFalse();
-        doThrow(new ApiException(ApiErrorCode.FORBIDDEN, "owner required")).when(owners).requireOwner();
         assertThat(blogs.publicArticle("dialect-test").content()).isEqualTo(markdown);
-        assertThatThrownBy(() -> blogs.get(published.id())).isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> blogs.exportDocument(published.id(), "PUBLIC")).isInstanceOf(ApiException.class);
     }
 
     @Test
@@ -301,9 +297,7 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                 .isInstanceOf(ApiException.class);
         var edited = blogs.save(draft.id(), input(published, "no-resource", "Text", "body", true));
         assertThat(blogs.exportDocument(edited.id(), "PUBLIC").content()).contains("body");
-        doThrow(new ApiException(ApiErrorCode.FORBIDDEN, "owner required"))
-                .when(owners)
-                .requireOwner();
+
         assertThatThrownBy(() -> blogs.get(draft.id())).isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> blogs.exportDocument(draft.id(), "MANAGE"))
                 .isInstanceOf(ApiException.class);

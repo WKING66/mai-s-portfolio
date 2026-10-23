@@ -24,6 +24,8 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 /** 元数据与位置归资产域，是否展示该引用归业务域；不从路径反推用途。 */
 @Service
@@ -35,6 +37,24 @@ public class AssetQueryServiceImpl implements AssetQueryService {
     public AssetQueryServiceImpl(MediaAssetMapper mediaAssetMapper, ObjectStorage objectStorage) {
         this.mediaAssetMapper = mediaAssetMapper;
         this.objectStorage = objectStorage;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Map<Long, AssetMetadataData> lockReady(Set<Long> assetIds) {
+        if (assetIds.isEmpty()) {
+            return Map.of();
+        }
+        var assets = mediaAssetMapper.selectList(Wrappers.<MediaAssetDO>lambdaQuery()
+                .in(MediaAssetDO::getId, assetIds)
+                .orderByAsc(MediaAssetDO::getId).last("FOR UPDATE"));
+        if (assets.size() != assetIds.size()
+                || assets.stream()
+                        .anyMatch(asset -> asset.getStatus() != MediaStatus.READY.code())) {
+            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "引用资源不存在或尚未就绪，请重新上传");
+        }
+        return assets.stream()
+                .collect(Collectors.toMap(MediaAssetDO::getId, AssetConvert.MAPPER::to));
     }
 
     @Override
@@ -60,13 +80,27 @@ public class AssetQueryServiceImpl implements AssetQueryService {
     }
 
     @Override
+    public Map<Long, AssetResourceData> findReady(Set<Long> assetIds) {
+        return readyResources(assetIds, null);
+    }
+
+    @Override
     public Map<Long, AssetResourceData> findReady(Set<Long> assetIds, AssetType expectedType) {
-        // 1. 规范化查询集合；无有效身份或类型时不访问数据库与存储。
-        if (assetIds == null || assetIds.isEmpty() || expectedType == null) {
+        if (expectedType == null) {
+            return Map.of();
+        }
+        return readyResources(assetIds, expectedType);
+    }
+
+    private Map<Long, AssetResourceData> readyResources(Set<Long> assetIds, AssetType expectedType) {
+        // 1. 没有文件引用就不读库；图片和附件可以共用一批查询，但每条仍按实际类型签名。
+        if (assetIds == null || assetIds.isEmpty()) {
             return Map.of();
         }
         Set<Long> ids =
-                assetIds.stream().filter(id -> id != null && id > 0).collect(Collectors.toSet());
+                assetIds.stream()
+                        .filter(id -> id != null && id > 0)
+                        .collect(Collectors.toSet());
         if (ids.isEmpty()) {
             return Map.of();
         }
@@ -76,9 +110,8 @@ public class AssetQueryServiceImpl implements AssetQueryService {
                         Wrappers.<MediaAssetDO>lambdaQuery()
                                 .in(MediaAssetDO::getId, ids)
                                 .eq(MediaAssetDO::getStatus, MediaStatus.READY.code())
-                                .eq(
-                                        MediaAssetDO::getType,
-                                        MediaAssetType.from(expectedType).code()));
+                                .eq(expectedType != null, MediaAssetDO::getType,
+                                        expectedType == null ? null : MediaAssetType.from(expectedType).code()));
         var resourcesById = new HashMap<Long, AssetResourceData>();
         for (MediaAssetDO asset : mediaAssets) {
             if (asset.getStorageKey() == null
@@ -93,7 +126,7 @@ public class AssetQueryServiceImpl implements AssetQueryService {
             try {
                 // 3. 图片直接展示；文档与普通文件按原始文件名下载，不能用内部 .bin 对象键命名。
                 // 文件名来自资产元数据，旧附件也适用；只签名响应头，不读取或重新上传对象字节。
-                storedObjectAccessUrl = expectedType == AssetType.IMAGE
+                storedObjectAccessUrl = asset.getType() == MediaAssetType.IMAGE.code()
                         ? objectStorage.accessUrl(asset.getStorageKey())
                         : objectStorage.downloadUrl(asset.getStorageKey(), asset.getOriginalFilename());
             } catch (ObjectStorageException error) {

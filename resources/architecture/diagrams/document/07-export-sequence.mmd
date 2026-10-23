@@ -1,31 +1,14 @@
-%% Generated from docs/architecture/document-import-export.md; edit that document first.
 sequenceDiagram
-    actor User as 已登录用户
-    participant UI as 编辑器或公开文章页
-    participant API as useBlogApi 与统一下载请求
-    participant Auth as 认证层
-    participant Blog as BlogService
-    participant Export as DocumentExportService
-    participant Asset as AssetFileService
-    participant OSS as 私有 OSS
-    User->>UI: 选择正文或携带资源并导出
-    UI->>API: download(id, includeResources, manage)
-    API->>Auth: GET export，Cookie 与 view
-    Auth->>Auth: 登录、账号状态与必要角色校验
-    Auth->>Blog: 选择已保存的授权版本
-    Blog->>Blog: PUBLIC 检查已发布且允许访客下载；MANAGE 检查 OWNER
-    Blog->>Export: Document 与 includeResources
-    Export->>Export: 资源就绪检查、引用替换、准备输出计划
-    alt 仅正文或没有资源
-        Export-->>API: 流式写入 UTF-8 Markdown，资源为签名 URL
-    else 携带资源且有资源
-        loop 每个资源
-            Export->>Asset: openReady(assetId)
-            Asset->>OSS: 读取对象流
-            OSS-->>Export: 有界缓冲逐段复制到 ZIP
-        end
-        Export-->>API: 完成 ZIP 中央目录并输出
+    participant UI as 调用端
+    participant B as BlogService.exportDocument
+    participant E as DocumentExportService.prepare
+    participant A as AssetFileService.openReady
+    UI->>B: 已登录 / PUBLIC 或 MANAGE
+    B->>B: OWNER 或公开状态 + 下载许可校验
+    B->>E: 已授权当前 Document
+    alt 未勾选资源或文章没有资源
+        E-->>UI: 标题.md / 资源用签名 URL
+    else 勾选且包含资源
+        E->>A: 按资源逐个打开并流式复制
+        E-->>UI: 标题.zip / 标题.md + resources/原文件名
     end
-    Note over Auth,Export: Servlet 异步收尾派发重新绑定请求上下文并继续鉴权
-    API->>API: 接收完整 Blob，读取 Content-Disposition
-    API-->>UI: 临时对象 URL 触发浏览器保存，稍后释放

@@ -13,8 +13,5 @@ public interface UserAccountMapper extends BaseMapper<UserAccountDO> {
     int acquireBootstrapLock();
 
     /** 同一账号的资料/密码写入串行化；必须在事务中调用，不锁定其他账号。 */
-    @Select(
-            "SELECT id, username, type, password_hash, status, credential_version, created_at, updated_at "
-                    + "FROM user_account WHERE id = #{accountId} FOR UPDATE")
     UserAccountDO selectForUpdate(@Param("accountId") long accountId);
 }

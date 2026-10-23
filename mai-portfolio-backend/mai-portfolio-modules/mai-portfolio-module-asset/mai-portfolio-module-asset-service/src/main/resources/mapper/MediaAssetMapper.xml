@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.asset.mapper.MediaAssetMapper">
+    <!-- 任何文档、项目、账号头像或站点资料仍在使用的文件，都不能被失败清理误删。 -->
+    <select id="isReferenced" resultType="boolean">
+        SELECT EXISTS (SELECT 1 FROM document_resource WHERE asset_id = #{id})
+            OR EXISTS (SELECT 1 FROM project_media WHERE media_id = #{id})
+            OR EXISTS (SELECT 1 FROM user_profile WHERE avatar_media_id = #{id})
+            OR EXISTS (SELECT 1 FROM site_config
+                WHERE avatar_media_id = #{id} OR resume_media_id = #{id})
+    </select>
+</mapper>

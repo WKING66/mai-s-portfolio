@@ -6,7 +6,6 @@ import dev.amai.portfolio.system.entity.request.LoginRequest;
 import dev.amai.portfolio.system.exception.InvalidCredentialPayloadException;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
-import dev.amai.portfolio.system.service.AccountAuthenticationService;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -25,7 +24,6 @@ import dev.amai.portfolio.system.enums.AccountStatus;
 import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.LoginThrottleService;
-import dev.amai.portfolio.system.service.OwnerRoleService;
 import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
@@ -49,13 +47,12 @@ class RegistrationServiceTest {
     private final PasswordHasher passwords = mock(PasswordHasher.class);
     private final PasswordCryptoService crypto = mock(PasswordCryptoService.class);
     private final LoginThrottleService throttle = mock(LoginThrottleService.class);
-    private final OwnerRoleService roles = mock(OwnerRoleService.class);
     private final ValidatorFactory validators = Validation.buildDefaultValidatorFactory();
     private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
     private final AuthServiceImpl auth = new AuthServiceImpl(accounts, passwords,
         new SecurityProperties(List.of(ORIGIN), new ByteArrayResource(new byte[0]),
-            false, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5)), crypto, throttle, roles,
-        mock(AccountAuthenticationService.class), new NewPasswordPolicy(),
+            false, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5)), crypto, throttle,
+        new NewPasswordPolicy(),
         new AuthRequestValidator(validators.getValidator()), transactions);
 
     @BeforeEach void configureTransaction() {
@@ -72,7 +69,7 @@ class RegistrationServiceTest {
                 () -> auth.register(ORIGIN, "client", new RegisterRequest("visitor", "")))) {
             assertThatThrownBy(operation::run).isInstanceOf(InvalidCredentialPayloadException.class);
         }
-        verifyNoInteractions(throttle, crypto, accounts, passwords, roles, transactions);
+        verifyNoInteractions(throttle, crypto, accounts, passwords, transactions);
     }
 
     @Test
@@ -103,7 +100,6 @@ class RegistrationServiceTest {
         assertThat(account.getValue().getStatus()).isEqualTo(AccountStatus.ENABLED.code());
         assertThat(account.getValue().getPasswordHash()).isEqualTo("argon-hash");
         assertThat(account.getValue().getCreatedAt()).isEqualTo(account.getValue().getUpdatedAt());
-        verifyNoInteractions(roles);
         verify(throttle).acquireRegistrationPermit("client");
         verify(throttle, never()).acquireLoginPermit(any());
         verify(passwords).encode(rawPassword.trim());

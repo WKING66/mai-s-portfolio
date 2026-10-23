@@ -1,8 +1,9 @@
 package dev.amai.portfolio.portfolio.service.impl;
 
-import dev.amai.portfolio.system.api.OwnerAuthorizationService;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import dev.amai.portfolio.portfolio.constant.ProjectMessageConstants;
@@ -33,12 +34,17 @@ class ProjectServiceImplTest {
     private final TaxonomyQueryService taxonomy = mock(TaxonomyQueryService.class);
     private final ProjectMediaMapper media = mock(ProjectMediaMapper.class);
     private final AssetQueryService assets = mock(AssetQueryService.class);
-    private final OwnerAuthorizationService authorization = mock(OwnerAuthorizationService.class);
-    private final ProjectServiceImpl service = new ProjectServiceImpl(projects, links, tags, taxonomy, media, assets, authorization);
+    private final ProjectServiceImpl service = new ProjectServiceImpl(projects, links, tags, taxonomy, media, assets);
 
     @BeforeEach
     void catalog() {
         when(taxonomy.techTagOptions()).thenReturn(List.of(new TechTagOptionData(1L, "Java", "java", "LANGUAGE", null)));
+        when(taxonomy.requireTags(List.of(1L))).thenReturn(List.of(
+                new dev.amai.portfolio.system.api.TagData(1L, "Java", "java", "TECH", "LANGUAGE", null)));
+        when(taxonomy.requireTags(List.of(1L, 1L))).thenThrow(
+                new ApiException(dev.amai.portfolio.web.exception.ApiErrorCode.VALIDATION_FAILED, "duplicate"));
+        when(taxonomy.requireTags(List.of(999L))).thenThrow(
+                new ApiException(dev.amai.portfolio.web.exception.ApiErrorCode.VALIDATION_FAILED, "missing"));
     }
 
     @ParameterizedTest
@@ -50,24 +56,23 @@ class ProjectServiceImplTest {
     }
 
     @Test
-    void manageAuthorizationFailurePreventsDatabaseQueryEvenForInternalCallers() {
-        org.mockito.Mockito.doThrow(new ApiException(
-            dev.amai.portfolio.web.exception.ApiErrorCode.UNAUTHENTICATED, "login required"))
-            .when(authorization).requireOwner();
-        assertThatThrownBy(() -> service.list(new ProjectListRequest("MANAGE", 1, 20, null)))
-            .isInstanceOf(ApiException.class);
-        org.mockito.Mockito.verify(authorization).requireOwner();
-        verifyNoInteractions(projects, links, tags, media);
-    }
-
-    @Test
     void rejectsOversizeAndPublicStatusFilter() {
         assertThatThrownBy(() -> service.list(new ProjectListRequest("PUBLIC", 1, 51, null)))
             .isInstanceOf(ApiException.class);
         assertThatThrownBy(() -> service.list(new ProjectListRequest("PUBLIC", 1, 3, "DRAFT")))
             .isInstanceOf(ApiException.class);
         verifyNoInteractions(projects, links, tags);
-        verifyNoInteractions(authorization);
+    }
+
+    @Test
+    void projectRetainsTechRestrictionWhileTaxonomyOwnsExistenceValidation() {
+        when(taxonomy.requireTags(List.of(2L))).thenReturn(List.of(
+                new dev.amai.portfolio.system.api.TagData(2L, "主题", "topic", "TOPIC", null, null)));
+        assertThatThrownBy(() -> service.create(input(List.of(2L), List.of())))
+                .hasMessage(ProjectMessageConstants.INVALID_TAGS);
+        verify(taxonomy).requireTags(List.of(2L));
+        verify(taxonomy, never()).techTagOptions();
+        verifyNoInteractions(projects, links, tags);
     }
 
     @Test

@@ -20,7 +20,7 @@ public class MediaAssetDO {
 
     private Integer sourceType;
 
-    private String usage;
+    private Integer usage;
 
     private Long uploaderAccountId;
 

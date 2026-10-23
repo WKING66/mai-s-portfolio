@@ -1,14 +1,20 @@
 package dev.amai.portfolio.blog.controller;
 
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
+import static dev.amai.portfolio.blog.constant.DocumentPolicy.REQUEST_ID_PATTERN;
 
 import cn.dev33.satoken.annotation.*;
 import cn.hutool.core.collection.CollUtil;
 import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
+import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.common.R;
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -16,17 +22,21 @@ import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.*;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
-/** HTTP 参数与响应适配；权限/版本/资源规则由认证层及业务服务承担。 */
+/** HTTP 参数与响应适配；权限/修订/资源规则由认证层及业务服务承担。 */
 @RestController
 @RequestMapping("/api/v1/blogs")
 @Tag(name = "博客")
@@ -34,26 +44,24 @@ public class BlogController {
     private final BlogService blogService;
     private final DocumentExportService documentExportService;
 
-    public BlogController(BlogService blogService, DocumentExportService documentExportService) {
+    private final DocumentImportTaskService documentImportTaskService;
+
+    public BlogController(BlogService blogService, DocumentExportService documentExportService,
+            DocumentImportTaskService documentImportTaskService) {
         this.blogService = blogService;
         this.documentExportService = documentExportService;
+        this.documentImportTaskService = documentImportTaskService;
     }
 
+    @OwnerView
     @GetMapping
-    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取公开版本；MANAGE 需要 OWNER，读取草稿投影。")
-    public ResponseEntity<R<BlogPageVo>> list(
+    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，读取草稿投影。")
+    public ResponseEntity<R<ViewPageVO<BlogCardVo>>> list(
             @RequestParam(defaultValue = PUBLIC_VIEW) String view,
-            @Min(value = 1, message = "页码必须大于等于 {value}")
-                    @Max(value = MAX_PAGE_NUMBER, message = "页码不能超过 {value}")
-                    @RequestParam(defaultValue = DEFAULT_PAGE)
-                    int page,
-            @Min(value = 1, message = "每页条数必须大于等于 {value}")
-                    @Max(value = MAX_PAGE_SIZE, message = "每页条数不能超过 {value}")
-                    @RequestParam(defaultValue = DEFAULT_PAGE_SIZE)
-                    int size) {
+            @Valid @ParameterObject @ModelAttribute PageRequest pagination) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(R.success(blogService.list(view, page, size)));
+                .body(R.success(blogService.list(view, pagination)));
     }
 
     @GetMapping("/by-slug/{slug}")
@@ -67,7 +75,7 @@ public class BlogController {
     @SaCheckRole(AuthConstants.OWNER_ROLE)
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @GetMapping("/{id}")
-    @Operation(summary = "读取博客编辑快照")
+    @Operation(summary = "读取当前编辑内容")
     public R<BlogVo> get(@PathVariable long id) {
         return R.success(blogService.get(id));
     }
@@ -90,8 +98,8 @@ public class BlogController {
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @PatchMapping("/{id}")
     @Operation(
-            summary = "保存新文档版本",
-            description = "带回 version；保存不修改公开版本。",
+            summary = "保存工作草稿",
+            description = "带回 revision 和唯一 requestId；原地更新草稿，标签随草稿保存，公开正文不变；allowDownload 立即生效。",
             parameters =
                     @Parameter(
                             name = AuthConstants.CSRF_HEADER_NAME,
@@ -117,24 +125,32 @@ public class BlogController {
     public R<BlogVo> importDocument(
             @RequestPart MultipartFile file,
             @RequestPart(required = false) List<MultipartFile> resources,
-            @RequestParam(defaultValue = "false") boolean remoteRightsConfirmed) {
+            @RequestParam(defaultValue = "false") boolean remoteRightsConfirmed,
+            @RequestParam(required = false)
+            @Size(max = MAX_TAGS)
+            List<@NotNull @Positive Long> tagIds,
+            @RequestParam
+            @NotBlank
+            @Pattern(regexp = REQUEST_ID_PATTERN)
+            String requestId) {
         return R.success(
                 blogService.importDocument(
-                        file, CollUtil.emptyIfNull(resources), remoteRightsConfirmed));
+                        file, CollUtil.emptyIfNull(resources), remoteRightsConfirmed,
+                        CollUtil.emptyIfNull(tagIds), requestId));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @PostMapping("/{id}/publish")
     @Operation(
-            summary = "发布当前文档版本",
+            summary = "发布已保存草稿并替换正式正文",
             parameters =
                     @Parameter(
                             name = AuthConstants.CSRF_HEADER_NAME,
                             in = ParameterIn.HEADER,
                             required = true))
-    public R<BlogVo> publish(@PathVariable long id, @Valid @RequestBody BlogVersionRequest input) {
-        return R.success(blogService.publish(id, input.version(), true));
+    public R<BlogVo> publish(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.PUBLISH));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
@@ -148,12 +164,58 @@ public class BlogController {
                             in = ParameterIn.HEADER,
                             required = true))
     public R<BlogVo> unpublish(
-            @PathVariable long id, @Valid @RequestBody BlogVersionRequest input) {
-        return R.success(blogService.publish(id, input.version(), false));
+            @PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.UNPUBLISH));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "恢复已下架的正式正文", description = "不提升草稿，不改变最近正式正文和发布时间。")
+    public R<BlogVo> restore(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.RESTORE));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @DeleteMapping("/{id}/draft")
+    @Operation(summary = "丢弃工作草稿", description = "必须已有正式正文；正式正文和公开状态不变。只有草稿的新文章请整篇删除。")
+    public R<BlogVo> discardDraft(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        return R.success(blogService.transition(id, input, BlogAction.DISCARD_DRAFT));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @DeleteMapping("/{id}")
+    @Operation(summary = "删除未上架文章", description = "上架中拒绝删除；正式正文仍有草稿也拒绝。仅解绑资源，不删除共享 Asset。")
+    public R<Void> delete(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
+        blogService.delete(id, input);
+        return R.success(null);
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @GetMapping("/imports")
+    @Operation(summary = "分页读取导入记录", description = "可按 documentId 筛选；按记录 ID 倒序，可继续翻页查看历史导入。")
+    public R<PageVO<DocumentImportTaskVo>> imports(
+            @RequestParam(required = false)
+            @Positive
+            Long documentId,
+            @Valid @ParameterObject @ModelAttribute PageRequest pagination) {
+        return R.success(documentImportTaskService.page(documentId, pagination));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @GetMapping("/imports/{taskId}")
+    @Operation(summary = "读取导入来源、结果和具体问题")
+    public R<DocumentImportTaskVo> importTask(@PathVariable long taskId) {
+        return R.success(documentImportTaskService.get(taskId));
     }
 
     @SaCheckLogin
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @OwnerView
     @GetMapping("/{id}/export")
     @Operation(
             summary = "导出 Markdown 或资源 ZIP",

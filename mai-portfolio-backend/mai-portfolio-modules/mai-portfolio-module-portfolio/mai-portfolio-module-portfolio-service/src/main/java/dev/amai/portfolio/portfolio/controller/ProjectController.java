@@ -2,15 +2,17 @@ package dev.amai.portfolio.portfolio.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
 import dev.amai.portfolio.common.R;
+import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.logging.annotation.ApiLog;
 import dev.amai.portfolio.portfolio.constant.ProjectMessageConstants;
 import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectEditorVo;
-import dev.amai.portfolio.portfolio.entity.vo.ProjectPageVo;
+import dev.amai.portfolio.portfolio.entity.vo.ProjectItemVo;
 import dev.amai.portfolio.portfolio.service.ProjectService;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
@@ -38,7 +40,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 一个列表入口，两种显式视图；MANAGE 所需权限由项目服务声明并通过 System 能力核对。 */
+/** 一个列表入口，两种显式视图；MANAGE 所需权限在请求入口统一核对。 */
 @RestController
 @RequestMapping(value = "/api/v1/projects", produces = "application/json")
 @Tag(name = "项目")
@@ -49,6 +51,7 @@ public class ProjectController {
         this.projectService = projectService;
     }
 
+    @OwnerView
     @GetMapping
     @Operation(summary = "分页读取项目",
         description = "view 默认 PUBLIC，只返回已发布卡片。MANAGE 需要有效 OWNER Cookie，返回管理快照。"
@@ -59,7 +62,7 @@ public class ProjectController {
         @ApiResponse(responseCode = "403", description = "MANAGE 无站长权限、账号停用或传输不安全"),
         @ApiResponse(responseCode = "422", description = "非法视图、重复参数、分页或状态")
     })
-    public ResponseEntity<R<ProjectPageVo>> list(
+    public ResponseEntity<R<ViewPageVO<ProjectItemVo>>> list(
             @Valid @ParameterObject @ModelAttribute ProjectListRequest input,
             HttpServletRequest request) {
         // 不接受重复参数，避免 MVC 将重复值静默绑定为某个视图。

@@ -2,28 +2,34 @@ package dev.amai.portfolio.blog.service;
 
 import dev.amai.portfolio.blog.entity.domain.*;
 import java.util.Map;
+import java.util.Set;
 
-/** 文档版本与资源关系的数据库边界，不处理 HTTP、来源格式、OSS URL 或博客公开权限。 */
+/** 文档身份、当前内容及关系的事务边界；不处理博客可见性或外部文件 IO。 */
 public interface DocumentService {
-    /** 每个文档的 value=null 表示最新保存版本；非 null 是指定内容版本 ID。 */
-    Map<Long, DocumentSummary> summaries(Map<Long, Long> versionByDocument);
+    Map<Long, DocumentSummary> summaries(Set<Long> ids, boolean manage);
 
-    Document create(
-            long owner, int origin, String title, String summary, PreparedDocument prepared);
+    Document read(long id, boolean manage);
 
-    Document append(
-            long id,
-            long expectedVersion,
-            long editor,
-            String title,
-            String summary,
-            PreparedDocument prepared);
+    /** 主体已由博客三表查询定位，只补充这份正式正文的资源和标签，避免再次读取身份和正文。 */
+    Document readPublished(DocumentDO identity, DocumentContentDO content);
 
-    /** versionId=null 读取最新保存版本，否则读取属于该文档的指定不可变版本。 */
-    Document read(long id, Long versionId);
+    /** 同文档草稿优先、正式正文补充，绝不按 key 跨文档检索。 */
+    Map<String, DocumentResource> references(long id);
 
-    long lockVersion(long id);
+    DocumentDO findCreation(long owner, String requestId);
 
-    /** CAS 增加写入锁计数；自身不创建内容版本，发布/下架也复用此能力。 */
-    void advanceLock(long id, long expectedVersion);
+    Document create(long owner, int origin, DocumentDraft draft);
+
+    Document save(long id, DocumentDraft draft);
+
+    /** 锁定身份并校验修订。false 表示相同写请求已提交，不得再次执行动作。 */
+    boolean beginWrite(long id, long revision, String requestId, String requestHash);
+
+    void publish(long id);
+
+    void discardDraft(long id);
+
+    void delete(long id);
+
+    void recordWrite(long id, String requestId, String requestHash);
 }

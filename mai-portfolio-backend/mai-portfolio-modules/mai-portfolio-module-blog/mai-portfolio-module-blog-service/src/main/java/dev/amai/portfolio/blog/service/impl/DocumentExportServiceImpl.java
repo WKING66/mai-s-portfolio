@@ -60,7 +60,8 @@ public class DocumentExportServiceImpl implements DocumentExportService {
     public DocumentExport prepare(Document document, boolean includeResources) {
         // 1. 检查版本资源和当前资产状态，先于响应提交；缺失资源不能伪装成完整离线导出。
         var resources = documentRenderer.resources(document, false);
-        if (resources.stream().anyMatch(resource -> resource.status() != ResourceStatus.READY)) {
+        if (resources.stream()
+                .anyMatch(resource -> resource.status() != ResourceStatus.READY)) {
             throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "存在未就绪资源，无法完整导出");
         }
         // 2. 保留正文/携带资源两种选择；只有选择携带资源且确有资源才输出 ZIP。
@@ -123,8 +124,8 @@ public class DocumentExportServiceImpl implements DocumentExportService {
                         zipArchive.flush();
                     } catch (IOException | RuntimeException failure) {
                         LOG.warn(
-                                "Document export interrupted, documentId={}, versionId={}, failureType={}",
-                                document.id(), document.versionId(), failure.getClass().getSimpleName());
+                                "Document export interrupted, documentId={}, contentId={}, failureType={}",
+                                document.id(), document.contentId(), failure.getClass().getSimpleName());
                         throw failure;
                     } finally {
                         zipArchive.release();
