@@ -127,6 +127,25 @@
       "source": "- 数学\n\n  $$\n  x\n\n  y\n  $$\n\n  [real](resource://real)",
       "math": 1,
       "targets": ["resource://real"]
+    },
+    {
+      "id": "definition-inside-block",
+      "source": "$$\n[m]: resource://math\n$$\n\n[real][m]",
+      "math": 1,
+      "targets": []
+    },
+    {
+      "id": "link-around-math",
+      "source": "[outer $[fake](resource://math)$](resource://real)",
+      "math": 1,
+      "targets": ["resource://real"],
+      "mathLinks": ["resource://real"]
+    },
+    {
+      "id": "linked-image",
+      "source": "[![real](resource://image)](resource://file)",
+      "math": 0,
+      "targets": ["resource://image", "resource://file"]
     }
   ]
 }

@@ -68,7 +68,8 @@ const cases: [string, JSONContent][] = [
 
 describe('保存边界的四类长文输出回归', () => {
   it.each(cases)('%s', (_name, block) => {
-    const document: JSONContent = { type: 'doc', content: [block] }
+    // 实际保存入口接受 PM 文档，Schema 会补齐列表起始值并规范化 Marks 顺序。
+    const document = canvasSchema.nodeFromJSON({ type: 'doc', content: [block] }).toJSON()
     const output = exportCanvasMarkdown(document)
     expect(editorContentMeaning(importCanvasMarkdown(output))).toEqual(
       editorContentMeaning(document),

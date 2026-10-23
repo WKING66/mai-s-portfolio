@@ -6,9 +6,9 @@ const STYLE_TYPES = ['italic', 'bold']
 const LIST_TYPES = new Set(['orderedList', 'bulletList', 'taskList'])
 type PhrasingParent = Extract<
   Parameters<typeof toMarkdown>[0],
-  { type: 'paragraph' | 'strong' | 'emphasis' }
+  { type: 'paragraph' | 'strong' | 'emphasis' | 'link' }
 >
-type InlineGroup = Extract<PhrasingParent, { type: 'strong' | 'emphasis' }>
+type InlineGroup = Extract<PhrasingParent, { type: 'strong' | 'emphasis' | 'link' }>
 
 /** 保存/导出专用适配；只使用公开入口，其他块和链接、代码等仍由原扩展输出。 */
 export class CanvasMarkdownWriter extends MarkdownManager {
@@ -91,22 +91,35 @@ export class CanvasMarkdownWriter extends MarkdownManager {
     const root: PhrasingParent = { type: 'paragraph', children: [] }
     const stack: PhrasingParent[] = [root]
     pieces.forEach((node) => {
-      const next = STYLE_TYPES.filter((type) => node.marks?.some((mark) => mark.type === type))
+      const link = node.marks?.find((mark) => mark.type === 'link')
+      const next = [
+        ...(link ? ['link:' + JSON.stringify([link.attrs?.href, link.attrs?.title])] : []),
+        ...STYLE_TYPES.filter((type) => node.marks?.some((mark) => mark.type === type)),
+      ]
       let shared = 0
       while (shared < active.length && active[shared] === next[shared]) {
         shared++
       }
       stack.splice(shared + 1)
       for (const type of next.slice(shared)) {
-        const group: InlineGroup = {
-          type: type === 'italic' ? 'emphasis' : 'strong',
-          children: [],
-        }
+        const group: InlineGroup = type.startsWith('link:')
+          ? {
+              type: 'link',
+              url: String(link!.attrs?.href ?? ''),
+              title: link!.attrs?.title || null,
+              children: [],
+            }
+          : {
+              type: type === 'italic' ? 'emphasis' : 'strong',
+              children: [],
+            }
         stack.at(-1)!.children.push(group)
         stack.push(group)
       }
       active = next
-      const marks = node.marks?.filter((mark) => !STYLE_TYPES.includes(mark.type))
+      const marks = node.marks?.filter(
+        (mark) => !STYLE_TYPES.includes(mark.type) && mark.type !== 'link',
+      )
       // 普通文本交给标准输出器判断分隔符边界；复杂行内节点仍保留原处理器结果。
       // inlineCode 仅作不透明生成片段载体，处理器原样输出；不改变 PM 节点类型。
       stack

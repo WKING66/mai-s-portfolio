@@ -1,4 +1,4 @@
-import { getSchema, Node, type JSONContent } from '@tiptap/core'
+import { getSchema, Node, type Mark, type JSONContent } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { OrderedList } from '@tiptap/extension-list'
 import { CanvasMarkdownWriter } from './canvasMarkdownOutput'
@@ -101,7 +101,23 @@ export const CanvasAlert = Node.create({
 // 原有节点、表格与数学扩展保持；Showcase 不再引入只读原文封装节点。
 export const CANVAS_EDITOR_EXTENSIONS = [
   CanvasOrderedList,
-  ...BLOG_EDITOR_EXTENSIONS.filter((extension) => extension.name !== 'preservedMarkdownBlock'),
+  ...BLOG_EDITOR_EXTENSIONS.filter((extension) => extension.name !== 'preservedMarkdownBlock').map(
+    (extension) =>
+      extension.name === 'link'
+        ? (extension as Mark).extend({
+            parseMarkdown(token, helpers) {
+              // 库默认只给 text 加链接，导致公式/图片原子从真实外层链接中脱落。
+              return helpers.parseInline(token.tokens ?? []).map((node) => ({
+                ...node,
+                marks: [
+                  ...(node.marks ?? []),
+                  { type: 'link', attrs: { href: token.href, title: token.title || null } },
+                ],
+              }))
+            },
+          })
+        : extension,
+  ),
   CanvasAlert,
 ]
 export const canvasSchema = getSchema([
@@ -206,7 +222,10 @@ export function importCanvasMarkdown(
   visit(parsed)
   const document = canvasSchema.nodeFromJSON(parsed)
   document.check()
-  return document.childCount ? parsed : canvasSchema.topNodeType.createAndFill()!.toJSON()
+  // 返回 Schema 规范化后的快照；同一组 Marks 不因 Markdown 嵌套顺序产生假差异。
+  return document.childCount
+    ? document.toJSON()
+    : canvasSchema.topNodeType.createAndFill()!.toJSON()
 }
 function safelyDecode(value: string) {
   try {
