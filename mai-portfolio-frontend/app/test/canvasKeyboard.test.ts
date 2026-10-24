@@ -10,6 +10,7 @@ import {
 import {
   newImmersiveParagraph,
   continueImmersiveDocument,
+  ImmersiveTabBoundary,
 } from '../utils/editor/immersiveParagraphInput'
 import { exitImmersiveMath, mathExitDirection } from '../utils/editor/immersiveMath'
 
@@ -20,6 +21,7 @@ function createEditor(source: string) {
       StarterKit.configure(CANVAS_STARTER_KIT),
       ...CANVAS_EDITOR_EXTENSIONS,
       Markdown.configure(createCanvasMarkdownOptions()),
+      ImmersiveTabBoundary,
     ],
     content: source,
     contentType: 'markdown',
@@ -27,6 +29,81 @@ function createEditor(source: string) {
   editor.view.updateState(editor.state.reconfigure({ plugins: editor.extensionManager.plugins }))
   return editor
 }
+
+function tabKey(editor: Editor, shiftKey = false) {
+  const event = {
+    key: 'Tab',
+    keyCode: 9,
+    shiftKey,
+    ctrlKey: false,
+    altKey: false,
+    metaKey: false,
+  } as KeyboardEvent
+  return editor.state.plugins.some((plugin) =>
+    Boolean(plugin.props.handleKeyDown?.call(plugin, editor.view, event)),
+  )
+}
+
+describe('Tab 焦点边界沿用真实快捷键处理顺序', () => {
+  it.each([false, true])('普通正文保留光标和内容；只读不拦截浏览器导航（Shift=%s）', (shift) => {
+    const editor = createEditor('首段\n\n编辑中的正文')
+    try {
+      editor.commands.setTextSelection(editor.state.doc.content.size - 2)
+      const before = editor.state
+      expect(tabKey(editor, shift)).toBe(true)
+      expect(editor.state.doc).toBe(before.doc)
+      expect(editor.state.selection.eq(before.selection)).toBe(true)
+      editor.setEditable(false, false)
+      expect(tabKey(editor, shift)).toBe(false)
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it('表格 Tab 和 Shift+Tab 继续进入下一格/上一格', () => {
+    const editor = createEditor('| 甲 | 乙 |\n|---|---|\n| 丙 | 丁 |')
+    try {
+      let position = 0
+      editor.state.doc.descendants((node, from) => {
+        if (node.text === '甲') {
+          position = from
+        }
+      })
+      editor.commands.setTextSelection(position)
+      expect(tabKey(editor)).toBe(true)
+      expect(editor.state.selection.$from.parent.textContent).toBe('乙')
+      expect(tabKey(editor, true)).toBe(true)
+      expect(editor.state.selection.$from.parent.textContent).toBe('甲')
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it('列表 Tab 缩进与 Shift+Tab 提升仍由原有列表命令处理', () => {
+    const editor = createEditor('- 第一项\n- 第二项')
+    try {
+      editor.commands.setTextSelection(editor.state.doc.content.size - 3)
+      const before = editor.state.doc
+      expect(tabKey(editor)).toBe(true)
+      expect(editor.state.selection.$from.depth).toBe(5)
+      expect(tabKey(editor, true)).toBe(true)
+      expect(editor.state.doc.eq(before)).toBe(true)
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it('代码选区 Tab 仍插入缩进，不被正文兜底吞掉', () => {
+    const editor = createEditor('~~~ts\nconst x = 1\n~~~')
+    try {
+      editor.commands.setTextSelection({ from: 1, to: editor.state.doc.content.size - 1 })
+      expect(tabKey(editor)).toBe(true)
+      expect(editor.state.doc.firstChild?.textContent).toMatch(/^\s+const x = 1$/)
+    } finally {
+      editor.destroy()
+    }
+  })
+})
 describe('Enter 根据光标和结构决定格式继承', () => {
   it('点击文末空白可接续最后的原子块，重复点击复用空段并可正常撤销', () => {
     const editor = createEditor('$$\nx^2\n$$')

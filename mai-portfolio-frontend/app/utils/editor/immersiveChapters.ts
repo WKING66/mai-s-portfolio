@@ -121,7 +121,7 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
         }
         decorations.push(
           Decoration.widget(
-            chapter.position + 1,
+            chapter.bodyFrom - 1,
             (view) => {
               const button = documentDOM(
                 view.dom.ownerDocument,
@@ -142,6 +142,7 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
               key: 'chapter-' + chapter.id + '-' + collapsed.has(chapter.id) + '-' + chapter.text,
               chapterId: chapter.id,
               side: 1,
+              marks: [],
               ignoreSelection: true,
               stopEvent: () => true,
             },
@@ -208,7 +209,7 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
                     transaction.doc.nodeAt(chapter.position)!.textContent || '未命名标题'
                   return (
                     chapter.text !== previous.chapters[index]!.text ||
-                    widgets.get(chapter.id)?.from !== chapter.position + 1
+                    widgets.get(chapter.id)?.from !== chapter.bodyFrom - 1
                   )
                 })
                 const changedIds = new Set(changed.map((chapter) => chapter.id))

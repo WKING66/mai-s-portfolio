@@ -31,6 +31,24 @@ function make() {
   return editor
 }
 describe('章节折叠与源码补丁', () => {
+  it('折叠控件紧跟标题末尾，标题改写后仍跟随最后一个字符', () => {
+    const editor = make()
+    try {
+      const assertAtEnd = () => {
+        const state = immersiveChapters(editor.state)!
+        expect(state.decorations.find().map((widget) => widget.from)).toEqual(
+          state.chapters.map((chapter) => chapter.bodyFrom - 1),
+        )
+      }
+      assertAtEnd()
+      editor.view.dispatch(
+        editor.state.tr.insertText('追加', editor.state.doc.firstChild!.nodeSize - 1),
+      )
+      assertAtEnd()
+    } finally {
+      editor.destroy()
+    }
+  })
   it('剪切标题全部文字后不残留箭头；撤销后恢复，删除整篇后也不残留', () => {
     const editor = make()
     try {
@@ -63,7 +81,7 @@ describe('章节折叠与源码补丁', () => {
       expect(after.chapters[1]!.position).toBe(before.chapters[1]!.position + 2)
       expect(after.chapters[0]!.end).toBe(before.chapters[0]!.end + 2)
       expect(after.decorations.find().map((item) => item.from)).toEqual(
-        after.chapters.map((item) => item.position + 1),
+        after.chapters.map((item) => item.bodyFrom - 1),
       )
       editor.view.dispatch(editor.state.tr.insertText('改名', chapter.position + 1))
       expect(immersiveChapters(editor.state)!.chapters[0]!.text).toBe('改名第一章')
@@ -80,7 +98,7 @@ describe('章节折叠与源码补丁', () => {
         immersiveChapters(editor.state)!
           .decorations.find()
           .map((item) => item.from),
-      ).toEqual(immersiveChapters(editor.state)!.chapters.map((item) => item.position + 1))
+      ).toEqual(immersiveChapters(editor.state)!.chapters.map((item) => item.bodyFrom - 1))
     } finally {
       editor.destroy()
     }

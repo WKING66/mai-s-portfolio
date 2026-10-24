@@ -1,6 +1,18 @@
 import { TextSelection } from '@tiptap/pm/state'
 import { Extension, type Command } from '@tiptap/core'
 
+/** 表格、列表、代码的 Tab 命令先执行；正文兜底不让焦点跳入文首的内嵌按钮。 */
+export const ImmersiveTabBoundary = Extension.create({
+  name: 'immersiveTabBoundary',
+  priority: 1,
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => this.editor.isEditable,
+      'Shift-Tab': () => this.editor.isEditable,
+    }
+  },
+})
+
 /** 文末空白点击复用已有末尾空段，否则添加一段，保留正文与原生撤销。 */
 export const continueImmersiveDocument: Command = ({ editor, tr }) => {
   if (!editor.isEditable) {

@@ -35,6 +35,7 @@ import { openImmersiveLink } from '../../utils/editor/immersiveLinks'
 import { openImmersiveMenu } from '../../utils/editor/immersiveCommands'
 import {
   ImmersiveParagraphInput,
+  ImmersiveTabBoundary,
   continueImmersiveDocument,
 } from '../../utils/editor/immersiveParagraphInput'
 import { ImmersiveSelection } from '../../utils/editor/immersiveSelection'
@@ -399,6 +400,7 @@ const editorExtensions = [
     notice: (description) =>
       toast.add({ title: 'Markdown 格式限制', description, color: 'warning' }),
   }),
+  ImmersiveTabBoundary,
   ImmersiveMarkdownGuard.configure({ reject: rejectEdit, roundtrip: false }),
 ]
 let identity = 0
@@ -1008,14 +1010,13 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
   background: var(--site-bg);
 }
 .workbench-body :deep(.immersive-chapter-toggle) {
-  position: absolute;
-  inset-inline-end: 0;
-  top: 0;
   display: inline-flex;
+  vertical-align: middle;
+  margin-inline-start: 0.25rem;
   align-items: center;
   justify-content: center;
   width: 1.75rem;
-  height: min(1.75rem, 100%);
+  height: 1.75rem;
   opacity: 0;
   pointer-events: none;
   user-select: none;
@@ -1157,8 +1158,6 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
 }
 .workbench-body :deep(.tiptap :is(h1, h2, h3, h4, h5, h6)) {
   position: relative;
-  /* 折叠命中区完整留在标题内；文字与按钮之间没有会丢失 hover 的空隙。 */
-  padding-inline-end: 2.25rem;
   scroll-margin-top: 1rem;
 }
 .canvas-tail {
