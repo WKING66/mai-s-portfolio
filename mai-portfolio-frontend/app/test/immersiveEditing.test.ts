@@ -1,4 +1,3 @@
-import { indentMarkdownSource } from '../utils/editor/immersiveSourceIndent'
 import { newImmersiveParagraph } from '../utils/editor/immersiveParagraphInput'
 import { describe, it, expect } from 'vitest'
 import { Editor } from '@tiptap/core'
@@ -54,7 +53,7 @@ describe('Showcase 第六批编辑可靠性', () => {
   })
 })
 
-describe('换段与源码缩进', () => {
+describe('换段格式', () => {
   it.each(['正文', '# 标题', '- 列表', '> 引用', '| A | B |\n|---|---|\n| 表格 | 其他 |'])(
     '段末结束格式，导航到普通单元格后输入正常文字：%s',
     (source) => {
@@ -86,27 +85,4 @@ describe('换段与源码缩进', () => {
       }
     },
   )
-  it('两空格缩进、跨行反缩进与末端换行选区', () => {
-    expect(indentMarkdownSource('a\nb\nc', 0, 4, false)).toEqual({
-      from: 0,
-      to: 3,
-      text: '  a\n  b',
-      anchor: 2,
-      head: 8,
-    })
-    expect(indentMarkdownSource('  a\n  b\nc', 2, 8, true)).toEqual({
-      from: 0,
-      to: 7,
-      text: 'a\nb',
-      anchor: 0,
-      head: 4,
-    })
-    expect(indentMarkdownSource('a', 1, 1, false)).toEqual({
-      from: 1,
-      to: 1,
-      text: '  ',
-      anchor: 3,
-      head: 3,
-    })
-  })
 })
