@@ -3,7 +3,7 @@ import {
   ImmersiveMarkdownGuard,
   type ImmersiveRejection,
 } from '../../utils/editor/immersiveCapabilities'
-import type { Node as TiptapNode } from '@tiptap/core'
+import { Extension, type JSONContent, type Node as TiptapNode } from '@tiptap/core'
 import {
   ImmersiveChapters,
   immersiveChapters,
@@ -47,12 +47,16 @@ import { useCanvasDocument } from '../../composables/useCanvasDocument'
 import { CANVAS_RESOURCE_PREVIEW, insertCanvasFiles } from '../../utils/editor/canvasResources'
 import {
   IMMERSIVE_CODE_THEMES,
+  IMMERSIVE_EDITABLE,
+  IMMERSIVE_MATH_PREVIEWS,
   IMMERSIVE_OVERLAY_HOST,
   stopImmersiveControlEvent,
 } from '../../utils/editor/immersiveContext'
+import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
+import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
 
 const props = defineProps<{
-  initialMarkdown: string
+  initialContent: string | JSONContent
   resources?: DocumentResource[]
 }>()
 const metadata = defineModel<{
@@ -67,19 +71,30 @@ provide(
   computed(() => props.resources ?? []),
 )
 provide(IMMERSIVE_CODE_THEMES, reactive(new Map()))
+const mathPreviews = createMathPreviewQueue()
+provide(IMMERSIVE_MATH_PREVIEWS, mathPreviews)
 const overlayHost = useTemplateRef<HTMLElement>('overlayHost')
 provide(IMMERSIVE_OVERLAY_HOST, overlayHost)
 const simulateFailure = ref(false)
 const simulateResourceFailure = ref(false)
 const canvas = useCanvasDocument(
-  props.initialMarkdown,
+  props.initialContent,
   metadata,
   props.resources ?? [],
   () => simulateFailure.value,
   () => simulateResourceFailure.value,
 )
 provide(CANVAS_RESOURCE_PREVIEW, canvas.localResources.preview)
-const { initialDocument, editor, status: saveStatus } = canvas
+const {
+  editorDocument,
+  editor,
+  status: saveStatus,
+  ready,
+  loading,
+  initializationError,
+  loadedBlocks,
+  totalBlocks,
+} = canvas
 const { dirty, saving } = canvas.saved
 const title = computed({
   get: () => metadata.value.title,
@@ -94,6 +109,10 @@ const summary = computed({
   },
 })
 const isEditing = ref(true)
+provide(
+  IMMERSIVE_EDITABLE,
+  computed(() => isEditing.value && ready.value),
+)
 const settingsOpen = ref(false)
 const tocOpen = ref(false)
 const compact = useMediaQuery('(max-width: 1199px)')
@@ -165,6 +184,9 @@ function chooseFiles(event: Event) {
 }
 let barObserver: ResizeObserver | undefined
 async function saveDemo() {
+  if (!ready.value) {
+    return false
+  }
   const hadChanges = dirty.value
   const success = await canvas.saved.save()
   const successTitle = hadChanges ? '模拟保存完成' : '没有需要保存的修改'
@@ -181,6 +203,10 @@ function workbenchKeydown(event: KeyboardEvent) {
     return
   }
   const target = event.target
+  if (!ready.value) {
+    event.preventDefault()
+    return
+  }
   if (
     target instanceof Element &&
     (splitRoot.value?.contains(target) || target.closest('[data-immersive-overlay]'))
@@ -190,6 +216,9 @@ function workbenchKeydown(event: KeyboardEvent) {
   }
 }
 function toggleEditing() {
+  if (!ready.value) {
+    return
+  }
   isEditing.value = !isEditing.value
   editor.value?.setEditable(isEditing.value, false)
 }
@@ -224,7 +253,15 @@ watch(settingsOpen, (open) => {
     Object.assign(settingsDraft, metadata.value)
   }
 })
-watch(metadata, () => canvas.saved.changed(false), { deep: true })
+watch(
+  metadata,
+  () => {
+    if (ready.value) {
+      canvas.saved.changed(false)
+    }
+  },
+  { deep: true },
+)
 const richEditor = useTemplateRef('richEditor')
 const headings = shallowRef<EditorHeading[]>([])
 let headingPositions: EditorHeading[] = []
@@ -311,6 +348,10 @@ function inspectRejection() {
   void navigatePosition(rejection.value?.position ?? 1)
 }
 const editorExtensions = [
+  Extension.create({
+    name: 'canvasInitialization',
+    addProseMirrorPlugins: () => [canvasInitializationGuard(() => !ready.value)],
+  }),
   Markdown.configure(markdownOptions),
   ...extensions,
   ImmersiveChapters.configure({
@@ -372,6 +413,7 @@ function insertTouchBlock() {
 function updateHeadings({ transaction }: { transaction?: Transaction } = {}) {
   if (
     !editor.value ||
+    !ready.value ||
     (transaction && !transaction.docChanged && !transaction.getMeta(IMMERSIVE_CHAPTER_KEY))
   ) {
     return
@@ -418,6 +460,9 @@ watch(
       return
     }
     const current = editor.value
+    if (current.isEditable !== isEditing.value) {
+      current.setEditable(isEditing.value, false)
+    }
     updateHeadings()
     selectHeading()
     const recoverRejection = ({ transaction }: { transaction: Transaction }) => {
@@ -435,10 +480,17 @@ watch(
     })
   },
 )
+watch(ready, (value) => {
+  if (value) {
+    updateHeadings()
+    selectHeading()
+    followPage()
+  }
+})
 let navigationTimer: ReturnType<typeof setTimeout> | undefined
 async function navigatePosition(position: number) {
   const current = editor.value
-  if (!current) {
+  if (!current || !ready.value) {
     return
   }
   current.commands.command(revealImmersivePosition(position))
@@ -551,6 +603,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnload)
   document.removeEventListener('keydown', workbenchKeydown)
   canvas.dispose()
+  mathPreviews.dispose()
   clearTimeout(navigationTimer)
   barObserver?.disconnect()
   cancelAnimationFrame(frame)
@@ -611,7 +664,7 @@ async function exportDemo() {
     })
   }
 }
-defineExpose({ requestLeave })
+defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
 </script>
 <template>
   <main ref="splitRoot" class="site-container site-page blog-reading-page immersive-workbench">
@@ -623,7 +676,11 @@ defineExpose({ requestLeave })
         <UBadge color="neutral" variant="subtle" size="sm">草稿 · 仅本页</UBadge>
         <span class="hidden text-xs text-muted sm:inline">{{ saveStatus }}</span>
       </div>
-      <div class="flex flex-wrap items-center gap-1">
+      <div
+        class="flex flex-wrap items-center gap-1"
+        :inert="!ready"
+        :class="{ 'opacity-50': !ready }"
+      >
         <input
           ref="fileInput"
           type="file"
@@ -680,6 +737,22 @@ defineExpose({ requestLeave })
     </div>
     <div class="workbench-panes">
       <div class="canvas-stage">
+        <div
+          v-if="loading || initializationError"
+          class="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-default/90 p-6"
+          :role="initializationError ? 'alert' : 'status'"
+          aria-live="polite"
+        >
+          <p>{{ saveStatus }}</p>
+          <progress
+            v-if="loading"
+            :max="totalBlocks"
+            :value="loadedBlocks"
+            aria-label="文档加载进度"
+            class="w-64 max-w-full"
+          />
+          <UButton v-else @click="canvas.initialize()">重新加载文档</UButton>
+        </div>
         <section
           ref="canvasPane"
           class="canvas-pane"
@@ -688,6 +761,8 @@ defineExpose({ requestLeave })
           @pointerup="richPointer"
         >
           <article
+            :inert="!ready"
+            :aria-busy="loading"
             class="blog-reading-layout blog-reading-with-header workbench-article"
             :class="{ 'has-desktop-toc': desktopTocVisible }"
           >
@@ -714,8 +789,8 @@ defineExpose({ requestLeave })
               <UEditor
                 ref="richEditor"
                 v-slot="{ editor: currentEditor }"
-                v-memo="[isEditing]"
-                :model-value="initialDocument"
+                v-memo="[isEditing, ready]"
+                :model-value="editorDocument"
                 content-type="json"
                 :markdown="markdownOptions"
                 :starter-kit="CANVAS_STARTER_KIT"
@@ -758,7 +833,7 @@ defineExpose({ requestLeave })
               >
                 <EditorImmersiveTools
                   :editor="currentEditor"
-                  :enabled="isEditing"
+                  :enabled="isEditing && ready"
                   :toolbar-items="toolbarItems"
                 />
               </UEditor>

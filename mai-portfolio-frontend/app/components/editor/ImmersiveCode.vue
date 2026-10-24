@@ -3,9 +3,15 @@ import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/vu
 import { useClipboard } from '@vueuse/core'
 import { CODE_THEMES, codeLabel, type CodeTheme } from '../../constants/codeThemes'
 import ImmersiveDiagram from './ImmersiveDiagram.vue'
-import { IMMERSIVE_CODE_THEMES, IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/immersiveContext'
+import {
+  IMMERSIVE_CODE_THEMES,
+  IMMERSIVE_OVERLAY_HOST,
+  IMMERSIVE_EDITABLE,
+} from '../../utils/editor/immersiveContext'
 import { parseCodeInfo, formatCodeInfo } from '../../utils/codeInfo'
 const props = defineProps<NodeViewProps>()
+const workbenchEditable = inject(IMMERSIVE_EDITABLE, undefined)
+const canEdit = computed(() => workbenchEditable?.value ?? props.editor.isEditable)
 const languageOptions = [
   { label: 'Java', value: 'java' },
   { label: 'Python', value: 'python' },
@@ -115,7 +121,7 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
           variant="none"
           size="xs"
           class="min-w-20 flex-1"
-          :disabled="!editor.isEditable"
+          :disabled="!canEdit"
           @update:model-value="updateInfo(language, $event)"
         />
         <USelect
@@ -128,7 +134,7 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
           variant="none"
           size="xs"
           class="w-24"
-          :disabled="!editor.isEditable"
+          :disabled="!canEdit"
           @update:model-value="updateInfo($event, filename)"
         />
         <USelect

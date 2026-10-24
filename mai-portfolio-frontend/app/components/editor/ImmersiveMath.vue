@@ -4,7 +4,9 @@ import { NodeSelection } from '@tiptap/pm/state'
 import { renderBlogMath, compactBlogMath } from '../../utils/blogMath'
 import BlogMath from '../blog/BlogMath.vue'
 import { immersiveMathSource } from '../../utils/editor/immersiveMath'
+import { IMMERSIVE_MATH_PREVIEWS } from '../../utils/editor/immersiveContext'
 const props = defineProps<NodeViewProps>()
+const previews = inject(IMMERSIVE_MATH_PREVIEWS, undefined)
 const editing = ref(false)
 const input = useTemplateRef<HTMLTextAreaElement>('input')
 const expression = ref('')
@@ -133,15 +135,20 @@ watch(
   },
 )
 let previewTimer: ReturnType<typeof setTimeout> | undefined
+let previewController: AbortController | undefined
 async function renderExpression(value: string) {
   const current = ++revision
+  previewController?.abort()
+  previewController = new AbortController()
   if (!value.trim()) {
     html.value = ''
     error.value = ''
     return
   }
-  const rendered = await renderBlogMath(value, block.value)
-  if (current !== revision) {
+  const rendered = previews
+    ? await previews.render(value, block.value, previewController.signal, editing.value)
+    : await compactBlogMath(await renderBlogMath(value, block.value))
+  if (!rendered || current !== revision) {
     return
   }
   if (rendered[0] !== 'blog-math') {
@@ -149,9 +156,8 @@ async function renderExpression(value: string) {
     error.value = '公式语法暂时无效，LaTeX 原文已保留。'
     return
   }
-  const compact = await compactBlogMath(rendered)
   if (current === revision) {
-    html.value = String(compact[1].html || '')
+    html.value = String(rendered[1].html || '')
     error.value = ''
   }
 }
@@ -174,6 +180,7 @@ watch(
 )
 onBeforeUnmount(() => {
   revision++
+  previewController?.abort()
   clearTimeout(previewTimer)
 })
 </script>

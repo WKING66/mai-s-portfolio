@@ -4,13 +4,16 @@ import { inspectImmersiveSource } from './immersiveDraft'
 import { editorSchema } from './markdownCompatibility'
 import { buildImmersiveSourceMap, type ImmersiveSourceRange } from './immersiveSourceMap'
 import { serializeEditorDocument } from './markdownOutput'
-import { exportCanvasMarkdown } from './canvasMarkdown'
+import { exportCanvasMarkdown, importCanvasMarkdown } from './canvasMarkdown'
+import type { DocumentResource } from '../../api/blogs'
 
 export type ImmersiveValidationInput =
+  | { kind: 'canvas-import'; markdown: string; resources: DocumentResource[] }
   | { kind: 'canvas'; document: JSONContent }
   | { kind: 'rich'; document: JSONContent }
   | { kind: 'source'; markdown: string; resources: string[] }
 export type ImmersiveValidationResult =
+  | { kind: 'canvas-import'; document: JSONContent }
   | { kind: 'canvas'; markdown: string }
   | { kind: 'rich'; markdown: string; ranges: ImmersiveSourceRange[] }
   | { kind: 'source'; issue: string; document?: JSONContent; ranges: ImmersiveSourceRange[] }
@@ -35,6 +38,12 @@ export function createImmersiveValidation() {
     }
   }
   return (input: ImmersiveValidationInput): ImmersiveValidationResult => {
+    if (input.kind === 'canvas-import') {
+      return {
+        kind: 'canvas-import',
+        document: importCanvasMarkdown(input.markdown, input.resources),
+      }
+    }
     if (input.kind === 'canvas') {
       return { kind: 'canvas', markdown: exportCanvasMarkdown(input.document) }
     }
