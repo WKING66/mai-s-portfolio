@@ -1009,13 +1009,13 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
 }
 .workbench-body :deep(.immersive-chapter-toggle) {
   position: absolute;
-  inset-inline-start: -1.85rem;
-  top: 0.25em;
+  inset-inline-end: 0;
+  top: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.75rem;
-  height: 1.75rem;
+  height: min(1.75rem, 100%);
   opacity: 0;
   pointer-events: none;
   user-select: none;
@@ -1026,8 +1026,8 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
   background: transparent;
   cursor: pointer;
 }
-.workbench-body :deep(:is(h1, h2, h3, h4, h5, h6):hover > .immersive-chapter-toggle),
-.workbench-body :deep(:is(h1, h2, h3, h4, h5, h6):focus-within > .immersive-chapter-toggle) {
+.workbench-body :deep(:is(h1, h2, h3, h4, h5, h6):hover .immersive-chapter-toggle),
+.workbench-body :deep(:is(h1, h2, h3, h4, h5, h6):focus-within .immersive-chapter-toggle) {
   opacity: 1;
   pointer-events: auto;
 }
@@ -1157,6 +1157,8 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
 }
 .workbench-body :deep(.tiptap :is(h1, h2, h3, h4, h5, h6)) {
   position: relative;
+  /* 折叠命中区完整留在标题内；文字与按钮之间没有会丢失 hover 的空隙。 */
+  padding-inline-end: 2.25rem;
   scroll-margin-top: 1rem;
 }
 .canvas-tail {

@@ -9,6 +9,12 @@ const props = defineProps<{ editor: Editor; disabled?: boolean }>()
 const menuOpen = ref(false)
 watch(menuOpen, (open) => props.editor.commands.setMeta('lockDragHandle', open))
 const target = shallowRef<{ node: JSONContent; pos: number } | null>(null)
+// DragHandle 只在挂载时读取定位配置，使用它每次定位都会执行的回调，避免重建拖拽插件。
+function handleOffset({ rects }: { rects: { floating: { width: number; height: number } } }) {
+  return target.value?.node.type === 'heading'
+    ? { mainAxis: -rects.floating.width - 8, alignmentAxis: -rects.floating.height - 6 }
+    : { mainAxis: 0, alignmentAxis: 0 }
+}
 let hoveredNode: ReturnType<Editor['state']['doc']['nodeAt']> = null
 function rememberBlock(block: { node: JSONContent; pos: number }) {
   target.value = block
@@ -104,11 +110,11 @@ const actions = computed(() => [
     v-if="!disabled"
     :editor="editor"
     :options="{
-      offset: { mainAxis: 0, alignmentAxis: 0 },
+      offset: handleOffset,
       strategy: 'fixed',
       placement: 'left-start',
     }"
-    class="z-40 pr-2"
+    class="z-40 pr-2 transition-none"
     @hover="rememberBlock"
   >
     <template #default>
