@@ -58,6 +58,7 @@ import {
 } from '../../utils/editor/immersiveContext'
 import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
 import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
+import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
 
 const props = defineProps<{
   initialContent: string | JSONContent
@@ -396,6 +397,7 @@ const editorExtensions = [
   ImmersiveDecorations,
   ImmersivePositionHighlight,
   ImmersiveSelection,
+  ImmersiveDragScroll,
   ImmersiveParagraphInput.configure({
     notice: (description) =>
       toast.add({ title: 'Markdown 格式限制', description, color: 'warning' }),
