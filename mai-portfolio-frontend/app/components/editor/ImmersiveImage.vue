@@ -51,6 +51,8 @@ const displaySource = computed(
 <style scoped>
 .editor-image {
   display: inline-block;
+  /* ProseImg 的宽度为 100%；SVG 无固有尺寸时不能让外层 shrink-to-fit 收缩到 0。 */
+  width: 100%;
   max-width: 100%;
   vertical-align: middle;
 }

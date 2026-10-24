@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
+import { useResizeObserver } from '@vueuse/core'
+import type { CSSProperties } from 'vue'
 import {
   IMMERSIVE_MENU_KEY,
   IMMERSIVE_COMMANDS,
@@ -17,7 +19,13 @@ const target = shallowRef<ImmersiveMenuTarget | null>(null)
 const search = ref('')
 const selected = ref(0)
 const panel = useTemplateRef<HTMLElement>('panel')
-const menuStyle = ref({ left: '0px', top: '0px', maxWidth: '20rem', maxHeight: '22rem' })
+const menuStyle = ref<CSSProperties>({
+  left: '0px',
+  top: '0px',
+  maxWidth: '20rem',
+  maxHeight: '22rem',
+  visibility: 'hidden',
+})
 const toast = useToast()
 let frame = 0
 const entries = computed(() => {
@@ -57,16 +65,25 @@ function positionMenu() {
   const above = Math.max(0, rect.top - top - 10)
   const below = Math.max(0, bottom - anchorBottom - 10)
   const box = panel.value.getBoundingClientRect()
-  const placeAbove =
-    current.kind === 'slash'
-      ? above >= Math.min(box.height, 160) || above > below
-      : below < 120 && above > below
-  const height = Math.max(70, Math.min(352, placeAbove ? above : below))
+  const list = panel.value.querySelector<HTMLElement>('.command-list')
+  // 使用列表完整高度，而不是上次受 max-height 压缩后的盒子，避免越靠底部越缩小。
+  const desiredHeight = Math.min(
+    352,
+    box.height + (list ? list.scrollHeight - list.clientHeight : 0),
+  )
+  const placeAbove = below < desiredHeight && above > below
+  const height = Math.max(0, Math.min(desiredHeight, placeAbove ? above : below))
+  const width = Math.min(box.width, Math.max(0, right - left))
   menuStyle.value = {
-    left: Math.max(left, Math.min(rect.left, right - Math.min(box.width, right - left))) + 'px',
-    top: (placeAbove ? rect.top - Math.min(box.height, height) - 10 : anchorBottom + 10) + 'px',
-    maxWidth: Math.max(100, right - left) + 'px',
+    left: Math.max(left, Math.min(rect.left, right - width)) + 'px',
+    top:
+      Math.max(
+        top,
+        Math.min(placeAbove ? rect.top - height - 10 : anchorBottom + 10, bottom - height),
+      ) + 'px',
+    maxWidth: Math.max(0, right - left) + 'px',
     maxHeight: height + 'px',
+    visibility: 'visible',
   }
 }
 function schedulePosition() {
@@ -74,6 +91,7 @@ function schedulePosition() {
     frame = requestAnimationFrame(positionMenu)
   }
 }
+useResizeObserver(panel, schedulePosition)
 function execute(item: ImmersiveCommandItem) {
   if (!target.value) {
     return
@@ -129,6 +147,7 @@ watch(
   (open) => {
     props.editor.commands.setMeta('lockDragHandle', open)
     if (open) {
+      menuStyle.value = { ...menuStyle.value, visibility: 'hidden' }
       search.value = ''
       void nextTick(positionMenu)
     }

@@ -33,7 +33,10 @@ import ImmersiveImage from './ImmersiveImage.vue'
 import { nodeInputRule } from '@tiptap/core'
 import { openImmersiveLink } from '../../utils/editor/immersiveLinks'
 import { openImmersiveMenu } from '../../utils/editor/immersiveCommands'
-import { ImmersiveParagraphInput } from '../../utils/editor/immersiveParagraphInput'
+import {
+  ImmersiveParagraphInput,
+  continueImmersiveDocument,
+} from '../../utils/editor/immersiveParagraphInput'
 import { ImmersiveSelection } from '../../utils/editor/immersiveSelection'
 import {
   ImmersivePositionHighlight,
@@ -96,6 +99,38 @@ const {
   totalBlocks,
 } = canvas
 const { dirty, saving } = canvas.saved
+const painted = ref(false)
+let paintFrame = 0
+watch(
+  [ready, editor],
+  async ([complete, instance], _, cleanup) => {
+    painted.value = false
+    let cancelled = false
+    cleanup(() => {
+      cancelled = true
+      cancelAnimationFrame(paintFrame)
+    })
+    if (!complete || !instance) {
+      return
+    }
+    await nextTick()
+    // 客户端组件就绪不等于正文已经落到页面；保留占位直到画布经过一次绘制。
+    if (!cancelled) {
+      paintFrame = requestAnimationFrame(() => {
+        paintFrame = requestAnimationFrame(() => {
+          painted.value = true
+        })
+      })
+    }
+  },
+  { flush: 'post' },
+)
+function continueAtEnd() {
+  if (ready.value && isEditing.value && editor.value) {
+    editor.value.commands.command(continueImmersiveDocument)
+    editor.value.view.focus()
+  }
+}
 const title = computed({
   get: () => metadata.value.title,
   set: (title) => {
@@ -738,20 +773,21 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
     <div class="workbench-panes">
       <div class="canvas-stage">
         <div
-          v-if="loading || initializationError"
-          class="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-default/90 p-6"
+          v-if="!painted || initializationError"
+          class="canvas-loading-overlay absolute inset-0 z-30 overflow-auto"
           :role="initializationError ? 'alert' : 'status'"
           aria-live="polite"
         >
-          <p>{{ saveStatus }}</p>
-          <progress
-            v-if="loading"
-            :max="totalBlocks"
-            :value="loadedBlocks"
-            aria-label="文档加载进度"
-            class="w-64 max-w-full"
+          <div v-if="initializationError" class="p-6 space-y-4">
+            <p>{{ initializationError }}</p>
+            <UButton @click="canvas.initialize()">重新加载文档</UButton>
+          </div>
+          <ShowcaseCanvasLoading
+            v-else
+            :loaded="loading ? loadedBlocks : undefined"
+            :total="loading ? totalBlocks : undefined"
+            :phase="loading ? '正在装载文章' : '正在排版正文'"
           />
-          <UButton v-else @click="canvas.initialize()">重新加载文档</UButton>
         </div>
         <section
           ref="canvasPane"
@@ -837,6 +873,13 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
                   :toolbar-items="toolbarItems"
                 />
               </UEditor>
+              <button
+                v-if="isEditing && ready"
+                type="button"
+                class="canvas-tail"
+                aria-label="在文末继续输入"
+                @click="continueAtEnd"
+              />
               <p class="workbench-end text-xs text-muted">
                 {{ saveStatus }}
               </p>
@@ -961,20 +1004,38 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
   </main>
 </template>
 <style scoped>
+.canvas-loading-overlay {
+  background: var(--site-bg);
+}
 .workbench-body :deep(.immersive-chapter-toggle) {
-  vertical-align: middle;
+  position: absolute;
+  inset-inline-start: -1.85rem;
+  top: 0.25em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  margin-inline-end: 0.4rem;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
   padding: 0.25rem;
   border: 0;
   border-radius: 0.375rem;
   color: var(--ui-text-muted);
   background: transparent;
   cursor: pointer;
+}
+.workbench-body :deep(:is(h1, h2, h3, h4, h5, h6):hover > .immersive-chapter-toggle),
+.workbench-body :deep(:is(h1, h2, h3, h4, h5, h6):focus-within > .immersive-chapter-toggle) {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .workbench-body :deep(.immersive-chapter-toggle) {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
 .workbench-body :deep(.canvas-alert) {
   margin-block: 1.25rem;
@@ -1095,7 +1156,18 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
   margin-top: 0;
 }
 .workbench-body :deep(.tiptap :is(h1, h2, h3, h4, h5, h6)) {
+  position: relative;
   scroll-margin-top: 1rem;
+}
+.canvas-tail {
+  display: block;
+  width: 100%;
+  height: 5rem;
+  cursor: text;
+}
+.canvas-tail:focus-visible {
+  outline: 1px solid var(--ui-primary);
+  outline-offset: -2px;
 }
 .workbench-body :deep(.tiptap pre code),
 .workbench-body :deep(.tiptap pre code span) {

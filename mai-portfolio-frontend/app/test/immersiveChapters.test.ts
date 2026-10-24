@@ -31,6 +31,22 @@ function make() {
   return editor
 }
 describe('章节折叠与源码补丁', () => {
+  it('剪切标题全部文字后不残留箭头；撤销后恢复，删除整篇后也不残留', () => {
+    const editor = make()
+    try {
+      const chapter = immersiveChapters(editor.state)!.chapters[0]!
+      const count = immersiveChapters(editor.state)!.decorations.find().length
+      editor.view.dispatch(editor.state.tr.delete(chapter.position + 1, chapter.bodyFrom - 1))
+      expect(immersiveChapters(editor.state)!.decorations.find()).toHaveLength(count - 1)
+      editor.commands.undo()
+      expect(immersiveChapters(editor.state)!.decorations.find()).toHaveLength(count)
+      editor.commands.selectAll()
+      editor.commands.deleteSelection()
+      expect(immersiveChapters(editor.state)!.decorations.find()).toHaveLength(0)
+    } finally {
+      editor.destroy()
+    }
+  })
   it('普通正文输入只映射原有章节与折叠状态，标题输入仍刷新目录文字', () => {
     const editor = make()
     try {

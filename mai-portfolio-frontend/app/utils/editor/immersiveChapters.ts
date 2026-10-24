@@ -53,7 +53,7 @@ export function toggleImmersiveChapter(
   return ({ state, tr }) => {
     const current = immersiveChapters(state)
     const chapter = current?.chapters.find((item) => item.id === id)
-    if (!current || !chapter) {
+    if (!current || !chapter || !state.doc.nodeAt(chapter.position)?.textContent.trim()) {
       return false
     }
     const next = new Set(current.collapsed)
@@ -116,6 +116,9 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
     ) {
       const decorations: Decoration[] = []
       for (const chapter of chapters) {
+        if (!document.nodeAt(chapter.position)?.textContent.trim()) {
+          continue
+        }
         decorations.push(
           Decoration.widget(
             chapter.position + 1,
@@ -139,6 +142,7 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
               key: 'chapter-' + chapter.id + '-' + collapsed.has(chapter.id) + '-' + chapter.text,
               chapterId: chapter.id,
               side: 1,
+              ignoreSelection: true,
               stopEvent: () => true,
             },
           ),
@@ -179,6 +183,15 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
                 bodyFrom: transaction.mapping.map(chapter.bodyFrom),
                 end: transaction.mapping.map(chapter.end),
               }))
+              const collapsed = new Set(
+                [...previous.collapsed].filter((id) =>
+                  chapters.some(
+                    (chapter) =>
+                      chapter.id === id &&
+                      transaction.doc.nodeAt(chapter.position)?.textContent.trim(),
+                  ),
+                ),
+              )
               let decorations = previous.decorations.map(transaction.mapping, transaction.doc)
               if (
                 transaction.steps.some(
@@ -201,14 +214,12 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
                 const changedIds = new Set(changed.map((chapter) => chapter.id))
                 decorations = decorations
                   .remove(decorations.find().filter((item) => changedIds.has(item.spec.chapterId)))
-                  .add(
-                    transaction.doc,
-                    decorate(transaction.doc, changed, previous.collapsed).find(),
-                  )
+                  .add(transaction.doc, decorate(transaction.doc, changed, collapsed).find())
               }
               return {
                 chapters,
-                collapsed: previous.collapsed,
+                collapsed:
+                  collapsed.size === previous.collapsed.size ? previous.collapsed : collapsed,
                 decorations,
               }
             }
@@ -226,7 +237,13 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
             const valid = new Set(chapters.map((chapter) => chapter.id))
             const collapsed = new Set<string>(
               [...(transaction.getMeta(IMMERSIVE_CHAPTER_KEY) ?? previous.collapsed)].filter(
-                (id: string) => valid.has(id),
+                (id: string) =>
+                  valid.has(id) &&
+                  Boolean(
+                    transaction.doc
+                      .nodeAt(chapters.find((chapter) => chapter.id === id)!.position)
+                      ?.textContent.trim(),
+                  ),
               ),
             )
             return {

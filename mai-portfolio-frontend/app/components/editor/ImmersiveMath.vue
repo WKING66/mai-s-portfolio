@@ -3,7 +3,11 @@ import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import { NodeSelection } from '@tiptap/pm/state'
 import { renderBlogMath, compactBlogMath } from '../../utils/blogMath'
 import BlogMath from '../blog/BlogMath.vue'
-import { immersiveMathSource } from '../../utils/editor/immersiveMath'
+import {
+  immersiveMathSource,
+  mathExitDirection,
+  exitImmersiveMath,
+} from '../../utils/editor/immersiveMath'
 import { IMMERSIVE_MATH_PREVIEWS } from '../../utils/editor/immersiveContext'
 const props = defineProps<NodeViewProps>()
 const previews = inject(IMMERSIVE_MATH_PREVIEWS, undefined)
@@ -95,25 +99,33 @@ function closeWithFocus(side: 'before' | 'after' = 'after') {
   editing.value = false
   const position = props.getPos()
   if (typeof position === 'number') {
-    props.editor.commands.focus(side === 'before' ? position : position + props.node.nodeSize, {
-      scrollIntoView: false,
-    })
+    props.editor.commands.command(exitImmersiveMath(position, side === 'before' ? -1 : 1))
+    props.editor.view.focus()
   }
 }
 function navigateExpression(event: KeyboardEvent) {
   if (
     event.isComposing ||
+    event.shiftKey ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
     composing.value ||
     !input.value ||
     input.value.selectionStart !== input.value.selectionEnd
   ) {
     return
   }
-  const before = event.key === 'ArrowLeft' && input.value.selectionStart === 0
-  const after = event.key === 'ArrowRight' && input.value.selectionEnd === expression.value.length
-  if (before || after) {
+  const direction = mathExitDirection(
+    expression.value,
+    input.value.selectionStart,
+    input.value.selectionEnd,
+    event.key,
+  )
+  if (direction) {
     event.preventDefault()
-    closeWithFocus(before ? 'before' : 'after')
+    event.stopPropagation()
+    closeWithFocus(direction < 0 ? 'before' : 'after')
   }
 }
 watch(editing, (value) => {

@@ -9,7 +9,10 @@ useHead({ title: '沉浸编辑 · 交互原型', meta: [{ name: 'robots', conten
 
 <template>
   <ClientOnly>
-    <LazyShowcaseImmersiveEditor />
-    <template #fallback><p class="site-container py-12 text-muted">正在准备编辑原型…</p></template>
+    <Suspense>
+      <LazyShowcaseImmersiveEditor />
+      <template #fallback><ShowcaseCanvasLoading /></template>
+    </Suspense>
+    <template #fallback><ShowcaseCanvasLoading /></template>
   </ClientOnly>
 </template>

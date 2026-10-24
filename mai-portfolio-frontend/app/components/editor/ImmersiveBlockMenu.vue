@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { Editor, JSONContent } from '@tiptap/vue-3'
-import { openImmersiveMenu } from '../../utils/editor/immersiveCommands'
+import {
+  openImmersiveMenu,
+  canConvertImmersiveTextBlock,
+} from '../../utils/editor/immersiveCommands'
 import { immersiveInsertionProblem } from '../../utils/editor/immersiveCapabilities'
 const props = defineProps<{ editor: Editor; disabled?: boolean }>()
 const menuOpen = ref(false)
@@ -30,34 +33,40 @@ function insertParagraph() {
   }
 }
 const actions = computed(() => [
-  {
-    label: '转换为正文',
-    disabled:
-      Boolean(immersiveInsertionProblem(props.editor, 'heading')) ||
-      !['paragraph', 'heading'].includes(target.value?.node.type ?? ''),
-    icon: 'i-lucide-text',
-    onSelect() {
-      if (!selectBlock()) {
-        return
-      }
-      props.editor.chain().focus().setParagraph().run()
-    },
-  },
-  ...[1, 2, 3, 4, 5, 6].map((level) => ({
-    label: '转换为标题 ' + level,
-    disabled: !['paragraph', 'heading'].includes(target.value?.node.type ?? ''),
-    icon: 'i-lucide-heading',
-    onSelect() {
-      if (!selectBlock()) {
-        return
-      }
-      props.editor
-        .chain()
-        .focus()
-        .toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
-        .run()
-    },
-  })),
+  ...(canConvertImmersiveTextBlock(
+    target.value ? props.editor.state.doc.nodeAt(target.value.pos) : null,
+  )
+    ? [
+        {
+          label: '转换为正文',
+          disabled:
+            Boolean(immersiveInsertionProblem(props.editor, 'heading')) ||
+            !canConvertImmersiveTextBlock(currentBlock()),
+          icon: 'i-lucide-text',
+          onSelect() {
+            if (!canConvertImmersiveTextBlock(currentBlock()) || !selectBlock()) {
+              return
+            }
+            props.editor.chain().focus().setParagraph().run()
+          },
+        },
+        ...[1, 2, 3, 4, 5, 6].map((level) => ({
+          label: '转换为标题 ' + level,
+          disabled: !canConvertImmersiveTextBlock(currentBlock()),
+          icon: 'i-lucide-heading',
+          onSelect() {
+            if (!canConvertImmersiveTextBlock(currentBlock()) || !selectBlock()) {
+              return
+            }
+            props.editor
+              .chain()
+              .focus()
+              .toggleHeading({ level: level as 1 | 2 | 3 | 4 | 5 | 6 })
+              .run()
+          },
+        })),
+      ]
+    : []),
   {
     label: '创建块副本',
     icon: 'i-lucide-copy',

@@ -1,6 +1,21 @@
 import { TextSelection } from '@tiptap/pm/state'
 import { Extension, type Command } from '@tiptap/core'
 
+/** 文末空白点击复用已有末尾空段，否则添加一段，保留正文与原生撤销。 */
+export const continueImmersiveDocument: Command = ({ editor, tr }) => {
+  if (!editor.isEditable) {
+    return false
+  }
+  const last = tr.doc.lastChild
+  if (last?.type.name !== 'paragraph' || last.content.size) {
+    tr.insert(tr.doc.content.size, tr.doc.type.schema.nodes.paragraph!.create())
+  }
+  tr.setSelection(TextSelection.create(tr.doc, tr.doc.content.size - 1))
+    .setStoredMarks(null)
+    .scrollIntoView()
+  return true
+}
+
 /** 在文字中间拆段保留格式；在段末结束格式，单元格导航由目标位置决定格式。 */
 export const newImmersiveParagraph: Command = ({ editor, commands, tr }) => {
   if (editor.isActive('codeBlock')) {

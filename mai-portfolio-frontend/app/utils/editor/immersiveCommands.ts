@@ -1,6 +1,20 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
 import { PluginKey } from '@tiptap/pm/state'
 import { immersiveInsertionProblem, immersiveDocumentProblem } from './immersiveCapabilities'
+import type { Node } from '@tiptap/pm/model'
+
+/** 图片可以位于段落中，但段落包装不代表图片可以转换成文本标题。 */
+export function canConvertImmersiveTextBlock(node: Node | null) {
+  if (!node || !['paragraph', 'heading'].includes(node.type.name)) {
+    return false
+  }
+  let hasImage = false
+  node.descendants((child) => {
+    hasImage ||= child.type.name === 'image'
+    return !hasImage
+  })
+  return !hasImage
+}
 
 export interface ImmersiveMenuTarget {
   kind: 'block' | 'slash'
