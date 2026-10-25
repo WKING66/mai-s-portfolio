@@ -80,7 +80,7 @@ onMounted(() => loadBlogPage())
                 {{ article.summary }}
               </p>
               <p class="mt-3 text-xs text-muted">
-                版本 {{ article.version }} ·
+                修订 {{ article.revision }} ·
                 {{ article.slug || '尚未设置文章标识' }}
               </p>
             </div>

@@ -11,8 +11,8 @@ useHead({ title: '沉浸编辑 · 交互原型', meta: [{ name: 'robots', conten
   <ClientOnly>
     <Suspense>
       <LazyShowcaseImmersiveEditor />
-      <template #fallback><ShowcaseCanvasLoading /></template>
+      <template #fallback><EditorCanvasLoading /></template>
     </Suspense>
-    <template #fallback><ShowcaseCanvasLoading /></template>
+    <template #fallback><EditorCanvasLoading /></template>
   </ClientOnly>
 </template>

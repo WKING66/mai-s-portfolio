@@ -27,6 +27,14 @@ const importModeOptions = [
 const folderInput = ref<HTMLInputElement | null>(null)
 const isImporting = ref(false)
 let importRevision = 0
+let pendingImport: { revision: number; requestId: string } | undefined
+watch(
+  [selectedMarkdown, selectedResources, areRemoteRightsConfirmed],
+  () => {
+    pendingImport = undefined
+  },
+  { flush: 'sync' },
+)
 const fileUploadUi = {
   root: 'min-w-0',
   base: 'min-w-0',
@@ -76,6 +84,9 @@ async function importDocument() {
   if (!canImport.value || !selectedMarkdown.value) {
     return
   }
+  if (!pendingImport || pendingImport.revision !== selectionRevision.value) {
+    pendingImport = { revision: selectionRevision.value, requestId: crypto.randomUUID() }
+  }
   isImporting.value = true
   const currentImportRevision = ++importRevision
   try {
@@ -83,10 +94,12 @@ async function importDocument() {
       selectedMarkdown.value,
       selectedResources.value,
       areRemoteRightsConfirmed.value,
+      pendingImport.requestId,
     )
     if (currentImportRevision !== importRevision) {
       return
     }
+    pendingImport = undefined
     // 3. 草稿创建成功与资源保存成功分别提示，再进入草稿编辑页继续处理。
     const unresolvedResourceCount = importedBlogPost.resources.filter(
       (resource) => resource.status !== 'READY',

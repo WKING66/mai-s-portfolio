@@ -21,7 +21,7 @@ const activePage = computed(() => {
 </script>
 
 <template>
-  <div>
+  <div :class="{ 'admin-immersive-root': immersive }">
     <main
       class="site-container site-page"
       :class="{ 'admin-wide': wide, 'admin-immersive': immersive }"
@@ -109,6 +109,18 @@ const activePage = computed(() => {
   }
 }
 .admin-immersive {
-  padding-top: 0.75rem;
+  padding: 0;
+  width: 100%;
+  max-width: none;
+}
+.admin-immersive-root,
+.admin-immersive,
+.admin-immersive .admin-workspace,
+.admin-immersive .admin-workspace > .min-w-0 {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
 }
 </style>

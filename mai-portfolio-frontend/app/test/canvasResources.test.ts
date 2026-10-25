@@ -33,15 +33,13 @@ afterEach(() => {
 })
 
 function setup(resourceFailure = () => false) {
+  const metadata = ref({
+    title: '标题', slug: 'test', summary: '', allowDownload: true,
+    remoteRightsConfirmed: false, tagIds: [3],
+  })
   const canvas = useCanvasDocument(
     '正文',
-    ref({
-      title: '标题',
-      slug: 'test',
-      summary: '',
-      allowDownload: true,
-      remoteRightsConfirmed: false,
-    }),
+    metadata,
     [],
     () => false,
     resourceFailure,
@@ -62,6 +60,7 @@ function setup(resourceFailure = () => false) {
   return {
     canvas,
     editor,
+    metadata,
     dispose() {
       canvas.dispose()
       editor.destroy()
@@ -82,6 +81,56 @@ function references(editor: Editor) {
 }
 
 describe('Showcase 本地资源准备与保存', () => {
+  it('业务会话注入的资源不随画布局部重挂载销毁，由持有者最终释放', () => {
+    const resources = createCanvasResources()
+    const canvas = useCanvasDocument('正文', ref({ title: '', slug: '', summary: '', allowDownload: true, remoteRightsConfirmed: false }), [], () => false, () => false, { adapter: { save: async () => {} }, resources })
+    canvas.dispose()
+    expect(() => resources.add(new File(['a'], '附件.txt'))).not.toThrow()
+    resources.dispose()
+    expect(() => resources.add(new File(['a'], '附件.txt'))).toThrow('已经关闭')
+  })
+  it('文章设置中的响应式标签数组生成独立快照，保存中继续修改不会丢失', async () => {
+    vi.useFakeTimers()
+    const { canvas, metadata, dispose } = setup()
+    try {
+      metadata.value = { ...metadata.value, tagIds: ref([3, 4]).value }
+      canvas.saved.changed(false)
+      const saving = canvas.saved.save()
+      metadata.value.tagIds.push(5)
+      canvas.saved.changed(false)
+      await vi.advanceTimersByTimeAsync(300)
+      expect(await saving).toBe(true)
+      expect(metadata.value.tagIds).toEqual([3, 4, 5])
+      expect(canvas.saved.dirty.value).toBe(true)
+    } finally {
+      dispose()
+    }
+  })
+  it('正式上传端口失败保留文件，成功后重试正文保存不重复上传，不输出签名地址', async () => {
+    const upload = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('上传失败'))
+      .mockResolvedValue('asset://73')
+    const resources = createCanvasResources(() => false, upload)
+    try {
+      const file = new File(['图片'], '图.png', { type: 'image/png' })
+      const node = resources.add(file)
+      const document = { type: 'doc', content: [{ type: 'paragraph', content: [node] }] }
+      const before = structuredClone(document)
+      await expect(resources.prepare(document)).rejects.toThrow('上传失败')
+      expect(document).toEqual(before)
+      expect(resources.preview(String(node.attrs?.src))).toMatch(/^blob:/)
+      const prepared = await resources.prepare(document)
+      expect(exportCanvasMarkdown(prepared.document)).toContain('asset://73')
+      expect(prepared.replacements.get(String(node.attrs?.src))).toBe('asset://73')
+      expect(upload).toHaveBeenCalledTimes(2)
+      await resources.prepare(document)
+      expect(upload).toHaveBeenCalledTimes(2)
+      expect(document).toEqual(before)
+    } finally {
+      resources.dispose()
+    }
+  })
   it('资源属性事务被插件拒绝时不能提示保存成功', async () => {
     vi.useFakeTimers()
     const { canvas, editor, dispose } = setup()

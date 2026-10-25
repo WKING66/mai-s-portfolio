@@ -7,6 +7,7 @@ export interface CanvasMetadata {
   summary: string
   allowDownload: boolean
   remoteRightsConfirmed: boolean
+  tagIds?: number[]
 }
 export interface CanvasSaveSnapshot {
   document: JSONContent

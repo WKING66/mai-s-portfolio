@@ -1,7 +1,7 @@
 import type { InjectionKey } from 'vue'
 import type { Editor, JSONContent } from '@tiptap/core'
 
-/** 只接收当前 Showcase 自己持有的预览地址，绝不放宽公开阅读器的 URL 规则。 */
+/** 只接收当前编辑会话自己持有的预览地址，绝不放宽公开阅读器的 URL 规则。 */
 export const CANVAS_RESOURCE_PREVIEW: InjectionKey<(uri: string) => string | undefined> =
   Symbol('canvas-resource-preview')
 export const CANVAS_RESOURCE_NORMALIZATION = 'canvas-resource-normalization'
@@ -36,8 +36,11 @@ function visitReferences(document: JSONContent, replace: (uri: string) => string
   document.content?.forEach((child) => visitReferences(child, replace))
 }
 
-/** 仅模拟资源准备：不请求 API/OSS；两种引用和原文件都只活在本页面内。 */
-export function createCanvasResources(fail: () => boolean = () => false) {
+/** 文件留在当前会话；正式页注入上传入口，Showcase 默认使用内存模拟。 */
+export function createCanvasResources(
+  fail: () => boolean = () => false,
+  upload?: (file: File, image: boolean) => Promise<string>,
+) {
   const resources = new Map<string, LocalResource>()
   let disposed = false
   function add(file: File): JSONContent {
@@ -96,7 +99,11 @@ export function createCanvasResources(fail: () => boolean = () => false) {
           return
         }
         entry.preparing ??= (async () => {
-          await new Promise((resolve) => setTimeout(resolve, 300))
+          if (upload) {
+            entry.stable = await upload(entry.file, IMAGE_TYPES.has(entry.file.type))
+          } else {
+            await new Promise((resolve) => setTimeout(resolve, 300))
+          }
           if (disposed) {
             throw new Error('当前编辑页面已经关闭。')
           }

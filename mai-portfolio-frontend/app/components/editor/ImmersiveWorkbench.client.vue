@@ -45,10 +45,16 @@ import {
 } from '../../utils/editor/immersivePositionHighlight'
 import { ImmersiveDecorations } from '../../utils/editor/immersiveDecorations'
 import { BLOG_RESOURCES } from '../../utils/blogResources'
-import type { DocumentResource } from '../../api/blogs'
-import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS } from '../../constants/blogs'
-import { useCanvasDocument } from '../../composables/useCanvasDocument'
-import { CANVAS_RESOURCE_PREVIEW, insertCanvasFiles } from '../../utils/editor/canvasResources'
+import type { BlogTag, DocumentResource } from '../../api/blogs'
+import type { CanvasMetadata } from '../../utils/editor/canvasSave'
+import {
+  normalizeCanvasResources,
+  CANVAS_RESOURCE_PREVIEW,
+  insertCanvasFiles,
+} from '../../utils/editor/canvasResources'
+import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS, BLOG_INPUT_LIMITS } from '../../constants/blogs'
+import { useCanvasDocument, type CanvasPersistence } from '../../composables/useCanvasDocument'
+import { blogSlugIssue } from '../../utils/blogSlug'
 import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_EDITABLE,
@@ -59,18 +65,18 @@ import {
 import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
 import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
 import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
+import { canvasMarkdownClipboard } from '../../utils/editor/canvasClipboard'
 
 const props = defineProps<{
   initialContent: string | JSONContent
   resources?: DocumentResource[]
+  persistence?: CanvasPersistence
+  unsaved?: boolean
+  stateLabel?: string
+  slugLocked?: boolean
+  tags?: BlogTag[]
 }>()
-const metadata = defineModel<{
-  title: string
-  slug: string
-  summary: string
-  allowDownload: boolean
-  remoteRightsConfirmed: boolean
-}>('metadata', { required: true })
+const metadata = defineModel<CanvasMetadata>('metadata', { required: true })
 provide(
   BLOG_RESOURCES,
   computed(() => props.resources ?? []),
@@ -88,6 +94,7 @@ const canvas = useCanvasDocument(
   props.resources ?? [],
   () => simulateFailure.value,
   () => simulateResourceFailure.value,
+  props.persistence,
 )
 provide(CANVAS_RESOURCE_PREVIEW, canvas.localResources.preview)
 const {
@@ -101,6 +108,14 @@ const {
   totalBlocks,
 } = canvas
 const { dirty, saving } = canvas.saved
+const pastePending = ref(false)
+function waitForPaste() {
+  if (!pastePending.value) {
+    return false
+  }
+  toast.add({ title: '正在解析粘贴内容，请稍候', color: 'neutral' })
+  return true
+}
 const painted = ref(false)
 let paintFrame = 0
 watch(
@@ -220,13 +235,18 @@ function chooseFiles(event: Event) {
   input.value = ''
 }
 let barObserver: ResizeObserver | undefined
-async function saveDemo() {
-  if (!ready.value) {
+async function saveDraft() {
+  if (!ready.value || waitForPaste()) {
     return false
+  }
+  // 新建空页本身不算修改；只有明确保存时才创建空草稿。
+  if (props.unsaved && !dirty.value && !canvas.saved.savedRevision.value) {
+    canvas.saved.changed(false)
   }
   const hadChanges = dirty.value
   const success = await canvas.saved.save()
-  const successTitle = hadChanges ? '模拟保存完成' : '没有需要保存的修改'
+  const savedTitle = props.persistence ? '草稿已保存' : '模拟保存完成'
+  const successTitle = hadChanges ? savedTitle : '没有需要保存的修改'
   toast.add({
     id: 'canvas-save',
     title: success ? successTitle : '当前内容未保存',
@@ -249,11 +269,11 @@ function workbenchKeydown(event: KeyboardEvent) {
     (splitRoot.value?.contains(target) || target.closest('[data-immersive-overlay]'))
   ) {
     event.preventDefault()
-    saveDemo()
+    saveDraft()
   }
 }
 function toggleEditing() {
-  if (!ready.value) {
+  if (!ready.value || waitForPaste()) {
     return
   }
   isEditing.value = !isEditing.value
@@ -261,17 +281,21 @@ function toggleEditing() {
 }
 function validateMetadata(state: typeof settingsDraft): FormError[] {
   const errors: FormError[] = []
-  if (!state.title.trim()) {
+  if (!props.persistence && !state.title.trim()) {
     errors.push({ name: 'title', message: '请输入文章标题。' })
   }
-  if (!state.slug.trim()) {
+  if (!props.persistence && !state.slug.trim()) {
     errors.push({ name: 'slug', message: '请输入文章地址。' })
   }
-  if (/[\s/?#]/.test(state.slug)) {
-    errors.push({ name: 'slug', message: '地址不能含空白、斜杠、问号或井号。' })
+  const slugIssue = blogSlugIssue(state.slug)
+  if (slugIssue) {
+    errors.push({ name: 'slug', message: slugIssue })
   }
-  if (state.summary.length > 500) {
-    errors.push({ name: 'summary', message: '摘要最多 500 字。' })
+  if (state.title.length > BLOG_INPUT_LIMITS.title) {
+    errors.push({ name: 'title', message: `标题最多 ${BLOG_INPUT_LIMITS.title} 字。` })
+  }
+  if (state.summary.length > BLOG_INPUT_LIMITS.summary) {
+    errors.push({ name: 'summary', message: `摘要最多 ${BLOG_INPUT_LIMITS.summary} 字。` })
   }
   return errors
 }
@@ -281,7 +305,10 @@ function applySettings() {
       ([key, value]) => metadata.value[key as keyof typeof settingsDraft] !== value,
     )
   ) {
-    metadata.value = { ...settingsDraft }
+    metadata.value = {
+      ...settingsDraft,
+      ...(settingsDraft.tagIds ? { tagIds: Array.from(settingsDraft.tagIds) } : {}),
+    }
   }
   settingsOpen.value = false
 }
@@ -385,6 +412,22 @@ function inspectRejection() {
   void navigatePosition(rejection.value?.position ?? 1)
 }
 const editorExtensions = [
+  Extension.create({
+    name: 'canvasMarkdownClipboard',
+    priority: 1100,
+    addProseMirrorPlugins() {
+      return [
+        canvasMarkdownClipboard(this.editor, {
+          resources: () => props.resources ?? [],
+          pendingChanged: (pending) => {
+            pastePending.value = pending
+          },
+          notice: (description) =>
+            toast.add({ title: 'Markdown 粘贴未完成', description, color: 'warning' }),
+        }),
+      ]
+    },
+  }),
   Extension.create({
     name: 'canvasInitialization',
     addProseMirrorPlugins: () => [canvasInitializationGuard(() => !ready.value)],
@@ -651,6 +694,9 @@ onBeforeUnmount(() => {
 const leaveOpen = ref(false)
 let resolveLeave: ((allow: boolean) => void) | undefined
 function requestLeave(): Promise<boolean> {
+  if (waitForPaste()) {
+    return Promise.resolve(false)
+  }
   if (!dirty.value) {
     return Promise.resolve(true)
   }
@@ -669,18 +715,21 @@ function finishLeave(allow: boolean) {
 }
 async function saveAndLeave() {
   const pendingLeave = resolveLeave
-  if ((await saveDemo()) && !dirty.value && resolveLeave === pendingLeave) {
+  if ((await saveDraft()) && !dirty.value && resolveLeave === pendingLeave) {
     finishLeave(true)
   }
 }
 onBeforeRouteLeave(requestLeave)
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (dirty.value) {
+  if (dirty.value || pastePending.value) {
     event.preventDefault()
     event.returnValue = ''
   }
 }
 async function exportDemo() {
+  if (waitForPaste()) {
+    return
+  }
   try {
     const markdown = await canvas.exportMarkdown()
     const url = URL.createObjectURL(new Blob([markdown], { type: 'text/markdown;charset=utf-8' }))
@@ -703,7 +752,26 @@ async function exportDemo() {
     })
   }
 }
-defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
+function acceptResources(resources: DocumentResource[]) {
+  if (editor.value) {
+    normalizeCanvasResources(
+      editor.value,
+      new Map(
+        resources
+          .filter((r) => r.assetId !== null)
+          .map((r) => ['asset://' + r.assetId, 'resource://' + r.key]),
+      ),
+    )
+  }
+}
+defineExpose({
+  requestLeave,
+  getRevision: () => canvas.saved.revision.value,
+  isDirty: () => dirty.value || pastePending.value,
+  isSaving: () => saving.value || pastePending.value,
+  save: saveDraft,
+  acceptResources,
+})
 </script>
 <template>
   <main ref="splitRoot" class="site-container site-page blog-reading-page immersive-workbench">
@@ -712,8 +780,12 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
       <div class="flex min-w-0 flex-wrap items-center gap-2 text-sm">
         <UIcon name="i-lucide-file-pen-line" class="size-4" />
         <span class="font-medium">沉浸写作</span>
-        <UBadge color="neutral" variant="subtle" size="sm">草稿 · 仅本页</UBadge>
-        <span class="hidden text-xs text-muted sm:inline">{{ saveStatus }}</span>
+        <UBadge color="neutral" variant="subtle" size="sm">{{
+          stateLabel || '草稿 · 仅本页'
+        }}</UBadge>
+        <span class="hidden text-xs text-muted sm:inline" role="status">{{
+          pastePending ? '正在解析粘贴内容…' : saveStatus
+        }}</span>
       </div>
       <div
         class="flex flex-wrap items-center gap-1"
@@ -741,8 +813,9 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
           icon="i-lucide-save"
           color="neutral"
           variant="ghost"
-          aria-label="保存演示草稿"
-          @click="saveDemo"
+          :aria-label="persistence ? '保存草稿' : '保存演示草稿'"
+          :loading="saving"
+          @click="saveDraft"
         />
         <UButton
           color="neutral"
@@ -772,6 +845,7 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
           @click="toggleEditing"
           >{{ isEditing ? '完成编辑' : '继续编辑' }}</UButton
         >
+        <slot name="actions" :dirty="dirty" :saving="saving" :ready="ready && !pastePending" />
       </div>
     </div>
     <div class="workbench-panes">
@@ -786,7 +860,7 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
             <p>{{ initializationError }}</p>
             <UButton @click="canvas.initialize()">重新加载文档</UButton>
           </div>
-          <ShowcaseCanvasLoading
+          <EditorCanvasLoading
             v-else
             :loaded="loading ? loadedBlocks : undefined"
             :total="loading ? totalBlocks : undefined"
@@ -807,7 +881,7 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
             :class="{ 'has-desktop-toc': desktopTocVisible }"
           >
             <header class="blog-reading-title min-w-0">
-              <h1 class="site-page-title break-words">{{ title }}</h1>
+              <h1 class="site-page-title break-words">{{ title || '未命名草稿' }}</h1>
               <p class="my-6 text-lg leading-8 text-muted">{{ summary }}</p>
             </header>
             <aside v-if="desktopTocVisible" class="blog-reading-toc">
@@ -832,6 +906,7 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
                 v-memo="[isEditing, ready]"
                 :model-value="editorDocument"
                 content-type="json"
+                :placeholder="persistence ? '从这里开始写作，输入 / 插入内容' : undefined"
                 :markdown="markdownOptions"
                 :starter-kit="CANVAS_STARTER_KIT"
                 :extensions="editorExtensions"
@@ -885,7 +960,7 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
                 @click="continueAtEnd"
               />
               <p class="workbench-end text-xs text-muted">
-                {{ saveStatus }}
+                {{ pastePending ? '正在解析粘贴内容…' : saveStatus }}
               </p>
             </div>
           </article>
@@ -931,7 +1006,11 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
     <UModal
       v-model:open="settingsOpen"
       title="文章设置"
-      description="这里修改的是当前演示草稿，不会调用保存或发布 API。"
+      :description="
+        persistence
+          ? '修改后保存到草稿，发布需要单独确认。'
+          : '这里修改的是当前演示草稿，不会调用保存或发布 API。'
+      "
       :ui="{ content: 'sm:max-w-2xl' }"
     >
       <template #body>
@@ -943,34 +1022,51 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
         >
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted">文章状态</span
-            ><UBadge color="neutral" variant="subtle">草稿 · 本地演示</UBadge>
+            ><UBadge color="neutral" variant="subtle">{{ stateLabel || '草稿 · 本地演示' }}</UBadge>
           </div>
-          <UFormField name="title" label="文章标题" required
+          <UFormField name="title" label="文章标题" :required="!persistence"
             ><UInput v-model="settingsDraft.title" class="w-full"
           /></UFormField>
           <UFormField
             name="slug"
             label="Slug"
             description="文章地址独立编辑，不会随标题自动改变。"
-            required
-            ><UInput v-model="settingsDraft.slug" class="w-full"
+            :required="!persistence"
+            ><UInput v-model="settingsDraft.slug" :disabled="slugLocked" class="w-full"
           /></UFormField>
-          <UFormField name="summary" label="文章摘要" :hint="settingsDraft.summary.length + '/500'"
+          <UFormField
+            name="summary"
+            label="文章摘要"
+            :hint="settingsDraft.summary.length + '/' + BLOG_INPUT_LIMITS.summary"
             ><UTextarea v-model="settingsDraft.summary" autoresize :rows="3" class="w-full"
           /></UFormField>
+          <UFormField v-if="persistence" name="tagIds" label="文章标签">
+            <USelect
+              v-model="settingsDraft.tagIds"
+              multiple
+              :items="(tags ?? []).map((tag) => ({ label: tag.name, value: tag.id }))"
+              class="w-full"
+              placeholder="选择标签"
+            />
+          </UFormField>
           <div class="space-y-3 border-t border-default pt-4">
             <h3 class="text-sm font-semibold">发布与下载</h3>
             <USwitch
               v-model="settingsDraft.allowDownload"
               label="允许下载 Markdown"
-              description="复用现有文章设置；这里只更新演示数据。"
+              :description="persistence ? '保存后立即生效。' : '这里只更新演示数据。'"
             />
             <UCheckbox
               v-model="settingsDraft.remoteRightsConfirmed"
               label="已确认远程图片与附件的使用权"
             />
-            <USwitch v-model="simulateFailure" label="模拟保存失败（用于验证重试）" />
             <USwitch
+              v-if="!persistence"
+              v-model="simulateFailure"
+              label="模拟保存失败（用于验证重试）"
+            />
+            <USwitch
+              v-if="!persistence"
               v-model="simulateResourceFailure"
               label="模拟图片与附件处理失败"
               description="文件仅留在本页，不上传服务器；刷新后不可恢复。"
@@ -979,7 +1075,7 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
           <div class="flex justify-end gap-2 border-t border-default pt-4">
             <UButton type="button" color="neutral" variant="ghost" @click="settingsOpen = false"
               >取消</UButton
-            ><UButton type="submit">应用到演示草稿</UButton>
+            ><UButton type="submit">{{ persistence ? '应用到草稿' : '应用到演示草稿' }}</UButton>
           </div>
         </UForm>
       </template>
@@ -987,7 +1083,11 @@ defineExpose({ requestLeave, getRevision: () => canvas.saved.revision.value })
     <UModal
       :open="leaveOpen"
       title="有未保存修改"
-      description="当前仅为模拟保存，不会上传服务器。"
+      :description="
+        persistence
+          ? '离开前可以保存当前草稿，或明确放弃未保存修改。'
+          : '当前仅为模拟保存，不会上传服务器。'
+      "
       :dismissible="false"
       @update:open="
         (open) => {

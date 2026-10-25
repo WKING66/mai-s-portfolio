@@ -14,12 +14,17 @@ import {
   type CanvasMetadata,
   type CanvasSaveSnapshot,
 } from '../utils/editor/canvasSave'
-import { useCanvasSave } from './useCanvasSave'
+import { useCanvasSave, type CanvasSaveAdapter } from './useCanvasSave'
 import {
   CANVAS_RESOURCE_NORMALIZATION,
   createCanvasResources,
   normalizeCanvasResources,
 } from '../utils/editor/canvasResources'
+
+export interface CanvasPersistence {
+  adapter: CanvasSaveAdapter<CanvasSaveSnapshot>
+  resources: ReturnType<typeof createCanvasResources>
+}
 
 /** 编辑期间只读写同一 PM 文档；Markdown 与 JSON 快照仅在显式转换边界创建。 */
 export function useCanvasDocument(
@@ -28,6 +33,7 @@ export function useCanvasDocument(
   resources: DocumentResource[],
   fail: () => boolean,
   resourceFailure: () => boolean = () => false,
+  persistence?: CanvasPersistence,
 ) {
   // 本地导入先检查成功再替换画布；复用该快照，避免挂载时再次解析整篇 Markdown。
   const initialDocument = markRaw(
@@ -45,8 +51,8 @@ export function useCanvasDocument(
   const ready = computed(() => !loading.value && !initializationError.value)
   let initialization: AbortController | undefined
   const validator = createImmersiveValidator()
-  const adapter = createCanvasMockAdapter(fail)
-  const localResources = createCanvasResources(resourceFailure)
+  const adapter = persistence?.adapter ?? createCanvasMockAdapter(fail)
+  const localResources = persistence?.resources ?? createCanvasResources(resourceFailure)
   let disposed = false
   const snapshot = (): CanvasSaveSnapshot => {
     if (!ready.value) {
@@ -57,7 +63,10 @@ export function useCanvasDocument(
     }
     return {
       document: editor.value.state.doc.toJSON(),
-      metadata: structuredClone(toRaw(metadata.value)),
+      metadata: {
+        ...toRaw(metadata.value),
+        ...(metadata.value.tagIds ? { tagIds: Array.from(metadata.value.tagIds) } : {}),
+      },
     }
   }
   async function prepare(value: CanvasSaveSnapshot): Promise<CanvasSaveSnapshot> {
@@ -142,17 +151,20 @@ export function useCanvasDocument(
       return initializationError.value
     }
     if (saved.saving.value) {
-      return '正在模拟保存…'
+      return persistence ? '正在保存草稿…' : '正在模拟保存…'
     }
     if (saved.error.value) {
       return saved.error.value
     }
     if (saved.dirty.value) {
-      return '有未保存修改 · 正文空闲 60 秒后模拟保存'
+      return persistence
+        ? '有未保存修改 · 正文空闲 60 秒后保存草稿'
+        : '有未保存修改 · 正文空闲 60 秒后模拟保存'
     }
-    return saved.savedRevision.value
-      ? '已模拟保存 · 未上传服务器，刷新不恢复'
-      : '尚未修改 · 当前仅为演示页面'
+    if (saved.savedRevision.value) {
+      return persistence ? '草稿已保存到服务器' : '已模拟保存 · 未上传服务器，刷新不恢复'
+    }
+    return persistence ? '当前正文尚未修改' : '尚未修改 · 当前仅为演示页面'
   })
   async function exportMarkdown() {
     return (await prepare(snapshot())).markdown!
@@ -163,7 +175,10 @@ export function useCanvasDocument(
     detach()
     saved.dispose()
     validator.dispose()
-    localResources.dispose()
+    // 注入的资源由业务会话持有，画布局部重挂载不能关闭仍在使用的上传端口。
+    if (!persistence) {
+      localResources.dispose()
+    }
   }
   return {
     initialDocument,

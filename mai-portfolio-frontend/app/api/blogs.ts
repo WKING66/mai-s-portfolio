@@ -20,6 +20,14 @@ export interface DocumentResource {
   originalUri: string | null
   /** 管理端资源诊断；历史记录可能为空，公开投影不返回原因。 */
   errorMessage?: string | null
+  filename?: string | null
+  contentType?: string | null
+}
+export interface BlogTag {
+  id: number
+  name: string
+  slug: string
+  kind: 'TOPIC' | 'TECH'
 }
 export interface BlogCard {
   id: number
@@ -27,13 +35,18 @@ export interface BlogCard {
   title: string
   summary: string
   status: 'DRAFT' | 'PUBLISHED'
-  version: number
+  revision: number | null
+  contentId: number
+  stage: 'DRAFT' | 'PUBLISHED'
+  hasDraft: boolean | null
+  hasPublished: boolean
   publishedAt: string | null
 }
 /** 管理投影为草稿 Markdown，公开投影为已发布 Markdown；资源地址只作展示投影。 */
 export interface Blog extends BlogCard {
   documentId: number
-  documentVersionId: number
+  resourcesReady: boolean
+  tags: BlogTag[]
   content: string
   previewIssue: string | null
   resources: DocumentResource[]
@@ -48,7 +61,9 @@ export interface BlogPage {
   items: BlogCard[]
 }
 export interface BlogInput {
-  version?: number
+  revision?: number
+  requestId: string
+  tagIds: number[]
   slug: string
   title: string
   summary: string
@@ -89,18 +104,28 @@ export function useBlogApi() {
     invalidate()
     return blogPost
   }
-  async function changeStatus(id: number, version: number, published: boolean) {
-    const blogPost = await request<Blog>(
-      BLOG_PATH + '/' + id + (published ? '/publish' : '/unpublish'),
-      { method: 'POST', body: { version } },
-    )
+  async function transition(
+    id: number,
+    action: 'publish' | 'unpublish' | 'restore' | 'draft',
+    body: { revision: number; requestId: string },
+  ) {
+    const blogPost = await request<Blog>(BLOG_PATH + '/' + id + '/' + action, {
+      method: action === 'draft' ? 'DELETE' : 'POST',
+      body,
+    })
     invalidate()
     return blogPost
   }
-  async function importDocument(file: File, resources: BlogImportResource[], rights: boolean) {
+  async function importDocument(
+    file: File,
+    resources: BlogImportResource[],
+    rights: boolean,
+    requestId: string,
+  ) {
     // 1. file 是正文；每个 resources part 的 filename 是相对正文目录的路径，不能只发叶子名称。
     const body = new FormData()
     body.append('file', file)
+    body.append('requestId', requestId)
     body.append('remoteRightsConfirmed', String(rights))
     // 2. HTTP 层只序列化已确定的路径，不猜文件夹层级；服务端负责安全校验和资源绑定。
     resources.forEach(({ file, path }) => body.append('resources', file, path))
@@ -142,7 +167,8 @@ export function useBlogApi() {
       }),
     get: (id: number) => request<Blog>(BLOG_PATH + '/' + id),
     save,
-    changeStatus,
+    transition,
+    tags: () => request<BlogTag[]>('/api/v1/tags'),
     importDocument,
     download,
   }

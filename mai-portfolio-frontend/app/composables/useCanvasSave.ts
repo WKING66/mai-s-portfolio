@@ -65,8 +65,7 @@ export function useCanvasSave<T>(
         return true
       } catch (cause) {
         if (!disposed) {
-          error.value =
-            cause instanceof Error ? cause.message : '模拟保存失败，当前内容仍在画布中。'
+          error.value = cause instanceof Error ? cause.message : '保存失败，当前内容仍在画布中。'
         }
         return false
       }
