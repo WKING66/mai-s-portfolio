@@ -150,6 +150,12 @@ export class CanvasMarkdownWriter extends MarkdownManager {
     })
     return toMarkdown(root, {
       strong: '_',
+      // 普通文字不能在重新解析时变为数学节点、GFM 表格或删除线；真实原子节点仍原样输出。
+      unsafe: [
+        { character: '$', inConstruct: 'phrasing' },
+        { character: '|', inConstruct: 'phrasing' },
+        { character: '~', inConstruct: 'phrasing' },
+      ],
       handlers: { inlineCode: (node) => (node.type === 'inlineCode' ? node.value : '') },
     }).replace(/\n$/, '')
   }

@@ -7,6 +7,11 @@ import {
 import { editorContentMeaning } from '../utils/editor/markdownOutput'
 
 describe('单画布 Markdown 边界契约', () => {
+  it.each(['', ' \n\n\t'])('空草稿可导入为可编辑段落并保存为空 Markdown：%j', (source) => {
+    const document = importCanvasMarkdown(source)
+    expect(document.content).toEqual([{ type: 'paragraph' }])
+    expect(exportCanvasMarkdown(document)).toBe('')
+  })
   it.each([
     '***组合强调*** 与 **文字 $x^2$ 图片 ![图](resource://image)**',
     '1\\. 普通数字段落\n\n- 父项\n      - 深层子项\n\n*斜体 **内层加粗** 继续*',

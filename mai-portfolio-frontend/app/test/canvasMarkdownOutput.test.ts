@@ -31,6 +31,8 @@ const readerStyles = (
     return readerStyles(node.slice(2) as ReaderNode[], style ? [...marks, style] : marks)
   })
 const cases: [string, JSONContent][] = [
+  ['粘贴为普通文字的公式标记不会在保存时变成公式', paragraph(text('行内公式 $x^2+1$。'))],
+  ['字面标题、围栏和表格标记保持普通文字', paragraph(text('## 第一章\n~~~ts\n| A | B |\n| --- | --- |\n~~~'))],
   [
     '公式原子后直接输入数字仍可保存',
     paragraph({ type: 'preservedMathInline', attrs: { source: '$x$' } }, text('2026')),
@@ -74,6 +76,8 @@ describe('保存边界的四类长文输出回归', () => {
   it.each(cases)('%s', (_name, block) => {
     // 实际保存入口接受 PM 文档，Schema 会补齐列表起始值并规范化 Marks 顺序。
     const document = canvasSchema.nodeFromJSON({ type: 'doc', content: [block] }).toJSON()
+    const candidate = createCanvasMarkdownManager().serialize(document)
+    expect(editorContentMeaning(importCanvasMarkdown(candidate)), candidate).toEqual(editorContentMeaning(document))
     const output = exportCanvasMarkdown(document)
     expect(editorContentMeaning(importCanvasMarkdown(output))).toEqual(
       editorContentMeaning(document),

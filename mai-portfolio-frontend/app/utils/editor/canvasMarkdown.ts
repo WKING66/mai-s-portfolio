@@ -220,12 +220,12 @@ export function importCanvasMarkdown(
     node.content?.forEach(visit)
   }
   visit(parsed)
-  const document = canvasSchema.nodeFromJSON(parsed)
+  const imported = canvasSchema.nodeFromJSON(parsed)
+  // 空草稿没有 Markdown token，但编辑文档必须保留一个可落光标的段落。
+  const document = imported.childCount ? imported : canvasSchema.topNodeType.createAndFill()!
   document.check()
   // 返回 Schema 规范化后的快照；同一组 Marks 不因 Markdown 嵌套顺序产生假差异。
-  return document.childCount
-    ? document.toJSON()
-    : canvasSchema.topNodeType.createAndFill()!.toJSON()
+  return document.toJSON()
 }
 function safelyDecode(value: string) {
   try {
