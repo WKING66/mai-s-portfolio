@@ -34,6 +34,7 @@
     "@tiptap/markdown": "3.31.4",
     "@tiptap/pm": "3.31.4",
     "@tiptap/starter-kit": "3.31.4",
+    "@tiptap/suggestion": "3.31.4",
     "@tiptap/vue-3": "3.31.4",
     "@vueuse/core": "14.4.0",
     "comark": "0.7.0",
