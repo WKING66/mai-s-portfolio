@@ -17,7 +17,11 @@ public interface BlogService {
 
     BlogVo publicArticle(String slug);
 
-    BlogVo save(Long id, BlogRequest request);
+    BlogVo create(BlogRequest request);
+
+    BlogVo saveContent(long id, BlogContentRequest request);
+
+    BlogVo saveProperties(long id, BlogPropertiesRequest request);
 
     BlogVo importDocument(MultipartFile file, List<MultipartFile> resources,
             boolean remoteRightsConfirmed, List<Long> tagIds, String requestId);

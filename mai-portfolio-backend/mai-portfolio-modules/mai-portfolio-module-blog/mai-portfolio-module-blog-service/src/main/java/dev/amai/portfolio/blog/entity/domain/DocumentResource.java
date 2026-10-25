@@ -47,6 +47,11 @@ public record DocumentResource(
         }
     }
 
+    /** 正文即使没改，作者重新确认网络抓取授权时仍可重试失败引用；稳定 key 必须沿用。 */
+    public boolean canRetryRemote(boolean remoteRightsConfirmed) {
+        return remoteRightsConfirmed && source == ResourceSource.REMOTE && status != ResourceStatus.READY;
+    }
+
     public String reference() {
         return REFERENCE_PREFIX + key;
     }

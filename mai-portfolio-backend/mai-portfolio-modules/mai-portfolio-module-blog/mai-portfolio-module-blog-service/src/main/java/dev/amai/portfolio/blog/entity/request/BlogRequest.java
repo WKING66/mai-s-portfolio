@@ -8,7 +8,7 @@ import dev.amai.portfolio.validation.ValidationGroups;
 import jakarta.validation.constraints.*;
 import java.util.List;
 
-/** 保存只修改工作草稿。下载开关属于博客级设置，提交后立即生效。 */
+/** 首次保存新文章的完整输入；已有文章的正文、属性更新使用各自独立请求。 */
 public record BlogRequest(
         @NotNull(groups = ValidationGroups.Update.class)
         @Positive(groups = ValidationGroups.Update.class)
@@ -19,7 +19,7 @@ public record BlogRequest(
         String requestId,
 
         @Size(max = MAX_SLUG_LENGTH)
-        @Pattern(regexp = "[a-z0-9]+(?:-[a-z0-9]+)*|", message = "文章标识仅支持小写字母、数字和短横线")
+        @Pattern(regexp = SLUG_PATTERN, message = "文章标识仅支持小写字母、数字和短横线")
         String slug,
 
         @Size(max = MAX_TITLE_LENGTH)

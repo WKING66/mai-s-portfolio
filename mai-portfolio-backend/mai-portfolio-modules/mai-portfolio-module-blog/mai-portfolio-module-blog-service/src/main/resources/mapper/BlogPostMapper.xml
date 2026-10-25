@@ -16,6 +16,16 @@
         </association>
     </resultMap>
 
+    <select id="existsOtherSlug" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM blog_post
+            WHERE LOWER(slug) = LOWER(#{slug})
+            <if test="id != null">
+                AND id != #{id}
+            </if>
+        )
+    </select>
+
     <!-- 三表主体只返回一条正式正文；图片、附件、标签分别批量读取，避免长正文随关联数量重复传输。 -->
     <select id="selectPublishedArticle" resultMap="publishedArticle">
         SELECT b.id AS b_id, b.document_id AS b_document_id, b.slug AS b_slug,

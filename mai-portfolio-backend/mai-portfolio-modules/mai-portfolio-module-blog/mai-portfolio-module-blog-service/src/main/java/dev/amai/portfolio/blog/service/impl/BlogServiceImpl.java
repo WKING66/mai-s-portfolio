@@ -20,6 +20,8 @@ import dev.amai.portfolio.common.PageRequest;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.*;
+import dev.amai.portfolio.validation.ValidationGroups;
+import jakarta.validation.Validator;
 import dev.amai.portfolio.web.exception.*;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -66,6 +68,8 @@ public class BlogServiceImpl implements BlogService {
 
     private final TransactionTemplate transactionTemplate;
 
+    private final Validator validator;
+
     private record SavedDraft(
             BlogPostDO blog,
 
@@ -77,7 +81,7 @@ public class BlogServiceImpl implements BlogService {
             DocumentRenderer documentRenderer, AssetFileService assetFileService,
             AssetQueryService assetQueryService, TaxonomyQueryService taxonomyQueryService,
             DocumentProperties documentProperties,
-            PlatformTransactionManager transactionManager) {
+            PlatformTransactionManager transactionManager, Validator validator) {
         this.blogPostMapper = blogPostMapper;
         this.documentService = documentService;
         this.documentImportTaskService = documentImportTaskService;
@@ -89,6 +93,7 @@ public class BlogServiceImpl implements BlogService {
         this.taxonomyQueryService = taxonomyQueryService;
         this.documentProperties = documentProperties;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
+        this.validator = validator;
     }
 
     /** 公开列表只展示已上架正文；管理列表优先展示草稿，方便站长继续编辑。 */
@@ -142,50 +147,188 @@ public class BlogServiceImpl implements BlogService {
         return project(article.getBlog(), document, false);
     }
 
-    /**
-     * 新建和编辑都只保存草稿。已公开的文章继续展示旧正文，
-     * 只有显式发布才替换正文；下载开关是博客级设置，保存后立即生效。
-     */
+    /** 新建保留原有完整输入，创建一份草稿；重复请求找回同一文章，不重复上传资源。 */
     @Override
-    public BlogVo save(Long id, BlogRequest request) {
-        // 1. 先识别响应丢失后的重试：已保存过的同一次请求直接读取结果，避免再上传一遍资源。
+    public BlogVo create(BlogRequest request) {
         long account = AccountContext.currentAccount().id();
         String hash = writeFingerprint(request);
-        BlogPostDO existing = id == null ? null : required(id);
-        var creation = id == null ? documentService.findCreation(account, request.requestId()) : null;
+        var creation = documentService.findCreation(account, request.requestId());
         if (creation != null) {
             requireSameHash(creation.getCreateRequestHash(), hash);
             return get(blogByDocument(creation.getId()).getId());
         }
-        // 这里先确认客户端看到的修订是否过期；真正执行写入前还会在同一文档上再次确认，防止准备资源期间发生其他操作。
-        if (existing != null) {
-            var current = documentService.read(existing.getDocumentId(), true);
-            if (current.revision() != request.revision()) {
-                return savedRetry(existing, request, hash);
-            }
-        }
+        requireAvailableSlug(cleanSlug(request.slug()), null);
         var tags = taxonomyQueryService.requireTags(request.tagIds());
-        var previous = existing == null ? Map.<String, DocumentResource>of()
-                : documentService.references(existing.getDocumentId());
-        // 2. 把新图片/附件归档为稳定引用，已有引用优先复用。资源未就绪可留在草稿，但不能据此发布。
-        var prepared = documentResourceResolver.prepare(request.content(), previous, Map.of(),
+        var prepared = documentResourceResolver.prepare(request.content(), Map.of(), Map.of(),
                 request.remoteRightsConfirmed(), account);
         var draft = new DocumentDraft(request.title(), request.summary(), prepared, tags,
                 account, request.requestId(), hash);
-        // 3. 一起保存草稿、标签与下载设置。若保存失败，只清理这次新上传且未被其他内容引用的资源，旧资源保持不变。
-        var saved = persist(existing, request, draft, DocumentOrigin.EDITOR.code(), null, null);
+        var saved = persistNew(request, draft, DocumentOrigin.EDITOR.code(), null, null);
         return project(saved.blog(), saved.document(), true);
     }
 
-    /** 修订已推进时，仅允许最后一次原请求读取成功结果；其他旧请求要求重新读取，不能重新写回旧草稿。 */
-    private BlogVo savedRetry(BlogPostDO existing, BlogRequest request, String hash) {
+    /**
+     * 现有 PATCH 只保存正文。旧 slug、属性表单错误或尚未提交的属性不参与本请求；
+     * 准备资源后在同一文档锁内重读修订，避免迟到的正文保存覆盖刚提交的属性。
+     */
+    @Override
+    public BlogVo saveContent(long id, BlogContentRequest request) {
+        long account = AccountContext.currentAccount().id();
+        String hash = contentFingerprint(request);
+        var initial = required(id);
+        var current = documentService.read(initial.getDocumentId(), true);
+        if (current.revision() != request.revision()) {
+            return savedRetry(initial, request.revision(), request.requestId(), hash);
+        }
+        boolean retryResources = current.resources()
+                .stream()
+                .anyMatch(resource -> resource.canRetryRemote(request.remoteRightsConfirmed()));
+        // 正文完全未变时不解析 Markdown、不查资源清单；明确重试失败网络图片是实际业务操作，不能跳过。
+        var prepared = Objects.equals(current.content(), request.content()) && !retryResources
+                ? new PreparedDocument(current.content(), current.resources(), Set.of())
+                : documentResourceResolver.prepare(request.content(),
+                        documentService.references(initial.getDocumentId()), Map.of(),
+                        request.remoteRightsConfirmed(), account);
+        SavedDraft saved;
+        try {
+            saved = transactionTemplate.execute(status -> {
+                boolean apply = documentService.beginWrite(initial.getDocumentId(),
+                        request.revision(), request.requestId(), hash);
+                var blog = required(id);
+                var latest = documentService.read(blog.getDocumentId(), true);
+                if (!apply || Objects.equals(latest.content(), prepared.content())
+                        && latest.resources().equals(prepared.resources())) {
+                    // 没有修改不创建草稿、不推进修订或改时间；未发生写入的新 requestId 不登记为已提交。
+                    return new SavedDraft(blog, latest);
+                }
+                documentService.saveContent(latest, prepared, account);
+                documentService.recordWrite(blog.getDocumentId(), request.requestId(), hash);
+                updateBlogTime(blog);
+                return new SavedDraft(blog, documentService.read(blog.getDocumentId(), true));
+            });
+        } catch (DuplicateKeyException failure) {
+            discardCreated(prepared, account);
+            throw new ApiException(ApiErrorCode.DATA_CONFLICT, "正文资源发生写入冲突，请重新读取后保存");
+        } catch (RuntimeException failure) {
+            discardCreated(prepared, account);
+            throw failure;
+        }
+        discardUnused(saved, prepared, account);
+        return project(saved.blog(), saved.document(), true);
+    }
+
+    /**
+     * 属性表单完整提交，但不接收正文。标题、摘要和标签属于草稿，
+     * 下载开关属于博客设置并立即生效；只改设置时不制造一份相同正文草稿。
+     */
+    @Override
+    public BlogVo saveProperties(long id, BlogPropertiesRequest request) {
+        long account = AccountContext.currentAccount().id();
+        var initial = required(id);
+        String hash = propertiesFingerprint(request);
+        SavedDraft saved;
+        try {
+            saved = transactionTemplate.execute(status -> {
+                boolean apply = documentService.beginWrite(initial.getDocumentId(),
+                        request.revision(), request.requestId(), hash);
+                var blog = required(id);
+                var current = documentService.read(blog.getDocumentId(), true);
+                if (!apply) {
+                    return new SavedDraft(blog, current);
+                }
+                String slug = cleanSlug(request.slug());
+                boolean slugChanged = !Objects.equals(blog.getSlug(), slug);
+                if (slugChanged) {
+                    validateChangedSlug(blog, current, request, slug);
+                }
+                String title = StrUtil.emptyToNull(request.title());
+                String summary = StrUtil.emptyToNull(request.summary());
+                var tagIds = current.tags()
+                        .stream()
+                        .map(TagData::id)
+                        .collect(Collectors.toSet());
+                boolean sameTags = current.tags().size() == request.tagIds().size()
+                        && tagIds.equals(new HashSet<>(request.tagIds()));
+                boolean draftChanged = !Objects.equals(StrUtil.emptyToNull(current.title()), title)
+                        || !Objects.equals(StrUtil.emptyToNull(current.summary()), summary) || !sameTags;
+                int download = request.allowDownload() ? VISITOR_DOWNLOAD_ENABLED : VISITOR_DOWNLOAD_DISABLED;
+                if (!draftChanged && !slugChanged && blog.getAllowVisitorDownload() == download) {
+                    return new SavedDraft(blog, current);
+                }
+                if (draftChanged) {
+                    var tags = sameTags ? current.tags() : taxonomyQueryService.requireTags(request.tagIds());
+                    documentService.saveProperties(current, title, summary, tags, account);
+                }
+                // 定向写入属性列，不用旧 Blog 对象整行覆盖其他操作的状态。
+                blogPostMapper.update(null, Wrappers.<BlogPostDO>lambdaUpdate()
+                        .eq(BlogPostDO::getId, id)
+                        .set(BlogPostDO::getSlug, slug)
+                        .set(BlogPostDO::getAllowVisitorDownload, download)
+                        .set(BlogPostDO::getUpdatedAt, now()));
+                documentService.recordWrite(blog.getDocumentId(), request.requestId(), hash);
+                return new SavedDraft(required(id), documentService.read(blog.getDocumentId(), true));
+            });
+        } catch (DuplicateKeyException failure) {
+            // 预检查后仍发生竞争时只将真实的其他文章占用标识映射为 slug 错误，不能误指所有唯一键冲突。
+            requireAvailableSlug(cleanSlug(request.slug()), id);
+            throw new ApiException(ApiErrorCode.DATA_CONFLICT, "属性发生写入冲突，请重新读取后保存");
+        }
+        return project(saved.blog(), saved.document(), true);
+    }
+
+    /** 只对实际改变的 slug 检查格式与占用；历史原值不动时不会阻止保存属性，更不会阻止正文保存。 */
+    private void validateChangedSlug(
+            BlogPostDO blog, Document current, BlogPropertiesRequest request, String slug) {
+        if (current.hasPublished()) {
+            throw new ApiException(ApiErrorCode.BLOG_SLUG_IMMUTABLE, "首次发布后文章标识不可修改");
+        }
+        var violations = validator.validateProperty(request, "slug", ValidationGroups.Update.class);
+        if (!violations.isEmpty()) {
+            String message = violations.stream()
+                    .map(value -> value.getMessage())
+                    .sorted()
+                    .findFirst()
+                    .orElse("文章标识格式不正确");
+            throw new ApiException(ApiErrorCode.BLOG_SLUG_INVALID, message);
+        }
+        requireAvailableSlug(slug, blog.getId());
+    }
+
+    private void requireAvailableSlug(String slug, Long id) {
+        if (slug != null && blogPostMapper.existsOtherSlug(slug, id)) {
+            throw new ApiException(ApiErrorCode.BLOG_SLUG_CONFLICT, "文章标识已被其他文章使用");
+        }
+    }
+
+    /** 修订过期时仅原请求可找回已提交结果，不能重新执行资源上传或覆盖另一部分的编辑。 */
+    private BlogVo savedRetry(BlogPostDO existing, long revision, String requestId, String hash) {
         transactionTemplate.executeWithoutResult(status -> {
-            if (documentService.beginWrite(existing.getDocumentId(),
-                    request.revision(), request.requestId(), hash)) {
-                throw new ApiException(ApiErrorCode.DATA_CONFLICT, "文档已被修改，请重新读取后保存");
+            if (documentService.beginWrite(existing.getDocumentId(), revision, requestId, hash)) {
+                throw new ApiException(ApiErrorCode.DOCUMENT_REVISION_CONFLICT, "文档已被修改，请重新读取后保存");
             }
         });
         return get(existing.getId());
+    }
+
+    private void updateBlogTime(BlogPostDO blog) {
+        blog.setUpdatedAt(now());
+        blogPostMapper.update(null, Wrappers.<BlogPostDO>lambdaUpdate()
+                .eq(BlogPostDO::getId, blog.getId())
+                .set(BlogPostDO::getUpdatedAt, blog.getUpdatedAt()));
+    }
+
+    private void discardCreated(PreparedDocument prepared, long account) {
+        if (!prepared.newlyCreatedAssets().isEmpty()) {
+            assetFileService.discardUnbound(prepared.newlyCreatedAssets(), account);
+        }
+    }
+
+    private void discardUnused(SavedDraft saved, PreparedDocument prepared, long account) {
+        var unused = new HashSet<>(prepared.newlyCreatedAssets());
+        saved.document().resources().forEach(resource -> unused.remove(resource.assetId()));
+        if (!unused.isEmpty()) {
+            assetFileService.discardUnbound(unused, account);
+        }
     }
 
     /**
@@ -217,7 +360,7 @@ public class BlogServiceImpl implements BlogService {
             var draft = new DocumentDraft(request.title(), request.summary(), prepared, tags,
                     account, requestId, writeFingerprint(request));
             // 3. 博客、内容、关系、导入成功及资源问题清单共同提交。
-            saved = persist(null, request, draft, parsed.origin().code(), task.getId(), sourceSha256);
+            saved = persistNew(request, draft, parsed.origin().code(), task.getId(), sourceSha256);
         } catch (RuntimeException failure) {
             try {
                 documentImportTaskService.failed(task.getId(), failure);
@@ -254,64 +397,42 @@ public class BlogServiceImpl implements BlogService {
         return local;
     }
 
-    /** 将内容、标签和博客设置作为一次保存；任何一步失败都不能留下半篇新文章。 */
-    private SavedDraft persist(BlogPostDO existing, BlogRequest request, DocumentDraft draft,
+    /** 新建/导入只创建一份草稿；任何一步失败都不能留下半篇新文章。 */
+    private SavedDraft persistNew(BlogRequest request, DocumentDraft draft,
             int origin, Long importTaskId, String sourceSha256) {
         try {
             SavedDraft saved = transactionTemplate.execute(status -> {
-                BlogPostDO blog = existing == null ? new BlogPostDO() : required(existing.getId());
-                if (existing != null) {
-                    boolean apply = documentService.beginWrite(blog.getDocumentId(),
-                            request.revision(), request.requestId(), draft.requestHash());
-                    // 锁后重读，不能用锁前旧对象覆盖另一写操作。
-                    blog = required(existing.getId());
-                    var current = documentService.read(blog.getDocumentId(), true);
-                    if (!apply) {
-                        return new SavedDraft(blog, current);
-                    }
-                    if (current.hasPublished() && !Objects.equals(blog.getSlug(), cleanSlug(request.slug()))) {
-                        throw invalid("首次发布后文章标识不可修改");
-                    }
-                }
-                Document document = existing == null
-                        ? documentService.create(draft.editor(), origin, draft)
-                        : documentService.save(blog.getDocumentId(), draft);
+                var document = documentService.create(draft.editor(), origin, draft);
+                var blog = new BlogPostDO();
                 blog.setSlug(cleanSlug(request.slug()));
                 blog.setDocumentId(document.id());
                 blog.setAllowVisitorDownload(request.allowDownload()
                         ? VISITOR_DOWNLOAD_ENABLED : VISITOR_DOWNLOAD_DISABLED);
+                blog.setStatus(DRAFT);
                 blog.setUpdatedAt(now());
-                if (existing == null) {
-                    blog.setStatus(DRAFT);
-                    blog.setCreatedAt(blog.getUpdatedAt());
-                    blogPostMapper.insert(blog);
-                } else {
-                    blogPostMapper.updateById(blog);
-                }
+                blog.setCreatedAt(blog.getUpdatedAt());
+                blogPostMapper.insert(blog);
                 if (importTaskId != null) {
                     documentImportTaskService.succeeded(importTaskId, document.id(), sourceSha256);
                 }
                 return new SavedDraft(blog, document);
             });
-            // 同请求并发准备可能额外上传：只回收提交结果没有使用的本次新增资产。
-            var unusedNewAssets = new HashSet<>(draft.prepared().newlyCreatedAssets());
-            saved.document().resources().forEach(resource -> unusedNewAssets.remove(resource.assetId()));
-            if (!unusedNewAssets.isEmpty()) {
-                assetFileService.discardUnbound(unusedNewAssets, draft.editor());
-            }
+            discardUnused(saved, draft.prepared(), draft.editor());
             return saved;
         } catch (DuplicateKeyException failure) {
-            assetFileService.discardUnbound(draft.prepared().newlyCreatedAssets(), draft.editor());
-            if (existing == null && importTaskId == null) {
+            discardCreated(draft.prepared(), draft.editor());
+            if (importTaskId == null) {
                 var creation = documentService.findCreation(draft.editor(), draft.requestId());
                 if (creation != null) {
                     requireSameHash(creation.getCreateRequestHash(), draft.requestHash());
-                    return new SavedDraft(blogByDocument(creation.getId()), documentService.read(creation.getId(), true));
+                    return new SavedDraft(blogByDocument(creation.getId()),
+                            documentService.read(creation.getId(), true));
                 }
             }
-            throw new ApiException(ApiErrorCode.DATA_CONFLICT, "文章标识或请求标识已被使用，请重新读取");
+            requireAvailableSlug(cleanSlug(request.slug()), null);
+            throw new ApiException(ApiErrorCode.DATA_CONFLICT, "文章发生写入冲突，请重新读取");
         } catch (RuntimeException failure) {
-            assetFileService.discardUnbound(draft.prepared().newlyCreatedAssets(), draft.editor());
+            discardCreated(draft.prepared(), draft.editor());
             throw failure;
         }
     }
@@ -505,7 +626,7 @@ public class BlogServiceImpl implements BlogService {
 
     private void requireSameHash(String actual, String expected) {
         if (!Objects.equals(actual, expected)) {
-            throw new ApiException(ApiErrorCode.DATA_CONFLICT, "请求标识已用于不同内容，请生成新的 requestId");
+            throw new ApiException(ApiErrorCode.REQUEST_ID_CONFLICT, "请求标识已用于不同内容，请生成新的 requestId");
         }
     }
 
@@ -522,6 +643,25 @@ public class BlogServiceImpl implements BlogService {
         addFingerprintField(digest, request.content());
         addFingerprintField(digest, Boolean.toString(request.allowDownload()));
         addFingerprintField(digest, Boolean.toString(request.remoteRightsConfirmed()));
+        request.tagIds().forEach(id -> addFingerprintField(digest, id.toString()));
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private String contentFingerprint(BlogContentRequest request) {
+        var digest = sha256Digest();
+        addFingerprintField(digest, "SAVE_CONTENT");
+        addFingerprintField(digest, request.content());
+        addFingerprintField(digest, Boolean.toString(request.remoteRightsConfirmed()));
+        return HexFormat.of().formatHex(digest.digest());
+    }
+
+    private String propertiesFingerprint(BlogPropertiesRequest request) {
+        var digest = sha256Digest();
+        addFingerprintField(digest, "SAVE_PROPERTIES");
+        addFingerprintField(digest, request.slug());
+        addFingerprintField(digest, request.title());
+        addFingerprintField(digest, request.summary());
+        addFingerprintField(digest, Boolean.toString(request.allowDownload()));
         request.tagIds().forEach(id -> addFingerprintField(digest, id.toString()));
         return HexFormat.of().formatHex(digest.digest());
     }

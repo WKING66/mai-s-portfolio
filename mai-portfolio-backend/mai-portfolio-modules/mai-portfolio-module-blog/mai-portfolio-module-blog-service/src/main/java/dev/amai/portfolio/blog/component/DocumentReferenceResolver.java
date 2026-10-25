@@ -4,8 +4,6 @@ import static dev.amai.portfolio.blog.constant.DocumentPolicy.ASSET_REFERENCE_PR
 
 import dev.amai.portfolio.blog.config.DocumentProperties;
 import dev.amai.portfolio.blog.entity.domain.DocumentResource;
-import dev.amai.portfolio.blog.enums.ResourceSource;
-import dev.amai.portfolio.blog.enums.ResourceStatus;
 import dev.amai.portfolio.blog.enums.ResourceType;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
@@ -60,9 +58,7 @@ final class DocumentReferenceResolver {
             return null;
         }
         // 旧 key 永不因重试变化；只有明确授权的失败网络资源可以重新抓取。
-        if (previous.status() != ResourceStatus.READY
-                && previous.source() == ResourceSource.REMOTE
-                && context.remoteRightsConfirmed()) {
+        if (previous.canRetryRemote(context.remoteRightsConfirmed())) {
             return documentResourceLoader.load(previous.originalUri(), type, previous.key(), context);
         }
         return previous;
