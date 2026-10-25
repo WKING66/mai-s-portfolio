@@ -71,6 +71,21 @@ export interface BlogInput {
   allowDownload: boolean
   remoteRightsConfirmed: boolean
 }
+export interface BlogContentInput {
+  revision: number
+  requestId: string
+  content: string
+  remoteRightsConfirmed: boolean
+}
+export interface BlogPropertiesInput {
+  revision: number
+  requestId: string
+  slug: string
+  title: string
+  summary: string
+  tagIds: number[]
+  allowDownload: boolean
+}
 /** path 是相对所选 Markdown 正文的资源路径，由选择界面明确提供。 */
 export interface BlogImportResource {
   file: File
@@ -96,13 +111,26 @@ export function useBlogApi() {
     // 写入后清理当前 Nuxt 应用的公开投影；不引入双请求或旧接口兼容层。
     nuxtApp.runWithContext(() => clearNuxtData((key) => key.startsWith(BLOG_PUBLIC_CACHE_PREFIX)))
   }
-  async function save(id: number | null, body: BlogInput) {
-    const blogPost = await request<Blog>(id === null ? BLOG_PATH : BLOG_PATH + '/' + id, {
-      method: id === null ? 'POST' : 'PATCH',
+  async function create(body: BlogInput) {
+    const blogPost = await request<Blog>(BLOG_PATH, {
+      method: 'POST',
       body,
     })
     invalidate()
     return blogPost
+  }
+  async function saveContent(id: number, body: BlogContentInput) {
+    const post = await request<Blog>(BLOG_PATH + '/' + id, { method: 'PATCH', body })
+    invalidate()
+    return post
+  }
+  async function saveProperties(id: number, body: BlogPropertiesInput) {
+    const post = await request<Blog>(BLOG_PATH + '/' + id + '/properties', {
+      method: 'PATCH',
+      body,
+    })
+    invalidate()
+    return post
   }
   async function transition(
     id: number,
@@ -166,7 +194,9 @@ export function useBlogApi() {
         query: { view: BLOG_VIEW.MANAGE, page, size: BLOG_PAGE_SIZE },
       }),
     get: (id: number) => request<Blog>(BLOG_PATH + '/' + id),
-    save,
+    create,
+    saveContent,
+    saveProperties,
     transition,
     tags: () => request<BlogTag[]>('/api/v1/tags'),
     importDocument,

@@ -59,7 +59,13 @@ const activePage = computed(() => {
           </div>
         </div>
         <template #pending>
-          <div role="status" :aria-label="AUTH_MESSAGES.verifying" class="grid min-h-[600px] gap-6">
+          <EditorCanvasLoading v-if="immersive" phase="正在准备编辑器" />
+          <div
+            v-else
+            role="status"
+            :aria-label="AUTH_MESSAGES.verifying"
+            class="grid min-h-[600px] gap-6"
+          >
             <USkeleton class="h-12 w-64" />
             <USkeleton class="h-[480px] w-full rounded-xl" />
           </div>

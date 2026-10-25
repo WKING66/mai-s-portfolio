@@ -24,6 +24,7 @@ import {
 export interface CanvasPersistence {
   adapter: CanvasSaveAdapter<CanvasSaveSnapshot>
   resources: ReturnType<typeof createCanvasResources>
+  saveProperties: (metadata: CanvasMetadata) => Promise<void>
 }
 
 /** 编辑期间只读写同一 PM 文档；Markdown 与 JSON 快照仅在显式转换边界创建。 */
@@ -162,6 +163,9 @@ export function useCanvasDocument(
         : '有未保存修改 · 正文空闲 60 秒后模拟保存'
     }
     if (saved.savedRevision.value) {
+      if (saved.outcome.value === 'unchanged') {
+        return '正文没有变化，无需上传'
+      }
       return persistence ? '草稿已保存到服务器' : '已模拟保存 · 未上传服务器，刷新不恢复'
     }
     return persistence ? '当前正文尚未修改' : '尚未修改 · 当前仅为演示页面'

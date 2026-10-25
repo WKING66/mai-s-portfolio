@@ -4,7 +4,7 @@ import { useBlogApi, type Blog, type BlogTag, type DocumentResource } from '../a
 import { useAssetApi } from '../api/assets'
 import { useAssetUrlRefresh } from '../composables/useAssetUrlRefresh'
 import { createImmersiveValidator } from '../utils/editor/immersiveValidationClient'
-import { createBlogPersistence } from '../utils/editor/blogPersistence'
+import { createBlogPersistence, type BlogSaveScope } from '../utils/editor/blogPersistence'
 import { createCanvasResources } from '../utils/editor/canvasResources'
 import type { CanvasMetadata } from '../utils/editor/canvasSave'
 import type { JSONContent } from '@tiptap/core'
@@ -32,6 +32,7 @@ const session = shallowRef<ReturnType<typeof createBlogPersistence>>()
 const persistence = shallowRef<{
   adapter: ReturnType<typeof createBlogPersistence>['adapter']
   resources: ReturnType<typeof createCanvasResources>
+  saveProperties: (metadata: CanvasMetadata) => Promise<void>
 }>()
 const loading = ref(true)
 const loadError = ref('')
@@ -48,9 +49,21 @@ function askPublication(action: typeof publication.value) {
 let generation = 0
 let disposed = false
 
-function received(post: Blog) {
-  resources.value = post.resources
-  workbench.value?.acceptResources(post.resources)
+function received(post: Blog, scope: BlogSaveScope) {
+  if (scope !== 'properties') {
+    resources.value = post.resources
+    workbench.value?.acceptResources(post.resources)
+  }
+  if (scope === 'properties' || scope === 'create') {
+    metadata.value = {
+      ...metadata.value,
+      title: post.title,
+      slug: post.slug ?? '',
+      summary: post.summary,
+      tagIds: post.tags.map((tag) => tag.id),
+      allowDownload: post.allowDownload,
+    }
+  }
   if (post.previewIssue || !post.resourcesReady) {
     feedback.info(post.previewIssue || '正文已保存，部分资源尚未就绪。')
   }
@@ -118,7 +131,11 @@ async function load() {
       },
     )
     session.value = markRaw(createBlogPersistence(api, post, received))
-    persistence.value = markRaw({ adapter: session.value.adapter, resources: local })
+    persistence.value = markRaw({
+      adapter: session.value.adapter,
+      resources: local,
+      saveProperties: session.value.saveProperties,
+    })
     initialContent.value = markRaw(result.document)
     documentKey.value++
     // 标签读取失败不清空正文中的既有标签；保留当前标签并允许重试目录。
@@ -246,7 +263,19 @@ onBeforeUnmount(() => {
             .map((resource) => resource.errorMessage || resource.filename || resource.key)
             .join('；')
         "
-      />
+      >
+        <template #actions>
+          <UButton
+            color="warning"
+            variant="soft"
+            :disabled="
+              !workbench || session?.busy.value || session?.conflicted.value || workbench.isSaving()
+            "
+            @click="workbench?.retryResources()"
+            >重试资源处理</UButton
+          >
+        </template>
+      </UAlert>
       <UAlert
         v-if="session?.conflicted.value"
         color="warning"

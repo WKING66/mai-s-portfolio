@@ -13,6 +13,18 @@ const deferred = () => {
 }
 
 describe('Showcase 统一模拟保存流程', () => {
+  it('与服务器一致时单独报告无需上传，不冒充一次实际写入', async () => {
+    const saved = useCanvasSave(
+      () => '原正文',
+      async (value) => value,
+      { save: async () => 'unchanged' as const },
+    )
+    saved.changed()
+    expect(await saved.save()).toBe(true)
+    expect(saved.dirty.value).toBe(false)
+    expect(saved.outcome.value).toBe('unchanged')
+    saved.dispose()
+  })
   it('取快照同步失败后释放保存状态，允许再次重试', async () => {
     const snapshot = vi
       .fn()
@@ -51,6 +63,11 @@ describe('Showcase 统一模拟保存流程', () => {
     expect(snapshot).toHaveBeenCalledTimes(1)
     expect(persist).toHaveBeenCalledExactlyOnceWith('修改二')
     expect(saved.dirty.value).toBe(false)
+    await saved.save()
+    await saved.save()
+    expect(snapshot).toHaveBeenCalledTimes(1)
+    expect(prepare).toHaveBeenCalledTimes(1)
+    expect(persist).toHaveBeenCalledTimes(1)
     await vi.advanceTimersByTimeAsync(120000)
     expect(persist).toHaveBeenCalledTimes(1)
     saved.dispose()

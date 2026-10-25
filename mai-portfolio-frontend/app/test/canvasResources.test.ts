@@ -34,16 +34,14 @@ afterEach(() => {
 
 function setup(resourceFailure = () => false) {
   const metadata = ref({
-    title: '标题', slug: 'test', summary: '', allowDownload: true,
-    remoteRightsConfirmed: false, tagIds: [3],
+    title: '标题',
+    slug: 'test',
+    summary: '',
+    allowDownload: true,
+    remoteRightsConfirmed: false,
+    tagIds: [3],
   })
-  const canvas = useCanvasDocument(
-    '正文',
-    metadata,
-    [],
-    () => false,
-    resourceFailure,
-  )
+  const canvas = useCanvasDocument('正文', metadata, [], () => false, resourceFailure)
   const editor = new Editor({
     element: null,
     extensions: [
@@ -83,7 +81,14 @@ function references(editor: Editor) {
 describe('Showcase 本地资源准备与保存', () => {
   it('业务会话注入的资源不随画布局部重挂载销毁，由持有者最终释放', () => {
     const resources = createCanvasResources()
-    const canvas = useCanvasDocument('正文', ref({ title: '', slug: '', summary: '', allowDownload: true, remoteRightsConfirmed: false }), [], () => false, () => false, { adapter: { save: async () => {} }, resources })
+    const canvas = useCanvasDocument(
+      '正文',
+      ref({ title: '', slug: '', summary: '', allowDownload: true, remoteRightsConfirmed: false }),
+      [],
+      () => false,
+      () => false,
+      { adapter: { save: async () => {} }, resources, saveProperties: async () => {} },
+    )
     canvas.dispose()
     expect(() => resources.add(new File(['a'], '附件.txt'))).not.toThrow()
     resources.dispose()
