@@ -31,23 +31,17 @@ function followSelected() {
   }
   const top = tocViewport.getBoundingClientRect().top + tocViewport.clientTop,
     bottom = top + tocViewport.clientHeight
-  const headingRect = selectedHeading.getBoundingClientRect(),
-    previousHeadingRect =
-      previousHeading && tocViewport.contains(previousHeading)
-        ? previousHeading.getBoundingClientRect()
-        : undefined
+  const headingRect = selectedHeading.getBoundingClientRect()
   const isMovingDownward =
     previousHeading !== selectedHeading &&
     !!previousHeading &&
     !!(previousHeading.compareDocumentPosition(selectedHeading) & Node.DOCUMENT_POSITION_FOLLOWING)
-  // 新标题第一次到达底部仍保持可见；只有旧高亮已触底后的向下切换才翻到顶部。
+  // 测量本次新高亮项；触及底部立即移到顶部，点击导航及向上阅读仅补足可见空间。
   const shouldResetToTop =
     clickedHeadingId !== props.selected &&
     isMovingDownward &&
-    previousHeadingRect &&
-    previousHeadingRect.height > 0 &&
-    previousHeadingRect.top < bottom &&
-    previousHeadingRect.bottom >= bottom - 1
+    headingRect.height > 0 &&
+    headingRect.bottom >= bottom - 1
   let scrollOffset = 0
   if (
     shouldResetToTop ||

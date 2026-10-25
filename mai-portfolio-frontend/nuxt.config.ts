@@ -1,6 +1,9 @@
 import { SEO_NOINDEX, SEO_SITE_NAME } from './shared/utils/seo'
 import { THEME_BOOTSTRAP_SCRIPT } from './app/utils/siteTheme'
 import { SCROLL_RESTORATION_BOOTSTRAP_SCRIPT } from './app/utils/scrollPosition'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
 
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-26',
@@ -12,6 +15,18 @@ export default defineNuxtConfig({
   ui: { fonts: false, colorMode: false, prose: true },
   icon: { serverBundle: { collections: ['lucide'] } },
   css: ['~/assets/css/main.css'],
+  // 斜杠菜单与编辑器共享 ProseMirror 类，避免开发预构建和直接加载的 DecorationSet 混用。
+  vite: {
+    resolve: {
+      alias: {
+        // 同一标准实体表用于页面和 Worker，避免 browser 条件入口访问 document。
+        'decode-named-character-reference': require.resolve('decode-named-character-reference'),
+      },
+    },
+    optimizeDeps: {
+      include: ['@tiptap/suggestion', '@tiptap/pm/state', '@tiptap/pm/view'],
+    },
+  },
   runtimeConfig: {
     // 仅暴露客户端需要的公钥与站点地址，不包含后端凭据。
     public: { authRsaPublicKey: '', siteUrl: '' },

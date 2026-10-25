@@ -12,5 +12,8 @@ export function blogSlugIssue(slug: string): string {
   if (/[\s/?#\\%\p{C}]/u.test(slug) || slug === '.' || slug === '..') {
     return '文章标识不能包含空格、控制字符或 / ? # \\ %，也不能为 . 或 ..。'
   }
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+    return '文章标识仅支持小写字母、数字和短横线。'
+  }
   return ''
 }

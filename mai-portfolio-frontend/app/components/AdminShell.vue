@@ -4,7 +4,7 @@ import { useRoute } from '#app'
 import { AUTH_ACCESS, AUTH_MESSAGES } from '../constants/auth'
 import { ADMIN_NAVIGATION, ADMIN_PATHS } from '../constants/admin'
 
-defineProps<{ title: string; description: string }>()
+defineProps<{ title: string; description: string; wide?: boolean; immersive?: boolean }>()
 const route = useRoute()
 const activePage = computed(() => {
   if (route.path.startsWith(ADMIN_PATHS.blogs)) {
@@ -21,12 +21,16 @@ const activePage = computed(() => {
 </script>
 
 <template>
-  <div>
-    <main class="site-container site-page">
+  <div :class="{ 'admin-immersive-root': immersive }">
+    <main
+      class="site-container site-page"
+      :class="{ 'admin-wide': wide, 'admin-immersive': immersive }"
+    >
       <Auth :access="AUTH_ACCESS.OWNER">
         <!-- 统一在框架内挂载业务组件，权限撤销时销毁管理快照和未保存表单。 -->
         <div class="admin-workspace grid items-start gap-8">
           <nav
+            v-if="!immersive"
             class="admin-navigation flex flex-wrap gap-2 border-b border-line pb-5"
             aria-label="作品集管理导航"
           >
@@ -43,7 +47,7 @@ const activePage = computed(() => {
             </UButton>
           </nav>
           <div class="min-w-0">
-            <header class="mb-8 flex flex-wrap items-start justify-between gap-5">
+            <header v-if="!immersive" class="mb-8 flex flex-wrap items-start justify-between gap-5">
               <div class="max-w-2xl">
                 <p class="eyebrow mb-3">作品集管理</p>
                 <h1 class="site-page-title">{{ title }}</h1>
@@ -55,7 +59,13 @@ const activePage = computed(() => {
           </div>
         </div>
         <template #pending>
-          <div role="status" :aria-label="AUTH_MESSAGES.verifying" class="grid min-h-[600px] gap-6">
+          <EditorCanvasLoading v-if="immersive" phase="正在准备编辑器" />
+          <div
+            v-else
+            role="status"
+            :aria-label="AUTH_MESSAGES.verifying"
+            class="grid min-h-[600px] gap-6"
+          >
             <USkeleton class="h-12 w-64" />
             <USkeleton class="h-[480px] w-full rounded-xl" />
           </div>
@@ -78,5 +88,45 @@ const activePage = computed(() => {
     border-right: 1px solid var(--site-line);
     padding: 0 1.5rem 0 0;
   }
+}
+.admin-wide {
+  max-width: 100rem;
+  padding-top: 1.5rem;
+}
+.admin-wide .admin-workspace {
+  gap: 1.25rem;
+}
+.admin-wide header {
+  margin-bottom: 1.5rem;
+}
+.admin-wide header .eyebrow {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .admin-wide .admin-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .admin-wide .admin-navigation {
+    position: static;
+    flex-direction: row;
+    border-right: 0;
+    border-bottom: 1px solid var(--site-line);
+    padding: 0 0 1rem;
+  }
+}
+.admin-immersive {
+  padding: 0;
+  width: 100%;
+  max-width: none;
+}
+.admin-immersive-root,
+.admin-immersive,
+.admin-immersive .admin-workspace,
+.admin-immersive .admin-workspace > .min-w-0 {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
 }
 </style>

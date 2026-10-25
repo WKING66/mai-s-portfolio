@@ -63,8 +63,8 @@ async function downloadBlogPost() {
     <UButton v-if="blogError" class="mt-8" @click="refreshBlogPost()">重新读取文章</UButton>
     <article v-else-if="blogPost" class="blog-reading-article">
       <BlogRenderer
-        :key="blogPost.documentVersionId"
-        :cache-key="'public:' + blogPost.documentVersionId"
+        :key="blogPost.contentId"
+        :cache-key="'public:' + blogPost.contentId"
         :markdown="blogPost.content"
         :resources="blogPost.resources"
         show-toc

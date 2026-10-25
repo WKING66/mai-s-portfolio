@@ -1,4 +1,10 @@
-import { createMarkdownParser, type ElementNode, type Node, type ComarkPlugin } from 'comark'
+import {
+  createMarkdownParser,
+  type ElementNode,
+  type Node,
+  type ComarkPlugin,
+  type MarkdownExitPlugin,
+} from 'comark'
 import security from 'comark/plugins/security'
 import toc from 'comark/plugins/toc'
 import taskList from 'comark/plugins/task-list'
@@ -8,9 +14,47 @@ import mermaid from 'comark/plugins/mermaid'
 import { MATH_LIMITS, mathFallback, renderBlogMath, compactBlogMath } from './blogMath.ts'
 import { textContent } from 'comark/utils'
 import { countBlogReading } from './blogReadingProbe.ts'
+import { parseCodeInfo } from './codeInfo'
 
 // 不注册 HTML、属性、组件、Frontmatter 插件，Markdown 只能渲染允许的正文元素。
 const parserOptions = { registerDefaultPlugins: false, autoClose: false, linkify: false } as const
+// 不支持脚注；此类定义显示为普通正文，不能被 CommonMark 链接定义静默消耗。
+const literalDefinitionPlugin: ComarkPlugin = {
+  name: 'blog-literal-unsupported-definitions',
+  markdownItPlugins: [
+    (md: Parameters<MarkdownExitPlugin>[0]) => {
+      md.block.ruler.before(
+        'reference',
+        'literal-caret-definition',
+        (state, startLine, _endLine, silent) => {
+          if (state.sCount[startLine]! - state.blkIndent >= 4) {
+            return false
+          }
+          const line = state.src.slice(
+            state.bMarks[startLine]! + state.tShift[startLine]!,
+            state.eMarks[startLine],
+          )
+          if (!/^\[\^[^\]\n]+\]:/.test(line)) {
+            return false
+          }
+          if (silent) {
+            return true
+          }
+          const opening = state.push('paragraph_open', 'p', 1)
+          opening.map = [startLine, startLine + 1]
+          const inline = state.push('inline', '', 0)
+          inline.content = '\\' + line
+          inline.map = opening.map
+          inline.children = []
+          state.push('paragraph_close', 'p', -1)
+          state.line = startLine + 1
+          return true
+        },
+        { alt: ['paragraph', 'reference', 'blockquote'] },
+      )
+    },
+  ],
+}
 const securityPlugin = security({
   allowedTags: [
     'h1',
@@ -88,6 +132,12 @@ const highlightPlugin: ComarkPlugin = {
         node.splice(0, node.length, ...(await compactBlogMath(rendered)))
         return
       }
+      if (node[0] === 'pre' && !node[1].filename) {
+        const filename = parseCodeInfo(String(node[1].meta ?? '')).filename
+        if (filename) {
+          node[1].filename = filename
+        }
+      }
       if (node[0] === 'th' || node[0] === 'td') {
         const alignment = String(node[1].style || '').match(/^text-align:\s*(left|center|right);?$/)
         if (alignment) {
@@ -160,7 +210,16 @@ const highlightPlugin: ComarkPlugin = {
 }
 const markdownParser = createMarkdownParser({
   ...parserOptions,
-  plugins: [taskList(), math(), blogMathSyntax, mermaid(), securityPlugin, highlightPlugin, toc({ depth: 5 })],
+  plugins: [
+    literalDefinitionPlugin,
+    taskList(),
+    math(),
+    blogMathSyntax,
+    mermaid(),
+    securityPlugin,
+    highlightPlugin,
+    toc({ depth: 5 }),
+  ],
 })
 // 缓存仅包含资源原始引用的安全 AST，不缓存签名 URL。版本正文相同才复用。
 export const BLOG_PARSE_CACHE_LIMITS = { entries: 4, characters: 200000 } as const
@@ -206,7 +265,10 @@ export const parseBlogMarkdown: typeof markdownParser = (...args) => {
   })
   return result
 }
-const signatureParser = createMarkdownParser({ ...parserOptions, plugins: [taskList()] })
+const signatureParser = createMarkdownParser({
+  ...parserOptions,
+  plugins: [literalDefinitionPlugin, taskList()],
+})
 
 // 比较正文结构而非空白/分隔线写法；遇到转换差异时保留源码并阻止进入富文本。
 export async function markdownSignature(source: string) {

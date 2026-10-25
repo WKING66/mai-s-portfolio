@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { blogSlugIssue } from '../utils/blogSlug'
 describe('blog slug URL usability', () => {
   it('空标识可保存草稿，标题语言不参与 Slug 校验', () => {
-    for (const value of ['', 'manual-slug', '技术笔记', 'blog-import-ui-qa-20261009-17:14']) {
+    for (const value of ['', 'manual-slug', 'blog-import-ui-qa-20261009-1714']) {
       expect(blogSlugIssue(value)).toBe('')
     }
   })
@@ -18,6 +18,11 @@ describe('blog slug URL usability', () => {
       'slug\u200B',
       '.',
       '..',
+      '技术笔记',
+      'blog-import-ui-qa-20261009-17:14',
+      'Upper-Case',
+      '-slug',
+      'slug--double',
     ]) {
       expect(blogSlugIssue(value)).not.toBe('')
     }

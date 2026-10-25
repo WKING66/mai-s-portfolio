@@ -41,9 +41,10 @@ const props = withDefaults(
     resources?: DocumentResource[]
     debounce?: number
     showToc?: boolean
+    progressive?: boolean
     cacheKey?: string
   }>(),
-  { debounce: 150, resources: () => [], showToc: false, cacheKey: undefined },
+  { debounce: 150, progressive: false, resources: () => [], showToc: false, cacheKey: undefined },
 )
 const emit = defineEmits<{ toc: [items: TocLink[]] }>()
 // 1. 使用稳定版本键复用 SSR payload；资源投影单独注入，不写入正文 AST。
@@ -79,7 +80,7 @@ function applyBodySizes() {
 }
 function observeBody(element: HTMLElement, measured: (height: number) => void) {
   if (
-    !props.showToc ||
+    (!props.showToc && !props.progressive) ||
     props.markdown.length < 20000 ||
     !CSS.supports('content-visibility', 'auto')
   ) {
@@ -159,7 +160,7 @@ function prepareContent() {
   isInitialPreparation = false
   // SSR 保留完整正文。支持脚本的浏览器先跳过待准备章节的布局，水合后逐帧显示。
   // CSR 同时分散首次组件挂载；准备完毕后折叠只切换可见性，不卸载内容。
-  if (!props.showToc || props.markdown.length < 20000) {
+  if ((!props.showToc && !props.progressive) || props.markdown.length < 20000) {
     readySections.value = null
     remainingHydration.value = null
     contentMountPromise = Promise.resolve()
@@ -272,7 +273,7 @@ const error = ref(initialError.value ? '正文暂时无法解析，请重新读�
 // 完整 SSR 长文也需要把水合分散到空闲时段；操作标题时立即水合该章节。
 // 使用 Vue 官方策略，不重复实现 DOM 水合或移动 Vue 管理的节点。
 const ReadingChapter =
-  props.showToc && initialMarkdown.length >= 20000
+  (props.showToc || props.progressive) && initialMarkdown.length >= 20000
     ? Object.assign(
         defineAsyncComponent({
           loader: () => Promise.resolve(BlogChapter),
