@@ -13,7 +13,7 @@ flowchart TD
     C --> D["读懂 Markdown，提取标题和正文<br/>MarkdownDocumentParser.parse()"]
     D --> E["找到图片与附件，复用或上传<br/>DocumentResourceResolver.prepare()"]
     E --> F["正文地址换成 resource://key<br/>得到正文与资源清单"]
-    F --> G["一起保存文档草稿、资源关系及导入追踪<br/>BlogServiceImpl.persist()"]
+    F --> G["一起保存文档草稿、资源关系及导入追踪<br/>BlogServiceImpl.persistNew()"]
     G --> H["生成签名链接，打开编辑页<br/>DocumentRenderer.resources()"]
     H --> I["浏览器直接从 OSS 加载图片和附件"]
 ```
@@ -54,7 +54,7 @@ flowchart TD
 | 代码入口 | 重点看什么 |
 | --- | --- |
 | [BlogImportPanel.vue](../../mai-portfolio-frontend/app/components/BlogImportPanel.vue) / [useBlogImportSelection.ts](../../mai-portfolio-frontend/app/composables/useBlogImportSelection.ts) | `importDocument()` 发起导入；文件选择逻辑保留相对路径。 |
-| [BlogServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/BlogServiceImpl.java) | `importDocument()` 串起流程，`persist()` 保存并处理事务失败。 |
+| [BlogServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/BlogServiceImpl.java) | `importDocument()` 串起流程，`persistNew()` 保存并处理事务失败。 |
 | [MarkdownProcessor.java](../../mai-portfolio-backend/mai-portfolio-framework/mai-portfolio-spring-boot-starter-markdown/src/main/java/dev/amai/portfolio/markdown/MarkdownProcessor.java) | framework 通用入口：严格 UTF-8 解码、提取标题、识别真实链接并改写地址，公式与代码示例不当作资源。 |
 | [DocumentResourceResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentResourceResolver.java) | `prepare()` 编排正文规范化与失败补偿。 |
 | [DocumentReferenceResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentReferenceResolver.java) / [DocumentResourceLoader.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentResourceLoader.java) | `resolve()` 管去重、复用；`load()` 管资源读取、上传、状态，`referencePath()` 管本地引用路径。 |

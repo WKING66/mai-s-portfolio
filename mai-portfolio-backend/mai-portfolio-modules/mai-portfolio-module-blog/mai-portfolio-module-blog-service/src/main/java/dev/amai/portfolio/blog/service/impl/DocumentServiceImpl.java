@@ -193,16 +193,57 @@ public class DocumentServiceImpl implements DocumentService {
     }
 
     /**
-     * 保存时始终更新同一份草稿，正式正文及其资源、标签保持原样。
-     * 保存完成后推进 revision，较早发出的迟到保存不能覆盖用户后来保存的内容。
+     * 正文保存只替换正文和对应资源关系，保留锁后读取的属性。
+     * 没有工作草稿时先复制正式正文及关系，再修改草稿；公开正文始终不受本次编辑影响。
      */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
-    public Document save(long id, DocumentDraft draft) {
-        // 调用方已通过 beginWrite 持有身份行锁，博客字段与草稿必须共同提交。
-        persistDraft(required(id), draft);
-        recordWrite(id, draft.requestId(), draft.requestHash());
-        return readCurrent(required(id), true);
+    public void saveContent(Document current, PreparedDocument prepared, long editor) {
+        validateAssets(prepared);
+        long contentId = ensureDraft(current, editor);
+        documentContentMapper.update(null, Wrappers.<DocumentContentDO>lambdaUpdate()
+                .eq(DocumentContentDO::getId, contentId)
+                .set(DocumentContentDO::getContent, prepared.content())
+                .set(DocumentContentDO::getReadingTimeMinutes, readingTime(prepared.content()))
+                .set(DocumentContentDO::getUpdatedBy, editor)
+                .set(DocumentContentDO::getUpdatedAt, now()));
+        saveResources(contentId, prepared.resources());
+    }
+
+    /**
+     * 属性保存只修改标题、摘要和标签。已有草稿不读取或校验 Asset，
+     * 也不重新计算正文；复制正式正文建立草稿时仅复制原有关系，不重新上传文件。
+     */
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void saveProperties(
+            Document current, String title, String summary, List<TagData> tags, long editor) {
+        long contentId = ensureDraft(current, editor);
+        documentContentMapper.update(null, Wrappers.<DocumentContentDO>lambdaUpdate()
+                .eq(DocumentContentDO::getId, contentId)
+                .set(DocumentContentDO::getTitle, title)
+                .set(DocumentContentDO::getSummary, summary)
+                .set(DocumentContentDO::getUpdatedBy, editor)
+                .set(DocumentContentDO::getUpdatedAt, now()));
+        saveTags(contentId, tags);
+    }
+
+    /** 首次编辑已发布文章时复制当前正文，后续两类保存都复用同一草稿身份。 */
+    private long ensureDraft(Document current, long editor) {
+        if (current.hasDraft()) {
+            return current.contentId();
+        }
+        // 来源行来自同一把文档锁内读取的正式正文；只改复制对象的身份，不能更新正式正文行。
+        var draft = documentContentMapper.selectById(current.contentId());
+        draft.setId(null);
+        draft.setStage(ContentStage.DRAFT.code());
+        draft.setUpdatedBy(editor);
+        draft.setCreatedAt(now());
+        draft.setUpdatedAt(draft.getCreatedAt());
+        documentContentMapper.insert(draft);
+        saveResources(draft.getId(), current.resources());
+        saveTags(draft.getId(), current.tags());
+        return draft.getId();
     }
 
     /**
@@ -224,46 +265,25 @@ public class DocumentServiceImpl implements DocumentService {
         if (Objects.equals(identity.getLastRequestId(), requestId)) {
             if (!Objects.equals(identity.getLastRequestHash(), requestHash)) {
                 // 修改后的内容是一次新保存，不能冒用已成功请求的标识，否则会把新内容误当作已经保存。
-                throw conflict("请求标识已用于不同内容，请生成新的 requestId");
+                throw new ApiException(ApiErrorCode.REQUEST_ID_CONFLICT, "请求标识已用于不同内容，请生成新的 requestId");
             }
             return false;
         }
         if (identity.getRevision() != revision) {
             // 其他保存或状态操作已经生效；请先重新读取并核对本地修改，不能直接覆盖当前文章。
-            throw conflict("文档已被修改，请重新读取后操作");
+            throw new ApiException(ApiErrorCode.DOCUMENT_REVISION_CONFLICT, "文档已被修改，请重新读取后操作");
         }
         return true;
     }
 
     private void persistDraft(DocumentDO identity, DocumentDraft draft) {
-        // 1. 确认正文引用的文件仍已归档，再建立关联；另一失败请求的清理不能误删本次准备使用的文件。
-        var resourceIds = draft.prepared().resources()
-                .stream()
-                .filter(value -> value.assetId() != null)
-                .map(DocumentResource::assetId)
-                .collect(Collectors.toSet());
-        var assets = assetQueryService.lockReady(resourceIds);
-        for (var resource : draft.prepared().resources()) {
-            if (resource.assetId() != null) {
-                var asset = assets.get(resource.assetId());
-                AssetType expected = resource.type() == ResourceType.IMAGE
-                        ? AssetType.IMAGE : AssetType.FILE;
-                AssetUsage usage = resource.type() == ResourceType.IMAGE
-                        ? AssetUsage.IMAGE : AssetUsage.ATTACHMENT;
-                if (asset.type() != expected || asset.usage() != usage) {
-                    throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "资源类型或用途与正文引用不符");
-                }
-            }
-        }
+        validateAssets(draft.prepared());
         // 2. 重复保存原地更新唯一草稿；正式正文及其标签、资源关系不变。
         var existing = slot(identity.getId(), ContentStage.DRAFT);
         var content = DocumentConvert.MAPPER.to(draft);
         content.setDocumentId(identity.getId());
         content.setStage(ContentStage.DRAFT.code());
-        int characters = content.getContent().codePointCount(0, content.getContent().length());
-        content.setReadingTimeMinutes((short) Math.min(Short.MAX_VALUE,
-                Math.max(1, (characters + READING_CHARACTERS_PER_MINUTE - 1)
-                        / READING_CHARACTERS_PER_MINUTE)));
+        content.setReadingTimeMinutes(readingTime(content.getContent()));
         content.setCreatedAt(existing == null ? now() : existing.getCreatedAt());
         content.setUpdatedAt(now());
         if (existing == null) {
@@ -275,6 +295,36 @@ public class DocumentServiceImpl implements DocumentService {
         // 3. 没改动的图片附件继续复用，已从正文移除的引用只解除本内容关联；标签也只修改这一份草稿。
         saveResources(content.getId(), draft.prepared().resources());
         saveTags(content.getId(), draft.tags());
+    }
+
+    /** 新正文绑定的资源须就绪且用途匹配；属性保存不修改资源，所以不重复执行本校验。 */
+    private void validateAssets(PreparedDocument prepared) {
+        // 1. 确认正文引用的文件仍已归档，再建立关联；另一失败请求的清理不能误删本次准备使用的文件。
+        var resourceIds = prepared.resources()
+                .stream()
+                .filter(value -> value.assetId() != null)
+                .map(DocumentResource::assetId)
+                .collect(Collectors.toSet());
+        var assets = assetQueryService.lockReady(resourceIds);
+        for (var resource : prepared.resources()) {
+            if (resource.assetId() != null) {
+                var asset = assets.get(resource.assetId());
+                AssetType expected = resource.type() == ResourceType.IMAGE
+                        ? AssetType.IMAGE : AssetType.FILE;
+                AssetUsage usage = resource.type() == ResourceType.IMAGE
+                        ? AssetUsage.IMAGE : AssetUsage.ATTACHMENT;
+                if (asset.type() != expected || asset.usage() != usage) {
+                    throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "资源类型或用途与正文引用不符");
+                }
+            }
+        }
+    }
+
+    private short readingTime(String content) {
+        int characters = content.codePointCount(0, content.length());
+        return (short) Math.min(Short.MAX_VALUE,
+                Math.max(1, (characters + READING_CHARACTERS_PER_MINUTE - 1)
+                        / READING_CHARACTERS_PER_MINUTE));
     }
 
     private void saveResources(long contentId, List<DocumentResource> resources) {

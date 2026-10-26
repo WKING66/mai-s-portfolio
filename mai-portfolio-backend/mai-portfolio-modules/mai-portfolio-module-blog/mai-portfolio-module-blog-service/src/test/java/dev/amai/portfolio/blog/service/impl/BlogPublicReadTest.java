@@ -11,6 +11,7 @@ import dev.amai.portfolio.blog.mapper.BlogPostMapper;
 import dev.amai.portfolio.blog.service.DocumentService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
+import jakarta.validation.Validator;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -22,7 +23,7 @@ class BlogPublicReadTest {
         var documentService = mock(DocumentService.class);
         var renderer = mock(DocumentRenderer.class);
         var service = new BlogServiceImpl(blogPostMapper, documentService, null, null, null,
-                renderer, null, null, null, null, mock(PlatformTransactionManager.class));
+                renderer, null, null, null, null, mock(PlatformTransactionManager.class), mock(Validator.class));
         var article = new PublishedBlogData();
         var blog = new BlogPostDO();
         blog.setId(1L);
@@ -56,7 +57,7 @@ class BlogPublicReadTest {
         var documentService = mock(DocumentService.class);
         var renderer = mock(DocumentRenderer.class);
         var service = new BlogServiceImpl(blogPostMapper, documentService, null, null, null,
-                renderer, null, null, null, null, mock(PlatformTransactionManager.class));
+                renderer, null, null, null, null, mock(PlatformTransactionManager.class), mock(Validator.class));
 
         assertThatThrownBy(() -> service.publicArticle("hidden"))
                 .isInstanceOfSatisfying(ApiException.class,

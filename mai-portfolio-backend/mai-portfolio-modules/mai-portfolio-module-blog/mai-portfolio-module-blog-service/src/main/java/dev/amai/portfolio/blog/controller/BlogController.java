@@ -15,7 +15,6 @@ import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
-import dev.amai.portfolio.validation.ValidationGroups;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -91,15 +90,15 @@ public class BlogController {
                             in = ParameterIn.HEADER,
                             required = true))
     public R<BlogVo> create(@Valid @RequestBody BlogRequest input) {
-        return R.success(blogService.save(null, input));
+        return R.success(blogService.create(input));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @PatchMapping("/{id}")
     @Operation(
-            summary = "保存工作草稿",
-            description = "带回 revision 和唯一 requestId；原地更新草稿，标签随草稿保存，公开正文不变；allowDownload 立即生效。",
+            summary = "保存草稿正文",
+            description = "仅接收 revision/requestId/content/remoteRightsConfirmed；只更新正文及资源，属性与公开正文不变。旧混合请求已收窄，客户端需同步更新。",
             parameters =
                     @Parameter(
                             name = AuthConstants.CSRF_HEADER_NAME,
@@ -107,8 +106,25 @@ public class BlogController {
                             required = true))
     public R<BlogVo> save(
             @PathVariable long id,
-            @Validated(ValidationGroups.Update.class) @RequestBody BlogRequest input) {
-        return R.success(blogService.save(id, input));
+            @Valid @RequestBody BlogContentRequest input) {
+        return R.success(blogService.saveContent(id, input));
+    }
+
+    @SaCheckRole(AuthConstants.OWNER_ROLE)
+    @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
+    @PatchMapping("/{id}/properties")
+    @Operation(
+            summary = "保存文章属性",
+            description = "完整属性表单；标题、摘要和标签保存到草稿，下载开关立即生效；不解析正文或重新上传资源。无修改不推进 revision。",
+            parameters =
+                    @Parameter(
+                            name = AuthConstants.CSRF_HEADER_NAME,
+                            in = ParameterIn.HEADER,
+                            required = true))
+    public R<BlogVo> saveProperties(
+            @PathVariable long id,
+            @Valid @RequestBody BlogPropertiesRequest input) {
+        return R.success(blogService.saveProperties(id, input));
     }
 
     @SaCheckRole(AuthConstants.OWNER_ROLE)

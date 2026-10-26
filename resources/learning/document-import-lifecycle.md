@@ -32,7 +32,7 @@ flowchart TD
     E --> F["BlogServiceImpl.importDocument()<br/>OWNER 校验，建立文件清单"]
     F --> G["MarkdownDocumentParser.parse()<br/>解码、统一换行、提取标题"]
     G --> H["DocumentResourceResolver.prepare()<br/>处理正文中的资源引用"]
-    H --> I["BlogServiceImpl.persist()<br/>事务保存 Document、草稿、资源关系、Blog 和导入结果"]
+    H --> I["BlogServiceImpl.persistNew()<br/>事务保存 Document、草稿、资源关系、Blog 和导入结果"]
     I --> J["BlogServiceImpl.project()<br/>DocumentRenderer.resources()<br/>生成资源展示信息"]
     J --> K["前端打开草稿编辑页<br/>resolveBlogResource() 找到实际 URL"]
     K --> L["浏览器直接请求 OSS 图片或附件"]
@@ -368,7 +368,7 @@ if (resource != null) {
 
 ### 10.1 复用旧文档资源：`resource://key`
 
-后续 `BlogServiceImpl.save()` 会先读取当前文档旧资源，按 key 建立 `previous`，再调用同一个 `prepare()`。
+后续 `BlogServiceImpl.saveContent()` 会先读取当前文档旧资源，按 key 建立 `previous`，再调用同一个 `prepare()`。
 
 - 找到旧 key 且类型一致，默认直接沿用，避免保存一次就重新上传全部图片。
 - 只有旧资源非 READY、来源为 REMOTE、这次明确确认网络使用权，才通过 `previousResource()` 发起重试。
@@ -574,7 +574,7 @@ for (var edit : outerEdits.reversed()) {
 
 ## 15. 第五步：共同保存草稿、资源、标签和博客
 
-`BlogServiceImpl.persist()` 使用短事务。创建时 `DocumentService.create()` 插入文档身份；更新时先 `beginWrite()` 锁定身份并校验 revision/requestId，再 `save()` 更新唯一 DRAFT 槽位。资源按 key、标签按 tagId 差量更新，博客设置和导入成功记录共同提交。
+`BlogServiceImpl.persistNew()` 使用短事务。它仅负责新建/导入：调用 `DocumentService.create()` 插入文档身份，草稿、关系、博客及导入记录共同提交。后续正文和属性由 `saveContent()/saveProperties()` 分别保存，共用 `beginWrite()` 的文档锁及 revision；只更新所属字段，正式正文保持不变。
 
 | 表 | 保存什么 |
 | --- | --- |
@@ -608,8 +608,8 @@ flowchart TD
     C --> D["继续准备和保存<br/>形成可修复草稿，成功资源保留"]
     B -- "其他运行时异常" --> E["DocumentResourceResolver.prepare() 的 catch<br/>回收 context.newlyCreatedAssets()"]
     F["资源数量或规范化正文容量超限"] --> E
-    G["准备成功，进入 BlogServiceImpl.persist()"] --> H{"文档/博客事务是否成功？"}
-    H -- "失败并回滚" --> I["persist() 的 catch<br/>回收 prepared.newlyCreatedAssets()"]
+    G["准备成功，进入 BlogServiceImpl.persistNew()"] --> H{"文档/博客事务是否成功？"}
+    H -- "失败并回滚" --> I["persistNew() 的 catch<br/>回收 prepared.newlyCreatedAssets()"]
     H -- "成功" --> J["资源已绑定到内容<br/>进入签名与结果投影"]
     E --> K["AssetFileServiceImpl.discardUnbound()"]
     I --> K
@@ -696,7 +696,7 @@ sequenceDiagram
 
 ### 17.1 预览失败，不要误判成草稿没保存
 
-`BlogServiceImpl.persist()` 先提交数据库，再调用 `project()`。若管理投影的资源签名发生已知 5xx，`project()` 返回 `previewIssue`，说明正文已保存、预览暂不可用。
+`BlogServiceImpl.persistNew()` 先提交数据库，再调用 `project()`。若管理投影的资源签名发生已知 5xx，`project()` 返回 `previewIssue`，说明正文已保存、预览暂不可用。
 
 若资产元数据当前已找不到，投影会把原来 READY 的资源展示为不可用，并给出“已绑定的资源不存在或尚未就绪，请重新上传”；它不会回写已保存内容的资源状态。
 
@@ -819,7 +819,7 @@ ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage
 | [blogs.ts](../../mai-portfolio-frontend/app/api/blogs.ts) | `useBlogApi().importDocument()、save()` | FormData、导入与后续保存请求 |
 | [authInterceptor.ts](../../mai-portfolio-frontend/app/api/authInterceptor.ts) | `createAuthInterceptor() 内 request()、execute()` | 会话、CSRF、401/403 与不自动重放 |
 | [BlogController.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/controller/BlogController.java) | `importDocument()、export()` | HTTP 参数及导入/导出响应 |
-| [BlogServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/BlogServiceImpl.java) | `importDocument()、read()、persist()、save()、project()` | 导入业务编排，文档/博客事务与结果投影 |
+| [BlogServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/BlogServiceImpl.java) | `importDocument()、persistNew()、saveContent()、saveProperties()、project()` | 导入业务编排，文档/博客事务与结果投影 |
 | [MarkdownDocumentParser.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/MarkdownDocumentParser.java) | `parse()` | 导入格式、容量、错误提示和 Document 输入；委托 framework 处理文本 |
 | [DocumentResourceResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentResourceResolver.java) | `prepare()` | 资源准备入口与整次准备失败回收 |
 | [DocumentPreparationContext.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentPreparationContext.java) | `resolvedReference()、recordCreatedAsset()` | 只属于单次准备的去重、输入及补偿状态 |
@@ -831,7 +831,7 @@ ZIP writer 调用 `AssetFileServiceImpl.openReady()` → `AliyunOssObjectStorage
 | [RemoteResourceFetcher.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/RemoteResourceFetcher.java) | `fetch()、validateUri()` | 共享预算及逐跳请求 |
 | [PublicAddressDnsResolver.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/PublicAddressDnsResolver.java) | `resolve()、publicAddress()` | 实际连接时的公网地址筛选 |
 | [RemoteResourceResponseHandler.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/RemoteResourceResponseHandler.java) | `handleResponse()、readContent()` | 单跳响应、MIME 与有界读取 |
-| [DocumentServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/DocumentServiceImpl.java) | `create()、save()、persistDraft()、read()、beginWrite()` | 唯一草稿、正式正文、内容关系和修订 |
+| [DocumentServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/DocumentServiceImpl.java) | `create()、saveContent()、saveProperties()、read()、beginWrite()` | 唯一草稿、正式正文、内容关系和修订 |
 | [DocumentRenderer.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/component/DocumentRenderer.java) | `resources()、resourceError()、markdown()` | 资源展示信息与输出地址替换 |
 | [DocumentExportServiceImpl.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/service/impl/DocumentExportServiceImpl.java) | `prepare()、safeFilename()` | MD/ZIP 输出计划及包内文件路径 |
 | [DocumentConvert.java](../../mai-portfolio-backend/mai-portfolio-modules/mai-portfolio-module-blog/mai-portfolio-module-blog-service/src/main/java/dev/amai/portfolio/blog/convert/DocumentConvert.java) | `to(...)` | 已有对象及数据库编码之间的字段映射 |

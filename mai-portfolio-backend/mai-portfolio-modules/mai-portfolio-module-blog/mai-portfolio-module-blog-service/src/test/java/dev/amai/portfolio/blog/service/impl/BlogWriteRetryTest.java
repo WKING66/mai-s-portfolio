@@ -14,6 +14,7 @@ import dev.amai.portfolio.blog.enums.ContentStage;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
 import dev.amai.portfolio.blog.service.DocumentService;
 import dev.amai.portfolio.security.context.AccountContext;
+import jakarta.validation.Validator;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -27,7 +28,7 @@ class BlogWriteRetryTest {
         var renderer = mock(DocumentRenderer.class);
         var files = mock(AssetFileService.class);
         var service = new BlogServiceImpl(blogPostMapper, documentService, null, resolver,
-                null, renderer, files, null, null, null, mock(PlatformTransactionManager.class));
+                null, renderer, files, null, null, null, mock(PlatformTransactionManager.class), mock(Validator.class));
         var request = new BlogRequest(null, "9872cfc3-65e1-4bfb-968d-09a3f0663900",
                 "my-article", "中文标题", "摘要", "纯正文", List.of(1L, 2L), true, false);
         var creation = new DocumentDO();
@@ -51,7 +52,7 @@ class BlogWriteRetryTest {
         try (var context = mockStatic(AccountContext.class)) {
             context.when(AccountContext::currentAccount)
                     .thenReturn(new AccountContext.Account(7L, "owner", List.of("OWNER")));
-            assertThat(service.save(null, request).id()).isEqualTo(11);
+            assertThat(service.create(request).id()).isEqualTo(11);
         }
 
         verifyNoInteractions(resolver, files);

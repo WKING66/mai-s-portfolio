@@ -8,6 +8,9 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface BlogPostMapper extends BaseMapper<BlogPostDO> {
+    /** 按大小写不敏感的公开标识检查其他文章；更新必须排除当前身份。 */
+    boolean existsOtherSlug(@Param("slug") String slug, @Param("id") Long id);
+
     /** 只读取指定 slug 的上架正文，不与草稿或多条资源一起 JOIN 放大正文行。 */
     PublishedBlogData selectPublishedArticle(
             @Param("slug") String slug,

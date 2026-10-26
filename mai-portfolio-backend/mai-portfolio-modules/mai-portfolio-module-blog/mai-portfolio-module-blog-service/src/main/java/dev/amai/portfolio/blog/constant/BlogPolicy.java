@@ -14,5 +14,7 @@ public final class BlogPolicy {
 
     public static final int MAX_TAGS = 100;
 
+    public static final String SLUG_PATTERN = "[a-z0-9]+(?:-[a-z0-9]+)*|";
+
     private BlogPolicy() {}
 }
