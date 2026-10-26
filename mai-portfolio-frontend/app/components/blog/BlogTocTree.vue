@@ -109,11 +109,11 @@ onBeforeUnmount(() => {
         variant="ghost"
         size="xs"
         :disabled="contentCollapsedIds?.has(link.id)"
-        :icon="
-          tocCollapsedIds.has(link.id) || contentCollapsedIds?.has(link.id)
-            ? 'i-lucide-chevron-right'
-            : 'i-lucide-chevron-down'
-        "
+        icon="i-lucide-chevron-down"
+        :class="{
+          'blog-toc-branch-collapsed':
+            tocCollapsedIds.has(link.id) || contentCollapsedIds?.has(link.id),
+        }"
         :aria-expanded="!tocCollapsedIds.has(link.id) && !contentCollapsedIds?.has(link.id)"
         :aria-label="(tocCollapsedIds.has(link.id) ? '展开目录：' : '收起目录：') + link.text"
         @click="$emit('toggle', link.id)"
@@ -130,3 +130,8 @@ onBeforeUnmount(() => {
     </div>
   </div>
 </template>
+<style scoped>
+.blog-toc-branch-collapsed :deep([data-slot='leadingIcon']) {
+  transform: rotate(-90deg);
+}
+</style>

@@ -83,7 +83,7 @@
 .blog-code[data-code-theme='dracula'] :where(pre, span) {
   color: var(--shiki-dracula, inherit);
 }
-/* 折叠仅裁切可见高度，完整 Shiki AST、源码及横向滚动始终保留。 */
+/* 折叠仅裁切可见高度；完整源码及横向滚动保留，高亮独立渐进补充。 */
 .blog-code-viewport {
   position: relative;
 }
@@ -99,12 +99,78 @@
   background: linear-gradient(transparent, var(--code-toolbar-bg));
   pointer-events: none;
 }
-.blog-code-fold {
-  display: flex;
-  justify-content: center;
-  padding: 0.35rem;
-  border-top: 1px solid var(--code-control-border);
+
+/* 语言弹层与代码主题共用颜色，局部样式不影响站点其他 Select / Input。 */
+.code-language-menu {
+  width: 19rem;
+  max-width: calc(100vw - 1.5rem);
+  max-height: min(25rem, var(--reka-combobox-content-available-height, 25rem));
+  border: 1px solid color-mix(in srgb, var(--code-fg) 16%, transparent);
+  background: var(--code-bg, var(--site-surface));
+  box-shadow: 0 12px 36px -12px rgb(0 0 0 / 24%);
 }
-.blog-code-fold button {
-  color: var(--code-control-text);
+.code-language-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.9rem 0.5rem;
+  font: 600 0.8125rem/1.4 var(--font-sans);
+}
+.code-language-current,
+.code-language-menu .code-language-id {
+  overflow: hidden;
+  max-width: 7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--code-fg) 65%, transparent);
+  font: 0.6875rem/1.5 var(--font-mono);
+}
+.code-language-current {
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  background: color-mix(in srgb, var(--code-fg) 7%, transparent);
+}
+.code-language-menu .code-language-search {
+  flex-shrink: 0;
+  margin: 0.25rem 0.6rem 0.5rem;
+  border: 1px solid color-mix(in srgb, var(--code-fg) 16%, transparent);
+  border-radius: 0.55rem;
+  background: color-mix(in srgb, var(--code-fg) 4%, var(--code-bg));
+}
+.code-language-search:focus-within {
+  border-color: color-mix(in srgb, var(--code-fg) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--code-fg) 7%, transparent);
+}
+.code-language-search input[role='combobox']:focus-visible {
+  outline: none;
+}
+.code-language-options {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--code-fg) 24%, transparent) transparent;
+}
+.code-language-menu .code-language-item {
+  height: 40px;
+  cursor: pointer;
+}
+.code-language-item[data-state='checked'],
+.code-language-item[data-highlighted] {
+  background: color-mix(in srgb, var(--code-fg) 9%, transparent);
+}
+.code-language-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.25rem 0.75rem;
+}
+.code-language-footer {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  border-top: 1px solid color-mix(in srgb, var(--code-fg) 10%, transparent);
+  font: 0.625rem/1.4 var(--font-sans);
 }

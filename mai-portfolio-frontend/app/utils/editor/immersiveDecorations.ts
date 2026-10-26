@@ -5,6 +5,8 @@ import { isHistoryTransaction } from '@tiptap/pm/history'
 import { parseCodeInfo } from '../codeInfo'
 import type { Node as DocumentNode } from '@tiptap/pm/model'
 import type { ElementNode, Node } from 'comark'
+import { highlightCodeInWorker, nextCodePaint } from '../codeHighlightClient'
+import { CODE_FOLD } from '../../constants/codeThemes'
 
 interface CodePaint {
   style: string
@@ -61,9 +63,14 @@ export function complexSelectionDecorations(state: EditorState): Decoration[] {
   return decorations
 }
 
+export const IMMERSIVE_HIGHLIGHT_READY = 'immersive-highlight-ready'
+export const IMMERSIVE_CODE_EXPANDED = 'immersive-code-expanded'
 export const ImmersiveDecorations = Extension.create({
   name: 'immersiveDecorations',
   priority: 1000,
+  addOptions() {
+    return { ready: () => true }
+  },
   addKeyboardShortcuts() {
     const enterMath = (direction: -1 | 1) => {
       const { state } = this.editor
@@ -95,8 +102,11 @@ export const ImmersiveDecorations = Extension.create({
     return { ArrowRight: () => enterMath(1), ArrowLeft: () => enterMath(-1) }
   },
   addProseMirrorPlugins() {
+    const readyForHighlight = this.options.ready
     const key = new PluginKey<DecorationSet>('immersive-paint')
     const cache = new WeakMap<DocumentNode, CodePaint>()
+    const completed = new WeakSet<DocumentNode>()
+    const expandedCodes = new WeakSet<DocumentNode>()
     let palette = ''
     const nodeIdentities = new WeakMap<DocumentNode, string>()
     // 删除会丢掉映射位置；仅历史恢复时使用唯一文件/语言身份，普通新建块不继承它。
@@ -173,12 +183,27 @@ export const ImmersiveDecorations = Extension.create({
           ),
         )
         if (result) {
+          const source = node.textContent
+          const previewOnly =
+            !expandedCodes.has(node) &&
+            !(state.selection.from > position && state.selection.from < position + node.nodeSize) &&
+            !(state.selection.to > position && state.selection.to < position + node.nodeSize) &&
+            source.split('\n').length > CODE_FOLD.threshold
+          let end = node.content.size
+          if (previewOnly) {
+            end = 0
+            for (let line = 0; line < CODE_FOLD.previewLines; line++) {
+              const next = source.indexOf('\n', end)
+              end = next < 0 ? source.length : next + 1
+            }
+          }
+          // 收起区的隐藏尾部保留同一份原生文本，展开/光标进入后才补它的颜色装饰。
           for (const token of result.tokens) {
-            if (token.to <= node.content.size) {
+            if (token.from < end && token.to <= node.content.size) {
               decorations.push(
                 Decoration.inline(
                   position + 1 + token.from,
-                  position + 1 + token.to,
+                  position + 1 + Math.min(token.to, end),
                   {
                     style: token.style,
                   },
@@ -197,12 +222,16 @@ export const ImmersiveDecorations = Extension.create({
           )
         }
         if (
-          state.selection.empty &&
-          state.selection.from > position &&
-          state.selection.from < position + node.nodeSize
+          (state.selection.from > position && state.selection.from < position + node.nodeSize) ||
+          (state.selection.to > position && state.selection.to < position + node.nodeSize)
         ) {
           decorations.push(
-            Decoration.node(position, position + node.nodeSize, {}, { immersiveCaret: true }),
+            Decoration.node(
+              position,
+              position + node.nodeSize,
+              { 'data-code-selection-active': 'true' },
+              { immersiveCaret: true },
+            ),
           )
         }
         return false
@@ -216,6 +245,17 @@ export const ImmersiveDecorations = Extension.create({
         state: {
           init: (_, state) => paint(state),
           apply: (transaction, previous, old, state) => {
+            const expanded = transaction.getMeta(IMMERSIVE_CODE_EXPANDED)
+            if (expanded) {
+              const node = state.doc.nodeAt(expanded.position)
+              if (node?.type.name === 'codeBlock') {
+                if (expanded.value) {
+                  expandedCodes.add(node)
+                } else {
+                  expandedCodes.delete(node)
+                }
+              }
+            }
             if (transaction.getMeta('immersive-source')) {
               preserveSourceIdentities(old.doc, state.doc)
             }
@@ -237,7 +277,10 @@ export const ImmersiveDecorations = Extension.create({
               // 普通正文输入只映射既有代码装饰，不重建整篇代码的高亮 token。
               return previous.map(transaction.mapping, state.doc)
             }
-            return transaction.docChanged || transaction.selectionSet || transaction.getMeta(key)
+            return transaction.docChanged ||
+              transaction.selectionSet ||
+              transaction.getMeta(key) ||
+              expanded
               ? paint(
                   state,
                   transaction.docChanged ? previous.map(transaction.mapping, state.doc) : previous,
@@ -251,42 +294,71 @@ export const ImmersiveDecorations = Extension.create({
           let timer: ReturnType<typeof setTimeout> | undefined
           let disposed = false
           let revision = 0
-          let paintPending = false
-          async function highlight() {
-            const current = ++revision
+          let controller: AbortController | undefined
+          let activeNodes: DocumentNode[] = []
+          let wasReady = readyForHighlight()
+          function pendingNodes() {
             const pending: DocumentNode[] = []
             view.state.doc.descendants((node) => {
               if (
                 node.type.name === 'codeBlock' &&
-                !cache.has(node) &&
+                !completed.has(node) &&
                 !String(node.attrs.language || '').startsWith('mermaid')
               ) {
                 pending.push(node)
               }
               return !node.isTextblock
             })
+            return pending
+          }
+          async function highlight() {
+            const current = ++revision
+            controller = new AbortController()
+            const signal = controller.signal
+            const pending = activeNodes
             if (!pending.length) {
               return
             }
-            const { highlightCode } = await import('../codeHighlight')
             for (const node of pending) {
               if (disposed || current !== revision) {
                 return
               }
               const language = String(node.attrs.language || '').split(/\s/)[0]!
-              const result = codePaint(await highlightCode(node.textContent, language))
-              cache.set(node, result)
-              paintPending = true
-              // 调色板属于主题，不属于语言；切换到首次使用的语言也不清空背景。
-              palette = result.style
-            }
-            if (!disposed && current === revision && paintPending) {
-              paintPending = false
-              view.dispatch(view.state.tr.setMeta(key, true))
+              const result = codePaint(
+                await highlightCodeInWorker(node.textContent, language, signal),
+              )
+              // 逐批补充装饰。节点身份不变，不改正文/历史，不等待整篇分词完才统一显示。
+              for (let count = 500; ; count += 500) {
+                await nextCodePaint()
+                if (disposed || current !== revision) {
+                  return
+                }
+                cache.set(node, { style: result.style, tokens: result.tokens.slice(0, count) })
+                palette = result.style
+                view.dispatch(view.state.tr.setMeta(key, true))
+                if (count >= result.tokens.length) {
+                  break
+                }
+              }
+              completed.add(node)
             }
           }
           function schedule() {
+            if (!readyForHighlight()) {
+              return
+            }
+            const pending = pendingNodes()
+            const active = activeNodes.filter((node) => !completed.has(node))
+            // 普通正文输入不取消正在补色的代码。只在代码节点本身改变/增删时丢弃旧任务。
+            if (
+              pending.length === active.length &&
+              pending.every((node, index) => node === active[index])
+            ) {
+              return
+            }
+            activeNodes = pending
             revision++
+            controller?.abort()
             clearTimeout(timer)
             timer = setTimeout(() => {
               void highlight().catch(() => {
@@ -297,13 +369,17 @@ export const ImmersiveDecorations = Extension.create({
           schedule()
           return {
             update: (current, previous) => {
-              if (current.state.doc !== previous.doc) {
+              const ready = readyForHighlight()
+              const becameReady = ready && !wasReady
+              wasReady = ready
+              if (current.state.doc !== previous.doc || becameReady) {
                 schedule()
               }
             },
             destroy: () => {
               disposed = true
               revision++
+              controller?.abort()
               clearTimeout(timer)
             },
           }

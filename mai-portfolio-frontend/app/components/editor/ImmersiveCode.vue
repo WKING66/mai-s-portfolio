@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import { useClipboard } from '@vueuse/core'
-import { CODE_THEMES, codeLabel, type CodeTheme } from '../../constants/codeThemes'
+import type { InputProps } from '@nuxt/ui'
+import type { InputHTMLAttributes } from 'vue'
+import { CODE_THEMES, CODE_FOLD, codeLabel, type CodeTheme } from '../../constants/codeThemes'
+import { NodeSelection } from '@tiptap/pm/state'
+import { codeLanguageOptions, resolveCodeLanguage } from '../../utils/codeLanguages'
+import { codeFormatter } from '../../utils/editor/codeFormatting'
+import { formatCodeInWorker } from '../../utils/editor/codeFormattingClient'
+import { applyFormattedCode } from '../../utils/editor/codeFormattingTransaction'
+import { IMMERSIVE_CODE_EXPANDED } from '../../utils/editor/immersiveDecorations'
 import ImmersiveDiagram from './ImmersiveDiagram.vue'
 import {
   IMMERSIVE_CODE_THEMES,
@@ -10,24 +18,24 @@ import {
 } from '../../utils/editor/immersiveContext'
 import { parseCodeInfo, formatCodeInfo } from '../../utils/codeInfo'
 const props = defineProps<NodeViewProps>()
+const languageSearchInput: InputProps & Pick<InputHTMLAttributes, 'aria-label'> = {
+  placeholder: '搜索语言或别名…',
+  'aria-label': '搜索代码语言',
+  icon: 'i-lucide-search',
+  size: 'md',
+}
 const workbenchEditable = inject(IMMERSIVE_EDITABLE, undefined)
 const canEdit = computed(() => workbenchEditable?.value ?? props.editor.isEditable)
-const languageOptions = [
-  { label: 'Java', value: 'java' },
-  { label: 'Python', value: 'python' },
-  { label: 'JavaScript', value: 'javascript' },
-  { label: 'TypeScript', value: 'typescript' },
-  { label: 'SQL', value: 'sql' },
-  { label: 'Bash', value: 'bash' },
-  { label: 'JSON', value: 'json' },
-  { label: 'HTML', value: 'html' },
-  { label: 'CSS', value: 'css' },
-  { label: 'Text', value: 'text' },
-]
-const availableLanguages = computed(() =>
-  languageOptions.some((item) => item.value === (language.value || 'text'))
-    ? languageOptions
-    : [...languageOptions, { label: language.value, value: language.value }],
+const availableLanguages = computed(() => codeLanguageOptions(language.value))
+const selectedLanguage = computed(
+  () =>
+    availableLanguages.value.find((item) => item.value === language.value)?.value ||
+    resolveCodeLanguage(language.value),
+)
+const selectedLanguageLabel = computed(
+  () =>
+    availableLanguages.value.find((item) => item.value === selectedLanguage.value)?.label ||
+    '纯文本',
 )
 const showSource = ref(false)
 const themeMenuOpen = ref(false)
@@ -66,6 +74,7 @@ const theme = computed<CodeTheme>({
 const portal = useTemplateRef<HTMLElement>('portal')
 const diagram = useTemplateRef<InstanceType<typeof ImmersiveDiagram>>('diagram')
 const language = computed(() => String(props.node.attrs.language || '').split(/\s/)[0] || '')
+const currentFormatter = computed(() => codeFormatter(resolveCodeLanguage(language.value)))
 const filename = computed(() => parseCodeInfo(String(props.node.attrs.language || '')).filename)
 const label = computed(() => codeLabel(filename.value, language.value))
 const lineNumbers = computed(() =>
@@ -73,17 +82,131 @@ const lineNumbers = computed(() =>
     '\n',
   ),
 )
-const collapsed = ref(false)
+const expanded = ref(false)
+watch(
+  [expanded, () => props.node],
+  ([value], previous) => {
+    if (!value && !previous?.[0]) {
+      return
+    }
+    const position = props.getPos()
+    if (typeof position === 'number' && !props.editor.isDestroyed) {
+      props.editor.view.dispatch(
+        props.editor.state.tr
+          .setMeta(IMMERSIVE_CODE_EXPANDED, { position, value })
+          .setMeta('addToHistory', false),
+      )
+    }
+  },
+  { flush: 'post' },
+)
+const isLongCodeBlock = computed(
+  () => props.node.textContent.split(/\r?\n/).length > CODE_FOLD.threshold,
+)
+const collapsed = computed(() => isLongCodeBlock.value && !expanded.value && !caretInside.value)
 const isMermaid = computed(() => language.value === 'mermaid')
 const caretInside = computed(() =>
   props.decorations.some((decoration) => decoration.spec.immersiveCaret),
 )
 const { copy, copied } = useClipboard({ legacy: true })
-watch(caretInside, (inside) => {
-  if (inside && isMermaid.value) {
-    showSource.value = true
+watch(
+  [caretInside, canEdit],
+  ([inside, editable]) => {
+    if (inside && editable) {
+      if (isMermaid.value) {
+        showSource.value = true
+      } else {
+        expanded.value = true
+      }
+    }
+  },
+  { immediate: true },
+)
+const toast = useToast()
+async function toggleCode() {
+  const position = props.getPos()
+  if (typeof position !== 'number') {
+    return
   }
-})
+  const element = props.editor.view.nodeDOM(position)
+  if (expanded.value || caretInside.value) {
+    const { state } = props.editor
+    if (
+      canEdit.value &&
+      state.selection.to > position &&
+      state.selection.from < position + props.node.nodeSize
+    ) {
+      if (!state.selection.empty && !(state.selection instanceof NodeSelection)) {
+        toast.add({ title: '请先取消代码中的文字选区，再收起代码。', color: 'neutral' })
+        return
+      }
+      props.editor.view.dispatch(
+        state.tr
+          .setSelection(NodeSelection.create(state.doc, position))
+          .setMeta('addToHistory', false),
+      )
+    }
+    expanded.value = false
+    await nextTick()
+    const pane =
+      element instanceof HTMLElement ? element.closest<HTMLElement>('.canvas-pane') : null
+    if (pane && element instanceof HTMLElement) {
+      const offset = element.getBoundingClientRect().top - pane.getBoundingClientRect().top - 24
+      if (offset < 0) {
+        pane.scrollTop += offset
+      }
+    }
+  } else {
+    expanded.value = true
+  }
+}
+const formatting = ref(false)
+const formatError = ref('')
+watch(
+  () => [props.node.textContent, props.node.attrs.language],
+  () => {
+    formatError.value = ''
+  },
+)
+let formatController: AbortController | undefined
+async function formatCode() {
+  if (formatting.value || !canEdit.value) {
+    return
+  }
+  const snapshot = { source: props.node.textContent, info: String(props.node.attrs.language || '') }
+  const controller = new AbortController()
+  formatController = controller
+  formatting.value = true
+  formatError.value = ''
+  // 在用户点击时展开；后台完成后不再改折叠偏好，避免跳走后被迟到结果强制展开。
+  expanded.value = true
+  try {
+    const formatted = await formatCodeInWorker(snapshot.source, language.value, controller.signal)
+    if (!canEdit.value || !applyFormattedCode(props.editor, props.getPos(), snapshot, formatted)) {
+      throw new Error('代码在格式化期间已变化，本次结果未覆盖新内容，请重试。')
+    }
+    toast.add({
+      title: formatted === snapshot.source ? '代码格式已符合要求' : '代码已格式化，可撤销',
+      color: 'success',
+    })
+  } catch (cause) {
+    if (!controller.signal.aborted) {
+      if (
+        props.node.textContent !== snapshot.source ||
+        String(props.node.attrs.language || '') !== snapshot.info
+      ) {
+        formatError.value = '代码在格式化期间已变化，请重试；当前内容已保留。'
+      } else if (cause instanceof Error) {
+        formatError.value = cause.message
+      } else {
+        formatError.value = '格式化失败；原代码已保留。'
+      }
+    }
+  } finally {
+    formatting.value = false
+  }
+}
+onBeforeUnmount(() => formatController?.abort())
 function updateInfo(nextLanguage: string, nextFilename: string) {
   if (!props.editor.isEditable) {
     return
@@ -124,19 +247,54 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
           :disabled="!canEdit"
           @update:model-value="updateInfo(language, $event)"
         />
-        <USelect
+        <USelectMenu
           v-model:open="languageMenuOpen"
-          :model-value="language || 'text'"
+          :model-value="selectedLanguage"
           :items="availableLanguages"
+          value-key="value"
+          :filter-fields="['label', 'value', 'aliases']"
+          :search-input="languageSearchInput"
+          :virtualize="{ estimateSize: 40 }"
           :portal="portal ?? false"
-          :ui="{ content: 'z-50 min-w-40' }"
+          :ui="{
+            content: 'code-language-menu z-50 w-72 rounded-xl shadow-xl',
+            input: 'code-language-search',
+            viewport: 'code-language-options min-h-0',
+            item: 'code-language-item h-10 items-center rounded-lg px-3 text-sm',
+            itemLabel: 'flex min-w-0 items-center gap-3',
+            itemTrailingIcon: 'size-4',
+          }"
           aria-label="代码语言"
           variant="none"
           size="xs"
           class="w-24"
           :disabled="!canEdit"
           @update:model-value="updateInfo($event, filename)"
-        />
+        >
+          <template #content-top>
+            <div class="code-language-heading">
+              <span>代码语言</span>
+              <span class="code-language-current" :title="selectedLanguageLabel">{{
+                selectedLanguageLabel
+              }}</span>
+            </div>
+          </template>
+          <template #item-label="{ item }">
+            <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
+            <span v-if="item.value !== 'text'" class="code-language-id">{{ item.value }}</span>
+          </template>
+          <template #empty>
+            <div class="code-language-empty">
+              <UIcon name="i-lucide-search-x" class="size-5" />
+              <span>未找到该语言</span>
+            </div>
+          </template>
+          <template #content-bottom>
+            <div class="code-language-footer">
+              <span>支持名称和别名搜索</span><span>↑↓ 选择 · ↵ 确认</span>
+            </div>
+          </template>
+        </USelectMenu>
         <USelect
           v-model="theme"
           v-model:open="themeMenuOpen"
@@ -149,15 +307,28 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
         />
       </template>
       <UButton
-        v-if="!isMermaid"
+        v-if="!isMermaid && canEdit"
+        color="neutral"
+        variant="ghost"
+        size="xs"
+        icon="i-lucide-wand-sparkles"
+        aria-label="格式化代码"
+        :title="currentFormatter ? '格式化代码，可撤销' : '当前语言暂无浏览器格式化插件'"
+        :disabled="!currentFormatter"
+        :loading="formatting"
+        @click="formatCode"
+      />
+      <UButton
+        v-if="!isMermaid && isLongCodeBlock"
         color="neutral"
         variant="ghost"
         size="xs"
         :icon="collapsed ? 'i-lucide-chevron-down' : 'i-lucide-chevron-up'"
-        :aria-label="collapsed ? '展开代码' : '折叠代码'"
+        :aria-label="collapsed ? '展开全部代码' : '收起代码'"
         :aria-expanded="!collapsed"
-        @click="collapsed = !collapsed"
-      />
+        @click="toggleCode"
+        >{{ collapsed ? '展开全部代码' : '收起代码' }}</UButton
+      >
       <UButton
         v-if="isMermaid"
         color="neutral"
@@ -186,22 +357,37 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
       />
     </div>
     <!-- 唯一的 contentDOM 始终保留：普通代码直接编辑；Mermaid 的同一原文在图上方展开。 -->
+    <UAlert
+      v-if="formatError"
+      contenteditable="false"
+      data-editor-controls
+      color="warning"
+      title="代码未格式化"
+      :description="formatError"
+    />
     <div
-      v-show="isMermaid ? showSource : !collapsed"
-      class="immersive-code-lines"
-      :class="{ 'mermaid-source-input': isMermaid }"
+      class="blog-code-viewport"
+      :data-code-collapsed="!isMermaid && collapsed"
+      :style="{ '--code-preview-lines': CODE_FOLD.previewLines }"
     >
-      <pre
-        class="immersive-line-gutter"
-        style="white-space: pre"
-        aria-hidden="true"
-        contenteditable="false"
-        data-editor-controls
-        @mousedown.prevent
-        >{{ lineNumbers }}</pre>
-      <pre
-        class="immersive-code-input"
-      ><NodeViewContent style="white-space: pre" as="code" :data-language="language" :aria-label="isMermaid ? 'Mermaid 源码' : label + '代码正文'" spellcheck="false" /></pre>
+      <div
+        v-show="!isMermaid || showSource"
+        class="immersive-code-lines"
+        :class="{ 'mermaid-source-input': isMermaid }"
+        @pointerdown="canEdit && !isMermaid && (expanded = true)"
+      >
+        <pre
+          class="immersive-line-gutter"
+          style="white-space: pre"
+          aria-hidden="true"
+          contenteditable="false"
+          data-editor-controls
+          @mousedown.prevent
+          >{{ lineNumbers }}</pre>
+        <pre
+          class="immersive-code-input"
+        ><NodeViewContent style="white-space: pre" as="code" :data-language="language" :aria-label="isMermaid ? 'Mermaid 源码' : label + '代码正文'" spellcheck="false" /></pre>
+      </div>
     </div>
     <ImmersiveDiagram v-if="isMermaid" ref="diagram" :content="node.textContent" />
   </NodeViewWrapper>

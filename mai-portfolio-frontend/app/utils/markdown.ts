@@ -111,8 +111,6 @@ const highlightPlugin: ComarkPlugin = {
   async post({ tree }) {
     // 1. 安全插件之后仅保留标准 Markdown 属性，再生成标题、代码及公式的受控节点。
     const headingIds = new Set<string>()
-    let highlightedCharacters = 0,
-      highlightedNodes = 0
     let formulaCount = 0,
       formulaCharacters = 0
     async function visit(node: Node): Promise<void> {
@@ -172,31 +170,9 @@ const highlightPlugin: ComarkPlugin = {
       }
       if (node[0] === 'pre') {
         const code = textContent(node)
-        const {
-          highlightCode,
-          codeNodeCount,
-          CODE_HIGHLIGHT_LIMITS: limits,
-        } = await import('./codeHighlight')
-        const plain =
-          highlightedCharacters + code.length > limits.documentCharacters ||
-          highlightedNodes >= limits.documentNodes
-        let highlighted = await highlightCode(
-          code,
-          String(node[1].language || '').toLowerCase(),
-          plain,
-        )
-        if (highlightedNodes + codeNodeCount(highlighted) > limits.documentNodes) {
-          highlighted = await highlightCode(
-            code,
-            String(node[1].language || '').toLowerCase(),
-            true,
-          )
-        }
-        highlightedCharacters += code.length
-        highlightedNodes += codeNodeCount(highlighted)
-        // 保留原文供复制；高亮仅生成安全 AST，永远不注入原始 HTML。
-        node.splice(2, node.length - 2, ...highlighted.slice(2))
-        node[1] = { ...node[1], ...highlighted[1], code }
+        // SSR / 首次解析直接交付完整代码。组件挂载后独立补高亮，不等待语法下载/分词。
+        node.splice(2, node.length - 2, ['code', {}, code])
+        node[1] = { ...node[1], code, 'data-highlight': 'pending' }
         return
       }
       for (const child of node.slice(2)) {

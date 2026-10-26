@@ -17,6 +17,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   // 斜杠菜单与编辑器共享 ProseMirror 类，避免开发预构建和直接加载的 DecorationSet 混用。
   vite: {
+    worker: { format: 'es' },
     resolve: {
       alias: {
         // 同一标准实体表用于页面和 Worker，避免 browser 条件入口访问 document。

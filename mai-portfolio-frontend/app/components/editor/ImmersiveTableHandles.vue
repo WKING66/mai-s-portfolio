@@ -259,6 +259,17 @@ function pointerMove(event: PointerEvent) {
   }
   let table = event.target.closest<HTMLTableElement>('table')
   if (!table) {
+    // 浏览器已命中普通正文块时，无需再做邻点命中检测。elementFromPoint 会强制刷新
+    // 刚被编辑/高亮标脏的长文布局；外侧根容器和 tableWrapper 仍保留手柄探测。
+    const block = event.target.closest('.tiptap > *')
+    if (block && !block.matches('.tableWrapper')) {
+      if (currentTable) {
+        tableObserver?.disconnect()
+        currentTable = null
+        clear()
+      }
+      return
+    }
     // 可以直接从外侧进入选择区；只探测指针旁的两个实际 DOM 点，不扫描全文表格。
     for (const [x, y] of [
       [event.clientX + 24, event.clientY],

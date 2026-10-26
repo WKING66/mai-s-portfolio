@@ -43,7 +43,10 @@ import {
   ImmersivePositionHighlight,
   IMMERSIVE_POSITION_KEY,
 } from '../../utils/editor/immersivePositionHighlight'
-import { ImmersiveDecorations } from '../../utils/editor/immersiveDecorations'
+import {
+  ImmersiveDecorations,
+  IMMERSIVE_HIGHLIGHT_READY,
+} from '../../utils/editor/immersiveDecorations'
 import { BLOG_RESOURCES } from '../../utils/blogResources'
 import type { BlogTag, DocumentResource } from '../../api/blogs'
 import type { CanvasMetadata } from '../../utils/editor/canvasSave'
@@ -550,7 +553,7 @@ const editorExtensions = [
   ImmersiveChapters.configure({
     notice: (description) => toast.add({ title: '章节未折叠', description, color: 'warning' }),
   }),
-  ImmersiveDecorations,
+  ImmersiveDecorations.configure({ ready: () => ready.value }),
   ImmersivePositionHighlight,
   ImmersiveSelection,
   ImmersiveDragScroll,
@@ -677,6 +680,11 @@ watch(
 )
 watch(ready, (value) => {
   if (value) {
+    const current = editor.value
+    if (current) {
+      // 完整正文已装载后再补代码颜色，避免高亮装饰与分批装载争抢主线程。
+      current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_HIGHLIGHT_READY, true))
+    }
     updateHeadings()
     selectHeading()
     followPage()
@@ -1037,6 +1045,7 @@ defineExpose({
                 v-memo="[isEditing, ready]"
                 :model-value="editorDocument"
                 content-type="json"
+                v-bind="{ injectCSS: false }"
                 :placeholder="persistence ? '从这里开始写作，输入 / 插入内容' : undefined"
                 :markdown="markdownOptions"
                 :starter-kit="CANVAS_STARTER_KIT"
@@ -1407,9 +1416,58 @@ defineExpose({
   background: transparent;
 }
 .workbench-body :deep(.tiptap) {
+  position: relative;
+  word-wrap: break-word;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0;
   padding: 0;
   font-size: 1.0625rem;
   line-height: 1.85;
+}
+/* 保留编辑器的基础排版/间隙光标；选区失焦不通过通配选择器改变整篇后代样式。 */
+.workbench-body :deep(.tiptap [contenteditable='false']) {
+  white-space: normal;
+}
+.workbench-body :deep(.tiptap [contenteditable='false'] [contenteditable='true']) {
+  white-space: pre-wrap;
+}
+.workbench-body :deep(img.ProseMirror-separator) {
+  display: inline !important;
+  border: 0 !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.workbench-body :deep(.ProseMirror-gapcursor) {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  margin: 0;
+}
+.workbench-body :deep(.ProseMirror-gapcursor::after) {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid currentColor;
+  animation: canvas-caret-blink 1.1s steps(2, start) infinite;
+}
+.workbench-body :deep(.ProseMirror-focused .ProseMirror-gapcursor) {
+  display: block;
+}
+@keyframes canvas-caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+/* 原生内容块独立布局，折叠/公式切换不反复排版其他块；完整 DOM 和原生选区保持。 */
+.workbench-body :deep(.tiptap > :not(.ProseMirror-widget):not(.ProseMirror-gapcursor)) {
+  contain: layout style;
+}
+.workbench-body :deep(.immersive-chapter-hidden) {
+  display: none !important;
 }
 .workbench-body :deep(.tiptap > :first-child) {
   margin-top: 0;
@@ -1556,9 +1614,7 @@ defineExpose({
   scrollbar-color: color-mix(in srgb, var(--ui-text-muted) 28%, transparent) transparent;
   scrollbar-gutter: stable;
 }
-.canvas-pane:hover {
-  scrollbar-color: color-mix(in srgb, var(--ui-text-muted) 50%, transparent) transparent;
-}
+/* scrollbar-color 会继承到整篇正文。悬浮时改变它会使长文中的公式/代码全部重新计算样式。 */
 .canvas-pane::-webkit-scrollbar {
   width: 6px;
   height: 6px;

@@ -16,7 +16,6 @@ interface ChapterState {
   collapsed: Set<string>
   decorations: DecorationSet
 }
-let chapterViewId = 0
 export const IMMERSIVE_CHAPTER_KEY = new PluginKey<ChapterState>('immersive-chapters')
 export function immersiveChapters(state: import('@tiptap/pm/state').EditorState) {
   return IMMERSIVE_CHAPTER_KEY.getState(state)
@@ -105,7 +104,6 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
     return { notice: () => {} }
   },
   addProseMirrorPlugins() {
-    const scope = 'chapter-view-' + ++chapterViewId
     let identity = 0
     const createId = () => 'editor-chapter-' + ++identity
     const notice = this.options.notice
@@ -113,8 +111,27 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
       document: DocumentNode,
       chapters: ImmersiveChapter[],
       collapsed: Set<string>,
+      includeHidden = true,
     ) {
       const decorations: Decoration[] = []
+      const hiddenRanges = chapters
+        .filter((chapter) => collapsed.has(chapter.id))
+        .map((chapter) => ({ from: chapter.bodyFrom, to: chapter.end }))
+      if (includeHidden && hiddenRanges.length) {
+        // 只装饰折叠范围内的原生顶层块；普通输入映射现有装饰，不为全文重建样式规则。
+        document.forEach((node, position) => {
+          if (hiddenRanges.some((range) => position >= range.from && position < range.to)) {
+            decorations.push(
+              Decoration.node(
+                position,
+                position + node.nodeSize,
+                { class: 'immersive-chapter-hidden' },
+                { chapterHidden: true },
+              ),
+            )
+          }
+        })
+      }
       for (const chapter of chapters) {
         if (!document.nodeAt(chapter.position)?.textContent.trim()) {
           continue
@@ -202,7 +219,10 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
                 )
               ) {
                 const widgets = new Map(
-                  decorations.find().map((item) => [item.spec.chapterId, item]),
+                  decorations
+                    .find()
+                    .filter((item) => item.spec.chapterId)
+                    .map((item) => [item.spec.chapterId, item]),
                 )
                 const changed = chapters.filter((chapter, index) => {
                   chapter.text =
@@ -215,7 +235,11 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
                 const changedIds = new Set(changed.map((chapter) => chapter.id))
                 decorations = decorations
                   .remove(decorations.find().filter((item) => changedIds.has(item.spec.chapterId)))
-                  .add(transaction.doc, decorate(transaction.doc, changed, collapsed).find())
+                  .add(transaction.doc, decorate(transaction.doc, changed, collapsed, false).find())
+              }
+              if (collapsed.size !== previous.collapsed.size) {
+                // 折叠标题被清空时，同步撤掉原生隐藏装饰，不能留下不可见正文。
+                decorations = decorate(transaction.doc, chapters, collapsed)
               }
               return {
                 chapters,
@@ -256,50 +280,6 @@ export const ImmersiveChapters = Extension.create<{ notice: (message: string) =>
         },
         props: {
           decorations: (state) => immersiveChapters(state)?.decorations,
-          attributes: { 'data-immersive-chapters': scope },
-        },
-        view(view) {
-          // 样式留在编辑器 DOM 外；只数真实顶层节点，排除 PM 临时光标和 widget。
-          // 不为每个正文块创建 Node Decoration，避免每次输入验证数百个块边界。
-          const sheet = view.dom.ownerDocument.createElement('style')
-          view.dom.ownerDocument.head.append(sheet)
-          let previous: ChapterState | undefined
-          const update = () => {
-            const current = immersiveChapters(view.state)
-            if (!current || previous === current) {
-              return
-            }
-            previous = current
-            const positions: number[] = []
-            view.state.doc.forEach((_node, position) => positions.push(position))
-            const rules = current.chapters
-              .filter((chapter) => current.collapsed.has(chapter.id))
-              .map((chapter) => {
-                const from = positions.findIndex((position) => position >= chapter.bodyFrom)
-                let to = positions.findIndex((position) => position >= chapter.end)
-                if (to < 0) {
-                  to = positions.length
-                }
-                if (from < 0 || from >= to) {
-                  return ''
-                }
-                return (
-                  '[data-immersive-chapters="' +
-                  scope +
-                  '"] > :nth-child(n+' +
-                  (from + 1) +
-                  ' of :not(.ProseMirror-widget, .ProseMirror-gapcursor)):nth-child(-n+' +
-                  to +
-                  ' of :not(.ProseMirror-widget, .ProseMirror-gapcursor)) { display: none !important; }'
-                )
-              })
-              .join('\n')
-            if (sheet.textContent !== rules) {
-              sheet.textContent = rules
-            }
-          }
-          update()
-          return { update, destroy: () => sheet.remove() }
         },
         appendTransaction(transactions, _oldState, state) {
           if (

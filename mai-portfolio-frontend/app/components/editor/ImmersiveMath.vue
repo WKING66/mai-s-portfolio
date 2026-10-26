@@ -13,6 +13,7 @@ const props = defineProps<NodeViewProps>()
 const previews = inject(IMMERSIVE_MATH_PREVIEWS, undefined)
 const editing = ref(false)
 const input = useTemplateRef<HTMLTextAreaElement>('input')
+const anchor = useTemplateRef<HTMLElement>('anchor')
 const expression = ref('')
 const error = ref('')
 const html = shallowRef('')
@@ -207,7 +208,7 @@ onBeforeUnmount(() => {
   >
     <!-- 静态公式不初始化浮层上下文；仅当前正在编辑的公式创建 Popover。 -->
     <span
-      v-if="!editing"
+      ref="anchor"
       role="button"
       tabindex="0"
       class="math-open"
@@ -224,8 +225,9 @@ onBeforeUnmount(() => {
       ><BlogMath v-else-if="html" :block="block" :html="html" /><code v-else>{{ expression }}</code>
     </span>
     <UPopover
-      v-else
+      v-if="editing"
       v-model:open="editing"
+      :reference="anchor ?? undefined"
       :content="{
         onOpenAutoFocus: (event: Event) => {
           event.preventDefault()
@@ -239,27 +241,6 @@ onBeforeUnmount(() => {
       }"
       :ui="{ content: 'p-3 w-[min(28rem,calc(100vw-2rem))]' }"
     >
-      <template #anchor>
-        <span
-          role="button"
-          tabindex="0"
-          class="math-open"
-          aria-label="原位编辑公式"
-          title="点击编辑公式；长公式可横向滑动或按 Shift + 左右键平移"
-          :aria-expanded="editing"
-          @keydown="panFormula"
-          @pointerdown="pointerOrigin = { x: $event.clientX, y: $event.clientY }"
-          @click="open"
-          @keydown.enter.prevent="open()"
-          @keydown.space.prevent="open()"
-        >
-          <span v-if="!expression.trim()" class="math-empty text-sm text-muted"
-            >添加 LaTeX 公式</span
-          ><BlogMath v-else-if="html" :block="block" :html="html" /><code v-else>{{
-            expression
-          }}</code>
-        </span>
-      </template>
       <template #content>
         <div data-editor-controls data-immersive-overlay class="math-editor" @pointerdown.stop>
           <textarea

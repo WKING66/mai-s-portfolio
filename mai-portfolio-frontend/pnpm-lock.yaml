@@ -169,9 +169,30 @@ importers:
       '@comark/nuxt':
         specifier: 0.7.0
         version: 0.7.0(katex@0.17.0)(magicast@0.5.5)(nuxt@4.5.2(@babel/plugin-syntax-jsx@7.29.7(@babel/core@7.29.7(supports-color@10.2.2)))(@babel/plugin-syntax-typescript@7.29.7(@babel/core@7.29.7(supports-color@10.2.2)))(@oxc-project/types@0.151.0)(@types/node@24.19.2)(@vue/compiler-sfc@3.5.43)(cac@7.1.0)(commander@15.0.0)(db0@0.3.4)(esbuild@0.28.2)(eslint@10.12.0(jiti@2.7.0)(supports-color@10.2.2))(ioredis@5.11.1(supports-color@10.2.2))(lightningcss@1.33.0)(magicast@0.5.5)(optionator@0.9.4)(pinia@4.0.3(@vue/devtools-api@8.2.1)(typescript@5.9.2)(vue@3.5.43(typescript@5.9.2)))(rolldown@1.2.11)(rollup-plugin-visualizer@7.1.1(rolldown@1.2.11)(rollup@4.63.5))(rollup@4.63.5)(srvx@0.11.22)(supports-color@10.2.2)(terser@5.51.2)(typescript@5.9.2)(vite@8.3.1(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))(vue-tsc@3.3.11(typescript@5.9.2))(yaml@2.9.1))(shiki@4.5.0)(vue@3.5.43(typescript@5.9.2))
+      '@dprint/clang-format':
+        specifier: 0.2.1
+        version: 0.2.1
+      '@dprint/formatter':
+        specifier: 0.6.0
+        version: 0.6.0
+      '@dprint/oxc':
+        specifier: 0.47.0
+        version: 0.47.0
+      '@dprint/ruff':
+        specifier: 0.11.2
+        version: 0.11.2
+      '@dprint/shfmt':
+        specifier: 0.1.2
+        version: 0.1.2
+      '@dprint/sql':
+        specifier: 0.4.1
+        version: 0.4.1
       '@iconify-json/lucide':
         specifier: 1.2.98
         version: 1.2.98
+      '@jakebailey/dprint-plugin-gofumpt':
+        specifier: 0.0.20
+        version: 0.0.20
       '@nuxt/ui':
         specifier: 4.11.3
         version: 4.11.3(cea423c86f40f8fb1e867472596c0832)
@@ -232,6 +253,9 @@ importers:
       dompurify:
         specifier: 3.4.16
         version: 3.4.16
+      dprint-plugin-markup:
+        specifier: 0.27.6
+        version: 0.27.6
       htmlparser2:
         specifier: 12.0.0
         version: 12.0.0
@@ -523,6 +547,24 @@ packages:
     resolution: {integrity: sha512-2bVZFxGD7C+U1y0vkesUnLWHtrU3qD/Gq/Ri+aWkpXhDe/0EQ64ODA9gxCqFunUvJZ5z1rFvP1XLRLfUiSpvGg==}
     peerDependencies:
       devframe: 1.2.5
+
+  '@dprint/clang-format@0.2.1':
+    resolution: {integrity: sha512-Fiiu5y59V55SvmloCQMxLc/cCALDg7/hkiSggovYcGtbneXEW/OvqRCJrpPdoNCuzyhVRBCNEXJHQTNN/KGLnw==}
+
+  '@dprint/formatter@0.6.0':
+    resolution: {integrity: sha512-otnYh2jmGWbekYkAd4xiF416lpdZwNCbhkDrLQcAanvvutp0PhTNSJrwJ4DKBEu6xtP36NUX70t9YQw3oC/ONg==}
+
+  '@dprint/oxc@0.47.0':
+    resolution: {integrity: sha512-Bl3Ag2bK557YtuqY2ZV2rUU0I4VPo4nZ/3UmCv/Qhi+lR8ey3jo1EECdid3WJLOiro1rP7HNuWBO+WSlncUNAQ==}
+
+  '@dprint/ruff@0.11.2':
+    resolution: {integrity: sha512-A7lTqF6wUQ9V+GcZyA+lQjA+gmq+Igu3DM1FsH8tM4itU//+/1yowJsLicVX6FaXWeT1j3U2Gfolh8GnQ/IYGQ==}
+
+  '@dprint/shfmt@0.1.2':
+    resolution: {integrity: sha512-oduebx2FXdpxcrh30B/QRuCZu8y8lJ9OHFTVOHfUOUDKMC8tfPRDsei+TttcT9P/OFXgPfgxgcDTknVwUE+TSA==}
+
+  '@dprint/sql@0.4.1':
+    resolution: {integrity: sha512-g4YdnAIWkj4ZKoqR3Vebfo7lSZ7pfzUSztX0lcINLbpiI84Iugb2sIG9laGNjY9KRgMroELrwqa04gMRIPUXGw==}
 
   '@dxup/nuxt@0.5.10':
     resolution: {integrity: sha512-54Vehb7LmR7qYpC6KFwjDTSm6CB1CayBu+JXdHrPLrIjjr5xAgb43jvgOU+mnB+tsRh414fSsEy0QjBMKILQ8g==}
@@ -987,6 +1029,9 @@ packages:
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
     engines: {node: '>=18.0.0'}
+
+  '@jakebailey/dprint-plugin-gofumpt@0.0.20':
+    resolution: {integrity: sha512-a29rXC6oCtihqjpU4l7JkhxQQS0JExnpZP6ZejpTFtHIEDoi3WcKxN1+cCgWkBtjI9G9PjfGjgoA+YO6b6Uvng==}
 
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
@@ -3341,6 +3386,9 @@ packages:
   dotenv@17.4.2:
     resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
     engines: {node: '>=12'}
+
+  dprint-plugin-markup@0.27.6:
+    resolution: {integrity: sha512-UpPigVuQjvOO+JUwdPSygWC6ktE3Tm3BrZkahLCX3o20N9iFfHp0XwFVJne43jZmKm8im6uj1xjrCtKvc7varQ==}
 
   duplexer@0.1.2:
     resolution: {integrity: sha512-jtD6YG370ZCIi/9GTaJKQxWTZD045+4R4hTk/x1UyoqadyJ9x9CgSi1RlVDQF8U2sxLLSnFkCaMihqljHIWgMg==}
@@ -6502,6 +6550,18 @@ snapshots:
       - crossws
       - ocache
 
+  '@dprint/clang-format@0.2.1': {}
+
+  '@dprint/formatter@0.6.0': {}
+
+  '@dprint/oxc@0.47.0': {}
+
+  '@dprint/ruff@0.11.2': {}
+
+  '@dprint/shfmt@0.1.2': {}
+
+  '@dprint/sql@0.4.1': {}
+
   '@dxup/nuxt@0.5.10(esbuild@0.28.2)(magicast@0.5.5)(rolldown@1.2.11)(rollup@4.63.5)(vite@8.3.1(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))':
     dependencies:
       '@dxup/unimport': 0.1.2
@@ -6854,6 +6914,8 @@ snapshots:
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
       minipass: 7.1.3
+
+  '@jakebailey/dprint-plugin-gofumpt@0.0.20': {}
 
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
@@ -9603,6 +9665,8 @@ snapshots:
       type-fest: 5.10.0
 
   dotenv@17.4.2: {}
+
+  dprint-plugin-markup@0.27.6: {}
 
   duplexer@0.1.2: {}
 
