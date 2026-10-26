@@ -1,10 +1,27 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, provide, shallowRef } from 'vue'
 import { useRoute } from '#app'
 import { AUTH_ACCESS, AUTH_MESSAGES } from '../constants/auth'
 import { ADMIN_NAVIGATION, ADMIN_PATHS } from '../constants/admin'
+import { CANVAS_LOADING, type CanvasLoadingProgress } from '../utils/editor/canvasLoading'
 
-defineProps<{ title: string; description: string; wide?: boolean; immersive?: boolean }>()
+const props = defineProps<{
+  title: string
+  description: string
+  wide?: boolean
+  immersive?: boolean
+}>()
+const editorLoading = shallowRef<CanvasLoadingProgress | null>({ phase: '正在准备编辑器' })
+if (props.immersive) {
+  provide(CANVAS_LOADING, editorLoading)
+}
+const authState = useAuthState()
+const showEditorLoading = computed(
+  () =>
+    props.immersive &&
+    editorLoading.value !== null &&
+    (!authState.ready.value || authState.canAccess(AUTH_ACCESS.OWNER)),
+)
 const route = useRoute()
 const activePage = computed(() => {
   if (route.path.startsWith(ADMIN_PATHS.blogs)) {
@@ -26,9 +43,21 @@ const activePage = computed(() => {
       class="site-container site-page"
       :class="{ 'admin-wide': wide, 'admin-immersive': immersive }"
     >
+      <!-- 同一实例覆盖身份恢复、取文、异步组件下载和首屏绘制，避免阶段间空白与位置跳动。 -->
+      <div v-if="showEditorLoading" class="admin-editor-loading">
+        <EditorCanvasLoading
+          :phase="editorLoading?.phase"
+          :loaded="editorLoading?.loaded"
+          :total="editorLoading?.total"
+        />
+      </div>
       <Auth :access="AUTH_ACCESS.OWNER">
         <!-- 统一在框架内挂载业务组件，权限撤销时销毁管理快照和未保存表单。 -->
-        <div class="admin-workspace grid items-start gap-8">
+        <div
+          class="admin-workspace grid items-start gap-8"
+          :inert="showEditorLoading"
+          :aria-hidden="showEditorLoading || undefined"
+        >
           <nav
             v-if="!immersive"
             class="admin-navigation flex flex-wrap gap-2 border-b border-line pb-5"
@@ -59,9 +88,8 @@ const activePage = computed(() => {
           </div>
         </div>
         <template #pending>
-          <EditorCanvasLoading v-if="immersive" phase="正在准备编辑器" />
           <div
-            v-else
+            v-if="!immersive"
             role="status"
             :aria-label="AUTH_MESSAGES.verifying"
             class="grid min-h-[600px] gap-6"
@@ -115,9 +143,17 @@ const activePage = computed(() => {
   }
 }
 .admin-immersive {
+  position: relative;
   padding: 0;
   width: 100%;
   max-width: none;
+}
+.admin-editor-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  overflow: auto;
+  background: var(--site-bg);
 }
 .admin-immersive-root,
 .admin-immersive,

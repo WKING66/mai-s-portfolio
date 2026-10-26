@@ -66,6 +66,7 @@ import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
 import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
 import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
 import { canvasMarkdownClipboard } from '../../utils/editor/canvasClipboard'
+import { CANVAS_LOADING } from '../../utils/editor/canvasLoading'
 
 const props = defineProps<{
   initialContent: string | JSONContent
@@ -77,6 +78,8 @@ const props = defineProps<{
   tags?: BlogTag[]
 }>()
 const metadata = defineModel<CanvasMetadata>('metadata', { required: true })
+const editorLoading = inject(CANVAS_LOADING, undefined)
+const hasLoadingHost = editorLoading !== undefined
 provide(
   BLOG_RESOURCES,
   computed(() => props.resources ?? []),
@@ -117,6 +120,22 @@ function waitForPaste() {
   return true
 }
 const painted = ref(false)
+watch(
+  [painted, initializationError, loading, loadedBlocks],
+  () => {
+    if (editorLoading) {
+      editorLoading.value =
+        painted.value || initializationError.value
+          ? null
+          : {
+              phase: loading.value ? '正在装载文章' : '正在排版正文',
+              loaded: totalBlocks ? loadedBlocks.value : undefined,
+              total: totalBlocks || undefined,
+            }
+    }
+  },
+  { immediate: true, flush: 'post' },
+)
 let paintFrame = 0
 watch(
   [ready, editor],
@@ -963,7 +982,7 @@ defineExpose({
     <div class="workbench-panes">
       <div class="canvas-stage">
         <div
-          v-if="!painted || initializationError"
+          v-if="initializationError || (!hasLoadingHost && !painted)"
           class="canvas-loading-overlay absolute inset-0 z-30 overflow-auto"
           :role="initializationError ? 'alert' : 'status'"
           aria-live="polite"

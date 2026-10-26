@@ -9,8 +9,11 @@ import { createCanvasResources } from '../utils/editor/canvasResources'
 import type { CanvasMetadata } from '../utils/editor/canvasSave'
 import type { JSONContent } from '@tiptap/core'
 import { ADMIN_PATHS } from '../constants/admin'
+import { CANVAS_LOADING } from '../utils/editor/canvasLoading'
 
 const props = defineProps<{ id: number | null }>()
+const editorLoading = inject(CANVAS_LOADING, undefined)
+const hasLoadingHost = editorLoading !== undefined
 const api = useBlogApi()
 const assets = useAssetApi()
 const feedback = useFeedback()
@@ -76,13 +79,22 @@ async function load() {
   const current = ++generation
   loading.value = true
   loadError.value = ''
+  if (editorLoading) {
+    editorLoading.value = { phase: '正在读取文章' }
+  }
   try {
     const post = props.id === null ? null : await api.get(props.id)
+    if (disposed || current !== generation) {
+      return
+    }
     if (
       post &&
       (post.revision === null || !Number.isSafeInteger(post.revision) || post.revision < 1)
     ) {
       throw new Error('管理修订信息缺失，无法安全保存。请重新读取。')
+    }
+    if (editorLoading) {
+      editorLoading.value = { phase: '正在解析文章' }
     }
     const result = await importer.check({
       kind: 'canvas-import',
@@ -137,6 +149,13 @@ async function load() {
       saveProperties: session.value.saveProperties,
     })
     initialContent.value = markRaw(result.document)
+    if (editorLoading) {
+      editorLoading.value = {
+        phase: '正在装载文章',
+        loaded: 0,
+        total: result.document.content?.length || undefined,
+      }
+    }
     documentKey.value++
     // 标签读取失败不清空正文中的既有标签；保留当前标签并允许重试目录。
     tags.value = post?.tags ?? []
@@ -144,6 +163,9 @@ async function load() {
   } catch (cause) {
     if (!disposed && current === generation) {
       loadError.value = cause instanceof Error ? cause.message : '文章读取失败，请重试。'
+      if (editorLoading) {
+        editorLoading.value = null
+      }
     }
   } finally {
     if (!disposed && current === generation) {
@@ -246,7 +268,9 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section class="blog-editor">
-    <EditorCanvasLoading v-if="loading" phase="正在读取文章" />
+    <template v-if="loading">
+      <EditorCanvasLoading v-if="!hasLoadingHost" phase="正在读取文章" />
+    </template>
     <UCard v-else-if="loadError" role="alert">
       <p class="mb-4">{{ loadError }}</p>
       <UButton @click="load">重新读取</UButton>
@@ -372,7 +396,7 @@ onBeforeUnmount(() => {
             </UDropdownMenu>
           </template>
         </LazyEditorImmersiveWorkbench>
-        <template #fallback><EditorCanvasLoading /></template>
+        <template #fallback><EditorCanvasLoading v-if="!hasLoadingHost" /></template>
       </ClientOnly>
     </div>
     <UModal
