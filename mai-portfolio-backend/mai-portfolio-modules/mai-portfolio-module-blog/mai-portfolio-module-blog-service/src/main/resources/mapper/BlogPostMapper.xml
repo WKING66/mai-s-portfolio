@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.blog.mapper.BlogPostMapper">
+    <resultMap id="publishedArticle" type="dev.amai.portfolio.blog.entity.dto.PublishedBlogData">
+        <association property="blog" javaType="dev.amai.portfolio.blog.entity.domain.BlogPostDO"
+                columnPrefix="b_" autoMapping="true">
+            <id property="id" column="id"/>
+        </association>
+        <association property="document" javaType="dev.amai.portfolio.blog.entity.domain.DocumentDO"
+                columnPrefix="d_" autoMapping="true">
+            <id property="id" column="id"/>
+        </association>
+        <association property="content" javaType="dev.amai.portfolio.blog.entity.domain.DocumentContentDO"
+                columnPrefix="c_" autoMapping="true">
+            <id property="id" column="id"/>
+        </association>
+    </resultMap>
+
+    <select id="existsOtherSlug" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM blog_post
+            WHERE LOWER(slug) = LOWER(#{slug})
+            <if test="id != null">
+                AND id != #{id}
+            </if>
+        )
+    </select>
+
+    <!-- 三表主体只返回一条正式正文；图片、附件、标签分别批量读取，避免长正文随关联数量重复传输。 -->
+    <select id="selectPublishedArticle" resultMap="publishedArticle">
+        SELECT b.id AS b_id, b.document_id AS b_document_id, b.slug AS b_slug,
+               b.status AS b_status, b.allow_visitor_download AS b_allow_visitor_download,
+               b.published_at AS b_published_at, b.created_at AS b_created_at, b.updated_at AS b_updated_at,
+               d.id AS d_id, d.owner_id AS d_owner_id, d.origin_type AS d_origin_type,
+               d.revision AS d_revision, d.created_at AS d_created_at, d.updated_at AS d_updated_at,
+               c.id AS c_id, c.document_id AS c_document_id, c.stage AS c_stage,
+               c.title AS c_title, c.summary AS c_summary, c.content AS c_content,
+               c.reading_time_minutes AS c_reading_time_minutes, c.updated_by AS c_updated_by,
+               c.created_at AS c_created_at, c.updated_at AS c_updated_at
+        FROM blog_post b
+        JOIN document d ON d.id = b.document_id
+        JOIN document_content c ON c.document_id = d.id AND c.stage = #{publishedStage}
+        WHERE b.slug = #{slug} AND b.status = #{publishedStatus}
+    </select>
+</mapper>

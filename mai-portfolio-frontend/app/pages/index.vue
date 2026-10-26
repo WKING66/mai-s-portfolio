@@ -1,0 +1,267 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { useSiteProfile } from '../api/profile'
+import { SITE_MESSAGES } from '../constants/messages'
+import { usePublicProjects } from '../api/projects'
+import { HOME_PROJECT_LIMIT, PROJECT_MESSAGES } from '../constants/projects'
+import { createProfileStructuredData, SEO_SITE_NAME } from '#shared/utils/seo'
+import { useReadErrorFeedback } from '../composables/useFeedback'
+
+// 1. 公开资料与项目并行读取；水合复用 SSR 快照，不等待账号会话恢复。
+const [profileRequest, projectsRequest] = await Promise.all([
+  useSiteProfile(),
+  usePublicProjects(1, HOME_PROJECT_LIMIT),
+])
+const { data: profileResponse, error: profileError } = profileRequest
+const siteProfile = computed(() =>
+  profileResponse.value?.code === 'OK' ? profileResponse.value.data : null,
+)
+const { data: projectListResponse, error: projectsError } = projectsRequest
+const featuredProjectPage = computed(() => projectListResponse.value?.data)
+// 2. 两类读取失败分别展示，不能以空结果冒充请求成功。
+useReadErrorFeedback(() => profileError.value, SITE_MESSAGES.profileLoadFailed)
+useReadErrorFeedback(() => projectsError.value, PROJECT_MESSAGES.loadFailed)
+
+const focusAreas = [
+  {
+    index: '01 / ENGINEERING',
+    title: '工具权限',
+    description: '关注 AI 智能体调用工具时的权限边界与可控性。',
+  },
+  {
+    index: '02 / EFFICIENCY',
+    title: 'Token 预算',
+    description: '在效果与成本之间寻找可度量、可复盘的平衡。',
+  },
+  {
+    index: '03 / EVALUATION',
+    title: '性能验证',
+    description: '不只追求看起来更好，更要证明改进确实发生。',
+  },
+]
+
+// 3. SEO 与结构化数据只消费当前公开资料，部署域名仍由共用 SEO 能力校验。
+const { siteOrigin } = usePortfolioSeo({
+  title: () =>
+    siteProfile.value
+      ? siteProfile.value.displayName + ' · ' + siteProfile.value.headline
+      : SEO_SITE_NAME,
+  description: () => siteProfile.value?.intro ?? '',
+  canonicalPath: '/',
+  available: () => !profileError.value && Boolean(siteProfile.value),
+})
+useHead(() => {
+  const structuredData = createProfileStructuredData(
+    siteOrigin,
+    profileError.value ? null : siteProfile.value,
+  )
+  return {
+    script: structuredData
+      ? [
+          {
+            key: 'portfolio-profile',
+            type: 'application/ld+json',
+            textContent: JSON.stringify(structuredData),
+          },
+        ]
+      : [],
+  }
+})
+</script>
+
+<template>
+  <div class="min-h-screen font-sans text-ink">
+    <main class="site-container">
+      <div v-if="profileError" class="py-10">
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-refresh-cw"
+          @click="profileRequest.refresh()"
+          >重新读取资料</UButton
+        >
+      </div>
+      <template v-else-if="siteProfile">
+        <ProfileHero :profile="siteProfile" />
+
+        <section class="section-space border-t border-line" aria-labelledby="focus-title">
+          <SectionHeading
+            id="focus-title"
+            eyebrow="02 / FOCUS"
+            title="我关注的问题"
+            description="一次大语言模型项目复盘，促使我把注意力放在更扎实的工程问题上。"
+          />
+          <div class="grid gap-5 md:grid-cols-3">
+            <SurfaceCard
+              v-for="area in focusAreas"
+              :key="area.index"
+              motion
+              class="focus-card flex min-h-52 flex-col justify-between gap-6 p-6"
+            >
+              <small class="font-mono text-xs font-bold tracking-wider text-accent">{{
+                area.index
+              }}</small>
+              <div>
+                <h3 class="mb-2 text-xl font-semibold tracking-tight">{{ area.title }}</h3>
+                <p class="leading-7 text-muted">{{ area.description }}</p>
+              </div>
+            </SurfaceCard>
+          </div>
+        </section>
+
+        <section
+          id="projects"
+          class="section-space border-t border-line"
+          aria-labelledby="projects-title"
+        >
+          <SectionHeading
+            id="projects-title"
+            eyebrow="03 / SELECTED WORK"
+            title="项目作品"
+            description="围绕 Java 后端与 AI 智能体开发的项目实践。"
+          >
+            <template #actions>
+              <NuxtLink
+                v-if="
+                  !projectsError &&
+                  featuredProjectPage &&
+                  featuredProjectPage.total > HOME_PROJECT_LIMIT
+                "
+                to="/projects"
+                data-more-projects
+                class="inline-flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-accent underline underline-offset-4"
+              >
+                更多项目 <span aria-hidden="true">↗</span>
+              </NuxtLink>
+            </template>
+          </SectionHeading>
+          <UButton
+            v-if="projectsError"
+            color="neutral"
+            variant="outline"
+            icon="i-lucide-refresh-cw"
+            @click="projectsRequest.refresh()"
+            >重新读取项目</UButton
+          >
+          <div v-else-if="featuredProjectPage?.items.length" class="grid gap-6 md:grid-cols-2">
+            <ProjectCard
+              v-for="project in featuredProjectPage.items"
+              :key="project.id"
+              :project="project"
+              motion
+            />
+          </div>
+          <SurfaceCard
+            v-if="!projectsError && !featuredProjectPage?.items.length"
+            motion
+            class="project-placeholder grid min-h-[330px] overflow-hidden p-7 md:grid-cols-[1fr_.8fr] md:gap-8 md:p-8"
+          >
+            <div class="flex flex-col justify-end">
+              <span class="mb-4 w-fit rounded-full border border-line px-3 py-1 text-xs text-muted"
+                >即将更新</span
+              >
+              <h3 class="mb-3 text-[clamp(1.7rem,3vw,2.6rem)] font-semibold tracking-tight">
+                真实项目，逐个呈现。
+              </h3>
+              <p class="max-w-[480px] leading-7 text-muted">{{ SITE_MESSAGES.projectsEmpty }}</p>
+              <a
+                v-if="siteProfile.githubUrl"
+                :href="siteProfile.githubUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="mt-6 w-fit text-sm font-bold text-accent underline underline-offset-4"
+                >先看看我的 GitHub ↗</a
+              >
+            </div>
+            <div
+              class="project-visual relative mt-8 min-h-[170px] overflow-hidden rounded-2xl md:mt-0"
+              aria-hidden="true"
+            >
+              <span
+                class="absolute right-4 bottom-0 text-[clamp(7rem,17vw,13rem)] leading-none font-black text-accent/15"
+                >01</span
+              >
+            </div>
+          </SurfaceCard>
+        </section>
+
+        <section id="blog" class="section-space border-t border-line" aria-labelledby="blog-title">
+          <SectionHeading
+            id="blog-title"
+            eyebrow="04 / JOURNAL"
+            title="博客笔记"
+            description="记录技术实践、项目复盘与持续学习；正式文章发布后在这里展示。"
+          />
+          <BlogJournal />
+        </section>
+
+        <section
+          id="contact"
+          class="section-space border-t border-line"
+          aria-labelledby="contact-title"
+        >
+          <SurfaceCard motion class="contact-hub p-7 sm:p-10">
+            <span class="eyebrow">05 / CONTACT</span>
+            <h2
+              id="contact-title"
+              class="mt-3 text-[clamp(1.875rem,4vw,2.5rem)] leading-tight font-semibold tracking-tight"
+            >
+              聊聊你的想法。
+            </h2>
+            <p class="mt-4 max-w-[620px] leading-7 text-muted">
+              {{ SITE_MESSAGES.contactInvitation }}
+            </p>
+            <div class="mt-7 flex flex-wrap gap-3">
+              <a v-if="siteProfile.email" :href="`mailto:${siteProfile.email}`" class="contact-link"
+                >✉ {{ siteProfile.email }}</a
+              >
+              <a
+                v-if="siteProfile.githubUrl"
+                :href="siteProfile.githubUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="contact-link"
+                >↗ GitHub / WKING66</a
+              >
+            </div>
+          </SurfaceCard>
+        </section>
+      </template>
+    </main>
+  </div>
+</template>
+
+<style scoped>
+.section-space {
+  padding-block: 64px;
+}
+.project-visual {
+  background: var(--site-bg-muted);
+}
+.contact-link {
+  padding: 11px 16px;
+  border: 1px solid var(--site-line);
+  border-radius: var(--site-radius);
+  text-decoration: none;
+  transition:
+    border-color 0.2s ease,
+    background-color 0.2s ease;
+}
+.contact-link:hover {
+  border-color: var(--site-accent);
+  background: var(--site-bg-muted);
+}
+@media (max-width: 720px) {
+  .section-space {
+    padding-block: 40px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .contact-link {
+    transition: none;
+  }
+  .contact-link:hover {
+    transform: none;
+  }
+}
+</style>

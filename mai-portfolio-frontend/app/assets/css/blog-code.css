@@ -1,0 +1,110 @@
+.blog-code {
+  --code-fg: var(--shiki-light);
+  --code-bg: var(--shiki-light-bg);
+  --code-toolbar-bg: var(--code-bg);
+  --code-control-bg: color-mix(in srgb, var(--code-bg) 94%, var(--code-fg));
+  --code-control-text: var(--code-fg);
+  --code-control-border: color-mix(in srgb, var(--code-fg) 55%, var(--code-bg));
+  --code-control-hover: color-mix(in srgb, var(--code-fg) 12%, var(--code-bg));
+  --code-focus-ring: var(--code-fg);
+  /* 官方控件和块内 Portal 消费这组语义变量，与全站明暗独立。 */
+  --ui-bg: var(--code-control-bg);
+  --ui-bg-elevated: var(--code-control-bg);
+  --ui-bg-muted: var(--code-control-hover);
+  --ui-bg-accented: var(--code-control-hover);
+  --ui-text: var(--code-control-text);
+  --ui-text-toned: var(--code-control-text);
+  --ui-text-highlighted: var(--code-control-text);
+  --ui-text-muted: var(--code-control-text);
+  --ui-text-dimmed: var(--code-control-text);
+  --ui-text-inverted: var(--code-bg);
+  --ui-border: var(--code-control-border);
+  --ui-border-muted: var(--code-control-border);
+  --ui-border-accented: var(--code-control-border);
+  --ui-primary: var(--code-focus-ring);
+  background: var(--code-bg, var(--site-bg-muted));
+  color: var(--code-fg, var(--site-text));
+}
+/* 代码主题同步切换，不给成百上千个 Shiki token 创建颜色过渡。控件沿用 Nuxt UI 交互。 */
+.blog-code pre {
+  white-space: pre;
+  overflow-wrap: normal;
+  scrollbar-gutter: stable;
+}
+/* Shiki AST 已包含行间换行，覆盖 ProsePre 的块级 .line，避免每行多出一空行。 */
+.blog-code pre .line {
+  display: inline;
+}
+.blog-code :where(pre, span) {
+  color: var(--shiki-light, inherit);
+}
+.blog-code-toolbar {
+  color: var(--code-fg);
+  background: var(--code-toolbar-bg);
+}
+.blog-code :is(button, [role='combobox']):focus-visible {
+  outline: 2px solid var(--code-focus-ring);
+  outline-offset: 2px;
+}
+.blog-code[data-code-theme='dark'],
+:root[data-theme='dark'] .blog-code[data-code-theme='follow'] {
+  --code-fg: var(--shiki-dark);
+  --code-bg: var(--shiki-dark-bg);
+}
+.blog-code[data-code-theme='dark'] :where(pre, span),
+:root[data-theme='dark'] .blog-code[data-code-theme='follow'] :where(pre, span) {
+  color: var(--shiki-dark, inherit);
+}
+.blog-code[data-code-theme='light'] {
+  --code-fg: var(--shiki-light);
+  --code-bg: var(--shiki-light-bg);
+}
+.blog-code[data-code-theme='light'] :where(pre, span) {
+  color: var(--shiki-light, inherit);
+}
+.blog-code[data-code-theme='nord'] {
+  --code-fg: var(--shiki-nord);
+  --code-bg: var(--shiki-nord-bg);
+}
+.blog-code[data-code-theme='nord'] :where(pre, span) {
+  color: var(--shiki-nord, inherit);
+}
+.blog-code[data-code-theme='tokyo'] {
+  --code-fg: var(--shiki-tokyo);
+  --code-bg: var(--shiki-tokyo-bg);
+}
+.blog-code[data-code-theme='tokyo'] :where(pre, span) {
+  color: var(--shiki-tokyo, inherit);
+}
+.blog-code[data-code-theme='dracula'] {
+  --code-fg: var(--shiki-dracula);
+  --code-bg: var(--shiki-dracula-bg);
+}
+.blog-code[data-code-theme='dracula'] :where(pre, span) {
+  color: var(--shiki-dracula, inherit);
+}
+/* 折叠仅裁切可见高度，完整 Shiki AST、源码及横向滚动始终保留。 */
+.blog-code-viewport {
+  position: relative;
+}
+.blog-code-viewport[data-code-collapsed='true'] pre {
+  max-height: calc((var(--code-preview-lines) + 1) * 1.5rem);
+  overflow-y: hidden;
+}
+.blog-code-viewport[data-code-collapsed='true']::after {
+  content: '';
+  position: absolute;
+  inset: auto 0 0;
+  height: 3rem;
+  background: linear-gradient(transparent, var(--code-toolbar-bg));
+  pointer-events: none;
+}
+.blog-code-fold {
+  display: flex;
+  justify-content: center;
+  padding: 0.35rem;
+  border-top: 1px solid var(--code-control-border);
+}
+.blog-code-fold button {
+  color: var(--code-control-text);
+}

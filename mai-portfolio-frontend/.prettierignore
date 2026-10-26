@@ -1,0 +1,11 @@
+node_modules/
+.nuxt/
+.output/
+dist/
+coverage/
+.local-backups/
+package-lock.json
+.env
+.env.*
+# These copied logos are third-party assets, not frontend business source.
+public/tech/

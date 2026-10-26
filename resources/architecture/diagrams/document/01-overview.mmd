@@ -1,14 +1,11 @@
-%% Generated from docs/architecture/document-import-export.md; edit that document first.
 flowchart LR
-    input[Markdown 文件或编辑正文] --> prepare[解析与资源准备]
-    prepare --> doc[Document 不可变版本]
-    doc --> blog[Blog 草稿与公开版本指针]
-    doc --> relation[DocumentResource 稳定引用]
-    relation --> asset[Asset 文件元数据]
-    asset --> oss[私有 OSS 对象]
-    blog --> projection[公开或管理投影]
-    projection --> nuxt[Nuxt 正文展示]
-    nuxt -->|签名 URL 直连| oss
-    doc --> export[已授权的文档导出]
-    export --> md[Markdown 与签名资源链接]
-    export --> zip[ZIP 正文与资源文件]
+    input[Markdown / 编辑正文] --> prepare[解析与资源准备]
+    prepare --> draft[唯一 DRAFT 槽位]
+    draft -->|显式发布 / 替换旧正式正文| formal[PUBLISHED 槽位]
+    formal --> visible[Blog 公开状态]
+    draft --> relation[DocumentResource]
+    formal --> relation
+    relation --> asset[Asset 元数据]
+    asset --> oss[私有 OSS]
+    visible --> view[公开投影]
+    view -->|签名 URL| browser[浏览器直连 OSS]

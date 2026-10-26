@@ -1,0 +1,86 @@
+/* 全站语义 token，由 html 的主题状态统一选择。 */
+:root {
+  color-scheme: light;
+  --site-bg: #f5f7f6;
+  --site-surface: #ffffff;
+  --site-text: #1f2d2b;
+  --site-muted: #596c69;
+  --site-line: #cddad5;
+  --site-accent: #36776d;
+  --site-accent-secondary: #36776d;
+  --site-primary-hover: #2b6058;
+  --site-inverted: #ffffff;
+  --site-bg-muted: #edf2f0;
+  --site-bg-elevated: #e7eeeb;
+  --site-bg-accented: #dce7e2;
+  --site-border-muted: #dce5e1;
+  --site-border-accented: #aebfb7;
+  --site-success: #2f745f;
+  --site-info: #3b6ea2;
+  --site-warning: #8b621a;
+  --site-error: #b54446;
+  --site-shadow: 0 4px 16px rgb(31 45 43 / 6%);
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --site-bg: #10191c;
+  --site-surface: #182326;
+  --site-text: #e5eeeb;
+  --site-muted: #a2b5b2;
+  --site-line: #35494b;
+  --site-accent: #82b8ad;
+  --site-accent-secondary: #82b8ad;
+  --site-primary-hover: #9ac4b8;
+  --site-inverted: #10191c;
+  --site-bg-muted: #1d2c30;
+  --site-bg-elevated: #243438;
+  --site-bg-accented: #2d4245;
+  --site-border-muted: #2d3d40;
+  --site-border-accented: #4c6868;
+  --site-success: #8dc6a5;
+  --site-info: #99bde0;
+  --site-warning: #dcc28b;
+  --site-error: #e5a1a5;
+  --site-shadow: 0 4px 16px rgb(0 0 0 / 16%);
+}
+:root {
+  --site-width: 75rem;
+  --site-reading-width: 47.5rem;
+  --site-gutter: clamp(1rem, 3vw, 1.5rem);
+  --site-header-height: calc(4.5rem + 1px);
+  --site-overlay-top: min(var(--site-header-height), 25svh);
+  --site-radius: 0.75rem;
+  --ui-radius: 0.25rem;
+  --ui-color-primary-50: #edf5f2;
+  --ui-color-primary-100: #dbece5;
+  --ui-color-primary-200: #bdd9cf;
+  --ui-color-primary-300: #9ac4b8;
+  --ui-color-primary-400: #82b8ad;
+  --ui-color-primary-500: #4b8c80;
+  --ui-color-primary-600: #36776d;
+  --ui-color-primary-700: #2b6058;
+  --ui-color-primary-800: #264d47;
+  --ui-color-primary-900: #223f3a;
+  --ui-color-primary-950: #112622;
+  --ui-primary: var(--site-accent);
+  --ui-secondary: var(--site-accent);
+  --ui-success: var(--site-success);
+  --ui-info: var(--site-info);
+  --ui-warning: var(--site-warning);
+  --ui-error: var(--site-error);
+  --ui-text-dimmed: var(--site-muted);
+  --ui-text-muted: var(--site-muted);
+  --ui-text-toned: var(--site-text);
+  --ui-text: var(--site-text);
+  --ui-text-highlighted: var(--site-text);
+  --ui-text-inverted: var(--site-inverted);
+  --ui-bg: var(--site-surface);
+  --ui-bg-muted: var(--site-bg-muted);
+  --ui-bg-elevated: var(--site-bg-elevated);
+  --ui-bg-accented: var(--site-bg-accented);
+  --ui-bg-inverted: var(--site-text);
+  --ui-border: var(--site-line);
+  --ui-border-muted: var(--site-border-muted);
+  --ui-border-accented: var(--site-border-accented);
+  --ui-border-inverted: var(--site-text);
+}

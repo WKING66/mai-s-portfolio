@@ -1,0 +1,38 @@
+package dev.amai.portfolio.web.exception;
+
+import org.springframework.http.HttpStatus;
+
+/** API 机器错误码与 HTTP 状态的共同来源，保持现有错误码名称和映射。 */
+public enum ApiErrorCode {
+    UNAUTHENTICATED(HttpStatus.UNAUTHORIZED),
+    AUTH_INVALID_CREDENTIAL_PAYLOAD(HttpStatus.BAD_REQUEST),
+    HTTPS_REQUIRED(HttpStatus.FORBIDDEN),
+    AUTH_INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED),
+    FORBIDDEN(HttpStatus.FORBIDDEN),
+    ORIGIN_INVALID(HttpStatus.FORBIDDEN),
+    CSRF_INVALID(HttpStatus.FORBIDDEN),
+    NOT_FOUND(HttpStatus.NOT_FOUND),
+    VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY),
+    PAYLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE),
+    MALFORMED_REQUEST(HttpStatus.BAD_REQUEST),
+    METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED),
+    UNSUPPORTED_MEDIA_TYPE(HttpStatus.UNSUPPORTED_MEDIA_TYPE),
+    DATA_CONFLICT(HttpStatus.CONFLICT),
+    BLOG_SLUG_INVALID(HttpStatus.UNPROCESSABLE_ENTITY),
+    BLOG_SLUG_IMMUTABLE(HttpStatus.UNPROCESSABLE_ENTITY),
+    BLOG_SLUG_CONFLICT(HttpStatus.CONFLICT),
+    DOCUMENT_REVISION_CONFLICT(HttpStatus.CONFLICT),
+    REQUEST_ID_CONFLICT(HttpStatus.CONFLICT),
+    RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),
+    INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
+
+    private final HttpStatus status;
+
+    ApiErrorCode(HttpStatus status) {
+        this.status = status;
+    }
+
+    public HttpStatus status() {
+        return status;
+    }
+}

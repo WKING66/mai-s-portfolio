@@ -1,0 +1,3 @@
+# 自有 Java 与 POM 使用 LF，避免 Windows 检出时换行反复变化。
+*.java text eol=lf
+pom.xml text eol=lf

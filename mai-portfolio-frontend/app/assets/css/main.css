@@ -1,0 +1,115 @@
+@import 'tailwindcss';
+@import '@nuxt/ui';
+@import 'katex/dist/katex.min.css';
+@import './design-tokens.css';
+@import './blog-code.css';
+@import './blog-reading.css';
+
+@theme inline {
+  --font-sans: Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'Cascadia Code', 'SFMono-Regular', Consolas, monospace;
+  --color-canvas: var(--site-bg);
+  --color-ink: var(--site-text);
+  --color-muted: var(--site-muted);
+  --color-accent: var(--site-accent);
+  --color-accent-secondary: var(--site-accent-secondary);
+  --color-line: var(--site-line);
+}
+
+@layer base {
+  html {
+    min-height: 100%;
+    scroll-behavior: auto;
+    scrollbar-gutter: stable;
+  }
+  body {
+    min-width: 0;
+    min-height: 100svh;
+    margin: 0;
+    color: var(--site-text);
+    background: var(--site-bg);
+    font-size: 1rem;
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+  }
+  #__nuxt {
+    min-height: 100svh;
+  }
+  /* 单列隐式 Grid 允许内容收缩；显式列模板和 auto-cols 工具类仍优先。 */
+  :where(.grid) {
+    grid-auto-columns: minmax(0, 1fr);
+  }
+  :where(section[id], article [id], h1[id], h2[id], h3[id]) {
+    scroll-margin-top: calc(var(--site-header-height) + 24px);
+  }
+  :where(
+    a,
+    button,
+    summary,
+    input,
+    textarea,
+    select,
+    [role='combobox'],
+    [role='separator']
+  ):focus-visible {
+    outline: 2px solid var(--ui-primary);
+    outline-offset: 3px;
+  }
+}
+@layer components {
+  .site-container {
+    width: 100%;
+    min-width: 0;
+    max-width: var(--site-width);
+    margin-inline: auto;
+    padding-inline: var(--site-gutter);
+  }
+  .site-reading {
+    max-width: var(--site-reading-width);
+  }
+  .site-page {
+    min-height: 70svh;
+    padding-block: clamp(2rem, 5vw, 3rem) clamp(3rem, 7vw, 4rem);
+  }
+  .site-page-title {
+    font-size: clamp(1.875rem, 4vw, 2.5rem);
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+  }
+  .admin-content-layout {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    min-width: 0;
+    align-items: start;
+    gap: 1.5rem;
+  }
+  .eyebrow {
+    color: var(--site-accent);
+    font: 600 0.6875rem var(--font-mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  /* 旧类名仍被账户与管理页引用，渐进迁移为实体表面，保留兼容。 */
+  .glass-surface {
+    border: 1px solid var(--site-line);
+    background: var(--site-surface);
+    box-shadow: none;
+  }
+}
+:is(button, a).bg-primary:where(:hover, :active):not(:disabled):not([aria-disabled='true']) {
+  background-color: var(--site-primary-hover);
+}
+@media (min-width: 1280px) {
+  .admin-content-layout {
+    grid-template-columns: minmax(0, 1fr) 18rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    animation-duration: 0s !important;
+  }
+}

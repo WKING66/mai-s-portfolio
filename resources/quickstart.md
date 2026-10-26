@@ -4,7 +4,7 @@
 
 ## 本地启动
 
-准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。IDEA 运行 `dev.amai.portfolio.PortfolioApplication`，使用 `dev` 配置，默认后端 9333。按 `.env.example` 向 Java 进程注入数据库、Redis、OSS、初始化站长密码及 RSA 私钥位置；本地 `.env` 文件本身不会自动成为 Java 环境变量。前端运行环境提供对应的 SPKI 公钥。
+准备 Java 21、Maven、Node.js 24、PostgreSQL 和 Redis。IDEA 导入 `mai-portfolio-backend/pom.xml`，运行 `dev.amai.portfolio.PortfolioApplication`，使用 `dev` 配置，默认后端 9333。按 `.env.example` 向 Java 进程注入数据库、Redis、OSS、初始化站长密码及 RSA 私钥位置；本地 `.env` 文件本身不会自动成为 Java 环境变量。前端运行环境提供对应的 SPKI 公钥。
 
 首次启动确认连接的是专用开发库 `portfolio_dev`，不要指向已有业务或生产库。初始化站长密码只在首次建号时保存，修改启动配置不会重置已有账号。数据库初始化与迁移见 [数据库说明](database/README.md)。
 
@@ -13,7 +13,7 @@ Redis 由 Redisson 统一接入。项目自有键统一使用 `REDIS_KEY_PREFIX`
 本地 `dev` 启动默认使用真实私有 OSS，PostgreSQL 只保存 Asset 元数据。向后端运行进程提供 `MEDIA_STORAGE=oss` 和 `.env.example` 中的完整 HTTPS endpoint、Bucket、AccessKey 配置；对象存储配置要求 HTTPS 根地址。`local` 实现只供自动化测试或显式离线排障，字节写入被 Git 忽略的 `.local-media`。AccessKey 不进入前端、接口响应或版本库。两种实现都拒绝覆盖同名对象，业务层后续通过新增 Asset/对象键完成版本更新。
 
 ```powershell
-cd frontend
+cd mai-portfolio-frontend
 npm ci
 npm run dev
 ```
@@ -28,11 +28,17 @@ npm run dev
 
 统一资产：`POST /api/v1/assets` 接收 multipart 的 `file`、`usage`；AVATAR 允许有效登录账号，IMAGE/ATTACHMENT 要求 OWNER。头像、封面、博客插图和附件共用一套上传链路，返回资产 ID、`resourceUrl`、`expiresAt`。头像通过 `PUT /api/v1/account/avatar {"assetId":...}` 绑定本人上传的头像资产；项目封面随项目快照的 `coverMediaId` 绑定。上传者或 OWNER 可 `GET /api/v1/assets/{id}` 刷新地址。网站资料和项目投影直接返回 OSS 地址；普通静态资源没有后端字节代理，项目下架不撤销已签发的地址。私有 Bucket 保持私有，签名默认 1 小时（`MEDIA_SIGNED_URL_TTL`），浏览器直连 OSS。部署前执行 V4 元数据迁移；local 存储只用于离线存储测试，不提供资源直连地址。
 
-项目业务统一在 `/api/v1/projects`，标签在 `/api/v1/tags`；角色由操作权限体现。博客已接入统一 Document：支持 Markdown 导入、不可变草稿版本、显式发布、资源直连展示及登录后的 MD/ZIP 导出。完整链路及流程图见 [文档导入导出说明](architecture/document-import-export.md)。
+项目业务统一在 `/api/v1/projects`，标签在 `/api/v1/tags`；角色由操作权限体现。博客已接入统一 Document：支持 Markdown 导入、唯一工作草稿、显式发布/下架/恢复、草稿与文章删除、标签与导入追踪、资源直连展示及登录后的 MD/ZIP 导出。完整链路及流程图见 [文档导入导出说明](architecture/document-import-export.md)。
 
 本地开发启动成功后，终端会打印 Knife4j 与 OpenAPI 地址。开发后端仅监听 `127.0.0.1`；`portfolio.api-log.enabled` 在 `dev` 环境默认开启，其余环境默认关闭。AOP 只记录显式标注 `@ApiLog` 且已经进入 Controller 的接口调用，记录路由、耗时及截断后的入参/出参；密码、令牌、Cookie、邮箱、Markdown 正文及 OSS 签名地址内置脱敏，文件/字节流直接省略。需要额外隐藏业务字段时配置 `portfolio.api-log.additional-sensitive-fields`，单条内容上限由 `portfolio.api-log.max-payload-length` 控制。未标注接口以及鉴权拦截阶段拒绝的请求不经过 Controller AOP。
 
 传输安全：本地回环 HTTP 仅供开发。请求体中的密码用固定 RSA-OAEP 公钥加密，但 HTTP 下公钥及前端脚本都可能被中间人替换，因此这**不能替代 HTTPS**；非本机 HTTP 浏览器通常也不开放 Web Crypto。生产认证拦截器仍要求 HTTPS；可信反向代理、安全 Cookie 和文档访问策略待部署阶段确认，当前开发配置不得直接作为公网安全配置使用。
+
+## V8 内容模型升级
+
+V8 将旧当前/发布指针迁为工作草稿与正式正文槽位，删除未选中的历史版本及旧 role/alt_text 字段。升级前必须暂停旧后端写入，完成完整可恢复数据库备份，在隔离副本演练后再启动新后端执行 Flyway；不要手工重复执行 SQL。原业务数据需按旧指针核对，原 Asset 文件不删除。新后端不能和 V7 后端同时写同一库，回退需要匹配的代码与数据库备份，不能只回退应用包。
+
+API 的 revision/contentId、标签及新状态动作见 [博客契约](api/blog-document.md)。前端完成适配后再进行页面联调。
 
 ## SEO 域名配置
 
@@ -43,12 +49,12 @@ npm run dev
 ## 检查
 
 ```powershell
-cd backend
+cd mai-portfolio-backend
 mvn test
 ```
 
 ```powershell
-cd frontend
+cd mai-portfolio-frontend
 npm run typecheck
 npm test
 npm run build
