@@ -8,6 +8,7 @@ import {
   IMMERSIVE_COMMANDS,
   immersiveCommandProblem,
   executeImmersiveCommand,
+  immersiveSlashTarget,
   nextImmersiveMenuIndex,
   type ImmersiveMenuTarget,
   type ImmersiveCommandItem,
@@ -185,27 +186,16 @@ onMounted(() => {
           if (explicit !== undefined) {
             return explicit
           }
-          if (previous?.kind === 'block') {
-            return tr.docChanged ? null : previous
+          if (previous && previous.kind !== 'slash' && !tr.docChanged) {
+            return tr.selectionSet ? null : previous
           }
           if (!tr.docChanged && !tr.selectionSet) {
             return previous
           }
-          const resolved = state.selection.$from
-          if (!state.selection.empty || resolved.parent.type.name !== 'paragraph') {
+          if (!previous && !tr.docChanged) {
             return null
           }
-          const text = resolved.parent.textBetween(0, resolved.parentOffset, undefined, '\ufffc')
-          const match = text.match(new RegExp('^/([^\\n]{0,60})$'))
-          if (!match || (!previous && !tr.docChanged)) {
-            return null
-          }
-          return {
-            kind: 'slash',
-            from: resolved.start(),
-            to: state.selection.from,
-            query: match[1] || '',
-          }
+          return immersiveSlashTarget(state)
         },
       },
       props: { handleKeyDown: (_view, event) => keydown(event) },
@@ -250,7 +240,7 @@ onBeforeUnmount(() => {
         @mousedown="target.kind === 'slash' && $event.preventDefault()"
       >
         <input
-          v-if="target.kind === 'block'"
+          v-if="target.kind !== 'slash'"
           v-model="search"
           aria-label="搜索插入命令"
           placeholder="搜索内容块…"

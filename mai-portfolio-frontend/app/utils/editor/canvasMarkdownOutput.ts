@@ -51,11 +51,13 @@ export class CanvasMarkdownWriter extends MarkdownManager {
               this.renderNodeToMarkdown(child, item, childIndex, level + 1),
             )
             .join('\n\n')
+          // GFM 的复选框属于首行正文；后续块只按列表标记缩进，不能把 [ ] 再计入缩进。
+          const continuationIndent = node.type === 'taskList' ? 2 : prefix.length
           return (
             prefix +
             content
               .split('\n')
-              .map((line, lineIndex) => (lineIndex ? ' '.repeat(prefix.length) : '') + line)
+              .map((line, lineIndex) => (lineIndex ? ' '.repeat(continuationIndent) : '') + line)
               .join('\n')
           )
         })
