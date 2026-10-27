@@ -4,7 +4,7 @@ import { useClipboard } from '@vueuse/core'
 import type { InputProps } from '@nuxt/ui'
 import type { InputHTMLAttributes } from 'vue'
 import { CODE_THEMES, CODE_FOLD, codeLabel, type CodeTheme } from '../../constants/codeThemes'
-import { NodeSelection } from '@tiptap/pm/state'
+import { NodeSelection, Selection } from '@tiptap/pm/state'
 import { codeLanguageOptions, resolveCodeLanguage } from '../../utils/codeLanguages'
 import { codeFormatter } from '../../utils/editor/codeFormatting'
 import { formatCodeInWorker } from '../../utils/editor/codeFormattingClient'
@@ -105,9 +105,22 @@ const isLongCodeBlock = computed(
 )
 const collapsed = computed(() => isLongCodeBlock.value && !expanded.value && !caretInside.value)
 const isMermaid = computed(() => language.value === 'mermaid')
-const caretInside = computed(() =>
-  props.decorations.some((decoration) => decoration.spec.immersiveCaret),
-)
+const caretInside = ref(false)
+function updateCaretInside() {
+  const position = props.getPos()
+  const { selection, doc } = props.editor.state
+  const node = typeof position === 'number' ? doc.nodeAt(position) : null
+  caretInside.value =
+    typeof position === 'number' &&
+    Boolean(node) &&
+    !(selection instanceof NodeSelection) &&
+    ((selection.from > position && selection.from < position + node!.nodeSize) ||
+      (selection.to > position && selection.to < position + node!.nodeSize))
+}
+// Vue NodeView 不保证在仅选区变化时刷新 decorations props；光标必须跟随真实选区。
+props.editor.on('selectionUpdate', updateCaretInside)
+onBeforeUnmount(() => props.editor.off('selectionUpdate', updateCaretInside))
+watch(() => props.node, updateCaretInside, { immediate: true })
 const { copy, copied } = useClipboard({ legacy: true })
 watch(
   [caretInside, canEdit],
@@ -123,6 +136,7 @@ watch(
   { immediate: true },
 )
 const toast = useToast()
+
 async function toggleCode() {
   const position = props.getPos()
   if (typeof position !== 'number') {
@@ -140,14 +154,26 @@ async function toggleCode() {
         toast.add({ title: '请先取消代码中的文字选区，再收起代码。', color: 'neutral' })
         return
       }
+      // 优先把光标移到相邻正文，不为收起制造整块全选；孤立代码块才使用节点选区。
+      const visibleSelection =
+        Selection.findFrom(state.doc.resolve(position + props.node.nodeSize), 1, true) ||
+        Selection.findFrom(state.doc.resolve(position), -1, true) ||
+        NodeSelection.create(state.doc, position)
       props.editor.view.dispatch(
-        state.tr
-          .setSelection(NodeSelection.create(state.doc, position))
-          .setMeta('addToHistory', false),
+        state.tr.setSelection(visibleSelection).setMeta('addToHistory', false),
       )
+      // 同步原生 DOM 光标，避免按钮夺焦后旧代码光标把收起预览滚到中间。
+      props.editor.view.focus()
     }
     expanded.value = false
     await nextTick()
+    // 编辑深处时浏览器可能滚动 pre；收起预览固定从首行开始，与行号保持一致。
+    if (element instanceof HTMLElement) {
+      const input = element.querySelector<HTMLElement>('.immersive-code-input')
+      if (input) {
+        input.scrollTop = 0
+      }
+    }
     const pane =
       element instanceof HTMLElement ? element.closest<HTMLElement>('.canvas-pane') : null
     if (pane && element instanceof HTMLElement) {
