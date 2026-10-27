@@ -84,11 +84,8 @@ const lineNumbers = computed(() =>
 )
 const expanded = ref(false)
 watch(
-  [expanded, () => props.node],
-  ([value], previous) => {
-    if (!value && !previous?.[0]) {
-      return
-    }
+  expanded,
+  (value) => {
     const position = props.getPos()
     if (typeof position === 'number' && !props.editor.isDestroyed) {
       props.editor.view.dispatch(
