@@ -8,7 +8,7 @@ import {
   IMMERSIVE_COMMANDS,
   immersiveCommandProblem,
   executeImmersiveCommand,
-  immersiveSlashTarget,
+  advanceImmersiveMenu,
   nextImmersiveMenuIndex,
   type ImmersiveMenuTarget,
   type ImmersiveCommandItem,
@@ -108,6 +108,11 @@ function keydown(event: KeyboardEvent) {
   if (!target.value || event.isComposing) {
     return false
   }
+  if (event.key === 'ArrowRight' && target.value.kind === 'slash') {
+    close()
+    // 退出菜单后仍允许正文执行原生向右移动。
+    return false
+  }
   if (event.key === 'Escape') {
     close()
     event.preventDefault()
@@ -181,22 +186,7 @@ onMounted(() => {
       key: IMMERSIVE_MENU_KEY,
       state: {
         init: () => null,
-        apply(tr, previous, _old, state) {
-          const explicit = tr.getMeta(IMMERSIVE_MENU_KEY)
-          if (explicit !== undefined) {
-            return explicit
-          }
-          if (previous && previous.kind !== 'slash' && !tr.docChanged) {
-            return tr.selectionSet ? null : previous
-          }
-          if (!tr.docChanged && !tr.selectionSet) {
-            return previous
-          }
-          if (!previous && !tr.docChanged) {
-            return null
-          }
-          return immersiveSlashTarget(state)
-        },
+        apply: advanceImmersiveMenu,
       },
       props: { handleKeyDown: (_view, event) => keydown(event) },
       view: (view) => {

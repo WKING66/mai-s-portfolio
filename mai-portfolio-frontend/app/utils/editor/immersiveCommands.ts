@@ -1,5 +1,6 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
-import { PluginKey, type EditorState } from '@tiptap/pm/state'
+import { PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { isHistoryTransaction } from '@tiptap/pm/history'
 import { immersiveInsertionProblem, immersiveDocumentProblem } from './immersiveCapabilities'
 import type { Node } from '@tiptap/pm/model'
 
@@ -79,20 +80,64 @@ function currentLineStart(state: EditorState) {
   })
   return start
 }
+const SLASH_QUERY_LIMIT = 6
 export function immersiveSlashTarget(state: EditorState): ImmersiveMenuTarget | null {
   const from = currentLineStart(state)
   if (from === null) {
     return null
   }
   const resolved = state.selection.$from
+  // 查询最多六个 Unicode 字符，普通长段落不复制整行文本来判断菜单。
+  if (state.selection.from - from > 1 + SLASH_QUERY_LIMIT * 2) {
+    return null
+  }
   const text = resolved.parent.textBetween(
     from - resolved.start(),
     resolved.parentOffset,
     undefined,
     '\ufffc',
   )
-  const match = text.match(/^\/([^\n]{0,60})$/)
-  return match ? { kind: 'slash', from, to: state.selection.from, query: match[1] || '' } : null
+  const match = text.match(/^\/([^\n]*)$/u)
+  return match && Array.from(match[1] || '').length <= SLASH_QUERY_LIMIT
+    ? { kind: 'slash', from, to: state.selection.from, query: match[1] || '' }
+    : null
+}
+
+/** 菜单属于本次新输入的斜杠；退出后，定位或继续编辑同一个斜杠都不重新激活。 */
+export function advanceImmersiveMenu(
+  tr: Transaction,
+  previous: ImmersiveMenuTarget | null,
+  old: EditorState,
+  state: EditorState,
+): ImmersiveMenuTarget | null {
+  const explicit = tr.getMeta(IMMERSIVE_MENU_KEY)
+  if (explicit !== undefined) {
+    return explicit
+  }
+  if (previous && previous.kind !== 'slash' && !tr.docChanged) {
+    return tr.selectionSet ? null : previous
+  }
+  if (!tr.docChanged && !tr.selectionSet) {
+    return previous
+  }
+  if (!previous && !tr.docChanged) {
+    return null
+  }
+  const next = immersiveSlashTarget(state)
+  if (!next) {
+    return null
+  }
+  if (previous?.kind === 'slash') {
+    return next.from === tr.mapping.map(previous.from, -1) ? next : null
+  }
+  if (next.query || tr.getMeta('uiEvent') === 'paste' || isHistoryTransaction(tr)) {
+    return null
+  }
+  const before = tr.mapping.invert().map(next.from, 1)
+  const sameSlash =
+    old.doc.textBetween(before, Math.min(before + 1, old.doc.content.size)) === '/' &&
+    tr.mapping.map(before, 1) === next.from
+  return sameSlash ? null : next
 }
 export function openImmersiveMenu(editor: Editor, position: number) {
   const line = currentLineStart(editor.state)
