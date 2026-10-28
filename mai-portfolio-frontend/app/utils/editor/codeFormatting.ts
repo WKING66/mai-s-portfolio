@@ -47,6 +47,24 @@ export function codeFormatter(language: string) {
   return formats[language]
 }
 
+/** 用户先看到当前解析语言和处理办法；第三方解析器细节仅供展开查看。 */
+export function codeFormattingMessage(cause: unknown, source: string, languageLabel: string) {
+  const detail = cause instanceof Error ? cause.message : String(cause)
+  // 加载/配置/体积限制由本模块给出可操作提示，不误报为代码语法错误。
+  if (
+    /^(格式化语言插件加载失败|格式化配置不兼容|格式化组件加载失败|格式化已取消|代码过长|当前语言没有)/.test(
+      detail,
+    )
+  ) {
+    return { message: detail, detail: '' }
+  }
+  const looksLikeC = /^\s*#\s*include\s*[<"]/m.test(source)
+  const help =
+    looksLikeC && !['C', 'C++', 'Objective-C', 'Objective-C++'].includes(languageLabel)
+      ? '这段代码包含 C/C++ 的 #include，请在顶部将代码语言改为 C 或 C++ 后重试。'
+      : '请确认顶部代码语言与内容一致，并检查语法后重试。'
+  return { message: '无法按“' + languageLabel + '”格式化。' + help + '原代码未改动。', detail }
+}
 let context: Promise<FormatterContext> | undefined
 const loaded = new Map<PluginId, Promise<ContextFormatter>>()
 async function loadPlugin(id: PluginId): Promise<ContextFormatter> {

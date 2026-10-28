@@ -5,6 +5,7 @@ import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import {
   codeFormatter,
+  codeFormattingMessage,
   formatCodeSource as formatCanonicalCodeSource,
 } from '../utils/editor/codeFormatting'
 import { resolveCodeLanguage } from '../utils/codeLanguages'
@@ -117,6 +118,39 @@ describe('代码格式化边界', () => {
     await expect(formatCodeSource('if a:', 'python')).rejects.toThrow()
     await expect(formatCodeSource('const = {', 'javascript')).rejects.toThrow()
     await expect(formatCodeSource('x'.repeat(200001), 'javascript')).rejects.toThrow('过长')
+  })
+  it('真实笔记的大写 C 围栏及相对路径 include 使用 C 格式化器', async () => {
+    const source =
+      '/**\n * File: time_complexity.c\n * Created Time: 2023-01-03\n * C fixture\n */\n\n#include "../utils/common.h"\n\nint constant(int n) { int count = 0; for (int i = 0; i < 100000; i++) { count++; } return count; }'
+    expect(resolveCodeLanguage('C')).toBe('c')
+    const result = await formatCodeSource(source, 'C')
+    expect(result).toContain('#include "../utils/common.h"')
+    expect(result).toContain('int constant(int n)')
+    expect(await formatCodeSource(result, 'C')).toBe(result)
+  })
+  it('语言选错时先说明当前语言与修正办法，原始解析器错误仅作为详情', async () => {
+    const source = '#include "../utils/common.h"\nint main(){return 0;}'
+    let failure: unknown
+    try {
+      await formatCodeSource(source, 'javascript')
+    } catch (cause) {
+      failure = cause
+    }
+    expect(failure).toBeInstanceOf(Error)
+    const hint = codeFormattingMessage(failure, source, 'JavaScript')
+    expect(hint.message).toContain('JavaScript')
+    expect(hint.message).toContain('改为 C 或 C++')
+    expect(hint.message).toContain('原代码未改动')
+    expect(hint.message).not.toContain('Expected')
+    expect(hint.detail).toBe((failure as Error).message)
+    const network = codeFormattingMessage(
+      new Error('格式化语言插件加载失败，请重试；原代码已保留。'),
+      source,
+      'C',
+    )
+    expect(network.message).toContain('加载失败')
+    expect(network.message).not.toContain('检查语法')
+    expect(network.detail).toBe('')
   })
   it('C 代码格式化不重排 include 或修改字符串内容', async () => {
     const result = await formatCodeSource(

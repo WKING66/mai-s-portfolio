@@ -6,7 +6,7 @@ import type { InputHTMLAttributes } from 'vue'
 import { CODE_THEMES, CODE_FOLD, codeLabel, type CodeTheme } from '../../constants/codeThemes'
 import { NodeSelection, Selection } from '@tiptap/pm/state'
 import { codeLanguageOptions, resolveCodeLanguage } from '../../utils/codeLanguages'
-import { codeFormatter } from '../../utils/editor/codeFormatting'
+import { codeFormatter, codeFormattingMessage } from '../../utils/editor/codeFormatting'
 import { formatCodeInWorker } from '../../utils/editor/codeFormattingClient'
 import { applyFormattedCode } from '../../utils/editor/codeFormattingTransaction'
 import { IMMERSIVE_CODE_EXPANDED } from '../../utils/editor/immersiveDecorations'
@@ -218,10 +218,12 @@ async function toggleCode(event?: MouseEvent) {
 }
 const formatting = ref(false)
 const formatError = ref('')
+const formatErrorDetail = ref('')
 watch(
   () => [props.node.textContent, props.node.attrs.language],
   () => {
     formatError.value = ''
+    formatErrorDetail.value = ''
   },
 )
 let formatController: AbortController | undefined
@@ -234,6 +236,8 @@ async function formatCode() {
   formatController = controller
   formatting.value = true
   formatError.value = ''
+  formatErrorDetail.value = ''
+  const formatterLabel = selectedLanguageLabel.value
   // 在用户点击时展开；后台完成后不再改折叠偏好，避免跳走后被迟到结果强制展开。
   expanded.value = true
   try {
@@ -252,10 +256,10 @@ async function formatCode() {
         String(props.node.attrs.language || '') !== snapshot.info
       ) {
         formatError.value = '代码在格式化期间已变化，请重试；当前内容已保留。'
-      } else if (cause instanceof Error) {
-        formatError.value = cause.message
       } else {
-        formatError.value = '格式化失败；原代码已保留。'
+        const failure = codeFormattingMessage(cause, snapshot.source, formatterLabel)
+        formatError.value = failure.message
+        formatErrorDetail.value = failure.detail
       }
     }
   } finally {
@@ -419,8 +423,15 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
       data-editor-controls
       color="warning"
       title="代码未格式化"
-      :description="formatError"
-    />
+    >
+      <template #description>
+        <p>{{ formatError }}</p>
+        <details v-if="formatErrorDetail" class="mt-2 text-xs">
+          <summary class="cursor-pointer">查看错误详情</summary>
+          <p class="mt-1 whitespace-pre-wrap break-words">{{ formatErrorDetail }}</p>
+        </details>
+      </template>
+    </UAlert>
     <div
       class="blog-code-viewport"
       :data-code-collapsed="!isMermaid && collapsed"
