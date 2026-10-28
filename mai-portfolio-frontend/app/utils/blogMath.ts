@@ -1,8 +1,11 @@
 import type { ElementNode, Node } from 'comark'
-import { parseDocument } from 'htmlparser2'
+import { parseDocument, DomUtils } from 'htmlparser2'
 import { countBlogReading } from './blogReadingProbe.ts'
 import { render } from 'comark/render'
 import { escapeHtml } from 'comark/utils'
+
+/** 仅记录本模块过滤后的生成物；通用 Markdown HTML 渲染会向 MathML 额外插入换行。 */
+const compactMathHtml = new WeakMap<ElementNode, string>()
 
 export const MATH_LIMITS = {
   characters: 4000,
@@ -28,6 +31,10 @@ const allowedMathAttributes = new Set(
 export async function compactBlogMath(node: ElementNode): Promise<ElementNode> {
   if (node[0] !== 'blog-math') {
     return node
+  }
+  const compact = compactMathHtml.get(node)
+  if (compact !== undefined) {
+    return ['blog-math', { block: node[1].block, html: compact }]
   }
   function escapeMathNode(child: Node): Node {
     return typeof child === 'string'
@@ -88,16 +95,32 @@ export async function renderBlogMath(source: string, block: boolean): Promise<El
       const safeAttributes = Object.fromEntries(
         Object.entries(node.attribs).filter(([key]) => allowedMathAttributes.has(key)),
       )
-      return [
-        node.name,
-        safeAttributes,
-        ...node.children.map(convert).filter((child): child is Node => child !== null),
-      ]
+      // 同一份白名单同时约束 AST 与紧凑 HTML，不重复解析，也不以正则删除真实公式空格。
+      const children: Node[] = []
+      node.attribs = safeAttributes
+      node.children = node.children.filter((child) => {
+        const converted = convert(child)
+        if (converted === null) {
+          return false
+        }
+        children.push(converted)
+        return true
+      })
+      return [node.name, safeAttributes, ...children]
     }
-    const nodes = parseDocument(html, { xmlMode: true, decodeEntities: true })
-      .children.map(convert)
-      .filter((node): node is Node => node !== null)
-    return ['blog-math', { block }, ...nodes]
+    const nodes: Node[] = []
+    const generated = parseDocument(html, { xmlMode: true, decodeEntities: true })
+    generated.children = generated.children.filter((child) => {
+      const converted = convert(child)
+      if (converted === null) {
+        return false
+      }
+      nodes.push(converted)
+      return true
+    })
+    const result: ElementNode = ['blog-math', { block }, ...nodes]
+    compactMathHtml.set(result, '<span>' + DomUtils.getOuterHTML(generated.children) + '</span>')
+    return result
   } catch {
     return mathFallback(source, block)
   }
