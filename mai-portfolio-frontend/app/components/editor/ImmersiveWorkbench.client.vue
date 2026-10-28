@@ -29,6 +29,7 @@ import {
   type EditorHeading,
 } from '../../utils/editor/editorOutline'
 import ImmersiveCode from './ImmersiveCode.vue'
+import EditorPerformance from './EditorPerformance.vue'
 import ImmersiveMath from './ImmersiveMath.vue'
 import ImmersiveImage from './ImmersiveImage.vue'
 import { nodeInputRule } from '@tiptap/core'
@@ -635,6 +636,22 @@ function updateHeadings({ transaction }: { transaction?: Transaction } = {}) {
   if (transaction?.getMeta(IMMERSIVE_CHAPTER_KEY)) {
     followPage()
   }
+  presentOutline(transaction)
+}
+let outlineTimer: ReturnType<typeof setTimeout> | undefined
+function presentOutline(transaction?: Transaction) {
+  clearTimeout(outlineTimer)
+  // 输入阶段只同步正确的位置；目录文字和高亮等用户暂未操作的界面，等短暂停顿再更新。
+  // 点击、选区、格式命令和章节折叠仍立即反馈，不延迟 PM 文档、选区或撤销事务。
+  if (transaction?.docChanged && transaction.getMeta('immersive-plain-text')) {
+    outlineTimer = setTimeout(renderOutline, 160)
+  } else {
+    renderOutline()
+  }
+}
+function renderOutline() {
+  outlineTimer = undefined
+  const next = headingPositions
   if (
     next.length !== headings.value.length ||
     next.some((heading, index) => {
@@ -648,14 +665,20 @@ function updateHeadings({ transaction }: { transaction?: Transaction } = {}) {
   ) {
     headings.value = next
   }
-}
-function selectHeading() {
   const position = editor.value?.state.selection.from ?? 0
   activeId.value = headingPositions.findLast((heading) => heading.position <= position)?.id ?? ''
 }
+function selectHeading({ transaction }: { transaction?: Transaction } = {}) {
+  // 内容事务已由 updateHeadings 安排一次呈现，不再因同次 selectionUpdate 重复安排。
+  if (!transaction?.docChanged) {
+    presentOutline(transaction)
+  }
+}
+onBeforeUnmount(() => clearTimeout(outlineTimer))
 watch(
   () => richEditor.value?.editor,
   (instance, _, cleanup) => {
+    clearTimeout(outlineTimer)
     canvas.attach(instance ? markRaw(instance) : null)
     if (!editor.value) {
       return
@@ -765,6 +788,12 @@ async function navigate(id: string) {
 }
 // 2. 所有模式只监听内部画布；根据实际可见标题更新目录，卸载时释放监听。
 function followPage() {
+  // 用户转去观察或滚动时，先完成待呈现的目录，再以可见章节决定高亮。
+  // 避免输入结束的延时任务随后把高亮拉回旧光标所在章节。
+  if (outlineTimer !== undefined) {
+    clearTimeout(outlineTimer)
+    renderOutline()
+  }
   if (frame) {
     return
   }
@@ -953,6 +982,7 @@ defineExpose({
         :inert="!ready"
         :class="{ 'opacity-50': !ready }"
       >
+        <EditorPerformance v-if="editor" :editor="editor" />
         <input
           ref="fileInput"
           type="file"

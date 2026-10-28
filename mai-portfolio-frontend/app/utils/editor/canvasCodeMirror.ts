@@ -444,8 +444,23 @@ export function mountCanvasCodeMirror(host: HTMLElement, props: NodeViewProps): 
           input.dispatch({ effects: colors.of(Decoration.set(ranges, true)) })
         }
         if (typeof requestIdleCallback === 'function') {
-          const task = requestIdleCallback(paint, { timeout: 750 })
-          cancelPaint = () => cancelIdleCallback(task)
+          const paintWhenIdle = (deadline: IdleDeadline) => {
+            if (destroyed || controller.signal.aborted) {
+              return
+            }
+            // 高亮补色是次要反馈，不能因超时强制挤进连续输入或滚动的一帧。
+            // 当前空闲预算不足时继续等，完整代码与原有颜色始终可读可编辑。
+            if (deadline.timeRemaining() < 8) {
+              schedulePaint()
+              return
+            }
+            paint()
+          }
+          const schedulePaint = () => {
+            const task = requestIdleCallback(paintWhenIdle)
+            cancelPaint = () => cancelIdleCallback(task)
+          }
+          schedulePaint()
         } else {
           const task = requestAnimationFrame(paint)
           cancelPaint = () => cancelAnimationFrame(task)
