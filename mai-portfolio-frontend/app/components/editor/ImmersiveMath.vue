@@ -14,6 +14,34 @@ const previews = inject(IMMERSIVE_MATH_PREVIEWS, undefined)
 const editing = ref(false)
 const input = useTemplateRef<HTMLTextAreaElement>('input')
 const anchor = useTemplateRef<HTMLElement>('anchor')
+const editReference = shallowRef<{
+  contextElement: HTMLElement
+  getBoundingClientRect: () => DOMRect
+}>()
+function anchorInput() {
+  const element = anchor.value
+  const context =
+    element?.closest<HTMLElement>('.math-block, p, h1, h2, h3, h4, h5, h6, td, th') ??
+    element?.parentElement
+  if (!element || !context) {
+    return
+  }
+  const initial = element.getBoundingClientRect()
+  const origin = context.getBoundingClientRect()
+  // 预览可实时改变尺寸，输入框保留打开时的锚点；上下文位置仍跟随正文滚动/位移。
+  editReference.value = {
+    contextElement: element,
+    getBoundingClientRect: () => {
+      const current = context.getBoundingClientRect()
+      return new DOMRect(
+        current.left + initial.left - origin.left,
+        current.top + initial.top - origin.top,
+        initial.width,
+        initial.height,
+      )
+    },
+  }
+}
 const expression = ref('')
 const error = ref('')
 const html = shallowRef('')
@@ -75,6 +103,9 @@ function open(event?: MouseEvent) {
   ) {
     return
   }
+  if (!editing.value) {
+    anchorInput()
+  }
   editing.value = true
 }
 function panFormula(event: KeyboardEvent) {
@@ -129,8 +160,11 @@ function navigateExpression(event: KeyboardEvent) {
     closeWithFocus(direction < 0 ? 'before' : 'after')
   }
 }
-watch(editing, (value) => {
-  if (!value) {
+watch(editing, (value, _, cleanup) => {
+  if (value) {
+    window.addEventListener('resize', anchorInput)
+    cleanup(() => window.removeEventListener('resize', anchorInput))
+  } else {
     composing.value = false
     commit()
   }
@@ -227,7 +261,7 @@ onBeforeUnmount(() => {
     <UPopover
       v-if="editing"
       v-model:open="editing"
-      :reference="anchor ?? undefined"
+      :reference="editReference ?? anchor ?? undefined"
       :content="{
         onOpenAutoFocus: (event: Event) => {
           event.preventDefault()
