@@ -11,7 +11,8 @@ import {
   IMMERSIVE_CHAPTER_KEY,
 } from '../../utils/editor/immersiveChapters'
 import { visibleToc } from '../../utils/blogChapters'
-import { TextSelection, type Transaction } from '@tiptap/pm/state'
+import { NodeSelection, TextSelection, type Transaction } from '@tiptap/pm/state'
+import type { EditorProps } from '@tiptap/pm/view'
 import type { EditorToolbarItem, FormError } from '@nuxt/ui'
 import { CanvasNodePositions, canvasNodeViewRenderer } from '../../utils/editor/canvasNodePositions'
 import { useMediaQuery, useElementSize } from '@vueuse/core'
@@ -39,14 +40,8 @@ import {
   continueImmersiveDocument,
 } from '../../utils/editor/immersiveParagraphInput'
 import { ImmersiveSelection } from '../../utils/editor/immersiveSelection'
-import {
-  ImmersivePositionHighlight,
-  IMMERSIVE_POSITION_KEY,
-} from '../../utils/editor/immersivePositionHighlight'
-import {
-  ImmersiveDecorations,
-  IMMERSIVE_HIGHLIGHT_READY,
-} from '../../utils/editor/immersiveDecorations'
+import { highlightImmersivePosition } from '../../utils/editor/immersivePositionHighlight'
+import { ImmersiveDecorations } from '../../utils/editor/immersiveDecorations'
 import { BLOG_RESOURCES } from '../../utils/blogResources'
 import type { BlogTag, DocumentResource } from '../../api/blogs'
 import type { CanvasMetadata } from '../../utils/editor/canvasSave'
@@ -70,6 +65,9 @@ import { canvasInitializationGuard } from '../../utils/editor/canvasInitializati
 import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
 import { canvasMarkdownClipboard } from '../../utils/editor/canvasClipboard'
 import { CANVAS_LOADING } from '../../utils/editor/canvasLoading'
+import { CANVAS_CODE_INPUT, canvasCodeInputRenderer } from '../../utils/editor/canvasCodeInput'
+import { CanvasCodeSelection } from '../../utils/editor/canvasCodeSelection'
+import { mountCanvasCodeMirror } from '../../utils/editor/canvasCodeMirror'
 
 const props = defineProps<{
   initialContent: string | JSONContent
@@ -469,12 +467,17 @@ function toggleToc(id: string) {
   tocCollapsedIds.value = next
 }
 const minimumDepth = computed(() => Math.min(6, ...headings.value.map((heading) => heading.depth)))
+provide(CANVAS_CODE_INPUT, mountCanvasCodeMirror)
 const markdownOptions = createCanvasMarkdownOptions()
 const extensions = CANVAS_EDITOR_EXTENSIONS.map((extension) => {
   if (extension === PreservedCodeBlock) {
     return PreservedCodeBlock.extend({
-      addNodeView: () =>
-        canvasNodeViewRenderer(ImmersiveCode, { stopEvent: stopImmersiveControlEvent }),
+      addNodeView() {
+        const native = canvasNodeViewRenderer(ImmersiveCode, {
+          stopEvent: stopImmersiveControlEvent,
+        })
+        return canvasCodeInputRenderer(native)
+      },
     })
   }
   if (extension.name === 'image') {
@@ -553,8 +556,8 @@ const editorExtensions = [
   ImmersiveChapters.configure({
     notice: (description) => toast.add({ title: '章节未折叠', description, color: 'warning' }),
   }),
-  ImmersiveDecorations.configure({ ready: () => ready.value }),
-  ImmersivePositionHighlight,
+  ImmersiveDecorations.configure({ ready: () => false }),
+  CanvasCodeSelection,
   ImmersiveSelection,
   ImmersiveDragScroll,
   ImmersiveParagraphInput.configure({
@@ -680,45 +683,71 @@ watch(
 )
 watch(ready, (value) => {
   if (value) {
-    const current = editor.value
-    if (current) {
-      // 完整正文已装载后再补代码颜色，避免高亮装饰与分批装载争抢主线程。
-      current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_HIGHLIGHT_READY, true))
-    }
     updateHeadings()
     selectHeading()
     followPage()
   }
 })
-let navigationTimer: ReturnType<typeof setTimeout> | undefined
+let navigationHighlight: Animation | undefined
+// 公式点击直接建立节点选区并由 NodeView 打开输入；不先聚焦长正文又立即转入弹层。
+const selectFormula: NonNullable<EditorProps['handleClickOn']> = (
+  view,
+  _pos,
+  node,
+  position,
+  event,
+  direct,
+) => {
+  if (
+    !direct ||
+    !view.editable ||
+    !node.type.name.startsWith('preservedMath') ||
+    event.ctrlKey ||
+    event.metaKey
+  ) {
+    return false
+  }
+  view.dispatch(
+    view.state.tr
+      .setSelection(NodeSelection.create(view.state.doc, position))
+      .setMeta('pointer', true),
+  )
+  return true
+}
+function preserveTocFocus(event: MouseEvent) {
+  // 鼠标导航保留正文焦点，避免长文先失焦再恢复光标；键盘导航仍可正常聚焦目录。
+  if (event.button === 0 && event.target instanceof Element && event.target.closest('a')) {
+    event.preventDefault()
+  }
+}
 async function navigatePosition(position: number) {
   const current = editor.value
   if (!current || !ready.value) {
     return
   }
-  current.commands.command(revealImmersivePosition(position))
-  current.view.dispatch(
-    current.state.tr.setSelection(
-      TextSelection.near(
-        current.state.doc.resolve(Math.min(position, current.state.doc.content.size)),
-      ),
-    ),
-  )
+  navigationHighlight?.cancel()
+  // 展开祖先和定位共用一次选区事务；没有折叠祖先时不另外派发空事务。
+  current.commands.command((props) => {
+    revealImmersivePosition(position)(props)
+    props.tr.setSelection(
+      TextSelection.near(props.tr.doc.resolve(Math.min(position, props.tr.doc.content.size))),
+    )
+    return true
+  })
   await nextTick()
   const block = current.state.selection.$from.depth ? current.state.selection.$from.before(1) : 0
   const element = current.view.nodeDOM(block)
   if (element instanceof HTMLElement && canvasPane.value) {
-    canvasPane.value.scrollTop +=
+    const offset =
       element.getBoundingClientRect().top - canvasPane.value.getBoundingClientRect().top - 24
+    if (Math.abs(offset) > 1) {
+      canvasPane.value.scrollTop += offset
+    }
   }
   current.view.focus()
-  current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_POSITION_KEY, { from: block }))
-  clearTimeout(navigationTimer)
-  navigationTimer = setTimeout(() => {
-    if (!current.isDestroyed) {
-      current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_POSITION_KEY, null))
-    }
-  }, 1200)
+  if (element instanceof HTMLElement) {
+    navigationHighlight = highlightImmersivePosition(element)
+  }
 }
 async function navigate(id: string) {
   tocOpen.value = false
@@ -807,7 +836,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', workbenchKeydown)
   canvas.dispose()
   mathPreviews.dispose()
-  clearTimeout(navigationTimer)
+  navigationHighlight?.cancel()
   barObserver?.disconnect()
   cancelAnimationFrame(frame)
   finishLeave(false)
@@ -1036,6 +1065,7 @@ defineExpose({
                 :touch-directory="false"
                 @toggle="toggleToc"
                 @navigate="navigate"
+                @mousedown="preserveTocFocus"
               />
             </aside>
             <div class="blog-renderer workbench-body min-w-0">
@@ -1055,6 +1085,7 @@ defineExpose({
                 :mention="false"
                 :editor-props="{
                   attributes: { 'aria-label': '直接编辑文章正文', spellcheck: 'false' },
+                  handleClickOn: selectFormula,
                   handlePaste: (_view, event) => {
                     const files = Array.from(event.clipboardData?.files ?? [])
                     if (!files.length) {
@@ -1138,6 +1169,7 @@ defineExpose({
               :touch-directory="false"
               @toggle="toggleToc"
               @navigate="navigate"
+              @mousedown="preserveTocFocus"
           /></template>
         </USlideover>
       </div>
@@ -1454,6 +1486,7 @@ defineExpose({
   border-top: 1px solid currentColor;
   animation: canvas-caret-blink 1.1s steps(2, start) infinite;
 }
+
 .workbench-body :deep(.ProseMirror-focused .ProseMirror-gapcursor) {
   display: block;
 }
@@ -1532,18 +1565,6 @@ defineExpose({
   outline-offset: 3px;
   background-color: color-mix(in srgb, var(--site-accent) 10%, transparent);
   border-radius: 0.4rem;
-}
-.workbench-body :deep(.immersive-position-flash) {
-  animation: immersive-locate 1.1s ease-out;
-  border-radius: 0.25rem;
-}
-@keyframes immersive-locate {
-  from {
-    background-color: color-mix(in srgb, var(--site-accent) 16%, transparent);
-  }
-  to {
-    background-color: transparent;
-  }
 }
 .workbench-body :deep(.immersive-math-node.ProseMirror-selectednode),
 .workbench-body :deep(.immersive-math-node.immersive-selected-block) {

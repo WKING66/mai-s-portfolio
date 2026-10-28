@@ -18,6 +18,9 @@
     "preinstall": "node scripts/check-package-manager.mjs"
   },
   "dependencies": {
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.14",
     "@comark/nuxt": "0.7.0",
     "@dprint/clang-format": "0.2.1",
     "@dprint/formatter": "0.6.0",

@@ -12,12 +12,36 @@ import { applyFormattedCode } from '../../utils/editor/codeFormattingTransaction
 import { IMMERSIVE_CODE_EXPANDED } from '../../utils/editor/immersiveDecorations'
 import ImmersiveDiagram from './ImmersiveDiagram.vue'
 import {
+  CANVAS_CODE_INPUT,
+  registerCanvasCodeInput,
+  unregisterCanvasCodeInput,
+  type CanvasCodeInput,
+} from '../../utils/editor/canvasCodeInput'
+import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_OVERLAY_HOST,
   IMMERSIVE_EDITABLE,
 } from '../../utils/editor/immersiveContext'
 import { parseCodeInfo, formatCodeInfo } from '../../utils/codeInfo'
 const props = defineProps<NodeViewProps>()
+const codeInputFactory = inject(CANVAS_CODE_INPUT, undefined)
+const codeHost = useTemplateRef<HTMLElement>('codeHost')
+const usesCodeInput = computed(() => Boolean(codeInputFactory) && !isMermaid.value)
+let codeInput: CanvasCodeInput | undefined
+if (codeInputFactory) {
+  onMounted(() => {
+    if (codeHost.value) {
+      codeInput = codeInputFactory(codeHost.value, props)
+      registerCanvasCodeInput(props.editor, codeHost.value, codeInput)
+    }
+  })
+  onBeforeUnmount(() => {
+    codeInput?.destroy()
+    if (codeHost.value) {
+      unregisterCanvasCodeInput(props.editor, codeHost.value)
+    }
+  })
+}
 const languageSearchInput: InputProps & Pick<InputHTMLAttributes, 'aria-label'> = {
   placeholder: '搜索语言或别名…',
   'aria-label': '搜索代码语言',
@@ -26,6 +50,9 @@ const languageSearchInput: InputProps & Pick<InputHTMLAttributes, 'aria-label'> 
 }
 const workbenchEditable = inject(IMMERSIVE_EDITABLE, undefined)
 const canEdit = computed(() => workbenchEditable?.value ?? props.editor.isEditable)
+if (codeInputFactory) {
+  watch(canEdit, (value) => codeInput?.setEditable(value))
+}
 const availableLanguages = computed(() => codeLanguageOptions(language.value))
 const selectedLanguage = computed(
   () =>
@@ -83,20 +110,22 @@ const lineNumbers = computed(() =>
   ),
 )
 const expanded = ref(false)
-watch(
-  expanded,
-  (value) => {
-    const position = props.getPos()
-    if (typeof position === 'number' && !props.editor.isDestroyed) {
-      props.editor.view.dispatch(
-        props.editor.state.tr
-          .setMeta(IMMERSIVE_CODE_EXPANDED, { position, value })
-          .setMeta('addToHistory', false),
-      )
-    }
-  },
-  { flush: 'post' },
-)
+if (!codeInputFactory) {
+  watch(
+    expanded,
+    (value) => {
+      const position = props.getPos()
+      if (typeof position === 'number' && !props.editor.isDestroyed) {
+        props.editor.view.dispatch(
+          props.editor.state.tr
+            .setMeta(IMMERSIVE_CODE_EXPANDED, { position, value })
+            .setMeta('addToHistory', false),
+        )
+      }
+    },
+    { flush: 'post' },
+  )
+}
 const isLongCodeBlock = computed(
   () => props.node.textContent.split(/\r?\n/).length > CODE_FOLD.threshold,
 )
@@ -134,7 +163,10 @@ watch(
 )
 const toast = useToast()
 
-async function toggleCode() {
+async function toggleCode(event?: MouseEvent) {
+  if (event && event.currentTarget instanceof HTMLElement) {
+    event.currentTarget.focus({ preventScroll: true })
+  }
   const position = props.getPos()
   if (typeof position !== 'number') {
     return
@@ -159,14 +191,15 @@ async function toggleCode() {
       props.editor.view.dispatch(
         state.tr.setSelection(visibleSelection).setMeta('addToHistory', false),
       )
-      // 同步原生 DOM 光标，避免按钮夺焦后旧代码光标把收起预览滚到中间。
-      props.editor.view.focus()
+      // 焦点留在可见的收起按钮；文档选区已移到相邻正文，不再进入长文后立即失焦。
     }
     expanded.value = false
     await nextTick()
     // 编辑深处时浏览器可能滚动 pre；收起预览固定从首行开始，与行号保持一致。
     if (element instanceof HTMLElement) {
-      const input = element.querySelector<HTMLElement>('.immersive-code-input')
+      const input = element.querySelector<HTMLElement>(
+        '[data-canvas-code-input] .cm-scroller, .immersive-code-input',
+      )
       if (input) {
         input.scrollTop = 0
       }
@@ -379,7 +412,7 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
         @click="copy(node.textContent)"
       />
     </div>
-    <!-- 唯一的 contentDOM 始终保留：普通代码直接编辑；Mermaid 的同一原文在图上方展开。 -->
+    <!-- 普通代码由局部输入视图承载；Mermaid 仍使用同一份原文的原生 contentDOM。 -->
     <UAlert
       v-if="formatError"
       contenteditable="false"
@@ -400,6 +433,7 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
         @pointerdown="canEdit && !isMermaid && (expanded = true)"
       >
         <pre
+          v-if="!usesCodeInput"
           class="immersive-line-gutter"
           style="white-space: pre"
           aria-hidden="true"
@@ -407,7 +441,15 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
           data-editor-controls
           @mousedown.prevent
           >{{ lineNumbers }}</pre>
+        <div
+          v-if="usesCodeInput"
+          ref="codeHost"
+          data-canvas-code-input
+          contenteditable="false"
+          class="min-w-0 flex-1"
+        />
         <pre
+          v-else
           class="immersive-code-input"
         ><NodeViewContent style="white-space: pre" as="code" :data-language="language" :aria-label="isMermaid ? 'Mermaid 源码' : label + '代码正文'" spellcheck="false" /></pre>
       </div>
@@ -416,6 +458,10 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
   </NodeViewWrapper>
 </template>
 <style scoped>
+.blog-code-viewport[data-code-collapsed='true'] :deep(.cm-editor) {
+  max-height: calc((var(--code-preview-lines) + 1) * 1.5rem);
+  overflow: hidden;
+}
 .immersive-code-lines {
   display: flex;
   align-items: stretch;
