@@ -31,8 +31,39 @@ const readerStyles = (
     return readerStyles(node.slice(2) as ReaderNode[], style ? [...marks, style] : marks)
   })
 const cases: [string, JSONContent][] = [
+  [
+    '空任务列表仍保留复选框',
+    {
+      type: 'taskList',
+      content: [{ type: 'taskItem', attrs: { checked: false }, content: [paragraph()] }],
+    },
+  ],
+  [
+    '空无序项与前后列表项保持独立',
+    {
+      type: 'bulletList',
+      content: ['前项', '', '后项'].map((value) => ({
+        type: 'listItem',
+        content: [value ? paragraph(text(value)) : paragraph()],
+      })),
+    },
+  ],
+  [
+    '空有序项与前后列表项保持独立',
+    {
+      type: 'orderedList',
+      attrs: { start: 4 },
+      content: ['前项', '', '后项'].map((value) => ({
+        type: 'listItem',
+        content: [value ? paragraph(text(value)) : paragraph()],
+      })),
+    },
+  ],
   ['粘贴为普通文字的公式标记不会在保存时变成公式', paragraph(text('行内公式 $x^2+1$。'))],
-  ['字面标题、围栏和表格标记保持普通文字', paragraph(text('## 第一章\n~~~ts\n| A | B |\n| --- | --- |\n~~~'))],
+  [
+    '字面标题、围栏和表格标记保持普通文字',
+    paragraph(text('## 第一章\n~~~ts\n| A | B |\n| --- | --- |\n~~~')),
+  ],
   [
     '公式原子后直接输入数字仍可保存',
     paragraph({ type: 'preservedMathInline', attrs: { source: '$x$' } }, text('2026')),
@@ -77,7 +108,9 @@ describe('保存边界的四类长文输出回归', () => {
     // 实际保存入口接受 PM 文档，Schema 会补齐列表起始值并规范化 Marks 顺序。
     const document = canvasSchema.nodeFromJSON({ type: 'doc', content: [block] }).toJSON()
     const candidate = createCanvasMarkdownManager().serialize(document)
-    expect(editorContentMeaning(importCanvasMarkdown(candidate)), candidate).toEqual(editorContentMeaning(document))
+    expect(editorContentMeaning(importCanvasMarkdown(candidate)), candidate).toEqual(
+      editorContentMeaning(document),
+    )
     const output = exportCanvasMarkdown(document)
     expect(editorContentMeaning(importCanvasMarkdown(output))).toEqual(
       editorContentMeaning(document),

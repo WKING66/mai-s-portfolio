@@ -127,6 +127,7 @@ function insertionChain(
   item: ImmersiveCommandItem,
 ): ChainedCommands | null {
   let chain = editor.chain()
+  let afterSoftBreak = false
   if (target.kind === 'slash') {
     chain = chain.deleteRange({ from: target.from, to: target.to }).setTextSelection(target.from)
   } else if (target.kind === 'line') {
@@ -135,6 +136,7 @@ function insertionChain(
   if (target.kind !== 'block') {
     const resolved = editor.state.doc.resolve(target.from)
     if (resolved.nodeBefore?.type.name === 'hardBreak') {
+      afterSoftBreak = true
       // 先在软换行处拆成同一列表项里的独立段落，再插入块；前一行和其他列表项保留。
       chain = chain
         .deleteRange({ from: target.from - 1, to: target.from })
@@ -176,9 +178,10 @@ function insertionChain(
     case 'heading':
       return chain.setHeading({ level: item.level! })
     case 'bulletList':
-      return chain.toggleBulletList()
+      // 软换行后插入子列表，不能把外层列表整体切换类型；其他入口保留原转换语义。
+      return afterSoftBreak ? chain.wrapInList('bulletList') : chain.toggleBulletList()
     case 'orderedList':
-      return chain.toggleOrderedList()
+      return afterSoftBreak ? chain.wrapInList('orderedList') : chain.toggleOrderedList()
     case 'blockquote':
       return chain.toggleBlockquote()
     case 'alert':

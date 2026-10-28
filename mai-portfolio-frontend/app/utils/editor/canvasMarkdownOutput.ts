@@ -53,12 +53,16 @@ export class CanvasMarkdownWriter extends MarkdownManager {
             .join('\n\n')
           // GFM 的复选框属于首行正文；后续块只按列表标记缩进，不能把 [ ] 再计入缩进。
           const continuationIndent = node.type === 'taskList' ? 2 : prefix.length
+          const emptyItem = !content.trim()
           return (
-            prefix +
+            // 空复选框仍需保留 ] 后的语法空格，不能按空列表标记裁剪。
+            (emptyItem && node.type !== 'taskList' ? prefix.trimEnd() : prefix) +
             content
               .split('\n')
               .map((line, lineIndex) => (lineIndex ? ' '.repeat(continuationIndent) : '') + line)
-              .join('\n')
+              .join('\n') +
+            // 空子列表后留出块边界；否则下一外层列表项会使空标记被解析为普通文字。
+            (emptyItem ? '\n' : '')
           )
         })
         .join('\n')
