@@ -249,6 +249,7 @@ onBeforeUnmount(() => {
             aria-label="公式 LaTeX"
             :rows="Math.max(1, expression.split('\n').length)"
             spellcheck="false"
+            writingsuggestions="false"
             @input="change"
             @compositionstart="composing = true"
             @compositionend="finishComposition"

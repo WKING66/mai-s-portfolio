@@ -1114,7 +1114,11 @@ defineExpose({
                 :image="false"
                 :mention="false"
                 :editor-props="{
-                  attributes: { 'aria-label': '直接编辑文章正文', spellcheck: 'false' },
+                  attributes: {
+                    'aria-label': '直接编辑文章正文',
+                    spellcheck: 'false',
+                    writingsuggestions: 'false',
+                  },
                   handleClickOn: selectFormula,
                   handlePaste: (_view, event) => {
                     const files = Array.from(event.clipboardData?.files ?? [])
