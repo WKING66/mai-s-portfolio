@@ -47,7 +47,7 @@ useHead(() => {
 </script>
 <template>
   <main class="site-container site-page">
-    <SectionHeading
+    <UiSectionHeading
       id="all-projects"
       eyebrow="PROJECTS"
       title="项目作品"

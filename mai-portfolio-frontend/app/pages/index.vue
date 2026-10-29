@@ -85,14 +85,14 @@ useHead(() => {
         <ProfileHero :profile="siteProfile" />
 
         <section class="section-space border-t border-line" aria-labelledby="focus-title">
-          <SectionHeading
+          <UiSectionHeading
             id="focus-title"
             eyebrow="02 / FOCUS"
             title="我关注的问题"
             description="一次大语言模型项目复盘，促使我把注意力放在更扎实的工程问题上。"
           />
           <div class="grid gap-5 md:grid-cols-3">
-            <SurfaceCard
+            <UiSurfaceCard
               v-for="area in focusAreas"
               :key="area.index"
               motion
@@ -105,7 +105,7 @@ useHead(() => {
                 <h3 class="mb-2 text-xl font-semibold tracking-tight">{{ area.title }}</h3>
                 <p class="leading-7 text-muted">{{ area.description }}</p>
               </div>
-            </SurfaceCard>
+            </UiSurfaceCard>
           </div>
         </section>
 
@@ -114,7 +114,7 @@ useHead(() => {
           class="section-space border-t border-line"
           aria-labelledby="projects-title"
         >
-          <SectionHeading
+          <UiSectionHeading
             id="projects-title"
             eyebrow="03 / SELECTED WORK"
             title="项目作品"
@@ -134,7 +134,7 @@ useHead(() => {
                 更多项目 <span aria-hidden="true">↗</span>
               </NuxtLink>
             </template>
-          </SectionHeading>
+          </UiSectionHeading>
           <UButton
             v-if="projectsError"
             color="neutral"
@@ -151,7 +151,7 @@ useHead(() => {
               motion
             />
           </div>
-          <SurfaceCard
+          <UiSurfaceCard
             v-if="!projectsError && !featuredProjectPage?.items.length"
             motion
             class="project-placeholder grid min-h-[330px] overflow-hidden p-7 md:grid-cols-[1fr_.8fr] md:gap-8 md:p-8"
@@ -182,11 +182,11 @@ useHead(() => {
                 >01</span
               >
             </div>
-          </SurfaceCard>
+          </UiSurfaceCard>
         </section>
 
         <section id="blog" class="section-space border-t border-line" aria-labelledby="blog-title">
-          <SectionHeading
+          <UiSectionHeading
             id="blog-title"
             eyebrow="04 / JOURNAL"
             title="博客笔记"
@@ -200,7 +200,7 @@ useHead(() => {
           class="section-space border-t border-line"
           aria-labelledby="contact-title"
         >
-          <SurfaceCard motion class="contact-hub p-7 sm:p-10">
+          <UiSurfaceCard motion class="contact-hub p-7 sm:p-10">
             <span class="eyebrow">05 / CONTACT</span>
             <h2
               id="contact-title"
@@ -224,7 +224,7 @@ useHead(() => {
                 >↗ GitHub / WKING66</a
               >
             </div>
-          </SurfaceCard>
+          </UiSurfaceCard>
         </section>
       </template>
     </main>

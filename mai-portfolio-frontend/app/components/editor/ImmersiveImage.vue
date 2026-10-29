@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import BlogImage from '../blog/BlogImage.vue'
-import { BLOG_RESOURCES } from '../../utils/blogResources'
-import { CANVAS_RESOURCE_PREVIEW } from '../../utils/editor/canvasResources'
+import { BLOG_RESOURCES } from '../../utils/blog/resources'
+import { CANVAS_RESOURCE_PREVIEW } from '../../utils/editor/session/canvasResources'
 const props = defineProps<NodeViewProps>()
 const resources = inject(BLOG_RESOURCES, ref([]))
 const localPreview = inject(CANVAS_RESOURCE_PREVIEW, undefined)

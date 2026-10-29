@@ -1,10 +1,10 @@
-import type { PreparedImmersiveSourceMap } from '../utils/editor/immersiveSourceMap'
+import type { PreparedImmersiveSourceMap } from '../utils/editor/legacy/immersiveSourceMap'
 import { computed, ref, shallowRef, type Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { Transaction } from '@tiptap/pm/state'
-import { patchImmersiveDocument } from '../utils/editor/immersiveDraft'
-import { createImmersiveValidator } from '../utils/editor/immersiveValidationClient'
-import type { ImmersiveValidator } from '../utils/editor/immersiveValidation'
+import { patchImmersiveDocument } from '../utils/editor/legacy/immersiveDraft'
+import { createImmersiveValidator } from '../utils/editor/markdown/immersiveValidationClient'
+import type { ImmersiveValidator } from '../utils/editor/markdown/immersiveValidation'
 
 /** 一个 Markdown 草稿、一个稳定会话；只有最新版本的发起方能够接受后台转换结果。 */
 export function useImmersiveDraft(

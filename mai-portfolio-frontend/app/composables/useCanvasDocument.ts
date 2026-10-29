@@ -2,24 +2,24 @@ import { computed, markRaw, ref, shallowRef, toRaw, type Ref } from 'vue'
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { Transaction } from '@tiptap/pm/state'
 import type { DocumentResource } from '../api/blogs'
-import { canvasSchema, importCanvasMarkdown } from '../utils/editor/canvasMarkdown'
+import { canvasSchema, importCanvasMarkdown } from '../utils/editor/markdown/canvasMarkdown'
 import {
   CANVAS_INITIALIZATION,
   CANVAS_SYNC_BLOCKS,
   initializeCanvasDocument,
-} from '../utils/editor/canvasInitialization'
-import { createImmersiveValidator } from '../utils/editor/immersiveValidationClient'
+} from '../utils/editor/session/canvasInitialization'
+import { createImmersiveValidator } from '../utils/editor/markdown/immersiveValidationClient'
 import {
   createCanvasMockAdapter,
   type CanvasMetadata,
   type CanvasSaveSnapshot,
-} from '../utils/editor/canvasSave'
+} from '../utils/editor/session/canvasSave'
 import { useCanvasSave, type CanvasSaveAdapter } from './useCanvasSave'
 import {
   CANVAS_RESOURCE_NORMALIZATION,
   createCanvasResources,
   normalizeCanvasResources,
-} from '../utils/editor/canvasResources'
+} from '../utils/editor/session/canvasResources'
 
 export interface CanvasPersistence {
   adapter: CanvasSaveAdapter<CanvasSaveSnapshot>

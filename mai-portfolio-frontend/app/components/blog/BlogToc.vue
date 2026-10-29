@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TocLink } from 'comark/plugins/toc'
-import { visibleToc } from '../../utils/blogChapters'
+import { visibleToc } from '../../utils/blog/chapters'
 import { useMediaQuery } from '@vueuse/core'
 import BlogTocTree from './BlogTocTree.vue'
 const props = defineProps<{

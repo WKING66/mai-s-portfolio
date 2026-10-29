@@ -2,7 +2,7 @@
 import { BLOG_PATH, useBlogApi, type Blog } from '../../api/blogs'
 import type { ApiResponse } from '../../api/types'
 import { useAssetUrlRefresh } from '../../composables/useAssetUrlRefresh'
-import { assetUrlsFresh } from '../../utils/assetUrls'
+import { assetUrlsFresh } from '../../utils/assets/urls'
 import { BLOG_PUBLIC_CACHE_PREFIX } from '../../constants/blogs'
 import BlogRenderer from '../../components/blog/BlogRenderer.vue'
 const route = useRoute()

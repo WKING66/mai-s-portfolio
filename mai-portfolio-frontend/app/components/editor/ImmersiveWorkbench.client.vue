@@ -2,58 +2,58 @@
 import {
   ImmersiveMarkdownGuard,
   type ImmersiveRejection,
-} from '../../utils/editor/immersiveCapabilities'
+} from '../../utils/editor/interaction/immersiveCapabilities'
 import { Extension, type JSONContent, type Node as TiptapNode } from '@tiptap/core'
 import {
   ImmersiveChapters,
   immersiveChapters,
   revealImmersivePosition,
   IMMERSIVE_CHAPTER_KEY,
-} from '../../utils/editor/immersiveChapters'
-import { visibleToc } from '../../utils/blogChapters'
+} from '../../utils/editor/interaction/immersiveChapters'
+import { visibleToc } from '../../utils/blog/chapters'
 import { NodeSelection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import type { EditorProps } from '@tiptap/pm/view'
 import type { EditorToolbarItem, FormError } from '@nuxt/ui'
-import { CanvasNodePositions, canvasNodeViewRenderer } from '../../utils/editor/canvasNodePositions'
+import { CanvasNodePositions, canvasNodeViewRenderer } from '../../utils/editor/session/canvasNodePositions'
 import { useMediaQuery, useElementSize } from '@vueuse/core'
-import { PreservedCodeBlock } from '../../utils/editor/markdownExtensions'
+import { PreservedCodeBlock } from '../../utils/editor/markdown/markdownExtensions'
 import { Markdown } from '@tiptap/markdown'
 import {
   CANVAS_EDITOR_EXTENSIONS,
   CANVAS_STARTER_KIT,
   createCanvasMarkdownOptions,
-} from '../../utils/editor/canvasMarkdown'
+} from '../../utils/editor/markdown/canvasMarkdown'
 import {
   collectEditorHeadings,
   editorHeadingTree,
   type EditorHeading,
-} from '../../utils/editor/editorOutline'
+} from '../../utils/editor/interaction/editorOutline'
 import ImmersiveCode from './ImmersiveCode.vue'
 import EditorPerformance from './EditorPerformance.vue'
 import ImmersiveMath from './ImmersiveMath.vue'
 import ImmersiveImage from './ImmersiveImage.vue'
 import { nodeInputRule } from '@tiptap/core'
-import { openImmersiveLink } from '../../utils/editor/immersiveLinks'
-import { openImmersiveMenu } from '../../utils/editor/immersiveCommands'
+import { openImmersiveLink } from '../../utils/editor/interaction/immersiveLinks'
+import { openImmersiveMenu } from '../../utils/editor/interaction/immersiveCommands'
 import {
   ImmersiveParagraphInput,
   ImmersiveTabBoundary,
   continueImmersiveDocument,
-} from '../../utils/editor/immersiveParagraphInput'
-import { ImmersiveSelection } from '../../utils/editor/immersiveSelection'
-import { highlightImmersivePosition } from '../../utils/editor/immersivePositionHighlight'
-import { ImmersiveDecorations } from '../../utils/editor/immersiveDecorations'
-import { BLOG_RESOURCES } from '../../utils/blogResources'
+} from '../../utils/editor/interaction/immersiveParagraphInput'
+import { ImmersiveSelection } from '../../utils/editor/interaction/immersiveSelection'
+import { highlightImmersivePosition } from '../../utils/editor/interaction/immersivePositionHighlight'
+import { ImmersiveDecorations } from '../../utils/editor/interaction/immersiveDecorations'
+import { BLOG_RESOURCES } from '../../utils/blog/resources'
 import type { BlogTag, DocumentResource } from '../../api/blogs'
-import type { CanvasMetadata } from '../../utils/editor/canvasSave'
+import type { CanvasMetadata } from '../../utils/editor/session/canvasSave'
 import {
   normalizeCanvasResources,
   CANVAS_RESOURCE_PREVIEW,
   insertCanvasFiles,
-} from '../../utils/editor/canvasResources'
+} from '../../utils/editor/session/canvasResources'
 import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS, BLOG_INPUT_LIMITS } from '../../constants/blogs'
 import { useCanvasDocument, type CanvasPersistence } from '../../composables/useCanvasDocument'
-import { blogSlugIssue } from '../../utils/blogSlug'
+import { blogSlugIssue } from '../../utils/blog/slug'
 import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_EDITABLE,
@@ -61,16 +61,16 @@ import {
   IMMERSIVE_MATH_LAYOUT,
   IMMERSIVE_OVERLAY_HOST,
   stopImmersiveControlEvent,
-} from '../../utils/editor/immersiveContext'
-import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
-import { createMathLayoutObserver } from '../../utils/editor/mathLayout'
-import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
-import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
-import { canvasMarkdownClipboard } from '../../utils/editor/canvasClipboard'
-import { CANVAS_LOADING } from '../../utils/editor/canvasLoading'
-import { CANVAS_CODE_INPUT, canvasCodeInputRenderer } from '../../utils/editor/canvasCodeInput'
-import { CanvasCodeSelection } from '../../utils/editor/canvasCodeSelection'
-import { mountCanvasCodeMirror } from '../../utils/editor/canvasCodeMirror'
+} from '../../utils/editor/session/immersiveContext'
+import { createMathPreviewQueue } from '../../utils/editor/math/mathPreviewQueue'
+import { createMathLayoutObserver } from '../../utils/editor/math/mathLayout'
+import { canvasInitializationGuard } from '../../utils/editor/session/canvasInitialization'
+import { ImmersiveDragScroll } from '../../utils/editor/interaction/immersiveDragScroll'
+import { canvasMarkdownClipboard } from '../../utils/editor/interaction/canvasClipboard'
+import { CANVAS_LOADING } from '../../utils/editor/session/canvasLoading'
+import { CANVAS_CODE_INPUT, canvasCodeInputRenderer } from '../../utils/editor/code/canvasCodeInput'
+import { CanvasCodeSelection } from '../../utils/editor/code/canvasCodeSelection'
+import { mountCanvasCodeMirror } from '../../utils/editor/code/canvasCodeMirror'
 
 const props = defineProps<{
   initialContent: string | JSONContent

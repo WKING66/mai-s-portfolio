@@ -10,9 +10,9 @@ import {
   immersiveAxisProblem,
   changeImmersiveTable,
   type ImmersiveTableChange,
-} from '../../utils/editor/immersiveTables'
-import { immersiveAxisSelection, selectImmersiveAxes } from '../../utils/editor/immersiveSelection'
-import { IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/immersiveContext'
+} from '../../utils/editor/interaction/immersiveTables'
+import { immersiveAxisSelection, selectImmersiveAxes } from '../../utils/editor/interaction/immersiveSelection'
+import { IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/session/immersiveContext'
 
 const props = defineProps<{ editor: Editor }>()
 const emit = defineEmits<{ active: [active: boolean] }>()

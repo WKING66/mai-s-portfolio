@@ -30,9 +30,9 @@ import {
   ProseTd,
   ProseCode,
 } from '#components'
-import { BLOG_CHAPTER_STATE, buildBlogChapters, chapterAncestors } from '../../utils/blogChapters'
-import { BLOG_RESOURCES } from '../../utils/blogResources'
-import { parseBlogMarkdownInWorker } from '../../utils/blogMarkdownWorker'
+import { BLOG_CHAPTER_STATE, buildBlogChapters, chapterAncestors } from '../../utils/blog/chapters'
+import { BLOG_RESOURCES } from '../../utils/blog/resources'
+import { parseBlogMarkdownInWorker } from '../../utils/markdown/parseClient'
 import type { DocumentResource } from '../../api/blogs'
 import type { TocLink } from 'comark/plugins/toc'
 const props = withDefaults(
@@ -253,7 +253,7 @@ provide(BLOG_CHAPTER_STATE, {
 // 4. SSR 生成完整正文，客户端后续解析交给 Worker，避免阻塞阅读主线程。
 async function parse(markdown: string) {
   if (import.meta.server) {
-    const parsedDocument = await (await import('../../utils/markdown')).parseBlogMarkdown(markdown)
+    const parsedDocument = await (await import('../../utils/markdown/parser')).parseBlogMarkdown(markdown)
     if (!parsedDocument) {
       throw new Error('正文解析失败。')
     }

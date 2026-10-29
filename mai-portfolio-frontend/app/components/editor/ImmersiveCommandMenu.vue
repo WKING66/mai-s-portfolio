@@ -12,8 +12,8 @@ import {
   nextImmersiveMenuIndex,
   type ImmersiveMenuTarget,
   type ImmersiveCommandItem,
-} from '../../utils/editor/immersiveCommands'
-import { IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/immersiveContext'
+} from '../../utils/editor/interaction/immersiveCommands'
+import { IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/session/immersiveContext'
 const props = defineProps<{ editor: Editor }>()
 const host = inject(IMMERSIVE_OVERLAY_HOST)
 const target = shallowRef<ImmersiveMenuTarget | null>(null)

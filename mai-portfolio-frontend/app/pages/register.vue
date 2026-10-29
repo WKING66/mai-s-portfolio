@@ -99,7 +99,7 @@ async function submitLogout() {
         >先看看项目 <span aria-hidden="true">↗</span></NuxtLink
       >
     </section>
-    <SurfaceCard as="div" class="auth-card">
+    <UiSurfaceCard as="div" class="auth-card">
       <div class="auth-mark" aria-hidden="true">M</div>
       <section v-if="!isSessionVerified" class="grid gap-6" :aria-busy="isSubmitting">
         <h1 class="text-3xl font-bold tracking-tight">创建访客账号</h1>
@@ -234,7 +234,7 @@ async function submitLogout() {
           >
         </p>
       </form>
-    </SurfaceCard>
+    </UiSurfaceCard>
   </main>
 </template>
 

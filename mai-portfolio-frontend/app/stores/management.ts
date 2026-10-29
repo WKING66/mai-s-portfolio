@@ -1,4 +1,4 @@
-import { assetUrlsFresh } from '../utils/assetUrls'
+import { assetUrlsFresh } from '../utils/assets/urls'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { SiteProfileResponse } from '../api/profile'

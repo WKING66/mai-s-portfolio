@@ -7,8 +7,8 @@ import {
   immersiveSelectedCells,
   immersiveMarkActive,
   formatImmersiveText,
-} from '../../utils/editor/immersiveSelection'
-import { immersiveLinkRange } from '../../utils/editor/immersiveLinks'
+} from '../../utils/editor/interaction/immersiveSelection'
+import { immersiveLinkRange } from '../../utils/editor/interaction/immersiveLinks'
 import { closeHistory } from '@tiptap/pm/history'
 import { PluginKey } from '@tiptap/pm/state'
 import {
@@ -16,7 +16,7 @@ import {
   editImmersiveAxes,
   immersiveAxisProblem,
   clearImmersiveCells,
-} from '../../utils/editor/immersiveTables'
+} from '../../utils/editor/interaction/immersiveTables'
 const props = defineProps<{
   editor: Editor
   enabled: boolean

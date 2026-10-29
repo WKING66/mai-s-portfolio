@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted, watch } from 'vue'
-import { assetUrlsExpiry, assetUrlsFresh } from '../utils/assetUrls'
+import { assetUrlsExpiry, assetUrlsFresh } from '../utils/assets/urls'
 import { ASSET_URL_REFRESH_LEAD_MS } from '../constants/assets'
 
 /** 浏览器定时器的有符号 32 位上限，避免较远到期时间溢出为立即执行。 */

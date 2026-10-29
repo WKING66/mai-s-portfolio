@@ -1,5 +1,5 @@
 import { useCookie, useState } from '#app'
-import { isSiteTheme, THEME_PREFERENCE_KEY, type SiteTheme } from '../utils/siteTheme'
+import { isSiteTheme, THEME_PREFERENCE_KEY, type SiteTheme } from '../utils/site/siteTheme'
 
 /** 主题与认证完全独立；所有路由共用一次初始化，不等接口返回后再切色。 */
 export function useSiteTheme() {

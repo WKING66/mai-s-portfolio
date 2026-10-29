@@ -1,4 +1,4 @@
-import { parseBlogMarkdown } from '../utils/markdown'
+import { parseBlogMarkdown } from '../utils/markdown/parser'
 const worker = self as unknown as {
   onmessage:
     ((event: MessageEvent<{ id: number; markdown: string; probe?: boolean }>) => void) | null
