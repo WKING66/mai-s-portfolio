@@ -289,6 +289,7 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
     class="immersive-code-node my-6 min-w-0 rounded-xl border border-default"
     :class="{ 'blog-code': !isMermaid }"
     :data-code-theme="theme"
+    @document-search-reveal="expanded = true"
   >
     <Teleport v-if="overlayHost" :to="overlayHost"
       ><div

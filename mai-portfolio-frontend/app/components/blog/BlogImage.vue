@@ -45,6 +45,7 @@ onBeforeUnmount(() => {
   </span>
   <span
     v-else
+    data-document-search-ignore
     role="status"
     class="my-4 block rounded-lg border border-default bg-muted p-4 text-sm text-muted"
     >{{ alt || '图片' }} · 资源暂不可用</span

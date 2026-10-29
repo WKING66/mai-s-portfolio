@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DocumentSearch from '../blog/DocumentSearch.vue'
+import { createCanvasSearch } from '../../utils/editor/interaction/documentSearch'
 import {
   ImmersiveMarkdownGuard,
   type ImmersiveRejection,
@@ -926,6 +928,14 @@ function acceptResources(resources: DocumentResource[]) {
     )
   }
 }
+const documentSearch = createCanvasSearch({
+  editor: () => editor.value,
+  scrollRoot: () => canvasPane.value,
+  reveal: async (position) => {
+    editor.value?.commands.command(revealImmersivePosition(position))
+    await nextTick()
+  },
+})
 defineExpose({
   requestLeave,
   retryResources,
@@ -953,6 +963,11 @@ defineExpose({
         :inert="!ready"
         :class="{ 'opacity-50': !ready }"
       >
+        <DocumentSearch
+          :adapter="documentSearch"
+          :replaceable="isEditing"
+          :disabled="!ready || pastePending"
+        />
         <EditorPerformance v-if="editor" :editor="editor" />
         <input
           ref="fileInput"

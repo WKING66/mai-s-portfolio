@@ -198,6 +198,7 @@ const { copy, copied } = useClipboard({ legacy: true })
       :data-code-collapsed="isLongCodeBlock && !expanded"
       :style="{ '--code-preview-lines': CODE_FOLD.previewLines }"
       @pointerdown="pointerDown"
+      @document-search-reveal="expanded = true"
     >
       <ProsePre
         :code="source"

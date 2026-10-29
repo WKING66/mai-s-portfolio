@@ -9,6 +9,8 @@ export interface CanvasCodeInput {
   positionAtDOM(node: globalThis.Node, offset: number): number | null
   positionAtCoords(point: { x: number; y: number }): number | null
   domAtPosition(position: number): { node: globalThis.Node; offset: number } | null
+  search(matches: { from: number; to: number; active: boolean }[]): void
+  revealSearch(position: number): void
   setEditable(editable: boolean): void
   destroy(): void
 }
