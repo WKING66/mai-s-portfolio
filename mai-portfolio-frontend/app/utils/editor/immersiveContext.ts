@@ -1,9 +1,12 @@
 import type { InjectionKey, Ref } from 'vue'
 import type { CodeTheme } from '../../constants/codeThemes'
 import type { createMathPreviewQueue } from './mathPreviewQueue'
+import type { createMathLayoutObserver } from './mathLayout'
 
 export const IMMERSIVE_MATH_PREVIEWS: InjectionKey<ReturnType<typeof createMathPreviewQueue>> =
   Symbol('immersive-math-previews')
+export const IMMERSIVE_MATH_LAYOUT: InjectionKey<ReturnType<typeof createMathLayoutObserver>> =
+  Symbol('immersive-math-layout')
 export const IMMERSIVE_EDITABLE: InjectionKey<Ref<boolean>> = Symbol('immersive-editable')
 /** 编辑会话内展示偏好，不进入 Markdown；节点重建也不重置用户已选主题。 */
 export const IMMERSIVE_CODE_THEMES: InjectionKey<Map<string, CodeTheme>> =

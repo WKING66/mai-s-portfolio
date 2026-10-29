@@ -58,10 +58,12 @@ import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_EDITABLE,
   IMMERSIVE_MATH_PREVIEWS,
+  IMMERSIVE_MATH_LAYOUT,
   IMMERSIVE_OVERLAY_HOST,
   stopImmersiveControlEvent,
 } from '../../utils/editor/immersiveContext'
 import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
+import { createMathLayoutObserver } from '../../utils/editor/mathLayout'
 import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
 import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
 import { canvasMarkdownClipboard } from '../../utils/editor/canvasClipboard'
@@ -89,6 +91,9 @@ provide(
 provide(IMMERSIVE_CODE_THEMES, reactive(new Map()))
 const mathPreviews = createMathPreviewQueue()
 provide(IMMERSIVE_MATH_PREVIEWS, mathPreviews)
+const mathLayout = createMathLayoutObserver()
+provide(IMMERSIVE_MATH_LAYOUT, mathLayout)
+onBeforeUnmount(() => mathLayout.dispose())
 const overlayHost = useTemplateRef<HTMLElement>('overlayHost')
 provide(IMMERSIVE_OVERLAY_HOST, overlayHost)
 const simulateFailure = ref(false)

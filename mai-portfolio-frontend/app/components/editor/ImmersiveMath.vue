@@ -8,8 +8,9 @@ import {
   mathExitDirection,
   exitImmersiveMath,
 } from '../../utils/editor/immersiveMath'
-import { IMMERSIVE_MATH_PREVIEWS } from '../../utils/editor/immersiveContext'
+import { IMMERSIVE_MATH_PREVIEWS, IMMERSIVE_MATH_LAYOUT } from '../../utils/editor/immersiveContext'
 const props = defineProps<NodeViewProps>()
+const mathLayout = inject(IMMERSIVE_MATH_LAYOUT, undefined)
 const previews = inject(IMMERSIVE_MATH_PREVIEWS, undefined)
 const editing = ref(false)
 const input = useTemplateRef<HTMLTextAreaElement>('input')
@@ -46,6 +47,16 @@ const expression = ref('')
 const error = ref('')
 const html = shallowRef('')
 const block = computed(() => props.node.type.name === 'preservedMathBlock')
+watch(
+  [html, anchor, editing],
+  (_values, _previous, cleanup) => {
+    const element = anchor.value?.querySelector<HTMLElement>('.blog-math')
+    if (element && !editing.value) {
+      cleanup(mathLayout?.observe(element) ?? (() => {}))
+    }
+  },
+  { flush: 'post' },
+)
 const composing = ref(false)
 let revision = 0
 const pointerOrigin = ref({ x: 0, y: 0 })
