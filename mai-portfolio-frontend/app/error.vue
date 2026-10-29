@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { NuxtError } from '#app'
 import { useSiteTheme } from './composables/useSiteTheme'
-import { safeHistoryPath } from './utils/historyPath'
+import { safeHistoryPath } from './utils/site/historyPath'
 
 const props = defineProps<{ error: NuxtError }>()
 const { theme, initialize } = useSiteTheme()
@@ -55,7 +55,7 @@ const leaveErrorPage = (path: string) => clearError({ redirect: path })
 <template>
   <UApp :toaster="{ position: 'top-center', ui: { viewport: 'top-22' } }">
     <SiteHeader />
-    <StatusPanel :status="statusCode" :title="statusTitle" :description="statusDescription">
+    <UiStatusPanel :status="statusCode" :title="statusTitle" :description="statusDescription">
       <template #actions>
         <UButton icon="i-lucide-house" size="lg" @click="leaveErrorPage('/')">返回首页</UButton>
         <UButton
@@ -72,7 +72,7 @@ const leaveErrorPage = (path: string) => clearError({ redirect: path })
         >
       </template>
       <p>状态 {{ statusCode }} · 如果问题持续发生，请联系网站维护者。</p>
-    </StatusPanel>
+    </UiStatusPanel>
     <SiteFooter />
   </UApp>
 </template>

@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import { NodeSelection } from '@tiptap/pm/state'
-import { renderBlogMath, compactBlogMath } from '../../utils/blogMath'
+import { renderBlogMath, compactBlogMath } from '../../utils/markdown/blogMath'
 import BlogMath from '../blog/BlogMath.vue'
 import {
   immersiveMathSource,
   mathExitDirection,
   exitImmersiveMath,
-} from '../../utils/editor/immersiveMath'
-import { IMMERSIVE_MATH_PREVIEWS, IMMERSIVE_MATH_LAYOUT } from '../../utils/editor/immersiveContext'
+} from '../../utils/editor/math/immersiveMath'
+import { IMMERSIVE_MATH_PREVIEWS, IMMERSIVE_MATH_LAYOUT } from '../../utils/editor/session/immersiveContext'
 const props = defineProps<NodeViewProps>()
 const mathLayout = inject(IMMERSIVE_MATH_LAYOUT, undefined)
 const previews = inject(IMMERSIVE_MATH_PREVIEWS, undefined)

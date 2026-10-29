@@ -1,4 +1,4 @@
-import { highlightCode } from '../utils/codeHighlight'
+import { highlightCode } from '../utils/markdown/code/codeHighlight'
 
 // 同一 Worker 复用语法和主题，串行处理块，避免首屏并发加载所有语言。
 let queue = Promise.resolve()

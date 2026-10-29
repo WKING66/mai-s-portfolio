@@ -15,7 +15,7 @@ onMounted(() => {
 useSeoMeta({ title: '无访问权限', robots: 'noindex,nofollow' })
 </script>
 <template>
-  <StatusPanel
+  <UiStatusPanel
     :status="403"
     title="此处需要相应的访问权限"
     :description="
@@ -52,5 +52,5 @@ useSeoMeta({ title: '无访问权限', robots: 'noindex,nofollow' })
           : '登录仅用于确认身份，实际访问仍由账号权限决定。'
       }}
     </p>
-  </StatusPanel>
+  </UiStatusPanel>
 </template>

@@ -1,7 +1,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from '#app'
 import { SITE_NAVIGATION, type SiteSection } from '../constants/navigation'
-import { navigationSection, visibleSection } from '../utils/siteNavigation'
+import { navigationSection, visibleSection } from '../utils/site/siteNavigation'
 
 /** 栏目高亮仅是导航展示状态，不参与任何认证或服务端授权。 */
 export function useSiteNavigation() {

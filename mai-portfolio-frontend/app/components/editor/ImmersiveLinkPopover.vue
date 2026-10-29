@@ -6,10 +6,10 @@ import {
   IMMERSIVE_LINK_KEY,
   immersiveLinkRange,
   openImmersiveLink,
-} from '../../utils/editor/immersiveLinks'
-import { IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/immersiveContext'
-import { isEditorUrl } from '../../utils/editor/markdownExtensions'
-import { safeBlogUrl } from '../../utils/blogResources'
+} from '../../utils/editor/interaction/immersiveLinks'
+import { IMMERSIVE_OVERLAY_HOST } from '../../utils/editor/session/immersiveContext'
+import { isEditorUrl } from '../../utils/editor/markdown/markdownExtensions'
+import { safeBlogUrl } from '../../utils/blog/resources'
 const props = defineProps<{ editor: Editor }>()
 const emit = defineEmits<{ active: [active: boolean] }>()
 const host = inject(IMMERSIVE_OVERLAY_HOST)

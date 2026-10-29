@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BLOG_CHAPTER_STATE } from '../../utils/blogChapters'
+import { BLOG_CHAPTER_STATE } from '../../utils/blog/chapters'
 import type { ElementNode } from 'comark'
 const props = defineProps<{
   chapterId: string

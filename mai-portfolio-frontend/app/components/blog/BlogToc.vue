@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TocLink } from 'comark/plugins/toc'
-import { visibleToc } from '../../utils/blogChapters'
+import { visibleToc } from '../../utils/blog/chapters'
 import { useMediaQuery } from '@vueuse/core'
 import BlogTocTree from './BlogTocTree.vue'
 const props = defineProps<{
@@ -318,7 +318,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="blog-toc showcase-toc">
+  <div class="blog-toc">
     <nav aria-label="文章目录" class="blog-toc-desktop">
       <p class="blog-toc-title">本篇目录</p>
       <BlogTocTree

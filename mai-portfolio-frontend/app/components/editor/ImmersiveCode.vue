@@ -5,24 +5,24 @@ import type { InputProps } from '@nuxt/ui'
 import type { InputHTMLAttributes } from 'vue'
 import { CODE_THEMES, CODE_FOLD, codeLabel, type CodeTheme } from '../../constants/codeThemes'
 import { NodeSelection, Selection } from '@tiptap/pm/state'
-import { codeLanguageOptions, resolveCodeLanguage } from '../../utils/codeLanguages'
-import { codeFormatter, codeFormattingMessage } from '../../utils/editor/codeFormatting'
-import { formatCodeInWorker } from '../../utils/editor/codeFormattingClient'
-import { applyFormattedCode } from '../../utils/editor/codeFormattingTransaction'
-import { IMMERSIVE_CODE_EXPANDED } from '../../utils/editor/immersiveDecorations'
+import { codeLanguageOptions, resolveCodeLanguage } from '../../utils/markdown/code/codeLanguages'
+import { codeFormatter, codeFormattingMessage } from '../../utils/editor/code/codeFormatting'
+import { formatCodeInWorker } from '../../utils/editor/code/codeFormattingClient'
+import { applyFormattedCode } from '../../utils/editor/code/codeFormattingTransaction'
+import { IMMERSIVE_CODE_EXPANDED } from '../../utils/editor/interaction/immersiveDecorations'
 import ImmersiveDiagram from './ImmersiveDiagram.vue'
 import {
   CANVAS_CODE_INPUT,
   registerCanvasCodeInput,
   unregisterCanvasCodeInput,
   type CanvasCodeInput,
-} from '../../utils/editor/canvasCodeInput'
+} from '../../utils/editor/code/canvasCodeInput'
 import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_OVERLAY_HOST,
   IMMERSIVE_EDITABLE,
-} from '../../utils/editor/immersiveContext'
-import { parseCodeInfo, formatCodeInfo } from '../../utils/codeInfo'
+} from '../../utils/editor/session/immersiveContext'
+import { parseCodeInfo, formatCodeInfo } from '../../utils/markdown/code/codeInfo'
 const props = defineProps<NodeViewProps>()
 const codeInputFactory = inject(CANVAS_CODE_INPUT, undefined)
 const codeHost = useTemplateRef<HTMLElement>('codeHost')

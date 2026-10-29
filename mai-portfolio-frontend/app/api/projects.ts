@@ -6,7 +6,7 @@ import { useManagementStore } from '../stores/management'
 import type { ApiResponse } from './types'
 import { useAuthState } from '../composables/useAuthState'
 import { PROJECT_PATH, PROJECT_MESSAGES } from '../constants/projects'
-import { assetUrlsFresh } from '../utils/assetUrls'
+import { assetUrlsFresh } from '../utils/assets/urls'
 import { AUTH_ACCESS } from '../constants/auth'
 
 export interface ProjectTag {

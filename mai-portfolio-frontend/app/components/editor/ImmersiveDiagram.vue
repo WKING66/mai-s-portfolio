@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { renderBlogMermaid, cloneMermaidSvg, type MermaidPalette } from '../../utils/blogMermaid'
+import {
+  renderBlogMermaid,
+  cloneMermaidSvg,
+  type MermaidPalette,
+} from '../../utils/markdown/blogMermaid'
 import BlogMermaidCanvas from '../blog/BlogMermaidCanvas.vue'
 const props = defineProps<{ content: string }>()
 const root = useTemplateRef<HTMLElement>('root')

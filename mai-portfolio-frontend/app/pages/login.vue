@@ -106,7 +106,7 @@ async function submitLogout() {
         >先看看项目 <span aria-hidden="true">↗</span></NuxtLink
       >
     </section>
-    <SurfaceCard as="div" class="auth-card">
+    <UiSurfaceCard as="div" class="auth-card">
       <div class="auth-mark" aria-hidden="true">M</div>
       <form
         v-if="!isLoggedIn"
@@ -194,7 +194,7 @@ async function submitLogout() {
           {{ isSubmitting ? '正在注销…' : '注销账号' }}
         </button>
       </section>
-    </SurfaceCard>
+    </UiSurfaceCard>
   </main>
 </template>
 

@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { useClipboard } from '@vueuse/core'
-import { renderBlogMermaid, cloneMermaidSvg, type MermaidPalette } from '../../utils/blogMermaid'
+import {
+  renderBlogMermaid,
+  cloneMermaidSvg,
+  type MermaidPalette,
+} from '../../utils/markdown/blogMermaid'
 import BlogMermaidCanvas from './BlogMermaidCanvas.vue'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{ content: string }>()

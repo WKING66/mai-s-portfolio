@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BLOG_RESOURCES, resolveBlogResource } from '../../utils/blogResources'
+import { BLOG_RESOURCES, resolveBlogResource } from '../../utils/blog/resources'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{ href?: string; title?: string }>()
 const resources = inject(BLOG_RESOURCES, ref([]))

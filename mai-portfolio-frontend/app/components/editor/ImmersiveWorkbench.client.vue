@@ -2,58 +2,61 @@
 import {
   ImmersiveMarkdownGuard,
   type ImmersiveRejection,
-} from '../../utils/editor/immersiveCapabilities'
+} from '../../utils/editor/interaction/immersiveCapabilities'
 import { Extension, type JSONContent, type Node as TiptapNode } from '@tiptap/core'
 import {
   ImmersiveChapters,
   immersiveChapters,
   revealImmersivePosition,
   IMMERSIVE_CHAPTER_KEY,
-} from '../../utils/editor/immersiveChapters'
-import { visibleToc } from '../../utils/blogChapters'
+} from '../../utils/editor/interaction/immersiveChapters'
+import { visibleToc } from '../../utils/blog/chapters'
 import { NodeSelection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import type { EditorProps } from '@tiptap/pm/view'
 import type { EditorToolbarItem, FormError } from '@nuxt/ui'
-import { CanvasNodePositions, canvasNodeViewRenderer } from '../../utils/editor/canvasNodePositions'
+import {
+  CanvasNodePositions,
+  canvasNodeViewRenderer,
+} from '../../utils/editor/session/canvasNodePositions'
 import { useMediaQuery, useElementSize } from '@vueuse/core'
-import { PreservedCodeBlock } from '../../utils/editor/markdownExtensions'
+import { PreservedCodeBlock } from '../../utils/editor/markdown/markdownExtensions'
 import { Markdown } from '@tiptap/markdown'
 import {
   CANVAS_EDITOR_EXTENSIONS,
   CANVAS_STARTER_KIT,
   createCanvasMarkdownOptions,
-} from '../../utils/editor/canvasMarkdown'
+} from '../../utils/editor/markdown/canvasMarkdown'
 import {
   collectEditorHeadings,
   editorHeadingTree,
   type EditorHeading,
-} from '../../utils/editor/editorOutline'
+} from '../../utils/editor/interaction/editorOutline'
 import ImmersiveCode from './ImmersiveCode.vue'
 import EditorPerformance from './EditorPerformance.vue'
 import ImmersiveMath from './ImmersiveMath.vue'
 import ImmersiveImage from './ImmersiveImage.vue'
 import { nodeInputRule } from '@tiptap/core'
-import { openImmersiveLink } from '../../utils/editor/immersiveLinks'
-import { openImmersiveMenu } from '../../utils/editor/immersiveCommands'
+import { openImmersiveLink } from '../../utils/editor/interaction/immersiveLinks'
+import { openImmersiveMenu } from '../../utils/editor/interaction/immersiveCommands'
 import {
   ImmersiveParagraphInput,
   ImmersiveTabBoundary,
   continueImmersiveDocument,
-} from '../../utils/editor/immersiveParagraphInput'
-import { ImmersiveSelection } from '../../utils/editor/immersiveSelection'
-import { highlightImmersivePosition } from '../../utils/editor/immersivePositionHighlight'
-import { ImmersiveDecorations } from '../../utils/editor/immersiveDecorations'
-import { BLOG_RESOURCES } from '../../utils/blogResources'
+} from '../../utils/editor/interaction/immersiveParagraphInput'
+import { ImmersiveSelection } from '../../utils/editor/interaction/immersiveSelection'
+import { highlightImmersivePosition } from '../../utils/editor/interaction/immersivePositionHighlight'
+import { ImmersiveDecorations } from '../../utils/editor/interaction/immersiveDecorations'
+import { BLOG_RESOURCES } from '../../utils/blog/resources'
 import type { BlogTag, DocumentResource } from '../../api/blogs'
-import type { CanvasMetadata } from '../../utils/editor/canvasSave'
+import type { CanvasMetadata, CanvasPersistence } from '../../utils/editor/session/types'
 import {
   normalizeCanvasResources,
   CANVAS_RESOURCE_PREVIEW,
   insertCanvasFiles,
-} from '../../utils/editor/canvasResources'
+} from '../../utils/editor/session/canvasResources'
 import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS, BLOG_INPUT_LIMITS } from '../../constants/blogs'
-import { useCanvasDocument, type CanvasPersistence } from '../../composables/useCanvasDocument'
-import { blogSlugIssue } from '../../utils/blogSlug'
+import { useCanvasDocument } from '../../composables/useCanvasDocument'
+import { blogSlugIssue } from '../../utils/blog/slug'
 import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_EDITABLE,
@@ -61,21 +64,21 @@ import {
   IMMERSIVE_MATH_LAYOUT,
   IMMERSIVE_OVERLAY_HOST,
   stopImmersiveControlEvent,
-} from '../../utils/editor/immersiveContext'
-import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
-import { createMathLayoutObserver } from '../../utils/editor/mathLayout'
-import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
-import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
-import { canvasMarkdownClipboard } from '../../utils/editor/canvasClipboard'
-import { CANVAS_LOADING } from '../../utils/editor/canvasLoading'
-import { CANVAS_CODE_INPUT, canvasCodeInputRenderer } from '../../utils/editor/canvasCodeInput'
-import { CanvasCodeSelection } from '../../utils/editor/canvasCodeSelection'
-import { mountCanvasCodeMirror } from '../../utils/editor/canvasCodeMirror'
+} from '../../utils/editor/session/immersiveContext'
+import { createMathPreviewQueue } from '../../utils/editor/math/mathPreviewQueue'
+import { createMathLayoutObserver } from '../../utils/editor/math/mathLayout'
+import { canvasInitializationGuard } from '../../utils/editor/session/canvasInitialization'
+import { ImmersiveDragScroll } from '../../utils/editor/interaction/immersiveDragScroll'
+import { canvasMarkdownClipboard } from '../../utils/editor/interaction/canvasClipboard'
+import { CANVAS_LOADING } from '../../utils/editor/session/canvasLoading'
+import { CANVAS_CODE_INPUT, canvasCodeInputRenderer } from '../../utils/editor/code/canvasCodeInput'
+import { CanvasCodeSelection } from '../../utils/editor/code/canvasCodeSelection'
+import { mountCanvasCodeMirror } from '../../utils/editor/code/canvasCodeMirror'
 
 const props = defineProps<{
   initialContent: string | JSONContent
   resources?: DocumentResource[]
-  persistence?: CanvasPersistence
+  persistence: CanvasPersistence
   unsaved?: boolean
   stateLabel?: string
   slugLocked?: boolean
@@ -96,14 +99,10 @@ provide(IMMERSIVE_MATH_LAYOUT, mathLayout)
 onBeforeUnmount(() => mathLayout.dispose())
 const overlayHost = useTemplateRef<HTMLElement>('overlayHost')
 provide(IMMERSIVE_OVERLAY_HOST, overlayHost)
-const simulateFailure = ref(false)
-const simulateResourceFailure = ref(false)
 const canvas = useCanvasDocument(
   props.initialContent,
   metadata,
   props.resources ?? [],
-  () => simulateFailure.value,
-  () => simulateResourceFailure.value,
   props.persistence,
 )
 provide(CANVAS_RESOURCE_PREVIEW, canvas.localResources.preview)
@@ -251,18 +250,11 @@ function copyProperties(value: CanvasMetadata) {
   return { ...value, tagIds: Array.from(value.tagIds ?? []) }
 }
 let propertiesBaseline = copyProperties(metadata.value)
-const propertiesDirty = computed(
-  () => Boolean(props.persistence) && !sameProperties(settingsDraft, metadata.value),
-)
+const propertiesDirty = computed(() => !sameProperties(settingsDraft, metadata.value))
 const remoteRights = computed({
-  get: () =>
-    props.persistence ? metadata.value.remoteRightsConfirmed : settingsDraft.remoteRightsConfirmed,
+  get: () => metadata.value.remoteRightsConfirmed,
   set: (value: boolean) => {
-    if (props.persistence) {
-      metadata.value = { ...metadata.value, remoteRightsConfirmed: value }
-    } else {
-      settingsDraft.remoteRightsConfirmed = value
-    }
+    metadata.value = { ...metadata.value, remoteRightsConfirmed: value }
   },
 })
 function cancelSettings() {
@@ -315,7 +307,7 @@ async function saveDraft() {
   if (success && canvas.saved.outcome.value === 'unchanged') {
     return true
   }
-  const savedTitle = props.persistence ? '本次正文已保存' : '模拟保存完成'
+  const savedTitle = '本次正文已保存'
   toast.add({
     id: 'canvas-save',
     title: success ? savedTitle : '当前内容未保存',
@@ -362,16 +354,8 @@ function toggleEditing() {
 }
 function validateMetadata(state: typeof settingsDraft): FormError[] {
   const errors: FormError[] = []
-  if (!props.persistence && !state.title.trim()) {
-    errors.push({ name: 'title', message: '请输入文章标题。' })
-  }
-  if (!props.persistence && !state.slug.trim()) {
-    errors.push({ name: 'slug', message: '请输入文章地址。' })
-  }
   const slugIssue =
-    props.persistence && state.slug === metadata.value.slug
-      ? ''
-      : blogSlugIssue(state.slug.trim() ? state.slug : '')
+    state.slug === metadata.value.slug ? '' : blogSlugIssue(state.slug.trim() ? state.slug : '')
   if (slugIssue) {
     errors.push({ name: 'slug', message: slugIssue })
   }
@@ -384,48 +368,35 @@ function validateMetadata(state: typeof settingsDraft): FormError[] {
   return errors
 }
 async function applySettings() {
-  if (props.persistence) {
-    if (propertiesSaving.value) {
-      return
-    }
-    if (!propertiesDirty.value) {
-      settingsOpen.value = false
-      return
-    }
-    const submitted = copyProperties(settingsDraft)
-    propertiesSaving.value = true
-    propertiesError.value = ''
-    try {
-      await props.persistence.saveProperties(submitted)
-      await nextTick()
-      if (sameProperties(settingsDraft, submitted)) {
-        Object.assign(settingsDraft, copyProperties(metadata.value))
-        settingsOpen.value = false
-      }
-      toast.add({
-        title: '文章属性已保存',
-        description: propertiesDirty.value ? '保存期间的新属性修改仍未保存。' : undefined,
-        color: 'success',
-      })
-    } catch (cause) {
-      propertiesError.value = cause instanceof Error ? cause.message : '文章属性未保存，请重试。'
-    } finally {
-      propertiesSaving.value = false
-    }
+  if (propertiesSaving.value) {
     return
   }
-  if (
-    Object.entries(settingsDraft).some(
-      ([key, value]) => metadata.value[key as keyof typeof settingsDraft] !== value,
-    )
-  ) {
-    metadata.value = {
-      ...settingsDraft,
-      ...(settingsDraft.tagIds ? { tagIds: Array.from(settingsDraft.tagIds) } : {}),
-    }
+  if (!propertiesDirty.value) {
+    settingsOpen.value = false
+    return
   }
-  settingsOpen.value = false
+  const submitted = copyProperties(settingsDraft)
+  propertiesSaving.value = true
+  propertiesError.value = ''
+  try {
+    await props.persistence.saveProperties(submitted)
+    await nextTick()
+    if (sameProperties(settingsDraft, submitted)) {
+      Object.assign(settingsDraft, copyProperties(metadata.value))
+      settingsOpen.value = false
+    }
+    toast.add({
+      title: '文章属性已保存',
+      description: propertiesDirty.value ? '保存期间的新属性修改仍未保存。' : undefined,
+      color: 'success',
+    })
+  } catch (cause) {
+    propertiesError.value = cause instanceof Error ? cause.message : '文章属性未保存，请重试。'
+  } finally {
+    propertiesSaving.value = false
+  }
 }
+
 watch(settingsOpen, (open) => {
   if (open && !propertiesDirty.value) {
     Object.assign(settingsDraft, copyProperties(metadata.value))
@@ -434,17 +405,14 @@ watch(settingsOpen, (open) => {
 watch(
   metadata,
   (value) => {
-    if (props.persistence) {
-      if (sameProperties(settingsDraft, propertiesBaseline)) {
-        Object.assign(settingsDraft, copyProperties(value))
-      }
-      propertiesBaseline = copyProperties(value)
-    } else if (ready.value) {
-      canvas.saved.changed(false)
+    if (sameProperties(settingsDraft, propertiesBaseline)) {
+      Object.assign(settingsDraft, copyProperties(value))
     }
+    propertiesBaseline = copyProperties(value)
   },
   { deep: true },
 )
+
 const richEditor = useTemplateRef('richEditor')
 const headings = shallowRef<EditorHeading[]>([])
 let headingPositions: EditorHeading[] = []
@@ -920,7 +888,7 @@ function beforeUnload(event: BeforeUnloadEvent) {
     event.returnValue = ''
   }
 }
-async function exportDemo() {
+async function exportMarkdown() {
   if (waitForPaste()) {
     return
   }
@@ -975,9 +943,7 @@ defineExpose({
       <div class="flex min-w-0 flex-wrap items-center gap-2 text-sm">
         <UIcon name="i-lucide-file-pen-line" class="size-4" />
         <span class="font-medium">沉浸写作</span>
-        <UBadge color="neutral" variant="subtle" size="sm">{{
-          stateLabel || '草稿 · 仅本页'
-        }}</UBadge>
+        <UBadge color="neutral" variant="subtle" size="sm">{{ stateLabel || '服务器草稿' }}</UBadge>
         <span class="hidden text-xs text-muted sm:inline" role="status">{{
           pastePending ? '正在解析粘贴内容…' : saveStatus
         }}</span>
@@ -1009,7 +975,7 @@ defineExpose({
           icon="i-lucide-save"
           color="neutral"
           variant="ghost"
-          :aria-label="persistence ? '保存正文' : '保存演示草稿'"
+          aria-label="保存正文"
           :disabled="!ready || (!dirty && !unsaved)"
           :loading="saving"
           @click="saveDraft"
@@ -1019,7 +985,7 @@ defineExpose({
           variant="ghost"
           icon="i-lucide-download"
           aria-label="导出 Markdown"
-          @click="exportDemo"
+          @click="exportMarkdown"
         />
         <UButton
           v-if="compact && isEditing"
@@ -1111,7 +1077,7 @@ defineExpose({
                 :model-value="editorDocument"
                 content-type="json"
                 v-bind="{ injectCSS: false }"
-                :placeholder="persistence ? '从这里开始写作，输入 / 插入内容' : undefined"
+                placeholder="从这里开始写作，输入 / 插入内容"
                 :markdown="markdownOptions"
                 :starter-kit="CANVAS_STARTER_KIT"
                 :extensions="editorExtensions"
@@ -1217,11 +1183,7 @@ defineExpose({
     <UModal
       v-model:open="settingsOpen"
       title="文章设置"
-      :description="
-        persistence
-          ? '文章属性单独保存，不会提交或转换正在编辑的正文。'
-          : '这里修改的是当前演示草稿，不会调用保存或发布 API。'
-      "
+      description="文章属性单独保存，不会提交或转换正在编辑的正文。"
       :ui="{ content: 'sm:max-w-2xl' }"
     >
       <template #body>
@@ -1240,16 +1202,12 @@ defineExpose({
           />
           <div class="flex items-center justify-between">
             <span class="text-sm text-muted">文章状态</span
-            ><UBadge color="neutral" variant="subtle">{{ stateLabel || '草稿 · 本地演示' }}</UBadge>
+            ><UBadge color="neutral" variant="subtle">{{ stateLabel || '服务器草稿' }}</UBadge>
           </div>
-          <UFormField name="title" label="文章标题" :required="!persistence"
+          <UFormField name="title" label="文章标题"
             ><UInput v-model="settingsDraft.title" class="w-full"
           /></UFormField>
-          <UFormField
-            name="slug"
-            label="Slug"
-            description="文章地址独立编辑，不会随标题自动改变。"
-            :required="!persistence"
+          <UFormField name="slug" label="Slug" description="文章地址独立编辑，不会随标题自动改变。"
             ><UInput v-model="settingsDraft.slug" :disabled="slugLocked" class="w-full"
           /></UFormField>
           <UFormField
@@ -1258,7 +1216,7 @@ defineExpose({
             :hint="settingsDraft.summary.length + '/' + BLOG_INPUT_LIMITS.summary"
             ><UTextarea v-model="settingsDraft.summary" autoresize :rows="3" class="w-full"
           /></UFormField>
-          <UFormField v-if="persistence" name="tagIds" label="文章标签">
+          <UFormField name="tagIds" label="文章标签">
             <USelect
               v-model="settingsDraft.tagIds"
               multiple
@@ -1272,23 +1230,12 @@ defineExpose({
             <USwitch
               v-model="settingsDraft.allowDownload"
               label="允许下载 Markdown"
-              :description="persistence ? '保存后立即生效。' : '这里只更新演示数据。'"
+              description="保存后立即生效。"
             />
             <UCheckbox
               v-model="remoteRights"
               label="已确认远程图片与附件的使用权"
               description="用于正文保存时处理远程资源，不作为文章属性提交。"
-            />
-            <USwitch
-              v-if="!persistence"
-              v-model="simulateFailure"
-              label="模拟保存失败（用于验证重试）"
-            />
-            <USwitch
-              v-if="!persistence"
-              v-model="simulateResourceFailure"
-              label="模拟图片与附件处理失败"
-              description="文件仅留在本页，不上传服务器；刷新后不可恢复。"
             />
           </div>
           <div class="flex justify-end gap-2 border-t border-default pt-4">
@@ -1299,11 +1246,8 @@ defineExpose({
               :disabled="propertiesSaving"
               @click="cancelSettings"
               >取消</UButton
-            ><UButton
-              type="submit"
-              :loading="propertiesSaving"
-              :disabled="persistence && !propertiesDirty"
-              >{{ persistence ? '保存属性' : '应用到演示草稿' }}</UButton
+            ><UButton type="submit" :loading="propertiesSaving" :disabled="!propertiesDirty"
+              >保存属性</UButton
             >
           </div>
         </UForm>
@@ -1312,11 +1256,7 @@ defineExpose({
     <UModal
       :open="leaveOpen"
       title="有未保存修改"
-      :description="
-        persistence
-          ? '离开前可以保存当前草稿，或明确放弃未保存修改。'
-          : '当前仅为模拟保存，不会上传服务器。'
-      "
+      description="离开前可以保存当前草稿，或明确放弃未保存修改。"
       :dismissible="false"
       @update:open="
         (open) => {

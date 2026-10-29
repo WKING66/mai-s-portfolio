@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Editor } from '@tiptap/core'
-import type { startEditorPerformance } from '../../utils/editor/editorPerformance'
+import type { startEditorPerformance } from '../../utils/editor/diagnostics/editorPerformance'
 
 const props = defineProps<{ editor: Editor }>()
 const open = ref(false)
@@ -26,7 +26,7 @@ async function start() {
   const token = ++generation
   starting.value = true
   try {
-    const { startEditorPerformance } = await import('../../utils/editor/editorPerformance')
+    const { startEditorPerformance } = await import('../../utils/editor/diagnostics/editorPerformance')
     if (token !== generation || current.isDestroyed) {
       return
     }

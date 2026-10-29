@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import type { SessionResponse } from '../api/session'
 import type { AccountProfileVo } from '../api/account'
-import { ACCOUNT_SNAPSHOT_KEY, readAccountSnapshot } from '../utils/accountSnapshot'
+import { ACCOUNT_SNAPSHOT_KEY, readAccountSnapshot } from '../utils/account/snapshot'
 
 /** 账号展示快照的唯一数据源；浏览器可持久化，不跨 SSR 请求共享。 */
 export const useAccountStore = defineStore('account', {

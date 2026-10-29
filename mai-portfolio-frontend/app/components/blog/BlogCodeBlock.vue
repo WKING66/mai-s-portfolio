@@ -4,7 +4,7 @@ import { h, type StyleValue, type VNodeChild } from 'vue'
 import { textContent } from 'comark/utils'
 import { useClipboard } from '@vueuse/core'
 import { CODE_THEMES, CODE_FOLD, codeLabel, type CodeTheme } from '../../constants/codeThemes'
-import { highlightCodeInWorker } from '../../utils/codeHighlightClient'
+import { highlightCodeInWorker } from '../../utils/markdown/code/codeHighlightClient'
 defineOptions({ inheritAttrs: false })
 const props = defineProps<{
   // Comark 注入的属性名是固定协议，保留与正文 AST 的映射。
@@ -153,7 +153,7 @@ const { copy, copied } = useClipboard({ legacy: true })
 
 <template>
   <div
-    class="blog-code showcase-code my-6 rounded-xl border border-default"
+    class="blog-code my-6 rounded-xl border border-default"
     :data-code-theme="theme"
     :data-highlight="highlighted ? highlighted[1]['data-highlight'] || 'ready' : 'pending'"
     :style="[props.style, highlighted?.[1].style as StyleValue]"

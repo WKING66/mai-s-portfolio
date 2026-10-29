@@ -3,8 +3,8 @@ import type { Editor, JSONContent } from '@tiptap/vue-3'
 import {
   openImmersiveMenu,
   canConvertImmersiveTextBlock,
-} from '../../utils/editor/immersiveCommands'
-import { immersiveInsertionProblem } from '../../utils/editor/immersiveCapabilities'
+} from '../../utils/editor/interaction/immersiveCommands'
+import { immersiveInsertionProblem } from '../../utils/editor/interaction/immersiveCapabilities'
 const props = defineProps<{ editor: Editor; disabled?: boolean }>()
 const menuOpen = ref(false)
 watch(menuOpen, (open) => props.editor.commands.setMeta('lockDragHandle', open))

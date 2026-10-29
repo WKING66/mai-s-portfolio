@@ -4,7 +4,7 @@ import {
   ACCOUNT_SNAPSHOT_KEY,
   persistAccountSnapshot,
   readAccountSnapshot,
-} from '../utils/accountSnapshot'
+} from '../utils/account/snapshot'
 
 export default defineNuxtPlugin({
   name: 'account-snapshot',

@@ -1,6 +1,6 @@
 import { SEO_NOINDEX, SEO_SITE_NAME } from './shared/utils/seo'
-import { THEME_BOOTSTRAP_SCRIPT } from './app/utils/siteTheme'
-import { SCROLL_RESTORATION_BOOTSTRAP_SCRIPT } from './app/utils/scrollPosition'
+import { THEME_BOOTSTRAP_SCRIPT } from './app/utils/site/siteTheme'
+import { SCROLL_RESTORATION_BOOTSTRAP_SCRIPT } from './app/utils/site/scrollPosition'
 import { createRequire } from 'node:module'
 
 const require = createRequire(import.meta.url)

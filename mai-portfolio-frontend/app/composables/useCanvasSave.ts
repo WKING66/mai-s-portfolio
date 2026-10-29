@@ -1,8 +1,6 @@
 import { computed, ref } from 'vue'
 
-export interface CanvasSaveAdapter<T> {
-  save(snapshot: T): Promise<void> | Promise<'unchanged' | undefined>
-}
+import type { CanvasSaveAdapter } from '../utils/editor/session/types'
 
 /** 单请求与版本快照；输入只增加修订号和重置空闲计时，不导出正文。 */
 export function useCanvasSave<T>(
