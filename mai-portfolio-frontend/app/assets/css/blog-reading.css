@@ -440,3 +440,33 @@
     );
   }
 }
+
+/* 搜索使用浏览器原生 Range 高亮，不改变正文 DOM 或文本选区。 */
+::highlight(document-search) {
+  background-color: #fde68a;
+  color: #292524;
+}
+::highlight(document-search-active) {
+  background-color: #fca5a5;
+  color: #7f1d1d;
+}
+.document-search-code {
+  background-color: #fde68a;
+  color: #292524 !important;
+}
+.document-search-code-active {
+  background-color: #fca5a5;
+  color: #7f1d1d !important;
+}
+.blog-reading-find {
+  position: sticky;
+  top: calc(var(--site-header-height) + 0.75rem);
+  z-index: 6;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+  pointer-events: none;
+}
+.blog-reading-find > * {
+  pointer-events: auto;
+}

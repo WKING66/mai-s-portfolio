@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import DocumentSearch from './DocumentSearch.vue'
+import { createReadingSearch } from '../../utils/blog/readingSearch'
 import BlogCodeBlock from './BlogCodeBlock.vue'
 import BlogImage from './BlogImage.vue'
 import BlogLink from './BlogLink.vue'
@@ -381,6 +383,25 @@ async function retry() {
     : initialDocument.value
   error.value = initialError.value ? '正文暂时无法解析，请重新读取。' : ''
 }
+const documentSearch = createReadingSearch({
+  root: () => bodyRoot.value,
+  reveal: async (element) => {
+    await contentMountPromise
+    const next = new Set(contentCollapsedIds.value)
+    let chapter = element.closest('[data-chapter]')
+    while (chapter) {
+      next.delete(chapter.getAttribute('data-chapter')!)
+      chapter = chapter.parentElement?.closest('[data-chapter]') ?? null
+    }
+    if (next.size !== contentCollapsedIds.value.size) {
+      contentCollapsedIds.value = next
+    }
+    element
+      .closest('.blog-code-viewport')
+      ?.dispatchEvent(new Event('document-search-reveal', { bubbles: true }))
+    await nextTick()
+  },
+})
 // 6. 离开阅读器时使异步响应失效，释放观察器、定时器和当前 payload 缓存。
 onBeforeUnmount(() => {
   parseRevision++
@@ -409,8 +430,13 @@ onBeforeUnmount(() => {
       :data-reading-ready="readingReady"
       :aria-busy="!readingReady"
     >
-      <p v-if="!readingReady" role="status" class="text-sm text-muted">正在准备长文内容…</p>
-      <div v-if="error" role="status" class="mb-4 text-sm text-error">
+      <div v-if="showToc" class="blog-reading-find" data-document-search-ignore>
+        <DocumentSearch :adapter="documentSearch" :disabled="!readingReady" />
+      </div>
+      <p v-if="!readingReady" data-document-search-ignore role="status" class="text-sm text-muted">
+        正在准备长文内容…
+      </p>
+      <div v-if="error" data-document-search-ignore role="status" class="mb-4 text-sm text-error">
         {{ error }} <UButton color="neutral" variant="link" @click="retry">重新解析</UButton>
       </div>
       <Markdown v-if="chapterDocument" :value="chapterDocument" :components="components" />

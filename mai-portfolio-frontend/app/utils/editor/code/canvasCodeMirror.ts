@@ -69,6 +69,22 @@ const colorField = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 })
 
+// 搜索是本块的视图装饰，既不改代码文本，也不进入文章撤销历史。
+const searchMatches = StateEffect.define<DecorationSet>()
+const searchField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, transaction) {
+    value = value.map(transaction.changes)
+    for (const effect of transaction.effects) {
+      if (effect.is(searchMatches)) {
+        value = effect.value
+      }
+    }
+    return value
+  },
+  provide: (field) => EditorView.decorations.from(field),
+})
+
 /** CodeMirror 只拥有当前块的输入 DOM；正文事实与 Undo/Redo 仍由外层 PM 持有。 */
 export function mountCanvasCodeMirror(host: HTMLElement, props: NodeViewProps): CanvasCodeInput {
   const editor = props.editor
@@ -138,6 +154,7 @@ export function mountCanvasCodeMirror(host: HTMLElement, props: NodeViewProps): 
         lineNumbers(),
         drawSelection(),
         colorField,
+        searchField,
         EditorView.theme({
           '&': {
             fontSize: '0.875rem',
@@ -515,6 +532,24 @@ export function mountCanvasCodeMirror(host: HTMLElement, props: NodeViewProps): 
         }
       } finally {
         synchronizing = false
+      }
+    },
+    search(matches) {
+      if (destroyed) {
+        return
+      }
+      const ranges = matches
+        .filter((match) => match.from < match.to && match.to <= input.state.doc.length)
+        .map((match) =>
+          Decoration.mark({
+            class: match.active ? 'document-search-code-active' : 'document-search-code',
+          }).range(match.from, match.to),
+        )
+      input.dispatch({ effects: searchMatches.of(Decoration.set(ranges, true)) })
+    },
+    revealSearch(position) {
+      if (!destroyed) {
+        input.dispatch({ effects: EditorView.scrollIntoView(position, { y: 'center' }) })
       }
     },
     setEditable(value) {
