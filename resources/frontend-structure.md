@@ -1,6 +1,6 @@
 # 前端代码结构
 
-应用源码位于 `mai-portfolio-frontend/`。目录按职责归类，不为不同页面重复维护 Markdown 解析、代码高亮或资源规则。
+应用源码位于 `mai-portfolio-frontend/`。本文说明当前入口与职责归属；后续开发和 Review 执行 [前端编码规范](../docs/development/frontend-coding-style.md)，不在此维护另一套规则。
 
 ```text
 app/
