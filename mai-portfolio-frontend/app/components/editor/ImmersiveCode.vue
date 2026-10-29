@@ -98,6 +98,16 @@ const theme = computed<CodeTheme>({
     themes.set(identity.value, value)
   },
 })
+const themeItems = computed(() =>
+  CODE_THEMES.map((item) => ({
+    label: item.label,
+    type: 'checkbox' as const,
+    checked: theme.value === item.value,
+    onUpdateChecked: () => {
+      theme.value = item.value
+    },
+  })),
+)
 const portal = useTemplateRef<HTMLElement>('portal')
 const diagram = useTemplateRef<InstanceType<typeof ImmersiveDiagram>>('diagram')
 const language = computed(() => String(props.node.attrs.language || '').split(/\s/)[0] || '')
@@ -317,7 +327,7 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
           :virtualize="{ estimateSize: 40 }"
           :portal="portal ?? false"
           :ui="{
-            content: 'code-language-menu z-50 w-72 rounded-xl shadow-xl',
+            content: 'code-language-menu pointer-events-auto z-50 w-72 rounded-xl shadow-xl',
             input: 'code-language-search',
             viewport: 'code-language-options min-h-0',
             item: 'code-language-item h-10 items-center rounded-lg px-3 text-sm',
@@ -355,16 +365,24 @@ function updateInfo(nextLanguage: string, nextFilename: string) {
             </div>
           </template>
         </USelectMenu>
-        <USelect
-          v-model="theme"
+        <UDropdownMenu
           v-model:open="themeMenuOpen"
-          :items="[...CODE_THEMES]"
+          :items="themeItems"
+          :modal="false"
           :portal="portal ?? false"
-          :ui="{ content: 'z-50' }"
-          size="xs"
-          class="w-32"
-          :aria-label="label + '代码主题'"
-        />
+          :ui="{ content: 'pointer-events-auto z-50' }"
+          :content="{ align: 'end' }"
+        >
+          <UButton
+            color="neutral"
+            variant="outline"
+            size="xs"
+            class="w-32 justify-between"
+            trailing-icon="i-lucide-chevron-down"
+            :aria-label="label + '代码主题'"
+            >{{ CODE_THEMES.find((item) => item.value === theme)?.label }}</UButton
+          >
+        </UDropdownMenu>
       </template>
       <UButton
         v-if="!isMermaid && canEdit"
