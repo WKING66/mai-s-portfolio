@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import DocumentSearch from '../blog/DocumentSearch.vue'
 import { createCanvasSearch } from '../../utils/editor/interaction/documentSearch'
+import { CanvasSearchHistory } from '../../utils/editor/interaction/canvasSearchHistory'
 import {
   ImmersiveMarkdownGuard,
   type ImmersiveRejection,
@@ -535,6 +536,7 @@ const editorExtensions = [
   ImmersiveDecorations.configure({ ready: () => false }),
   CanvasCodeSelection,
   ImmersiveSelection,
+  CanvasSearchHistory.configure({ scrollRoot: () => canvasPane.value }),
   ImmersiveDragScroll,
   ImmersiveParagraphInput.configure({
     notice: (description) =>

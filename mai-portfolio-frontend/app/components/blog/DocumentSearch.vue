@@ -25,6 +25,7 @@ let timer: ReturnType<typeof setTimeout> | undefined
 let disconnect = () => {}
 let previousFocus: HTMLElement | undefined
 let version = 0
+let historyFields: { query: string; replacement: string } | undefined
 const counter = computed(() =>
   query.value ? `${index.value < 0 ? 0 : index.value + 1} / ${total.value}` : '',
 )
@@ -39,6 +40,9 @@ async function refresh(locate: boolean) {
     index.value = total.value ? Math.min(Math.max(index.value, 0), total.value - 1) : -1
     await props.adapter.activate(index.value, locate)
   } catch (cause) {
+    if (current !== version || !opened.value) {
+      return false
+    }
     message.value = cause instanceof Error ? cause.message : '无法查找当前正文，请重试。'
     total.value = 0
     index.value = -1
@@ -47,6 +51,7 @@ async function refresh(locate: boolean) {
       busy.value = false
     }
   }
+  return current === version && opened.value
 }
 function schedule(locate = false, delay = 250) {
   if (!opened.value) {
@@ -68,6 +73,7 @@ watch(
   (value) => {
     if (!value) {
       replacing.value = false
+      historyAction.value = null
     }
   },
 )
@@ -89,10 +95,6 @@ async function open(replace = false) {
       document.activeElement instanceof HTMLElement ? document.activeElement : undefined
     opened.value = true
     historyAction.value = null
-    const selected = props.adapter.selectedText?.() ?? ''
-    if (selected && !/[\r\n\ufffc]/.test(selected)) {
-      query.value = selected
-    }
     disconnect = props.adapter.observe(() => {
       historyAction.value = null
       message.value = ''
@@ -114,20 +116,30 @@ function close(focus = true) {
   disconnect()
   disconnect = () => {}
   if (focus) {
-    if (index.value >= 0 && props.adapter.focus) {
+    if (props.adapter.focus) {
       props.adapter.focus(index.value)
     } else {
       previousFocus?.focus({ preventScroll: true })
     }
   }
   props.adapter.clear()
+  previousFocus = undefined
+  query.value = ''
+  replacement.value = ''
+  total.value = 0
+  index.value = -1
+  message.value = ''
+  historyAction.value = null
+  historyFields = undefined
   busy.value = false
 }
 async function move(direction: -1 | 1) {
   if (busy.value) {
     const first = index.value < 0
     clearTimeout(timer)
-    await refresh(false)
+    if (!(await refresh(false))) {
+      return
+    }
     if (first) {
       await props.adapter.activate(index.value, true)
       return
@@ -144,31 +156,51 @@ async function replace(all: boolean) {
     return
   }
   busy.value = true
+  let current = version
   try {
     const result = props.adapter.replace(index.value, replacement.value, all)
     clearTimeout(timer)
-    version++
+    current = ++version
     historyAction.value = result.replaced ? 'undo' : historyAction.value
+    historyFields = { query: query.value, replacement: replacement.value }
     total.value = result.total
     index.value = result.next
-    await props.adapter.activate(index.value, true)
-    message.value = result.replaced
-      ? `已替换 ${result.replaced} 处，可在正文中撤销。`
-      : '正文没有变化。'
+    // 替换按钮可能随零命中禁用，主动保留面板焦点，使紧接着的 Ctrl+Z 有效。
+    searchInput.value?.focus({ preventScroll: true })
+    await props.adapter.activate(index.value, !all && result.replaced > 0)
+    if (current !== version || !opened.value) {
+      return
+    }
+    message.value = result.replaced ? `已替换 ${result.replaced} 处，可撤销。` : '正文没有变化。'
   } catch (cause) {
+    if (!opened.value || current !== version) {
+      return
+    }
     message.value = cause instanceof Error ? cause.message : '本次替换未完成，正文已保留。'
     clearTimeout(timer)
     await refresh(false)
   } finally {
-    busy.value = false
+    if (current === version) {
+      busy.value = false
+    }
   }
 }
 async function history(direction: 'undo' | 'redo') {
-  if (!props.adapter.history?.(direction)) {
+  const result = props.adapter.history?.(direction, query.value)
+  if (!result) {
     return
   }
   clearTimeout(timer)
-  await refresh(false)
+  const current = ++version
+  total.value = result.total
+  index.value = result.next
+  searchInput.value?.focus({ preventScroll: true })
+  await props.adapter.activate(index.value, result.locate)
+  if (current !== version || !opened.value) {
+    return
+  }
+  busy.value = false
+  historyFields = { query: query.value, replacement: replacement.value }
   historyAction.value = direction === 'undo' ? 'redo' : 'undo'
   message.value = direction === 'undo' ? '本次替换已撤销。' : '本次替换已重做。'
 }
@@ -186,11 +218,13 @@ function keydown(event: KeyboardEvent) {
   } else if (
     opened.value &&
     historyAction.value &&
+    !event.altKey &&
     (event.ctrlKey || event.metaKey) &&
     ['z', 'y'].includes(event.key.toLowerCase()) &&
     event.target instanceof Element &&
     panel.value?.contains(event.target) &&
-    !(event.target instanceof HTMLInputElement)
+    (!(event.target instanceof HTMLInputElement) ||
+      (historyFields?.query === query.value && historyFields?.replacement === replacement.value))
   ) {
     event.preventDefault()
     const direction = event.shiftKey || event.key.toLowerCase() === 'y' ? 'redo' : 'undo'

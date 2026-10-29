@@ -38,16 +38,12 @@ export function createReadingSearch(options: {
       observer.observe(root, { childList: true, characterData: true, subtree: true })
       return () => observer.disconnect()
     },
-    selectedText() {
-      const selection = options.root()?.ownerDocument.getSelection()
-      return selection?.anchorNode && options.root()?.contains(selection.anchorNode)
-        ? selection.toString().slice(0, 200)
-        : ''
-    },
     clear() {
       revision++
       matches = []
       highlight.clear()
+      const view = options.root()?.ownerDocument.defaultView
+      view?.scrollTo({ top: view.scrollY, left: view.scrollX, behavior: 'instant' })
     },
   }
 }

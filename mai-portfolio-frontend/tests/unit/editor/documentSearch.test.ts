@@ -2,16 +2,21 @@ import { describe, expect, it, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
-import { undo, redo } from '@tiptap/pm/history'
+import { undo, redo, closeHistory } from '@tiptap/pm/history'
 import {
   CANVAS_EDITOR_EXTENSIONS,
   CANVAS_STARTER_KIT,
   createCanvasMarkdownOptions,
 } from '../../../app/utils/editor/markdown/canvasMarkdown'
+import {
+  CanvasSearchHistory,
+  CANVAS_SEARCH_HISTORY,
+} from '../../../app/utils/editor/interaction/canvasSearchHistory'
 import { ImmersiveMarkdownGuard } from '../../../app/utils/editor/interaction/immersiveCapabilities'
 import {
   findCanvasText,
   replaceCanvasText,
+  createCanvasSearch,
 } from '../../../app/utils/editor/interaction/documentSearch'
 
 function setup(source: string) {
@@ -20,6 +25,7 @@ function setup(source: string) {
     extensions: [
       StarterKit.configure(CANVAS_STARTER_KIT),
       ...CANVAS_EDITOR_EXTENSIONS,
+      CanvasSearchHistory,
       Markdown.configure(createCanvasMarkdownOptions()),
       ImmersiveMarkdownGuard.configure({ roundtrip: false }),
     ],
@@ -189,6 +195,160 @@ describe('正文搜索与真实替换事务', () => {
         replaceCanvasText(editor, current, findCanvasText(current, '目标'), '只读修改'),
       ).toThrow()
       expect(editor.state.doc).toBe(current)
+    } finally {
+      editor.destroy()
+    }
+  })
+})
+
+describe('替换后的当前命中', () => {
+  it('历史达到容量并裁剪后，全部替换的撤销仍保留视口策略', () => {
+    const editor = setup('目标')
+    try {
+      for (let i = 0; i < 120; i++) {
+        editor.view.dispatch(closeHistory(editor.state.tr).insertText('字', 1))
+      }
+      const search = createCanvasSearch({
+        editor: () => editor,
+        reveal: async () => {},
+        scrollRoot: () => null,
+      })
+      search.find('目标')
+      search.replace!(0, '结果', true)
+      history(editor, undo)
+      expect(CANVAS_SEARCH_HISTORY.getState(editor.state)?.scroll).toBe('keep')
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it.each([false, true])(
+    '原生 Ctrl+Z/Redo 使用替换自身的滚动策略，普通输入不接管（全部=%s）',
+    (all) => {
+      const editor = setup('目标一\n\n目标二\n\n目标三')
+      try {
+        const search = createCanvasSearch({
+          editor: () => editor,
+          reveal: async () => {},
+          scrollRoot: () => null,
+        })
+        search.find('目标')
+        search.replace!(2, '结果', all)
+        history(editor, undo)
+        expect(CANVAS_SEARCH_HISTORY.getState(editor.state)?.scroll).toBe(all ? 'keep' : 'locate')
+        history(editor, redo)
+        expect(CANVAS_SEARCH_HISTORY.getState(editor.state)?.scroll).toBe(all ? 'keep' : 'locate')
+        editor.view.dispatch(editor.state.tr.insertText('新输入', 1))
+        history(editor, undo)
+        expect(CANVAS_SEARCH_HISTORY.getState(editor.state)?.scroll).toBeUndefined()
+      } finally {
+        editor.destroy()
+      }
+    },
+  )
+
+  it('查找词仍在防抖更新时撤销，按当前输入重新匹配', () => {
+    const editor = setup('目标一\n\n目标二\n\n目标三')
+    try {
+      const search = createCanvasSearch({
+        editor: () => editor,
+        reveal: async () => {},
+        scrollRoot: () => null,
+      })
+      search.find('目标')
+      search.replace!(2, '结果', true)
+      search.find('过期查找词')
+      expect(search.history!('undo', '目标')).toEqual({ next: 2, total: 3, locate: false })
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it.each([false, true])('面板撤销/重做只对单处替换请求定位（全部替换=%s）', (all) => {
+    const editor = setup('目标一\n\n目标二\n\n目标三')
+    try {
+      const search = createCanvasSearch({
+        editor: () => editor,
+        reveal: async () => {},
+        scrollRoot: () => null,
+      })
+      const before = editor.state.doc
+      search.find('目标')
+      search.replace!(2, '结果', all)
+      const replaced = editor.state.doc
+      const transactions: boolean[] = []
+      editor.on('transaction', ({ transaction }) => {
+        if (transaction.docChanged) {
+          transactions.push(transaction.scrolledIntoView)
+        }
+      })
+      expect(search.history!('undo', '目标')).toEqual({ next: 2, total: 3, locate: !all })
+      expect(editor.state.doc.eq(before)).toBe(true)
+      expect(search.history!('redo', '目标')?.locate).toBe(!all)
+      expect(editor.state.doc.eq(replaced)).toBe(true)
+      expect(transactions).toEqual([false, false])
+    } finally {
+      editor.destroy()
+    }
+  })
+  it('只有一处命中全部替换后无定位对象，撤销仍恢复同一处', () => {
+    const editor = setup('开头\n\n目标')
+    try {
+      const search = createCanvasSearch({
+        editor: () => editor,
+        reveal: async () => {},
+        scrollRoot: () => null,
+      })
+      search.find('目标')
+      expect(search.replace!(0, '结果', true)).toEqual({ replaced: 1, next: -1, total: 0 })
+      expect(search.history!('undo', '目标')).toEqual({ next: 0, total: 1, locate: false })
+    } finally {
+      editor.destroy()
+    }
+  })
+  it('全部替换仍有命中时保留末尾附近的当前项，不重置成第一处', () => {
+    const editor = setup('目标一\n\n目标二\n\n目标三')
+    try {
+      const search = createCanvasSearch({
+        editor: () => editor,
+        reveal: async () => {},
+        scrollRoot: () => null,
+      })
+      search.find('目标')
+      expect(search.replace!(2, '目标目标', true)).toEqual({ replaced: 3, next: 4, total: 6 })
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it('末尾全部替换后的撤销恢复末尾光标，不恢复到打开查找前的文首', () => {
+    const editor = setup('目标一\n\n目标二\n\n目标三')
+    try {
+      const search = createCanvasSearch({
+        editor: () => editor,
+        reveal: async () => {},
+        scrollRoot: () => null,
+      })
+      const last = findCanvasText(editor.state.doc, '目标')[2]!.from
+      search.find('目标')
+      search.replace!(2, '结果', true)
+      history(editor, undo)
+      expect(editor.state.selection.from).toBe(last)
+    } finally {
+      editor.destroy()
+    }
+  })
+
+  it('替换最后一处后退到上一处，不绕回第一处', () => {
+    const editor = setup('目标一\n\n目标二\n\n目标三')
+    try {
+      const search = createCanvasSearch({
+        editor: () => editor,
+        reveal: async () => {},
+        scrollRoot: () => null,
+      })
+      expect(search.find('目标')).toBe(3)
+      expect(search.replace!(2, '结果', false)).toEqual({ replaced: 1, next: 1, total: 2 })
     } finally {
       editor.destroy()
     }

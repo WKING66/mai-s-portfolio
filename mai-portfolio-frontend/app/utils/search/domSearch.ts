@@ -104,15 +104,30 @@ export function createTextHighlights(root: () => HTMLElement | null | undefined)
 /** 只测量当前命中，不为所有搜索结果强制布局。 */
 export function scrollTextRange(range: Range, scrollRoot?: HTMLElement | null) {
   const element = range.startContainer.parentElement
-  const rect = range.getBoundingClientRect()
-  if (!rect.height || !element) {
+  if (element) {
+    scrollTextRect(range.getBoundingClientRect(), element, scrollRoot)
+  }
+}
+
+export function scrollTextRect(
+  rect: { top: number; bottom: number; height: number },
+  element: HTMLElement,
+  scrollRoot?: HTMLElement | null,
+) {
+  if (!rect.height) {
     return
   }
+  const view = element.ownerDocument.defaultView!
+  const behavior = view.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 'instant'
+    : 'smooth'
   if (scrollRoot) {
     const pane = scrollRoot.getBoundingClientRect()
-    scrollRoot.scrollTop += rect.top - pane.top - Math.min(pane.height / 3, 160)
-  } else {
-    const view = element.ownerDocument.defaultView!
-    view.scrollBy({ top: rect.top - Math.min(view.innerHeight / 3, 200), behavior: 'instant' })
+    if (rect.top >= pane.top + 16 && rect.bottom <= pane.bottom - 16) {
+      return
+    }
+    scrollRoot.scrollBy({ top: rect.top - pane.top - Math.min(pane.height / 3, 160), behavior })
+  } else if (rect.top < 100 || rect.bottom > view.innerHeight - 16) {
+    view.scrollBy({ top: rect.top - Math.min(view.innerHeight / 3, 200), behavior })
   }
 }

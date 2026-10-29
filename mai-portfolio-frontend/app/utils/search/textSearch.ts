@@ -37,9 +37,11 @@ export interface DocumentSearchAdapter {
   activate(index: number, locate: boolean): void | Promise<void>
   observe(changed: () => void): () => void
   clear(): void
-  selectedText?(): string
   focus?(index: number): void
-  history?(direction: 'undo' | 'redo'): boolean
+  history?(
+    direction: 'undo' | 'redo',
+    query: string,
+  ): { next: number; total: number; locate: boolean } | null
   replace?(
     index: number,
     value: string,

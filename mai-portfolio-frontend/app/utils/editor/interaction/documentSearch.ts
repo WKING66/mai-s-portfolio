@@ -1,6 +1,6 @@
 import type { Editor } from '@tiptap/core'
 import type { Node as DocumentNode } from '@tiptap/pm/model'
-import { closeHistory, undo, redo } from '@tiptap/pm/history'
+import { closeHistory, undoNoScroll, redoNoScroll } from '@tiptap/pm/history'
 import { TextSelection } from '@tiptap/pm/state'
 import {
   findTextMatches,
@@ -8,6 +8,7 @@ import {
   type DocumentSearchAdapter,
 } from '../../search/textSearch'
 import { createTextHighlights, scrollTextRange } from '../../search/domSearch'
+import { CANVAS_SEARCH_HISTORY } from './canvasSearchHistory'
 import { canvasCodeInputEntries } from '../code/canvasCodeInput'
 
 export interface CanvasTextMatch extends TextMatch {
@@ -61,6 +62,7 @@ export function replaceCanvasText(
   document: DocumentNode,
   matches: TextMatch[],
   value: string,
+  all = false,
 ) {
   if (editor.isDestroyed || !editor.isEditable || editor.state.doc !== document) {
     throw new Error('正文已变化，请等待查找更新后重试。')
@@ -72,7 +74,9 @@ export function replaceCanvasText(
   if (!changes.length) {
     return 0
   }
-  const transaction = closeHistory(editor.state.tr)
+  const transaction = closeHistory(editor.state.tr).setMeta(CANVAS_SEARCH_HISTORY, {
+    replacement: all,
+  })
   for (const match of [...changes].sort((a, b) => b.from - a.from)) {
     const marks =
       document.resolve(match.from).nodeAfter?.marks ?? document.resolve(match.from).marks()
@@ -99,6 +103,7 @@ export function createCanvasSearch(options: {
   let snapshot: DocumentNode | undefined
   let query = ''
   let revision = 0
+  let lastReplacementWasAll = false
   const highlight = createTextHighlights(() => options.editor()?.view.dom)
   function paint(index: number) {
     const editor = options.editor()
@@ -217,13 +222,23 @@ export function createCanvasSearch(options: {
       }
       const match = matches[index]
       const nextPosition = match ? match.from + value.length : 0
+      if (match && editor.isEditable && editor.state.doc === snapshot) {
+        // 历史记录当前命中，而不是打开查找前遗留的旧光标；Undo 不再拉回文首。
+        editor.view.dispatch(
+          editor.state.tr
+            .setSelection(TextSelection.near(editor.state.doc.resolve(match.from)))
+            .setMeta('addToHistory', false),
+        )
+      }
       const selected = match ? [match] : []
-      const replaced = replaceCanvasText(editor, snapshot, all ? matches : selected, value)
+      const replaced = replaceCanvasText(editor, snapshot, all ? matches : selected, value, all)
+      lastReplacementWasAll = all
       snapshot = editor.state.doc
       matches = findCanvasText(snapshot, query)
       revision++
-      const next = all ? 0 : matches.findIndex((item) => item.from >= nextPosition)
-      return { replaced, next: matches.length ? Math.max(0, next) : -1, total: matches.length }
+      const position = all ? editor.state.selection.from : nextPosition
+      const next = matches.findIndex((item) => item.from >= position)
+      return { replaced, next: next < 0 ? matches.length - 1 : next, total: matches.length }
     },
     observe(changed) {
       const editor = options.editor()
@@ -242,39 +257,48 @@ export function createCanvasSearch(options: {
       editor.on('transaction', listener)
       return () => editor.off('transaction', listener)
     },
-    selectedText() {
+    history(direction, value) {
       const editor = options.editor()
-      if (!editor || editor.state.selection.empty) {
-        return ''
+      if (
+        !editor?.isEditable ||
+        !(direction === 'undo' ? undoNoScroll : redoNoScroll)(editor.state, editor.view.dispatch)
+      ) {
+        return null
       }
-      const { from, to } = editor.state.selection
-      return to - from <= 200 ? editor.state.doc.textBetween(from, to, '\n', '\ufffc') : ''
-    },
-    history(direction) {
-      const editor = options.editor()
-      return Boolean(
-        editor &&
-        editor.isEditable &&
-        (direction === 'undo' ? undo : redo)(editor.state, editor.view.dispatch),
-      )
+      query = value
+      snapshot = editor.state.doc
+      matches = findCanvasText(snapshot, query)
+      revision++
+      const next = matches.findIndex((match) => match.from >= editor.state.selection.from)
+      return {
+        next: next < 0 ? matches.length - 1 : next,
+        total: matches.length,
+        // 全部替换的 Undo/Redo 留在当前视口；单处替换才定位恢复的命中。
+        locate: !lastReplacementWasAll,
+      }
     },
     focus(index) {
       const editor = options.editor()
       const match = matches[index]
-      if (editor && match && editor.state.doc === snapshot) {
+      if (!editor || editor.isDestroyed) {
+        return
+      }
+      if (match && editor.state.doc === snapshot) {
         editor.view.dispatch(
           editor.state.tr
-            .setSelection(TextSelection.create(editor.state.doc, match.from, match.to))
+            .setSelection(TextSelection.near(editor.state.doc.resolve(match.from)))
             .setMeta('addToHistory', false),
         )
-        editor.view.focus()
       }
+      editor.view.focus()
     },
     clear() {
       revision++
       matches = []
       snapshot = undefined
       highlight.clear()
+      const pane = options.scrollRoot()
+      pane?.scrollTo({ top: pane.scrollTop, left: pane.scrollLeft, behavior: 'instant' })
       const editor = options.editor()
       if (editor) {
         canvasCodeInputEntries(editor).forEach(({ input }) => input.search([]))
