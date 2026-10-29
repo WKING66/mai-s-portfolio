@@ -1,7 +1,7 @@
 import type { Command } from '@tiptap/core'
 import { Fragment, type Node as DocumentNode } from '@tiptap/pm/model'
 import { TextSelection, type Selection } from '@tiptap/pm/state'
-import { moveTableRow, moveTableColumn, CellSelection, TableMap } from '@tiptap/pm/tables'
+import { CellSelection, TableMap } from '@tiptap/pm/tables'
 import {
   immersiveAxisSelection,
   immersiveSelectedCells,
@@ -66,32 +66,6 @@ export function immersiveTableContext(document: DocumentNode, selection: Selecti
   const cell = map.findCell(cellPosition - start)
   return { table, start, position: resolved.before(depth), map, row: cell.top, column: cell.left }
 }
-export function selectImmersiveAxis(axis: 'row' | 'column', index: number): Command {
-  return ({ tr }) => {
-    const context = immersiveTableContext(tr.doc, tr.selection)
-    if (!context) {
-      return false
-    }
-    const { map, start } = context
-    if (index < 0 || index >= (axis === 'row' ? map.height : map.width)) {
-      return false
-    }
-    const anchor = axis === 'row' ? index * map.width : index
-    const head = axis === 'row' ? anchor + map.width - 1 : (map.height - 1) * map.width + index
-    tr.setSelection(
-      axis === 'row'
-        ? CellSelection.rowSelection(
-            tr.doc.resolve(start + map.map[anchor]!),
-            tr.doc.resolve(start + map.map[head]!),
-          )
-        : CellSelection.colSelection(
-            tr.doc.resolve(start + map.map[anchor]!),
-            tr.doc.resolve(start + map.map[head]!),
-          ),
-    )
-    return true
-  }
-}
 export type ImmersiveTableChange =
   'rowBefore' | 'rowAfter' | 'columnBefore' | 'columnAfter' | 'deleteRow' | 'deleteColumn'
 export function changeImmersiveTable(change: ImmersiveTableChange): Command {
@@ -128,42 +102,6 @@ export function changeImmersiveTable(change: ImmersiveTableChange): Command {
     )
     return true
   }
-}
-export function moveImmersiveAxis(axis: 'row' | 'column', from: number, to: number): Command {
-  return ({ state, dispatch }) => {
-    const context = immersiveTableContext(state.doc, state.selection)
-    if (!context || from === to || from < 0 || to < 0 || (axis === 'row' && (!from || !to))) {
-      return false
-    }
-    if (
-      from >= (axis === 'row' ? context.map.height : context.map.width) ||
-      to >= (axis === 'row' ? context.map.height : context.map.width)
-    ) {
-      return false
-    }
-    // 复用 ProseMirror 原生结构事务，不移动 DOM；首行始终保留为 GFM 表头。
-    return (axis === 'row' ? moveTableRow : moveTableColumn)({
-      from,
-      to,
-      pos: context.position + 1,
-      select: true,
-    })(state, dispatch)
-  }
-}
-/** 工具栏根据实际选中文本显示，CellSelection 和非连续集合都不是例外。 */
-export function isImmersiveTextSelection(selection: Selection) {
-  if (selection instanceof CellSelection) {
-    let hasText = false
-    selection.forEachCell((cell) => {
-      hasText ||= Boolean(cell.textContent.trim())
-    })
-    return hasText
-  }
-  return (
-    selection instanceof TextSelection &&
-    !selection.empty &&
-    Boolean(selection.$from.doc.textBetween(selection.from, selection.to).trim())
-  )
 }
 /** 原生整行/整列 CellSelection 与边缘追加集合使用同一结构操作边界。 */
 export function selectedImmersiveAxes(

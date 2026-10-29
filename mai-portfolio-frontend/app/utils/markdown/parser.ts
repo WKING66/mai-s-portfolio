@@ -13,7 +13,6 @@ import { blogMathSyntax } from './mathTokens'
 import mermaid from 'comark/plugins/mermaid'
 import { MATH_LIMITS, mathFallback, renderBlogMath, compactBlogMath } from './blogMath.ts'
 import { textContent } from 'comark/utils'
-import { countBlogReading } from './blogReadingProbe.ts'
 import { parseCodeInfo } from './code/codeInfo'
 
 // 不注册 HTML、属性、组件、Frontmatter 插件，Markdown 只能渲染允许的正文元素。
@@ -209,7 +208,6 @@ export const parseBlogMarkdown: typeof markdownParser = (...args) => {
     typeof source !== 'string' ||
     source.length > BLOG_PARSE_CACHE_LIMITS.characters
   ) {
-    countBlogReading('markdownParse')
     return markdownParser(...args)
   }
   // 2. 命中时更新最近使用顺序；新结果按正文长度与条目数量淘汰旧缓存。
@@ -217,10 +215,8 @@ export const parseBlogMarkdown: typeof markdownParser = (...args) => {
   if (cached) {
     parseCache.delete(source)
     parseCache.set(source, cached)
-    countBlogReading('parseCacheHit')
     return cached
   }
-  countBlogReading('markdownParse')
   const result = markdownParser(...args)
   parseCache.set(source, result)
   cachedCharacters += source.length

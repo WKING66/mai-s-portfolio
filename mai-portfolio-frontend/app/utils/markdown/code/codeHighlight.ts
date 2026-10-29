@@ -9,7 +9,6 @@ import tokyo from 'shiki/dist/themes/tokyo-night.mjs'
 import dracula from 'shiki/dist/themes/dracula.mjs'
 import type { ElementNode, Node } from 'comark'
 import type { Root, Element, Text } from 'hast'
-import { countBlogReading } from '../blogReadingProbe'
 
 const themes = { light, dark, nord, tokyo, dracula }
 const themeNames = Object.fromEntries(
@@ -39,7 +38,6 @@ function toNode(node: Element | Text): Node {
 const CACHE_CHARACTERS = 12000
 export async function highlightCode(code: string, language = '', plain = false) {
   // 1. 浏览器调用方在 Worker 中分词；代码长度不再导致整块永久失去高亮。
-  countBlogReading('highlightRequest')
   const key = (plain ? 'plain:' : '') + language + '\0' + code
   if (highlightCache.has(key)) {
     return highlightCache.get(key)!
@@ -90,7 +88,6 @@ export async function highlightCode(code: string, language = '', plain = false) 
     return createPlainCodeNode()
   }
   // 2. 多主题一次分词；在 Worker 内保留 Shiki 自身的单行分词超时保护。
-  countBlogReading('shikiTokenize')
   const hast: Root = shikiHighlighter.codeToHast(code, {
     lang: resolvedLanguage,
     themes: themeNames,

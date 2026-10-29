@@ -2,37 +2,65 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ACCOUNT_MESSAGES, ACCOUNT_PATHS, ACCOUNT_RULES } from '../../../app/constants/account'
 import { AUTH_ACCESS } from '../../../app/constants/auth'
 import { REGISTRATION_MESSAGES } from '../../../app/constants/registration'
+import { useAssetApi } from '../../../app/api/assets'
+import { useAccountApi, validateAvatar, buildChangePasswordRequest } from '../../../app/api/account'
 
-const { request, encrypt, sessionRevision } = vi.hoisted(() => ({ request: vi.fn(), encrypt: vi.fn(), sessionRevision: vi.fn(() => 0) }))
-vi.mock('../../../app/composables/useAuthState', () => ({ useAuthState: () => ({
-  request, sessionRevision, state: { value: { username: 'visitor' } },
-}) }))
+const { request, encrypt, sessionRevision } = vi.hoisted(() => ({
+  request: vi.fn(),
+  encrypt: vi.fn(),
+  sessionRevision: vi.fn(() => 0),
+}))
+vi.mock('../../../app/composables/useAuthState', () => ({
+  useAuthState: () => ({
+    request,
+    sessionRevision,
+    state: { value: { username: 'visitor' } },
+  }),
+}))
 vi.mock('../../../app/api/loginCrypto', () => ({
   LOGIN_PASSWORD_MAX_UTF8_BYTES: 190,
   encryptLoginPassword: encrypt,
 }))
-import { useAssetApi } from '../../../app/api/assets'
-import { useAccountApi, validateAvatar, buildChangePasswordRequest } from '../../../app/api/account'
 
-afterEach(() => { request.mockReset(); encrypt.mockReset(); sessionRevision.mockReset().mockReturnValue(0) })
-const profile = { username: 'visitor', nickname: '测试昵称', avatarUrl: null, avatarExpiresAt: null }
+afterEach(() => {
+  request.mockReset()
+  encrypt.mockReset()
+  sessionRevision.mockReset().mockReturnValue(0)
+})
+const profile = {
+  username: 'visitor',
+  nickname: '测试昵称',
+  avatarUrl: null,
+  avatarExpiresAt: null,
+}
 
 describe('personal account API', () => {
   it('uses authenticated access, not OWNER, for personal profile', async () => {
     request.mockResolvedValue(profile)
     expect(await useAccountApi().getProfile()).toEqual(profile)
-    expect(request).toHaveBeenCalledWith(ACCOUNT_PATHS.profile, {}, AUTH_ACCESS.AUTHENTICATED, ACCOUNT_MESSAGES.loadFailed)
+    expect(request).toHaveBeenCalledWith(
+      ACCOUNT_PATHS.profile,
+      {},
+      AUTH_ACCESS.AUTHENTICATED,
+      ACCOUNT_MESSAGES.loadFailed,
+    )
   })
   it('normalizes nickname and sends no account ID or role', async () => {
     request.mockResolvedValue(profile)
     await useAccountApi().updateProfile('  测试昵称  ')
-    expect(request).toHaveBeenCalledWith(ACCOUNT_PATHS.profile,
-      { method: 'PUT', body: { nickname: '测试昵称' } }, AUTH_ACCESS.AUTHENTICATED, ACCOUNT_MESSAGES.saveFailed)
+    expect(request).toHaveBeenCalledWith(
+      ACCOUNT_PATHS.profile,
+      { method: 'PUT', body: { nickname: '测试昵称' } },
+      AUTH_ACCESS.AUTHENTICATED,
+      ACCOUNT_MESSAGES.saveFailed,
+    )
     await useAccountApi().updateProfile(' ')
     expect(request.mock.calls[1]![1].body).toEqual({ nickname: null })
   })
   it('rejects overlong nickname before dispatch', async () => {
-    await expect(useAccountApi().updateProfile('字'.repeat(65))).rejects.toThrow(ACCOUNT_MESSAGES.nicknameTooLong)
+    await expect(useAccountApi().updateProfile('字'.repeat(65))).rejects.toThrow(
+      ACCOUNT_MESSAGES.nicknameTooLong,
+    )
     expect(request).not.toHaveBeenCalled()
   })
   it('sends avatar as multipart without hard-coding its boundary', async () => {
@@ -63,8 +91,17 @@ describe('personal account API', () => {
 describe('password change', () => {
   it('keeps old password exact but normalizes the new one before encrypting', async () => {
     encrypt.mockImplementation(async (_key, value) => 'cipher:' + value)
-    const body = await buildChangePasswordRequest('visitor', ' old password ', '  new-password!  ', 'new-password!', 'public-key')
-    expect(body).toEqual({ oldEncryptedPassword: 'cipher: old password ', newEncryptedPassword: 'cipher:new-password!' })
+    const body = await buildChangePasswordRequest(
+      'visitor',
+      ' old password ',
+      '  new-password!  ',
+      'new-password!',
+      'public-key',
+    )
+    expect(body).toEqual({
+      oldEncryptedPassword: 'cipher: old password ',
+      newEncryptedPassword: 'cipher:new-password!',
+    })
     expect(Object.keys(body)).toEqual(['oldEncryptedPassword', 'newEncryptedPassword'])
   })
   it.each([
@@ -73,19 +110,30 @@ describe('password change', () => {
     ['old', 'short', 'short', REGISTRATION_MESSAGES.passwordTooShort],
     ['old', 'new password!', 'new password!', REGISTRATION_MESSAGES.invalidPasswordCharacters],
   ])('blocks invalid input before encryption', async (old, next, confirmation, message) => {
-    await expect(buildChangePasswordRequest('visitor', old, next, confirmation, 'key')).rejects.toThrow(message)
+    await expect(
+      buildChangePasswordRequest('visitor', old, next, confirmation, 'key'),
+    ).rejects.toThrow(message)
     expect(encrypt).not.toHaveBeenCalled()
   })
   it('does not dispatch plaintext if encryption fails', async () => {
     encrypt.mockRejectedValue(new Error('crypto failed'))
-    await expect(useAccountApi().changePassword('old-password!', 'new-password!', 'new-password!', 'key')).rejects.toThrow('crypto failed')
+    await expect(
+      useAccountApi().changePassword('old-password!', 'new-password!', 'new-password!', 'key'),
+    ).rejects.toThrow('crypto failed')
     expect(request).not.toHaveBeenCalled()
   })
   it('does not send an old password form under a session changed during encryption', async () => {
     let resolve!: (cipher: string) => void
-    const delayed = new Promise<string>(done => { resolve = done })
+    const delayed = new Promise<string>((done) => {
+      resolve = done
+    })
     encrypt.mockReturnValue(delayed)
-    const operation = useAccountApi().changePassword('old-password!', 'new-password!', 'new-password!', 'key')
+    const operation = useAccountApi().changePassword(
+      'old-password!',
+      'new-password!',
+      'new-password!',
+      'key',
+    )
     sessionRevision.mockReturnValue(2)
     resolve('cipher')
     await expect(operation).rejects.toMatchObject({ code: 'AUTH_SESSION_CHANGED' })

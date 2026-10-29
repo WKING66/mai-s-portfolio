@@ -2,7 +2,6 @@ import type { ElementNode, Node } from 'comark'
 import type { TocLink } from 'comark/plugins/toc'
 import { textContent } from 'comark/utils'
 import type { InjectionKey, Ref } from 'vue'
-import { countBlogReading } from '../markdown/blogReadingProbe'
 
 export const BLOG_CHAPTER_STATE: InjectionKey<{
   idPrefix: string
@@ -33,7 +32,6 @@ export function headingParent<T extends { depth: number }>(
 
 /** 单次遍历 Comark 顶层 AST，章节直到下一个同级或更高标题；引用/列表内部标题不割裂块。 */
 export function buildBlogChapters(nodes: Node[]) {
-  countBlogReading('chapterTree')
   // 1. 栈维护当前标题的祖先链，只按正文结构构建，不读取折叠状态。
   const chapters: BlogChapter[] = [],
     preamble: Node[] = [],

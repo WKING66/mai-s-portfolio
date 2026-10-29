@@ -2,19 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
-import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT } from '../../../app/utils/editor/markdown/markdownExtensions'
-import { createBlogMarkdownOptions } from '../../../app/utils/editor/markdown/markdownCompatibility'
 import {
-  immersiveTableContext,
-  changeImmersiveTable,
-  selectImmersiveAxis,
-  moveImmersiveAxis,
-  isImmersiveTextSelection,
-} from '../../../app/utils/editor/interaction/immersiveTables'
-import { TextSelection } from '@tiptap/pm/state'
+  BLOG_EDITOR_EXTENSIONS,
+  EDITOR_STARTER_KIT,
+} from '../../../app/utils/editor/markdown/markdownExtensions'
+import { createCanvasMarkdownOptions } from '../../../app/utils/editor/markdown/canvasMarkdown'
 import { ImmersiveMarkdownGuard } from '../../../app/utils/editor/interaction/immersiveCapabilities'
-import { closeHistory } from '@tiptap/pm/history'
-import { CellSelection } from '@tiptap/pm/tables'
 import {
   IMMERSIVE_COMMANDS,
   immersiveCommandProblem,
@@ -22,7 +15,7 @@ import {
   nextImmersiveMenuIndex,
 } from '../../../app/utils/editor/interaction/immersiveCommands'
 import { immersiveLinkRange } from '../../../app/utils/editor/interaction/immersiveLinks'
-import { readEditorMarkdown } from '../../../app/utils/editor/markdown/markdownOutput'
+import { serializeEditorDocument } from '../../../app/utils/editor/markdown/markdownOutput'
 
 export function interactionEditor(source: string) {
   return new Editor({
@@ -31,7 +24,7 @@ export function interactionEditor(source: string) {
       StarterKit.configure(EDITOR_STARTER_KIT),
       ...BLOG_EDITOR_EXTENSIONS,
       ImmersiveMarkdownGuard,
-      Markdown.configure(createBlogMarkdownOptions()),
+      Markdown.configure(createCanvasMarkdownOptions()),
     ],
     content: source || { type: 'doc', content: [{ type: 'paragraph' }] },
     contentType: 'markdown',
@@ -56,7 +49,7 @@ describe('Showcase 定向交互的 Markdown 边界', () => {
       expect(executeImmersiveCommand(editor, target, paragraph)).toBe('')
       expect(editor.state.doc.firstChild!.childCount).toBe(2)
       expect(editor.state.doc.firstChild!.child(1).child(1).textContent).toBe('原文')
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).not.toContain('/正文')
+      expect(serializeEditorDocument(editor, editor.state.doc)).not.toContain('/正文')
     } finally {
       editor.destroy()
     }
@@ -77,7 +70,7 @@ describe('Showcase 定向交互的 Markdown 边界', () => {
       expect(executeImmersiveCommand(editor, target, item)).toBe('')
       expect(editor.state.doc.child(1).type.name).toBe('codeBlock')
       expect(editor.state.doc.child(2).textContent).toBe('目标段')
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).not.toContain('/')
+      expect(serializeEditorDocument(editor, editor.state.doc)).not.toContain('/')
     } finally {
       editor.destroy()
     }
@@ -122,41 +115,7 @@ describe('Showcase 定向交互的 Markdown 边界', () => {
           IMMERSIVE_COMMANDS.find((entry) => entry.kind === 'mathInline')!,
         ),
       ).toBe('')
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('$x^2$')
-    } finally {
-      editor.destroy()
-    }
-  })
-  it('行列增删定位到新单元格；整行选择和原生重排可以往返及撤销', () => {
-    const editor = interactionEditor('| A | B |\n|---|---|\n| one | two |\n| three | four |')
-    editor.view.updateState(editor.state.reconfigure({ plugins: editor.extensionManager.plugins }))
-    try {
-      let cell = 0
-      editor.state.doc.descendants((node, position) => {
-        if (node.isText && node.text === 'one') {
-          cell = position
-        }
-      })
-      editor.commands.setTextSelection(cell)
-      expect(editor.commands.command(changeImmersiveTable('rowBefore'))).toBe(true)
-      expect(immersiveTableContext(editor.state.doc, editor.state.selection)?.row).toBe(1)
-      expect(editor.state.selection.$from.parent.textContent).toBe('')
-      expect(editor.commands.command(changeImmersiveTable('columnAfter'))).toBe(true)
-      expect(immersiveTableContext(editor.state.doc, editor.state.selection)?.column).toBe(1)
-      editor.commands.insertContent({ type: 'text', text: '新增' })
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('新增')
-      expect(editor.commands.command(selectImmersiveAxis('row', 2))).toBe(true)
-      expect(editor.state.selection instanceof CellSelection).toBe(true)
-      editor.view.dispatch(closeHistory(editor.state.tr))
-      const before = editor.state.doc
-      expect(editor.commands.command(moveImmersiveAxis('row', 2, 3))).toBe(true)
-      expect(editor.state.doc.eq(before)).toBe(false)
-      expect(() => readEditorMarkdown(editor, editor.getMarkdown())).not.toThrow()
-      editor.commands.undo()
-      expect(editor.state.doc.eq(before)).toBe(true)
-      expect(editor.commands.command(moveImmersiveAxis('row', 1, 0))).toBe(false)
-      expect(editor.commands.command(moveImmersiveAxis('column', 0, 2))).toBe(true)
-      expect(() => readEditorMarkdown(editor, editor.getMarkdown())).not.toThrow()
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('$x^2$')
     } finally {
       editor.destroy()
     }
@@ -189,7 +148,7 @@ describe('Showcase 定向交互的 Markdown 边界', () => {
         }
       })
       expect(formulas).toEqual(['$2^{i-1}$', '$2^{h+1}-1$', '$2n-1$', '$2^h$'])
-      expect(() => readEditorMarkdown(editor, editor.getMarkdown())).not.toThrow()
+      expect(() => serializeEditorDocument(editor, editor.state.doc)).not.toThrow()
     } finally {
       editor.destroy()
     }
@@ -206,74 +165,7 @@ $$`
     try {
       expect(editor.state.doc.firstChild?.type.name).toBe('preservedMathBlock')
       expect(editor.state.doc.firstChild?.attrs.source).toBe(source)
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toBe(source)
-    } finally {
-      editor.destroy()
-    }
-  })
-  it('单击不触发格式菜单，含文字的单元格与结构选区支持格式操作', () => {
-    const editor = interactionEditor('| A | B |\n|---|---|\n| 文本内容 | 其他单元 |')
-    try {
-      let position = 0
-      let other = 0
-      editor.state.doc.descendants((node, offset) => {
-        if (node.text === '文本内容') {
-          position = offset
-        }
-        if (node.text === '其他单元') {
-          other = offset
-        }
-      })
-      const doc = editor.state.doc
-      expect(isImmersiveTextSelection(TextSelection.create(doc, position))).toBe(false)
-      expect(isImmersiveTextSelection(TextSelection.create(doc, position, position + 3))).toBe(true)
-      expect(isImmersiveTextSelection(TextSelection.create(doc, position, other + 2))).toBe(true)
-      editor.commands.setTextSelection(position)
-      editor.commands.command(selectImmersiveAxis('row', 1))
-      expect(isImmersiveTextSelection(editor.state.selection)).toBe(true)
-      editor.commands.command(selectImmersiveAxis('column', 0))
-      expect(isImmersiveTextSelection(editor.state.selection)).toBe(true)
-    } finally {
-      editor.destroy()
-    }
-  })
-  it('3列5行真实重排保留表头、列对齐、链接、加粗和公式，支持撤销重做', () => {
-    const editor = interactionEditor(
-      '| A | B | C |\n|:---|:---:|---:|\n| row1 | **粗体** | $2^{i-1}$ |\n| row2 | [链接](/blog) | $2^{h+1}-1$ |\n| row3 | 普通 | $2n-1$ |\n| row4 | 末行 | $2^h$ |',
-    )
-    editor.view.updateState(editor.state.reconfigure({ plugins: editor.extensionManager.plugins }))
-    try {
-      editor.commands.setTextSelection(4)
-      editor.commands.command(selectImmersiveAxis('row', 2))
-      editor.view.dispatch(closeHistory(editor.state.tr))
-      const before = editor.state.doc
-      expect(editor.commands.command(moveImmersiveAxis('row', 2, 1))).toBe(true)
-      const movedRow = editor.state.doc
-      expect(movedRow.firstChild!.child(1).child(0).textContent).toBe('row2')
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('[链接](/blog)')
-      expect(editor.commands.undo()).toBe(true)
-      expect(editor.state.doc.eq(before)).toBe(true)
-      expect(editor.commands.redo()).toBe(true)
-      expect(editor.state.doc.eq(movedRow)).toBe(true)
-      editor.view.dispatch(closeHistory(editor.state.tr))
-      expect(editor.commands.command(moveImmersiveAxis('column', 2, 1))).toBe(true)
-      const moved = editor.state.doc.firstChild!
-      expect(moved.child(0).children.map((cell) => cell.textContent)).toEqual(['A', 'C', 'B'])
-      expect(moved.child(0).children.map((cell) => cell.attrs.align)).toEqual([
-        'left',
-        'right',
-        'center',
-      ])
-      expect(moved.child(1).child(1).firstChild!.firstChild!.attrs.source).toBe('$2^{h+1}-1$')
-      const serialized = readEditorMarkdown(editor, editor.getMarkdown())
-      expect(serialized).toContain('**粗体**')
-      expect(serialized).toContain('$2^{i-1}$')
-      expect(serialized).toContain('$2^{h+1}-1$')
-      expect(editor.commands.undo()).toBe(true)
-      expect(editor.state.doc.eq(movedRow)).toBe(true)
-      expect(editor.commands.redo()).toBe(true)
-      expect(editor.state.doc.firstChild!.eq(moved)).toBe(true)
-      expect(editor.commands.command(moveImmersiveAxis('row', 1, 0))).toBe(false)
+      expect(serializeEditorDocument(editor, editor.state.doc)).toBe(source)
     } finally {
       editor.destroy()
     }

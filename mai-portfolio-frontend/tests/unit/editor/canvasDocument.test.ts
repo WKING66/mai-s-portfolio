@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
-import { useCanvasDocument } from '../../../app/composables/useCanvasDocument'
+import { useTestCanvasDocument } from '../../support/canvasSession'
 import {
   CANVAS_EDITOR_EXTENSIONS,
   CANVAS_STARTER_KIT,
@@ -21,7 +21,7 @@ describe('Showcase 单画布事件边界', () => {
       allowDownload: true,
       remoteRightsConfirmed: false,
     })
-    const canvas = useCanvasDocument(prepared, metadata, [], () => false)
+    const canvas = useTestCanvasDocument(prepared, metadata, [], () => false)
     const editor = new Editor({
       element: null,
       extensions: [StarterKit.configure(CANVAS_STARTER_KIT), ...CANVAS_EDITOR_EXTENSIONS],
@@ -60,7 +60,7 @@ describe('Showcase 单画布事件边界', () => {
       allowDownload: true,
       remoteRightsConfirmed: false,
     })
-    const canvas = useCanvasDocument(prepared, metadata, [], () => false)
+    const canvas = useTestCanvasDocument(prepared, metadata, [], () => false)
     try {
       expect(canvas.initialDocument).toBe(prepared)
       expect(
@@ -82,7 +82,7 @@ describe('Showcase 单画布事件边界', () => {
       allowDownload: true,
       remoteRightsConfirmed: false,
     })
-    const canvas = useCanvasDocument('正文', metadata, [], () => false)
+    const canvas = useTestCanvasDocument('正文', metadata, [], () => false)
     const editor = new Editor({
       element: null,
       extensions: [StarterKit.configure(CANVAS_STARTER_KIT), ...CANVAS_EDITOR_EXTENSIONS],

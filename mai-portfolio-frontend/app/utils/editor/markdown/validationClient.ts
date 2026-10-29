@@ -1,19 +1,19 @@
 import type {
-  ImmersiveValidationInput,
-  ImmersiveValidationResult,
-  ImmersiveValidationReply,
-  ImmersiveValidator,
-} from './immersiveValidation'
+  CanvasValidationInput,
+  CanvasValidationResult,
+  CanvasValidationReply,
+  CanvasValidator,
+} from './validation'
 
 interface Job {
   id: number
-  input: ImmersiveValidationInput
-  resolve: (value: ImmersiveValidationResult) => void
+  input: CanvasValidationInput
+  resolve: (value: CanvasValidationResult) => void
   reject: (cause: Error) => void
 }
 
 /** 每会话一个 Worker；至多一份在算、一份待算，连续输入不堆积旧全文任务。 */
-export function createImmersiveValidator(): ImmersiveValidator {
+export function createCanvasValidator(): CanvasValidator {
   let worker: Worker | undefined
   let active: Job | undefined
   let waiting: Job | undefined
@@ -39,7 +39,7 @@ export function createImmersiveValidator(): ImmersiveValidator {
         worker = new Worker(new URL('../../../workers/editorValidation.ts', import.meta.url), {
           type: 'module',
         })
-        worker.onmessage = (event: MessageEvent<ImmersiveValidationReply>) => {
+        worker.onmessage = (event: MessageEvent<CanvasValidationReply>) => {
           const reply = event.data
           if (!active || active.id !== reply.id) {
             return
@@ -76,7 +76,7 @@ export function createImmersiveValidator(): ImmersiveValidator {
       if (closed) {
         return Promise.reject(closed)
       }
-      return new Promise<ImmersiveValidationResult>((resolve, reject) => {
+      return new Promise<CanvasValidationResult>((resolve, reject) => {
         waiting?.reject(new Error('旧校验任务已由更新的输入替代。'))
         waiting = { id: ++sequence, input, resolve, reject }
         pump()

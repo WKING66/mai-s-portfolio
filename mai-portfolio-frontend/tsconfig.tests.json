@@ -1,0 +1,7 @@
+{
+  "extends": "./.nuxt/tsconfig.app.json",
+  "compilerOptions": {
+    "composite": false
+  },
+  "include": ["tests/**/*.ts", ".nuxt/**/*.d.ts", "app/types/**/*.d.ts"]
+}

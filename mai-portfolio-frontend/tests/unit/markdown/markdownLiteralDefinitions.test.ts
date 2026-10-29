@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { textContent } from 'comark/utils'
 import { parseBlogMarkdown } from '../../../app/utils/markdown/parser'
-import { createBlogMarkdownManager } from '../../../app/utils/editor/markdown/markdownCompatibility'
+import { createCanvasMarkdownManager } from '../../../app/utils/editor/markdown/canvasMarkdown'
 
 describe('不支持的脚注定义只作普通阅读文字', () => {
   it('段落中的转义方括号不会截断为块公式，独立块公式仍可导入', () => {
-    const manager = createBlogMarkdownManager()
+    const manager = createCanvasMarkdownManager()
     const paragraph = manager.parse('正文\\[普通\\]').content![0]!
     expect(paragraph.type).toBe('paragraph')
     expect(paragraph.content).toEqual([{ type: 'text', text: '正文[普通]' }])

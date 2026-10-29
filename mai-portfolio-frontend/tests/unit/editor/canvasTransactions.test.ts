@@ -1,18 +1,18 @@
-import { directImmersiveValidator } from '../../support/immersiveValidationFixture'
 import { describe, expect, it, vi } from 'vitest'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
-import { ref } from 'vue'
-import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT } from '../../../app/utils/editor/markdown/markdownExtensions'
-import { createBlogMarkdownOptions } from '../../../app/utils/editor/markdown/markdownCompatibility'
-import { readEditorMarkdown } from '../../../app/utils/editor/markdown/markdownOutput'
+import {
+  CANVAS_EDITOR_EXTENSIONS,
+  CANVAS_STARTER_KIT,
+  createCanvasMarkdownOptions,
+} from '../../../app/utils/editor/markdown/canvasMarkdown'
+import { serializeEditorDocument } from '../../../app/utils/editor/markdown/markdownOutput'
 import {
   ImmersiveMarkdownGuard,
   immersiveInsertionProblem,
   immersiveDocumentProblem,
 } from '../../../app/utils/editor/interaction/immersiveCapabilities'
-import { useImmersiveDraft } from '../../../app/composables/useImmersiveDraft'
 import { highlightCode } from '../../../app/utils/markdown/code/codeHighlight'
 
 const fixture = [
@@ -34,9 +34,9 @@ function createEditor(source = fixture, reject = vi.fn()) {
   const editor = new Editor({
     element: null,
     extensions: [
-      StarterKit.configure(EDITOR_STARTER_KIT),
-      ...BLOG_EDITOR_EXTENSIONS,
-      Markdown.configure(createBlogMarkdownOptions()),
+      StarterKit.configure(CANVAS_STARTER_KIT),
+      ...CANVAS_EDITOR_EXTENSIONS,
+      Markdown.configure(createCanvasMarkdownOptions()),
       ImmersiveMarkdownGuard.configure({ reject }),
     ],
     content: source,
@@ -45,14 +45,14 @@ function createEditor(source = fixture, reject = vi.fn()) {
   editor.view.updateState(editor.state.reconfigure({ plugins: editor.extensionManager.plugins }))
   return editor
 }
-describe('Showcase 第三轮内容正确性', () => {
+describe('画布复杂节点事务与 Markdown 往返', () => {
   it('空标题仍以 ATX 标题序列化，保留继续输入时的标题级别', () => {
     const editor = createEditor('## 标题\n\n后文')
     try {
       editor.commands.setTextSelection({ from: 1, to: 3 })
       editor.commands.deleteSelection()
       expect(editor.state.doc.firstChild?.type.name).toBe('heading')
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toMatch(/^##\n/)
+      expect(serializeEditorDocument(editor, editor.state.doc)).toMatch(/^##\n/)
     } finally {
       editor.destroy()
     }
@@ -77,7 +77,7 @@ describe('Showcase 第三轮内容正确性', () => {
         })
         editor.commands.deleteSelection()
         expect(editor.state.doc.eq(original)).toBe(false)
-        expect(() => readEditorMarkdown(editor, editor.getMarkdown())).not.toThrow()
+        expect(() => serializeEditorDocument(editor, editor.state.doc)).not.toThrow()
         editor.commands.undo()
         expect(editor.state.doc.eq(original)).toBe(true)
         expect(rejected).not.toHaveBeenCalled()
@@ -105,40 +105,15 @@ describe('Showcase 第三轮内容正确性', () => {
       await Promise.resolve()
       // 无 DOM 的 Editor 被框架视为已销毁，通知不派发；此处验证真正的拒绝结果与具体原因。
       expect(immersiveDocumentProblem(candidate.doc)?.reason).toContain('表格单元格')
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('one')
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('one')
     } finally {
-      editor.destroy()
-    }
-  })
-  it('合法剪切和撤销通过后台校验后同步 Markdown 草稿，不保留旧版正文', async () => {
-    const editor = createEditor('## 标题\n\n前文\n\n后文')
-    const session = useImmersiveDraft(
-      '## 标题\n\n前文\n\n后文',
-      vi.fn(),
-      ref(true),
-      undefined,
-      directImmersiveValidator(),
-    )
-    vi.spyOn(editor, 'isDestroyed', 'get').mockReturnValue(false)
-    session.attach(editor)
-    try {
-      editor.commands.setTextSelection({ from: 1, to: 9 })
-      editor.commands.deleteSelection()
-      await session.flushRich()
-      expect(session.source.value).toBe(editor.getMarkdown())
-      expect(session.issue.value).toBe('')
-      editor.commands.undo()
-      await session.flushRich()
-      expect(session.source.value).toContain('前文')
-    } finally {
-      session.dispose()
       editor.destroy()
     }
   })
   it('行内公式在段落和 GFM 单元格中保留行内语义', () => {
     const editor = createEditor('满足 $a^2+b^2=c^2$，示例。\n\n| A |\n|---|\n| $x^2$ |')
     try {
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('$a^2+b^2=c^2$')
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('$a^2+b^2=c^2$')
       expect(editor.state.doc.firstChild?.child(1).type.name).toBe('preservedMathInline')
     } finally {
       editor.destroy()
@@ -154,4 +129,47 @@ describe('Showcase 第三轮内容正确性', () => {
       expect(JSON.stringify(node)).toContain('span')
     }
   })
+})
+
+it('资源占位在 DOM 上保留稳定身份，附件不直接导航内部协议', () => {
+  const editor = createEditor('![图片](resource://image-key)\n\n[附件](asset://42)')
+  const image = editor.schema.nodes.image!.create({ src: 'resource://image-key', alt: '图片' })
+  const imageDom = image.type.spec.toDOM!(image) as [string, Record<string, string>]
+  expect(imageDom[1]['data-editor-image-ref']).toBe('resource://image-key')
+  const link = editor.schema.marks.link!.create({ href: 'asset://42' })
+  const linkDom = link.type.spec.toDOM!(link, true) as [string, Record<string, string>, number]
+  expect(linkDom[1]['data-editor-resource-link']).toBe('asset://42')
+  expect(linkDom[1].href).toBeUndefined()
+  editor.destroy()
+})
+
+it('Markdown serializer 失败时不能用纯文本继续提交', () => {
+  const editor = createEditor('**必须保留**')
+  const originalDocument = editor.state.doc
+  editor.markdown!.serialize = () => {
+    throw new Error('serializer failed')
+  }
+  try {
+    expect(() => serializeEditorDocument(editor, editor.state.doc)).toThrow('serializer failed')
+    expect(editor.state.doc).toBe(originalDocument)
+    expect(editor.state.doc.firstChild!.firstChild!.marks[0]!.type.name).toBe('bold')
+  } finally {
+    editor.destroy()
+  }
+})
+
+it('段末新建空段落和会话隔离保持现有 Markdown 行为', () => {
+  const first = createEditor('继续写作')
+  const second = createEditor('另一份正文')
+  try {
+    expect(first.markdown!.instance).not.toBe(second.markdown!.instance)
+    first.commands.setTextSelection(first.state.doc.content.size - 1)
+    first.commands.splitBlock()
+    expect(first.state.doc.lastChild!.textContent).toBe('')
+    expect(serializeEditorDocument(first, first.state.doc)).toContain('继续写作')
+    expect(serializeEditorDocument(second, second.state.doc)).toBe('另一份正文')
+  } finally {
+    first.destroy()
+    second.destroy()
+  }
 })

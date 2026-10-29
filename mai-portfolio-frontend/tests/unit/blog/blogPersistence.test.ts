@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Blog, BlogInput, BlogContentInput, BlogPropertiesInput } from '../../../app/api/blogs'
 import { ApiRequestError } from '../../../app/api/request'
 import { createBlogPersistence } from '../../../app/utils/editor/session/blogPersistence'
-import type { CanvasSaveSnapshot } from '../../../app/utils/editor/session/canvasSave'
+import type { CanvasSaveSnapshot } from '../../../app/utils/editor/session/types'
 function post(revision = 1): Blog {
   return {
     id: 7,

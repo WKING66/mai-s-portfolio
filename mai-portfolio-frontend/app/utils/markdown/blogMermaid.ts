@@ -1,5 +1,3 @@
-import { countBlogReading } from './blogReadingProbe'
-
 export const MERMAID_LIMITS = {
   characters: 6000,
   edges: 120,
@@ -224,7 +222,6 @@ export async function renderBlogMermaid(
         },
       })
       const id = 'blog-mermaid-' + ++renderSequence
-      countBlogReading('mermaidRender')
       const { svg } = await mermaid.render(id, source)
       // 不执行 Mermaid 返回的 bindFunctions；严格模式之外再过滤 SVG 和作用域。
       return safeSvg(svg, id, purify)
@@ -235,8 +232,6 @@ export async function renderBlogMermaid(
       svgCache.delete(svgCache.keys().next().value!)
     }
     // 错误结果同样受缓存容量限制，避免主题来回切换反复解析无效图表。
-  } else {
-    countBlogReading('mermaidCacheHit')
   }
   return cloneMermaidSvg(await result, instanceId)
 }

@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nuxt dev --host 127.0.0.1",
     "dev:lan": "nuxt dev --host 0.0.0.0 --port 3000",
-    "typecheck": "nuxt typecheck",
+    "typecheck": "nuxt typecheck && pnpm typecheck:tests",
     "build": "nuxt build",
     "preview": "nuxt preview --host 127.0.0.1",
     "preview:lan": "nuxt preview --host 0.0.0.0 --port 3000",
@@ -15,7 +15,8 @@
     "format": "prettier --write",
     "format:check": "prettier . --check",
     "postinstall": "nuxt prepare",
-    "preinstall": "node scripts/check-package-manager.mjs"
+    "preinstall": "node scripts/check-package-manager.mjs",
+    "typecheck:tests": "vue-tsc --noEmit -p tsconfig.tests.json"
   },
   "dependencies": {
     "@codemirror/commands": "6.11.1",

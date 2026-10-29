@@ -253,7 +253,9 @@ provide(BLOG_CHAPTER_STATE, {
 // 4. SSR 生成完整正文，客户端后续解析交给 Worker，避免阻塞阅读主线程。
 async function parse(markdown: string) {
   if (import.meta.server) {
-    const parsedDocument = await (await import('../../utils/markdown/parser')).parseBlogMarkdown(markdown)
+    const parsedDocument = await (
+      await import('../../utils/markdown/parser')
+    ).parseBlogMarkdown(markdown)
     if (!parsedDocument) {
       throw new Error('正文解析失败。')
     }

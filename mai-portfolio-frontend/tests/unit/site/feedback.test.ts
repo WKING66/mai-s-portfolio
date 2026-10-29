@@ -13,9 +13,13 @@ beforeEach(() => {
 describe('Nuxt UI feedback adapter', () => {
   it('delegates success, error and info notifications without confirmation actions or custom timers', () => {
     const feedback = useFeedback()
-    feedback.success('已保存'); feedback.error(new Error('读取失败')); feedback.info('提示内容')
+    feedback.success('已保存')
+    feedback.error(new Error('读取失败'))
+    feedback.info('提示内容')
     expect(add.mock.calls.map(([toast]) => [toast.color, toast.description])).toEqual([
-      ['success', '已保存'], ['error', '读取失败'], ['info', '提示内容'],
+      ['success', '已保存'],
+      ['error', '读取失败'],
+      ['info', '提示内容'],
     ])
     for (const [toast] of add.mock.calls) {
       expect(toast).not.toHaveProperty('actions')
@@ -23,14 +27,18 @@ describe('Nuxt UI feedback adapter', () => {
     }
   })
   it('delivers repeated occurrences instead of retaining a custom dismissed-message cache', () => {
-    useFeedback().error('失败'); useFeedback().error('失败'); useFeedback().success('已保存')
+    useFeedback().error('失败')
+    useFeedback().error('失败')
+    useFeedback().success('已保存')
     expect(add.mock.calls.map(([toast]) => toast.description)).toEqual(['失败', '失败', '已保存'])
   })
   it('binds each caller to the library context instead of a custom global notification store', () => {
-    const first = useFeedback(), otherAdd = vi.fn()
+    const first = useFeedback(),
+      otherAdd = vi.fn()
     vi.stubGlobal('useToast', () => ({ add: otherAdd }))
     const other = useFeedback()
-    first.success('当前应用'); other.error('另一应用')
+    first.success('当前应用')
+    other.error('另一应用')
     expect(add).toHaveBeenCalledOnce()
     expect(otherAdd).toHaveBeenCalledOnce()
   })

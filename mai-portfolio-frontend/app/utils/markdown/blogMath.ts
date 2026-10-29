@@ -1,6 +1,5 @@
 import type { ElementNode, Node } from 'comark'
 import { parseDocument, DomUtils } from 'htmlparser2'
-import { countBlogReading } from './blogReadingProbe.ts'
 import { render } from 'comark/render'
 import { escapeHtml } from 'comark/utils'
 
@@ -71,7 +70,6 @@ export async function renderBlogMath(source: string, block: boolean): Promise<El
   try {
     // 1. 按需加载 KaTeX；每个公式使用独立宏环境和固定安全限额。
     const katex = (await import('katex')).default
-    countBlogReading('katexRender')
     const html = katex.renderToString(source, {
       displayMode: block,
       output: 'htmlAndMathml',

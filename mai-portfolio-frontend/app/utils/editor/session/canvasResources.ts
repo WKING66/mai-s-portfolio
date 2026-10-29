@@ -5,6 +5,7 @@ import type { Editor, JSONContent } from '@tiptap/core'
 export const CANVAS_RESOURCE_PREVIEW: InjectionKey<(uri: string) => string | undefined> =
   Symbol('canvas-resource-preview')
 export const CANVAS_RESOURCE_NORMALIZATION = 'canvas-resource-normalization'
+// 沿用已生成的临时引用格式；与已删除的演示路由无关，保存前仍须上传换成稳定身份。
 const PENDING_PREFIX = 'resource://showcase-pending-'
 const IMAGE_TYPES = new Set([
   'image/png',
@@ -36,11 +37,8 @@ function visitReferences(document: JSONContent, replace: (uri: string) => string
   document.content?.forEach((child) => visitReferences(child, replace))
 }
 
-/** 文件留在当前会话；正式页注入上传入口，Showcase 默认使用内存模拟。 */
-export function createCanvasResources(
-  fail: () => boolean = () => false,
-  upload?: (file: File, image: boolean) => Promise<string>,
-) {
+/** 会话只持有文件与临时预览；稳定资源身份由调用方的真实上传入口返回。 */
+export function createCanvasResources(upload: (file: File, image: boolean) => Promise<string>) {
   const resources = new Map<string, LocalResource>()
   let disposed = false
   function add(file: File): JSONContent {
@@ -52,7 +50,7 @@ export function createCanvasResources(
     const entry: LocalResource = {
       file,
       pending: PENDING_PREFIX + id,
-      stable: 'resource://showcase-' + id,
+      stable: PENDING_PREFIX + id,
       preview: image ? URL.createObjectURL(file) : undefined,
       ready: false,
     }
@@ -99,16 +97,9 @@ export function createCanvasResources(
           return
         }
         entry.preparing ??= (async () => {
-          if (upload) {
-            entry.stable = await upload(entry.file, IMAGE_TYPES.has(entry.file.type))
-          } else {
-            await new Promise((resolve) => setTimeout(resolve, 300))
-          }
+          entry.stable = await upload(entry.file, IMAGE_TYPES.has(entry.file.type))
           if (disposed) {
             throw new Error('当前编辑页面已经关闭。')
-          }
-          if (fail()) {
-            throw new Error('模拟资源处理失败，请重试；文件与正文仍保留在当前页面。')
           }
           entry.ready = true
           resources.set(entry.stable, entry)

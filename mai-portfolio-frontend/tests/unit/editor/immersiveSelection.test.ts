@@ -4,8 +4,11 @@ import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
 import { CellSelection, TableMap } from '@tiptap/pm/tables'
 import { closeHistory } from '@tiptap/pm/history'
-import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT } from '../../../app/utils/editor/markdown/markdownExtensions'
-import { createBlogMarkdownOptions } from '../../../app/utils/editor/markdown/markdownCompatibility'
+import {
+  BLOG_EDITOR_EXTENSIONS,
+  EDITOR_STARTER_KIT,
+} from '../../../app/utils/editor/markdown/markdownExtensions'
+import { createCanvasMarkdownOptions } from '../../../app/utils/editor/markdown/canvasMarkdown'
 import { ImmersiveMarkdownGuard } from '../../../app/utils/editor/interaction/immersiveCapabilities'
 import {
   ImmersiveSelection,
@@ -19,7 +22,7 @@ import {
   editImmersiveAxes,
   immersiveAxisProblem,
 } from '../../../app/utils/editor/interaction/immersiveTables'
-import { readEditorMarkdown } from '../../../app/utils/editor/markdown/markdownOutput'
+import { serializeEditorDocument } from '../../../app/utils/editor/markdown/markdownOutput'
 import { immersiveLinkRange } from '../../../app/utils/editor/interaction/immersiveLinks'
 const source =
   '| 姓名 | 技术 | 备注 |\n|---|:---:|---:|\n| 张三 | Java | $2^{i-1}$ |\n| 李四 | Python | [链接](/blog) |\n| 王五 | Vue | 前端 |\n| 赵六 | Rust | 后端 |\n| 陈七 | TS | 备注五 |\n| 刘八 | JS | 备注六 |'
@@ -29,7 +32,7 @@ function createEditor() {
     extensions: [
       StarterKit.configure(EDITOR_STARTER_KIT),
       ...BLOG_EDITOR_EXTENSIONS,
-      Markdown.configure(createBlogMarkdownOptions()),
+      Markdown.configure(createCanvasMarkdownOptions()),
       ImmersiveSelection,
       ImmersiveMarkdownGuard,
     ],
@@ -69,7 +72,7 @@ describe('统一表格文字范围与批量操作', () => {
       expect(
         editor.state.doc.firstChild!.child(2).children.map((cell) => cell.textContent),
       ).toEqual(['', '', '链接'])
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('$2^{i-1}$')
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('$2^{i-1}$')
       editor.commands.undo()
       expect(editor.state.doc.eq(before)).toBe(true)
     } finally {
@@ -87,7 +90,7 @@ describe('统一表格文字范围与批量操作', () => {
       })
       editor.commands.setTextSelection({ from: java + 1, to: java + 3 })
       expect(editor.commands.command(formatImmersiveText('bold'))).toBe(true)
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('J**av**a')
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('J**av**a')
       editor.commands.undo()
       const map = TableMap.get(editor.state.doc.firstChild!)
       editor.view.dispatch(
@@ -105,7 +108,7 @@ describe('统一表格文字范围与批量操作', () => {
         [false, false, false],
         [false, false, false],
       ])
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('~~Java~~')
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('~~Java~~')
     } finally {
       editor.destroy()
     }
@@ -115,7 +118,7 @@ describe('统一表格文字范围与批量操作', () => {
     try {
       editor.commands.command(selectImmersiveAxes(0, 'column', 2))
       expect(editor.commands.command(formatImmersiveText('code'))).toBe(true)
-      const markdown = readEditorMarkdown(editor, editor.getMarkdown())
+      const markdown = serializeEditorDocument(editor, editor.state.doc)
       expect(markdown).toContain('](/blog)')
       expect(markMatrix(editor, 'code')[2]![2]).toBe(true)
       expect(markdown).toContain('$2^{i-1}$')
@@ -138,7 +141,7 @@ describe('统一表格文字范围与批量操作', () => {
       expect(markMatrix(editor, 'bold')).toEqual(
         Array.from({ length: 7 }, () => [false, true, false]),
       )
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('**Java**')
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('**Java**')
       editor.commands.undo()
       expect(markMatrix(editor, 'bold').flat().some(Boolean)).toBe(false)
       editor.commands.redo()
@@ -162,7 +165,7 @@ describe('统一表格文字范围与批量操作', () => {
           row % 2 === 0 && row > 0,
         ]),
       )
-      const markdown = readEditorMarkdown(editor, editor.getMarkdown())
+      const markdown = serializeEditorDocument(editor, editor.state.doc)
       expect(markdown).toContain('$2^{i-1}$')
       expect(markdown).toContain('/blog')
       editor.commands.command(formatImmersiveText('clear'))
@@ -187,7 +190,7 @@ describe('统一表格文字范围与批量操作', () => {
       expect(
         editor.state.doc.firstChild!.children.map((row) => row.firstChild!.textContent),
       ).toEqual(['姓名', '张三', '王五', '陈七'])
-      expect(() => readEditorMarkdown(editor, editor.getMarkdown())).not.toThrow()
+      expect(() => serializeEditorDocument(editor, editor.state.doc)).not.toThrow()
       editor.commands.undo()
       expect(editor.state.doc.eq(before)).toBe(true)
     } finally {
@@ -207,13 +210,13 @@ describe('统一表格文字范围与批量操作', () => {
         editor.state.doc.firstChild!.firstChild!.children.map((cell) => cell.textContent),
       ).toEqual(['技术', '姓名', '备注'])
       expect(immersiveAxisSelection(editor.state)?.indices).toEqual([1, 2])
-      expect(readEditorMarkdown(editor, editor.getMarkdown())).toContain('$2^{i-1}$')
+      expect(serializeEditorDocument(editor, editor.state.doc)).toContain('$2^{i-1}$')
       expect(editor.commands.command(editImmersiveAxes('clear'))).toBe(true)
       expect(
         editor.state.doc.firstChild!.child(1).children.map((cell) => cell.textContent),
       ).toEqual(['Java', '', ''])
       expect(editor.state.doc.firstChild!.childCount).toBe(7)
-      expect(() => readEditorMarkdown(editor, editor.getMarkdown())).not.toThrow()
+      expect(() => serializeEditorDocument(editor, editor.state.doc)).not.toThrow()
     } finally {
       editor.destroy()
     }
@@ -234,7 +237,7 @@ describe('统一表格文字范围与批量操作', () => {
       const formula = editor.state.doc.firstChild!.child(1).child(2).firstChild!.firstChild!
       expect(formula.attrs.source).toBe('$2^{i-1}$')
       expect(formula.marks).toEqual([])
-      expect(() => readEditorMarkdown(editor, editor.getMarkdown())).not.toThrow()
+      expect(() => serializeEditorDocument(editor, editor.state.doc)).not.toThrow()
     } finally {
       editor.destroy()
     }

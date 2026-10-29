@@ -1,13 +1,13 @@
 import {
-  createImmersiveValidation,
-  type ImmersiveValidationInput,
-  type ImmersiveValidationReply,
-} from '../utils/editor/markdown/immersiveValidation'
+  validateCanvasMarkdown,
+  type CanvasValidationInput,
+  type CanvasValidationReply,
+} from '../utils/editor/markdown/validation'
 
-const validate = createImmersiveValidation()
-self.onmessage = (event: MessageEvent<{ id: number; input: ImmersiveValidationInput }>) => {
+const validate = validateCanvasMarkdown
+self.onmessage = (event: MessageEvent<{ id: number; input: CanvasValidationInput }>) => {
   const { id, input } = event.data
-  let reply: ImmersiveValidationReply
+  let reply: CanvasValidationReply
   try {
     reply = { id, ok: true, value: validate(input) }
   } catch (cause) {

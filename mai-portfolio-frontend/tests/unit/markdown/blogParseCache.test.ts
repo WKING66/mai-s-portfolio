@@ -1,16 +1,13 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import katex from 'katex'
 import { BLOG_PARSE_CACHE_LIMITS, parseBlogMarkdown } from '../../../app/utils/markdown/parser'
 import { buildBlogChapters } from '../../../app/utils/blog/chapters'
 
-afterEach(() => {
-  globalThis.__blogReadingProbe = undefined
-})
+afterEach(() => vi.restoreAllMocks())
+
 describe('bounded immutable reading result reuse', () => {
   it('reuses parsing/highlighting/math for identical content, but refreshes changed source', async () => {
-    const counts: Record<string, number> = {}
-    globalThis.__blogReadingProbe = (name) => {
-      counts[name] = (counts[name] || 0) + 1
-    }
+    const render = vi.spyOn(katex, 'renderToString')
     const source = '# 缓存验证\n\n公式 $a^2$\n\n```java\nclass CachedArticle {}\n```'
     const first = await parseBlogMarkdown(source),
       snapshot = JSON.stringify(first)
@@ -18,11 +15,9 @@ describe('bounded immutable reading result reuse', () => {
     const second = await parseBlogMarkdown(source)
     expect(second).toBe(first)
     expect(JSON.stringify(second)).toBe(snapshot)
-    expect(counts.markdownParse).toBe(1)
-    expect(counts.katexRender).toBe(1)
+    expect(render).toHaveBeenCalledOnce()
     // 首次解析与缓存命中均不等待高亮，着色由代码组件在后台单独补充。
-    expect(counts.highlightRequest || 0).toBe(0)
-    expect(counts.parseCacheHit).toBe(1)
+    expect(snapshot).toContain('pending')
     const changed = await parseBlogMarkdown(source + '\n\n## 新章节')
     expect(changed).not.toBe(first)
     expect(buildBlogChapters(changed.nodes).byId.has('新章节')).toBe(true)
@@ -31,8 +26,8 @@ describe('bounded immutable reading result reuse', () => {
     const source = '# 有界缓存基点'
     const first = await parseBlogMarkdown(source)
     for (let i = 0; i < BLOG_PARSE_CACHE_LIMITS.entries; i++) {
-await parseBlogMarkdown('# 有界缓存文章 ' + i)
-}
+      await parseBlogMarkdown('# 有界缓存文章 ' + i)
+    }
     expect(await parseBlogMarkdown(source)).not.toBe(first)
   })
 })

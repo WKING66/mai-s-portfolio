@@ -153,7 +153,7 @@ const { copy, copied } = useClipboard({ legacy: true })
 
 <template>
   <div
-    class="blog-code showcase-code my-6 rounded-xl border border-default"
+    class="blog-code my-6 rounded-xl border border-default"
     :data-code-theme="theme"
     :data-highlight="highlighted ? highlighted[1]['data-highlight'] || 'ready' : 'pending'"
     :style="[props.style, highlighted?.[1].style as StyleValue]"

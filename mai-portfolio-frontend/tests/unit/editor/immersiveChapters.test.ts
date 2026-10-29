@@ -2,15 +2,17 @@ import { describe, it, expect } from 'vitest'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
-import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT } from '../../../app/utils/editor/markdown/markdownExtensions'
-import { createBlogMarkdownOptions } from '../../../app/utils/editor/markdown/markdownCompatibility'
+import {
+  BLOG_EDITOR_EXTENSIONS,
+  EDITOR_STARTER_KIT,
+} from '../../../app/utils/editor/markdown/markdownExtensions'
+import { createCanvasMarkdownOptions } from '../../../app/utils/editor/markdown/canvasMarkdown'
 import {
   ImmersiveChapters,
   immersiveChapters,
   toggleImmersiveChapter,
   revealImmersivePosition,
 } from '../../../app/utils/editor/interaction/immersiveChapters'
-import { patchImmersiveDocument } from '../../../app/utils/editor/legacy/immersiveDraft'
 import { ImmersiveMarkdownGuard } from '../../../app/utils/editor/interaction/immersiveCapabilities'
 const source =
   '# 第一章\n\n首段\n\n## 1.1\n\n子段\n\n### 更深\n\n~~~ts\nconst a = 1\n~~~\n\n## 1.2\n\n同级\n\n# 第二章\n\n末段'
@@ -20,7 +22,7 @@ function make() {
     extensions: [
       StarterKit.configure(EDITOR_STARTER_KIT),
       ...BLOG_EDITOR_EXTENSIONS,
-      Markdown.configure(createBlogMarkdownOptions()),
+      Markdown.configure(createCanvasMarkdownOptions()),
       ImmersiveChapters,
       ImmersiveMarkdownGuard.configure({ roundtrip: false }),
     ],
@@ -30,7 +32,7 @@ function make() {
   editor.view.updateState(editor.state.reconfigure({ plugins: editor.extensionManager.plugins }))
   return editor
 }
-describe('章节折叠与源码补丁', () => {
+describe('章节折叠与文档事务', () => {
   it('折叠隐藏装饰随标题输入映射且不重复，清空标题后正文重新可见', () => {
     const editor = make()
     try {
@@ -206,7 +208,7 @@ describe('章节折叠与源码补丁', () => {
       editor.destroy()
     }
   })
-  it('源码代码补丁保留块起点及章节折叠身份，原文严格等价', () => {
+  it('局部代码事务保留块起点及章节折叠身份', () => {
     const editor = make()
     try {
       const chapter = immersiveChapters(editor.state)!.chapters[3]!
@@ -223,7 +225,13 @@ describe('章节折叠与源码补丁', () => {
           removed = transaction.mapping.mapResult(oldCode).deleted
         }
       })
-      patchImmersiveDocument(editor, source.replace('const a = 1', 'const a = 100\n// 注释'))
+      editor.view.dispatch(
+        editor.state.tr.insertText(
+          'const a = 100\n// 注释',
+          oldCode + 1,
+          oldCode + editor.state.doc.nodeAt(oldCode)!.nodeSize - 1,
+        ),
+      )
       expect(removed).toBe(false)
       expect(immersiveChapters(editor.state)!.collapsed.has(chapter.id)).toBe(true)
       expect(editor.state.doc.textContent).toContain('const a = 100\n// 注释')

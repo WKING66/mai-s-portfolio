@@ -11,7 +11,9 @@ const pendingTasks = new Map<
 export function parseBlogMarkdownInWorker(markdown: string): Promise<MarkdownDocument> {
   // 1. 按需创建唯一 Worker，响应通过任务标识匹配，不让并发文章相互覆盖。
   if (!worker) {
-    worker = new Worker(new URL('../../workers/blogMarkdown.ts', import.meta.url), { type: 'module' })
+    worker = new Worker(new URL('../../workers/blogMarkdown.ts', import.meta.url), {
+      type: 'module',
+    })
     worker.onmessage = ({ data }) => {
       const task = pendingTasks.get(data.id)
       if (!task) {

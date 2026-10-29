@@ -12,7 +12,9 @@ export function highlightCodeInWorker(source: string, language: string, signal: 
   if (signal.aborted) {
     return Promise.reject(new Error('代码高亮已取消'))
   }
-  worker ??= new Worker(new URL('../../../workers/codeHighlight.ts', import.meta.url), { type: 'module' })
+  worker ??= new Worker(new URL('../../../workers/codeHighlight.ts', import.meta.url), {
+    type: 'module',
+  })
   worker.onmessage = ({
     data,
   }: MessageEvent<{ id: number; node?: ElementNode; error?: string }>) => {

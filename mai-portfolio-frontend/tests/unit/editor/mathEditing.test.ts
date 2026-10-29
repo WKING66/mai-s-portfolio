@@ -2,11 +2,12 @@ import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
 import { describe, expect, it } from 'vitest'
-import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT } from '../../../app/utils/editor/markdown/markdownExtensions'
 import {
-  createImmersiveMarkdownManager,
-  createImmersiveMarkdownOptions,
-} from '../../../app/utils/editor/markdown/immersiveMarkdown'
+  CANVAS_EDITOR_EXTENSIONS,
+  CANVAS_STARTER_KIT,
+  createCanvasMarkdownManager,
+  createCanvasMarkdownOptions,
+} from '../../../app/utils/editor/markdown/canvasMarkdown'
 import { immersiveMathSource } from '../../../app/utils/editor/math/immersiveMath'
 import { ImmersiveMarkdownGuard } from '../../../app/utils/editor/interaction/immersiveCapabilities'
 import { serializeEditorDocument } from '../../../app/utils/editor/markdown/markdownOutput'
@@ -21,9 +22,9 @@ describe('公式编辑与空内容的实际 Markdown 边界', () => {
     const editor = new Editor({
       element: null,
       extensions: [
-        StarterKit.configure(EDITOR_STARTER_KIT),
-        ...BLOG_EDITOR_EXTENSIONS,
-        Markdown.configure(createImmersiveMarkdownOptions()),
+        StarterKit.configure(CANVAS_STARTER_KIT),
+        ...CANVAS_EDITOR_EXTENSIONS,
+        Markdown.configure(createCanvasMarkdownOptions()),
       ],
       content: original,
       contentType: 'markdown',
@@ -65,7 +66,7 @@ describe('公式编辑与空内容的实际 Markdown 边界', () => {
 })
 
 it('重复解析不共享可变 token，缓存不会污染后续往返校验', () => {
-  const manager = createImmersiveMarkdownManager()
+  const manager = createCanvasMarkdownManager()
   const source = '## 标题\n\n正文 **强调** 与 $x$\n\n- 子项'
   const expected = manager.parse(source)
   const tokens = manager.instance.lexer(source)
@@ -92,9 +93,9 @@ it.each([
   const editor = new Editor({
     element: null,
     extensions: [
-      StarterKit.configure(EDITOR_STARTER_KIT),
-      ...BLOG_EDITOR_EXTENSIONS,
-      Markdown.configure(createImmersiveMarkdownOptions()),
+      StarterKit.configure(CANVAS_STARTER_KIT),
+      ...CANVAS_EDITOR_EXTENSIONS,
+      Markdown.configure(createCanvasMarkdownOptions()),
       ImmersiveMarkdownGuard.configure({ reject: (failure) => rejected.push(failure) }),
     ],
     content: source,

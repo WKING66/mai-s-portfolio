@@ -9,7 +9,7 @@ import type {
 import { ApiRequestError } from '../../../api/request'
 import { blogSlugIssue } from '../../blog/slug'
 import { BLOG_INPUT_LIMITS } from '../../../constants/blogs'
-import type { CanvasMetadata, CanvasSaveSnapshot } from './canvasSave'
+import type { CanvasMetadata, CanvasSaveSnapshot } from './types'
 
 type BlogApi = Pick<
   ReturnType<typeof useBlogApi>,

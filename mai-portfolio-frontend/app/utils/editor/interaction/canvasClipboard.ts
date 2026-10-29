@@ -2,7 +2,7 @@ import type { Editor, JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
 import type { Slice } from '@tiptap/pm/model'
 import type { DocumentResource } from '../../../api/blogs'
-import { createImmersiveValidator } from '../markdown/immersiveValidationClient'
+import { createCanvasValidator } from '../markdown/validationClient'
 
 /** 识别需要完整 Markdown 解析的剪贴板；普通富文本、内部块复制和表格粘贴走原有流程。 */
 export function isCanvasMarkdownClipboard(text: string) {
@@ -19,7 +19,7 @@ interface PasteOptions {
 }
 
 export function canvasMarkdownClipboard(editor: Editor, options: PasteOptions) {
-  let validator: ReturnType<typeof createImmersiveValidator> | undefined
+  let validator: ReturnType<typeof createCanvasValidator> | undefined
   let pending: { from: number; to: number; selected: Slice } | undefined
   let plain = false
   let destroyed = false
@@ -27,7 +27,7 @@ export function canvasMarkdownClipboard(editor: Editor, options: PasteOptions) {
   const parse =
     options.parse ??
     (async (markdown: string) => {
-      validator ??= createImmersiveValidator()
+      validator ??= createCanvasValidator()
       const result = await validator.check({
         kind: 'canvas-import',
         markdown,

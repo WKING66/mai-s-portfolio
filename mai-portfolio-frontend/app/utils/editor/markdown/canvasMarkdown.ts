@@ -2,9 +2,8 @@ import { getSchema, Node, type Mark, type JSONContent } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { OrderedList } from '@tiptap/extension-list'
 import { CanvasMarkdownWriter } from './canvasMarkdownOutput'
-import type { Token } from 'marked'
+import { Marked, type Token, type marked } from 'marked'
 import { BLOG_EDITOR_EXTENSIONS, EDITOR_STARTER_KIT, isEditorUrl } from './markdownExtensions'
-import { createBlogMarkdownOptions } from './markdownCompatibility'
 import { serializeEditorDocument } from './markdownOutput'
 import type { DocumentResource } from '../../../api/blogs'
 
@@ -98,7 +97,7 @@ export const CanvasAlert = Node.create({
   },
 })
 
-// 原有节点、表格与数学扩展保持；Showcase 不再引入只读原文封装节点。
+// 画布沿用既有节点、表格与数学扩展，不引入只读原文封装节点。
 export const CANVAS_EDITOR_EXTENSIONS = [
   CanvasOrderedList,
   ...BLOG_EDITOR_EXTENSIONS.filter((extension) => extension.name !== 'preservedMarkdownBlock').map(
@@ -126,7 +125,7 @@ export const canvasSchema = getSchema([
 ])
 
 export function createCanvasMarkdownOptions() {
-  const options = createBlogMarkdownOptions()
+  const options = { marked: new Marked() as unknown as typeof marked, markedOptions: { gfm: true } }
   const instance = options.marked
   // 不支持脚注：阻止其定义被普通引用链接规则吞掉，保留成可编辑正文。
   instance.use({

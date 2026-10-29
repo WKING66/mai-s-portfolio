@@ -318,7 +318,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="blog-toc showcase-toc">
+  <div class="blog-toc">
     <nav aria-label="文章目录" class="blog-toc-desktop">
       <p class="blog-toc-title">本篇目录</p>
       <BlogTocTree

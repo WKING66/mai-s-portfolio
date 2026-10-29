@@ -92,18 +92,6 @@ export function editorContentMeaning(node: JSONContent): unknown {
   }
 }
 
-/** 不接受 UEditor 在序列化异常时降级产生的纯文本；保存入口只接收校验成功的 Markdown。 */
-export function readEditorMarkdown(editor: Editor, emittedMarkdown: string): string {
-  if (!editor.markdown) {
-    throw new Error('Markdown 编辑能力尚未就绪，请稍后重试。')
-  }
-  const markdown = serializeEditorDocument(editor, editor.state.doc)
-  if (markdown !== emittedMarkdown) {
-    throw new Error('当前转换结果已过期，请重试。')
-  }
-  return markdown
-}
-
 /** 候选事务提交前同样走真实序列化和往返校验，不拿旧 Markdown 比较新文档。 */
 export function serializeEditorDocument(
   editor: Pick<Editor, 'markdown' | 'schema'>,
@@ -119,13 +107,13 @@ export function serializeEditorDocument(
     ? restored
     : editor.schema.topNodeType.createAndFill()
   if (!restoredDocument) {
-    throw new Error('无法恢复 Markdown 文档结构，请使用源码模式编辑。')
+    throw new Error('无法恢复 Markdown 文档结构，当前修改未保存。')
   }
   if (
     JSON.stringify(editorContentMeaning(restoredDocument.toJSON())) !==
     JSON.stringify(editorContentMeaning(document.toJSON()))
   ) {
-    throw new Error('此次富文本操作无法可靠转换为 Markdown，请撤销操作或在源码模式编辑。')
+    throw new Error('此次富文本操作无法可靠转换为 Markdown，请撤销本次操作后重试。')
   }
   return markdown
 }

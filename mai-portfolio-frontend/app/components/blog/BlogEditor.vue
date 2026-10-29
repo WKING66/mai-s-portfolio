@@ -3,10 +3,13 @@ import { markRaw, shallowRef } from 'vue'
 import { useBlogApi, type Blog, type BlogTag, type DocumentResource } from '../../api/blogs'
 import { useAssetApi } from '../../api/assets'
 import { useAssetUrlRefresh } from '../../composables/useAssetUrlRefresh'
-import { createImmersiveValidator } from '../../utils/editor/markdown/immersiveValidationClient'
-import { createBlogPersistence, type BlogSaveScope } from '../../utils/editor/session/blogPersistence'
+import { createCanvasValidator } from '../../utils/editor/markdown/validationClient'
+import {
+  createBlogPersistence,
+  type BlogSaveScope,
+} from '../../utils/editor/session/blogPersistence'
 import { createCanvasResources } from '../../utils/editor/session/canvasResources'
-import type { CanvasMetadata } from '../../utils/editor/session/canvasSave'
+import type { CanvasMetadata } from '../../utils/editor/session/types'
 import type { JSONContent } from '@tiptap/core'
 import { ADMIN_PATHS } from '../../constants/admin'
 import { CANVAS_LOADING } from '../../utils/editor/session/canvasLoading'
@@ -17,7 +20,7 @@ const hasLoadingHost = editorLoading !== undefined
 const api = useBlogApi()
 const assets = useAssetApi()
 const feedback = useFeedback()
-const importer = createImmersiveValidator()
+const importer = createCanvasValidator()
 const workbench = useTemplateRef('workbench')
 const metadata = ref<CanvasMetadata>({
   title: '',
@@ -118,30 +121,27 @@ async function load() {
     resources.value = post?.resources ?? []
     uploaded.value = []
     persistence.value?.resources.dispose()
-    const local = createCanvasResources(
-      () => false,
-      async (file, image) => {
-        const asset = await assets.upload(file, image ? 'IMAGE' : 'ATTACHMENT')
-        if (disposed || current !== generation) {
-          throw new Error('编辑会话已经关闭。')
-        }
-        uploaded.value = [
-          ...uploaded.value,
-          {
-            key: 'pending-asset-' + asset.id,
-            type: image ? 'IMAGE' : 'ATTACHMENT',
-            status: 'READY',
-            assetId: asset.id,
-            resourceUrl: asset.resourceUrl,
-            expiresAt: asset.expiresAt,
-            originalUri: null,
-            filename: file.name,
-            contentType: asset.contentType,
-          },
-        ]
-        return 'asset://' + asset.id
-      },
-    )
+    const local = createCanvasResources(async (file, image) => {
+      const asset = await assets.upload(file, image ? 'IMAGE' : 'ATTACHMENT')
+      if (disposed || current !== generation) {
+        throw new Error('编辑会话已经关闭。')
+      }
+      uploaded.value = [
+        ...uploaded.value,
+        {
+          key: 'pending-asset-' + asset.id,
+          type: image ? 'IMAGE' : 'ATTACHMENT',
+          status: 'READY',
+          assetId: asset.id,
+          resourceUrl: asset.resourceUrl,
+          expiresAt: asset.expiresAt,
+          originalUri: null,
+          filename: file.name,
+          contentType: asset.contentType,
+        },
+      ]
+      return 'asset://' + asset.id
+    })
     session.value = markRaw(createBlogPersistence(api, post, received))
     persistence.value = markRaw({
       adapter: session.value.adapter,

@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { EditorState } from '@tiptap/pm/state'
 import { history, undoDepth, undo, redo } from '@tiptap/pm/history'
-import { canvasSchema, importCanvasMarkdown } from '../../../app/utils/editor/markdown/canvasMarkdown'
+import {
+  canvasSchema,
+  importCanvasMarkdown,
+} from '../../../app/utils/editor/markdown/canvasMarkdown'
 import {
   CANVAS_INITIALIZATION,
   canvasInitializationGuard,
   initializeCanvasDocument,
 } from '../../../app/utils/editor/session/canvasInitialization'
-import { createImmersiveValidation } from '../../../app/utils/editor/markdown/immersiveValidation'
+import { validateCanvasMarkdown } from '../../../app/utils/editor/markdown/validation'
 
 function fixture(loading: () => boolean = () => false) {
   const document = canvasSchema.nodeFromJSON(
@@ -68,7 +71,7 @@ describe('单画布长文首次初始化', () => {
         expiresAt: null,
       },
     ]
-    const result = createImmersiveValidation()({ kind: 'canvas-import', markdown, resources })
+    const result = validateCanvasMarkdown({ kind: 'canvas-import', markdown, resources })
     expect(result.kind).toBe('canvas-import')
     if (result.kind !== 'canvas-import') {
       throw new Error('Unexpected result')

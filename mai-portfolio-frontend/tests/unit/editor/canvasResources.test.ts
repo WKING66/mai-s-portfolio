@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Plugin } from '@tiptap/pm/state'
-import { useCanvasDocument } from '../../../app/composables/useCanvasDocument'
+import { useTestCanvasDocument, createTestResources } from '../../support/canvasSession'
 import {
   CANVAS_EDITOR_EXTENSIONS,
   CANVAS_STARTER_KIT,
@@ -17,12 +17,12 @@ import {
 import { ImmersiveMarkdownGuard } from '../../../app/utils/editor/interaction/immersiveCapabilities'
 
 // 资源和保存控制器定向测试使用真实转换函数；Worker 线程传输另有独立测试和浏览器检查。
-vi.mock('../../../app/utils/editor/markdown/immersiveValidationClient', async () => {
-  const { createImmersiveValidation } = await import('../../../app/utils/editor/markdown/immersiveValidation')
+vi.mock('../../../app/utils/editor/markdown/validationClient', async () => {
+  const { validateCanvasMarkdown } = await import('../../../app/utils/editor/markdown/validation')
   return {
-    createImmersiveValidator: () => ({
-      check: async (input: Parameters<ReturnType<typeof createImmersiveValidation>>[0]) =>
-        createImmersiveValidation()(input),
+    createCanvasValidator: () => ({
+      check: async (input: Parameters<typeof validateCanvasMarkdown>[0]) =>
+        validateCanvasMarkdown(input),
       dispose() {},
     }),
   }
@@ -41,7 +41,7 @@ function setup(resourceFailure = () => false) {
     remoteRightsConfirmed: false,
     tagIds: [3],
   })
-  const canvas = useCanvasDocument('正文', metadata, [], () => false, resourceFailure)
+  const canvas = useTestCanvasDocument('正文', metadata, [], () => false, resourceFailure)
   const editor = new Editor({
     element: null,
     extensions: [
@@ -80,8 +80,8 @@ function references(editor: Editor) {
 
 describe('Showcase 本地资源准备与保存', () => {
   it('业务会话注入的资源不随画布局部重挂载销毁，由持有者最终释放', () => {
-    const resources = createCanvasResources()
-    const canvas = useCanvasDocument(
+    const resources = createTestResources()
+    const canvas = useTestCanvasDocument(
       '正文',
       ref({ title: '', slug: '', summary: '', allowDownload: true, remoteRightsConfirmed: false }),
       [],
@@ -116,7 +116,7 @@ describe('Showcase 本地资源准备与保存', () => {
       .fn()
       .mockRejectedValueOnce(new Error('上传失败'))
       .mockResolvedValue('asset://73')
-    const resources = createCanvasResources(() => false, upload)
+    const resources = createCanvasResources(upload)
     try {
       const file = new File(['图片'], '图.png', { type: 'image/png' })
       const node = resources.add(file)
@@ -184,9 +184,7 @@ describe('Showcase 本地资源准备与保存', () => {
       await vi.advanceTimersByTimeAsync(600)
       expect(await retry).toBe(true)
       expect(references(editor)).toHaveLength(2)
-      expect(references(editor)).toEqual(
-        pending.map((uri) => uri.replace('showcase-pending-', 'showcase-')),
-      )
+      expect(references(editor)).toEqual(['asset://100', 'asset://101'])
       expect(canvas.saved.revision.value).toBe(revision)
       expect(canvas.saved.dirty.value).toBe(false)
       expect(canvas.localResources.preview(references(editor)[0]!)).toBe(preview)
@@ -237,7 +235,7 @@ describe('Showcase 本地资源准备与保存', () => {
     dispose()
   })
   it('未知临时引用明确拒绝；代码文字不被当成资源处理', async () => {
-    const resources = createCanvasResources()
+    const resources = createTestResources()
     try {
       await expect(
         resources.prepare({
