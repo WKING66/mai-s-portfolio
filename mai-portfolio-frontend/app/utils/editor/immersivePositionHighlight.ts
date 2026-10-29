@@ -1,42 +1,17 @@
-import { Extension } from '@tiptap/core'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
-import { Decoration, DecorationSet } from '@tiptap/pm/view'
-
-export const IMMERSIVE_POSITION_KEY = new PluginKey<DecorationSet>('immersive-position')
-/** 导航提醒仅装饰普通段落/标题，不重建代码、图表、表格或公式 NodeView。 */
-export const ImmersivePositionHighlight = Extension.create({
-  name: 'immersivePositionHighlight',
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: IMMERSIVE_POSITION_KEY,
-        state: {
-          init: () => DecorationSet.empty,
-          apply(transaction, previous) {
-            const range = transaction.getMeta(IMMERSIVE_POSITION_KEY)
-            if (range === null) {
-              return DecorationSet.empty
-            }
-            if (range) {
-              const node = transaction.doc.nodeAt(range.from)
-              if (
-                node &&
-                ['paragraph', 'heading'].includes(node.type.name) &&
-                !node.children.some((child) => child.isAtom && !child.isText)
-              ) {
-                return DecorationSet.create(transaction.doc, [
-                  Decoration.node(range.from, range.from + node.nodeSize, {
-                    class: 'immersive-position-flash',
-                  }),
-                ])
-              }
-              return DecorationSet.empty
-            }
-            return previous.map(transaction.mapping, transaction.doc)
-          },
-        },
-        props: { decorations: (state) => IMMERSIVE_POSITION_KEY.getState(state) },
-      }),
-    ]
-  },
-})
+/** 定位反馈只属于目标元素的显示状态，不创建编辑器事务或改动受 PM 管理的 DOM 属性。 */
+export function highlightImmersivePosition(element: HTMLElement): Animation | undefined {
+  if (!['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6'].includes(element.tagName)) {
+    return
+  }
+  const color = 'color-mix(in srgb, var(--site-accent) 16%, transparent)'
+  const reduced = element.ownerDocument.defaultView?.matchMedia(
+    '(prefers-reduced-motion: reduce)',
+  ).matches
+  return element.animate(
+    [
+      { backgroundColor: color, borderRadius: '0.25rem' },
+      { backgroundColor: reduced ? color : 'transparent', borderRadius: '0.25rem' },
+    ],
+    { duration: reduced ? 300 : 1100, easing: 'ease-out' },
+  )
+}

@@ -31,14 +31,57 @@ function make() {
   return editor
 }
 describe('章节折叠与源码补丁', () => {
+  it('折叠隐藏装饰随标题输入映射且不重复，清空标题后正文重新可见', () => {
+    const editor = make()
+    try {
+      const chapter = immersiveChapters(editor.state)!.chapters[0]!
+      const original = editor.state.doc
+      const positions: number[] = []
+      original.forEach((_node, position) => {
+        if (position >= chapter.bodyFrom && position < chapter.end) {
+          positions.push(position)
+        }
+      })
+      editor.commands.command(toggleImmersiveChapter(chapter.id))
+      expect(editor.state.doc).toBe(original)
+      const hidden = () =>
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .filter((item) => item.spec.chapterHidden)
+      expect(hidden().map((item) => item.from)).toEqual(positions)
+      for (let count = 1; count <= 3; count++) {
+        editor.view.dispatch(
+          editor.state.tr
+            .insertText('新', chapter.position + 1)
+            .setMeta('immersive-plain-text', true),
+        )
+        expect(hidden().map((item) => item.from)).toEqual(
+          positions.map((position) => position + count),
+        )
+      }
+      const current = immersiveChapters(editor.state)!.chapters[0]!
+      editor.view.dispatch(
+        editor.state.tr
+          .delete(current.position + 1, current.bodyFrom - 1)
+          .setMeta('immersive-plain-text', true),
+      )
+      expect(hidden()).toHaveLength(0)
+      expect(immersiveChapters(editor.state)!.collapsed.size).toBe(0)
+    } finally {
+      editor.destroy()
+    }
+  })
   it('折叠控件紧跟标题末尾，标题改写后仍跟随最后一个字符', () => {
     const editor = make()
     try {
       const assertAtEnd = () => {
         const state = immersiveChapters(editor.state)!
-        expect(state.decorations.find().map((widget) => widget.from)).toEqual(
-          state.chapters.map((chapter) => chapter.bodyFrom - 1),
-        )
+        expect(
+          state.decorations
+            .find()
+            .filter((item) => item.spec.chapterId)
+            .map((widget) => widget.from),
+        ).toEqual(state.chapters.map((chapter) => chapter.bodyFrom - 1))
       }
       assertAtEnd()
       editor.view.dispatch(
@@ -53,14 +96,28 @@ describe('章节折叠与源码补丁', () => {
     const editor = make()
     try {
       const chapter = immersiveChapters(editor.state)!.chapters[0]!
-      const count = immersiveChapters(editor.state)!.decorations.find().length
+      const count = immersiveChapters(editor.state)!
+        .decorations.find()
+        .filter((item) => item.spec.chapterId).length
       editor.view.dispatch(editor.state.tr.delete(chapter.position + 1, chapter.bodyFrom - 1))
-      expect(immersiveChapters(editor.state)!.decorations.find()).toHaveLength(count - 1)
+      expect(
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .filter((item) => item.spec.chapterId),
+      ).toHaveLength(count - 1)
       editor.commands.undo()
-      expect(immersiveChapters(editor.state)!.decorations.find()).toHaveLength(count)
+      expect(
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .filter((item) => item.spec.chapterId),
+      ).toHaveLength(count)
       editor.commands.selectAll()
       editor.commands.deleteSelection()
-      expect(immersiveChapters(editor.state)!.decorations.find()).toHaveLength(0)
+      expect(
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .filter((item) => item.spec.chapterId),
+      ).toHaveLength(0)
     } finally {
       editor.destroy()
     }
@@ -80,23 +137,33 @@ describe('章节折叠与源码补丁', () => {
       expect(after.chapters[1]!.id).toBe(before.chapters[1]!.id)
       expect(after.chapters[1]!.position).toBe(before.chapters[1]!.position + 2)
       expect(after.chapters[0]!.end).toBe(before.chapters[0]!.end + 2)
-      expect(after.decorations.find().map((item) => item.from)).toEqual(
-        after.chapters.map((item) => item.bodyFrom - 1),
-      )
+      expect(
+        after.decorations
+          .find()
+          .filter((item) => item.spec.chapterId)
+          .map((item) => item.from),
+      ).toEqual(after.chapters.map((item) => item.bodyFrom - 1))
       editor.view.dispatch(editor.state.tr.insertText('改名', chapter.position + 1))
       expect(immersiveChapters(editor.state)!.chapters[0]!.text).toBe('改名第一章')
-      expect(immersiveChapters(editor.state)!.decorations.find()[0]!.spec.key).not.toBe(
-        after.decorations.find()[0]!.spec.key,
-      )
-      expect(immersiveChapters(editor.state)!.decorations.find()[1]!.spec.key).toBe(
-        after.decorations.find()[1]!.spec.key,
-      )
-      expect(immersiveChapters(editor.state)!.decorations.find()[1]!.spec).toBe(
-        after.decorations.find()[1]!.spec,
-      )
       expect(
         immersiveChapters(editor.state)!
           .decorations.find()
+          .filter((item) => item.spec.chapterId)[0]!.spec.key,
+      ).not.toBe(after.decorations.find().filter((item) => item.spec.chapterId)[0]!.spec.key)
+      expect(
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .filter((item) => item.spec.chapterId)[1]!.spec.key,
+      ).toBe(after.decorations.find().filter((item) => item.spec.chapterId)[1]!.spec.key)
+      expect(
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .filter((item) => item.spec.chapterId)[1]!.spec,
+      ).toBe(after.decorations.find().filter((item) => item.spec.chapterId)[1]!.spec)
+      expect(
+        immersiveChapters(editor.state)!
+          .decorations.find()
+          .filter((item) => item.spec.chapterId)
           .map((item) => item.from),
       ).toEqual(immersiveChapters(editor.state)!.chapters.map((item) => item.bodyFrom - 1))
     } finally {

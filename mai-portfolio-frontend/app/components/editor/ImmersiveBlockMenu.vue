@@ -128,7 +128,8 @@ const actions = computed(() => [
           @mousedown.prevent.stop
           @click.stop="insertParagraph"
         />
-        <UDropdownMenu v-model:open="menuOpen" :items="actions">
+        <!-- 块操作无需锁定整页；模态模式会隐藏/锁定长文的全部可访问节点，造成明显布局停顿。 -->
+        <UDropdownMenu v-model:open="menuOpen" :items="actions" :modal="false">
           <UButton
             icon="i-lucide-grip-vertical"
             color="neutral"

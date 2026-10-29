@@ -31,6 +31,31 @@ describe('Comark math with bounded, untrusted KaTeX', () => {
     const authored = elements((await parseBlogMarkdown('<blog-math html="<img src=x onerror=alert(1)>">x</blog-math>')).nodes)
     expect(authored.some(node => node[0] === 'blog-math' || node[0] === 'img')).toBe(false)
   })
+  it('does not generate layout-only whitespace between MathML nodes and preserves authored text spaces', async () => {
+    const source = String.raw`\text{a b} + \text{ } + x_1^2`
+    const ast = await renderBlogMath(source, false)
+    const expectedText = elements([ast])
+      .filter((node) => node[0] === 'mtext')
+      .map(node => textContent(node))
+    const compact = await compactBlogMath(ast)
+    const dom = parseDocument(String(compact[1].html))
+    const containers = DomUtils.findAll(
+      (node) => ['math', 'semantics', 'mrow', 'mfrac', 'msup', 'msubsup'].includes(node.name),
+      dom.children,
+    )
+    const formattingWhitespace = containers
+      .flatMap((node) => node.children)
+      .filter((node) => node.type === 'text' && /^\s+$/.test(node.data))
+    expect(formattingWhitespace).toHaveLength(0)
+    expect(
+      DomUtils.findAll((node) => node.name === 'mtext', dom.children).map(DomUtils.textContent),
+    ).toEqual(expectedText)
+    expect(
+      DomUtils.textContent(
+        DomUtils.findAll((node) => node.name === 'annotation', dom.children)[0]!,
+      ),
+    ).toBe(source)
+  })
   it('keeps invalid/oversized formulas as escaped source and does not throw or inject HTML', async () => {
     for (const source of [String.raw`\invalid{<script>alert(1)</script>}`, 'x'.repeat(MATH_LIMITS.characters + 1), String.raw`\def\loop{\loop}\loop`]) {
       const node = await renderBlogMath(source, true)

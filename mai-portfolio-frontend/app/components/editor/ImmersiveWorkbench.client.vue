@@ -11,7 +11,8 @@ import {
   IMMERSIVE_CHAPTER_KEY,
 } from '../../utils/editor/immersiveChapters'
 import { visibleToc } from '../../utils/blogChapters'
-import { TextSelection, type Transaction } from '@tiptap/pm/state'
+import { NodeSelection, TextSelection, type Transaction } from '@tiptap/pm/state'
+import type { EditorProps } from '@tiptap/pm/view'
 import type { EditorToolbarItem, FormError } from '@nuxt/ui'
 import { CanvasNodePositions, canvasNodeViewRenderer } from '../../utils/editor/canvasNodePositions'
 import { useMediaQuery, useElementSize } from '@vueuse/core'
@@ -28,6 +29,7 @@ import {
   type EditorHeading,
 } from '../../utils/editor/editorOutline'
 import ImmersiveCode from './ImmersiveCode.vue'
+import EditorPerformance from './EditorPerformance.vue'
 import ImmersiveMath from './ImmersiveMath.vue'
 import ImmersiveImage from './ImmersiveImage.vue'
 import { nodeInputRule } from '@tiptap/core'
@@ -39,10 +41,7 @@ import {
   continueImmersiveDocument,
 } from '../../utils/editor/immersiveParagraphInput'
 import { ImmersiveSelection } from '../../utils/editor/immersiveSelection'
-import {
-  ImmersivePositionHighlight,
-  IMMERSIVE_POSITION_KEY,
-} from '../../utils/editor/immersivePositionHighlight'
+import { highlightImmersivePosition } from '../../utils/editor/immersivePositionHighlight'
 import { ImmersiveDecorations } from '../../utils/editor/immersiveDecorations'
 import { BLOG_RESOURCES } from '../../utils/blogResources'
 import type { BlogTag, DocumentResource } from '../../api/blogs'
@@ -59,13 +58,19 @@ import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_EDITABLE,
   IMMERSIVE_MATH_PREVIEWS,
+  IMMERSIVE_MATH_LAYOUT,
   IMMERSIVE_OVERLAY_HOST,
   stopImmersiveControlEvent,
 } from '../../utils/editor/immersiveContext'
 import { createMathPreviewQueue } from '../../utils/editor/mathPreviewQueue'
+import { createMathLayoutObserver } from '../../utils/editor/mathLayout'
 import { canvasInitializationGuard } from '../../utils/editor/canvasInitialization'
 import { ImmersiveDragScroll } from '../../utils/editor/immersiveDragScroll'
 import { canvasMarkdownClipboard } from '../../utils/editor/canvasClipboard'
+import { CANVAS_LOADING } from '../../utils/editor/canvasLoading'
+import { CANVAS_CODE_INPUT, canvasCodeInputRenderer } from '../../utils/editor/canvasCodeInput'
+import { CanvasCodeSelection } from '../../utils/editor/canvasCodeSelection'
+import { mountCanvasCodeMirror } from '../../utils/editor/canvasCodeMirror'
 
 const props = defineProps<{
   initialContent: string | JSONContent
@@ -77,6 +82,8 @@ const props = defineProps<{
   tags?: BlogTag[]
 }>()
 const metadata = defineModel<CanvasMetadata>('metadata', { required: true })
+const editorLoading = inject(CANVAS_LOADING, undefined)
+const hasLoadingHost = editorLoading !== undefined
 provide(
   BLOG_RESOURCES,
   computed(() => props.resources ?? []),
@@ -84,6 +91,9 @@ provide(
 provide(IMMERSIVE_CODE_THEMES, reactive(new Map()))
 const mathPreviews = createMathPreviewQueue()
 provide(IMMERSIVE_MATH_PREVIEWS, mathPreviews)
+const mathLayout = createMathLayoutObserver()
+provide(IMMERSIVE_MATH_LAYOUT, mathLayout)
+onBeforeUnmount(() => mathLayout.dispose())
 const overlayHost = useTemplateRef<HTMLElement>('overlayHost')
 provide(IMMERSIVE_OVERLAY_HOST, overlayHost)
 const simulateFailure = ref(false)
@@ -117,6 +127,22 @@ function waitForPaste() {
   return true
 }
 const painted = ref(false)
+watch(
+  [painted, initializationError, loading, loadedBlocks],
+  () => {
+    if (editorLoading) {
+      editorLoading.value =
+        painted.value || initializationError.value
+          ? null
+          : {
+              phase: loading.value ? '正在装载文章' : '正在排版正文',
+              loaded: totalBlocks ? loadedBlocks.value : undefined,
+              total: totalBlocks || undefined,
+            }
+    }
+  },
+  { immediate: true, flush: 'post' },
+)
 let paintFrame = 0
 watch(
   [ready, editor],
@@ -447,12 +473,17 @@ function toggleToc(id: string) {
   tocCollapsedIds.value = next
 }
 const minimumDepth = computed(() => Math.min(6, ...headings.value.map((heading) => heading.depth)))
+provide(CANVAS_CODE_INPUT, mountCanvasCodeMirror)
 const markdownOptions = createCanvasMarkdownOptions()
 const extensions = CANVAS_EDITOR_EXTENSIONS.map((extension) => {
   if (extension === PreservedCodeBlock) {
     return PreservedCodeBlock.extend({
-      addNodeView: () =>
-        canvasNodeViewRenderer(ImmersiveCode, { stopEvent: stopImmersiveControlEvent }),
+      addNodeView() {
+        const native = canvasNodeViewRenderer(ImmersiveCode, {
+          stopEvent: stopImmersiveControlEvent,
+        })
+        return canvasCodeInputRenderer(native)
+      },
     })
   }
   if (extension.name === 'image') {
@@ -531,8 +562,8 @@ const editorExtensions = [
   ImmersiveChapters.configure({
     notice: (description) => toast.add({ title: '章节未折叠', description, color: 'warning' }),
   }),
-  ImmersiveDecorations,
-  ImmersivePositionHighlight,
+  ImmersiveDecorations.configure({ ready: () => false }),
+  CanvasCodeSelection,
   ImmersiveSelection,
   ImmersiveDragScroll,
   ImmersiveParagraphInput.configure({
@@ -610,6 +641,22 @@ function updateHeadings({ transaction }: { transaction?: Transaction } = {}) {
   if (transaction?.getMeta(IMMERSIVE_CHAPTER_KEY)) {
     followPage()
   }
+  presentOutline(transaction)
+}
+let outlineTimer: ReturnType<typeof setTimeout> | undefined
+function presentOutline(transaction?: Transaction) {
+  clearTimeout(outlineTimer)
+  // 输入阶段只同步正确的位置；目录文字和高亮等用户暂未操作的界面，等短暂停顿再更新。
+  // 点击、选区、格式命令和章节折叠仍立即反馈，不延迟 PM 文档、选区或撤销事务。
+  if (transaction?.docChanged && transaction.getMeta('immersive-plain-text')) {
+    outlineTimer = setTimeout(renderOutline, 160)
+  } else {
+    renderOutline()
+  }
+}
+function renderOutline() {
+  outlineTimer = undefined
+  const next = headingPositions
   if (
     next.length !== headings.value.length ||
     next.some((heading, index) => {
@@ -623,14 +670,20 @@ function updateHeadings({ transaction }: { transaction?: Transaction } = {}) {
   ) {
     headings.value = next
   }
-}
-function selectHeading() {
   const position = editor.value?.state.selection.from ?? 0
   activeId.value = headingPositions.findLast((heading) => heading.position <= position)?.id ?? ''
 }
+function selectHeading({ transaction }: { transaction?: Transaction } = {}) {
+  // 内容事务已由 updateHeadings 安排一次呈现，不再因同次 selectionUpdate 重复安排。
+  if (!transaction?.docChanged) {
+    presentOutline(transaction)
+  }
+}
+onBeforeUnmount(() => clearTimeout(outlineTimer))
 watch(
   () => richEditor.value?.editor,
   (instance, _, cleanup) => {
+    clearTimeout(outlineTimer)
     canvas.attach(instance ? markRaw(instance) : null)
     if (!editor.value) {
       return
@@ -663,35 +716,66 @@ watch(ready, (value) => {
     followPage()
   }
 })
-let navigationTimer: ReturnType<typeof setTimeout> | undefined
+let navigationHighlight: Animation | undefined
+// 公式点击直接建立节点选区并由 NodeView 打开输入；不先聚焦长正文又立即转入弹层。
+const selectFormula: NonNullable<EditorProps['handleClickOn']> = (
+  view,
+  _pos,
+  node,
+  position,
+  event,
+  direct,
+) => {
+  if (
+    !direct ||
+    !view.editable ||
+    !node.type.name.startsWith('preservedMath') ||
+    event.ctrlKey ||
+    event.metaKey
+  ) {
+    return false
+  }
+  view.dispatch(
+    view.state.tr
+      .setSelection(NodeSelection.create(view.state.doc, position))
+      .setMeta('pointer', true),
+  )
+  return true
+}
+function preserveTocFocus(event: MouseEvent) {
+  // 鼠标导航保留正文焦点，避免长文先失焦再恢复光标；键盘导航仍可正常聚焦目录。
+  if (event.button === 0 && event.target instanceof Element && event.target.closest('a')) {
+    event.preventDefault()
+  }
+}
 async function navigatePosition(position: number) {
   const current = editor.value
   if (!current || !ready.value) {
     return
   }
-  current.commands.command(revealImmersivePosition(position))
-  current.view.dispatch(
-    current.state.tr.setSelection(
-      TextSelection.near(
-        current.state.doc.resolve(Math.min(position, current.state.doc.content.size)),
-      ),
-    ),
-  )
+  navigationHighlight?.cancel()
+  // 展开祖先和定位共用一次选区事务；没有折叠祖先时不另外派发空事务。
+  current.commands.command((props) => {
+    revealImmersivePosition(position)(props)
+    props.tr.setSelection(
+      TextSelection.near(props.tr.doc.resolve(Math.min(position, props.tr.doc.content.size))),
+    )
+    return true
+  })
   await nextTick()
   const block = current.state.selection.$from.depth ? current.state.selection.$from.before(1) : 0
   const element = current.view.nodeDOM(block)
   if (element instanceof HTMLElement && canvasPane.value) {
-    canvasPane.value.scrollTop +=
+    const offset =
       element.getBoundingClientRect().top - canvasPane.value.getBoundingClientRect().top - 24
+    if (Math.abs(offset) > 1) {
+      canvasPane.value.scrollTop += offset
+    }
   }
   current.view.focus()
-  current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_POSITION_KEY, { from: block }))
-  clearTimeout(navigationTimer)
-  navigationTimer = setTimeout(() => {
-    if (!current.isDestroyed) {
-      current.view.dispatch(current.state.tr.setMeta(IMMERSIVE_POSITION_KEY, null))
-    }
-  }, 1200)
+  if (element instanceof HTMLElement) {
+    navigationHighlight = highlightImmersivePosition(element)
+  }
 }
 async function navigate(id: string) {
   tocOpen.value = false
@@ -709,6 +793,12 @@ async function navigate(id: string) {
 }
 // 2. 所有模式只监听内部画布；根据实际可见标题更新目录，卸载时释放监听。
 function followPage() {
+  // 用户转去观察或滚动时，先完成待呈现的目录，再以可见章节决定高亮。
+  // 避免输入结束的延时任务随后把高亮拉回旧光标所在章节。
+  if (outlineTimer !== undefined) {
+    clearTimeout(outlineTimer)
+    renderOutline()
+  }
   if (frame) {
     return
   }
@@ -780,7 +870,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', workbenchKeydown)
   canvas.dispose()
   mathPreviews.dispose()
-  clearTimeout(navigationTimer)
+  navigationHighlight?.cancel()
   barObserver?.disconnect()
   cancelAnimationFrame(frame)
   finishLeave(false)
@@ -897,6 +987,7 @@ defineExpose({
         :inert="!ready"
         :class="{ 'opacity-50': !ready }"
       >
+        <EditorPerformance v-if="editor" :editor="editor" />
         <input
           ref="fileInput"
           type="file"
@@ -963,7 +1054,7 @@ defineExpose({
     <div class="workbench-panes">
       <div class="canvas-stage">
         <div
-          v-if="!painted || initializationError"
+          v-if="initializationError || (!hasLoadingHost && !painted)"
           class="canvas-loading-overlay absolute inset-0 z-30 overflow-auto"
           :role="initializationError ? 'alert' : 'status'"
           aria-live="polite"
@@ -1009,6 +1100,7 @@ defineExpose({
                 :touch-directory="false"
                 @toggle="toggleToc"
                 @navigate="navigate"
+                @mousedown="preserveTocFocus"
               />
             </aside>
             <div class="blog-renderer workbench-body min-w-0">
@@ -1018,6 +1110,7 @@ defineExpose({
                 v-memo="[isEditing, ready]"
                 :model-value="editorDocument"
                 content-type="json"
+                v-bind="{ injectCSS: false }"
                 :placeholder="persistence ? '从这里开始写作，输入 / 插入内容' : undefined"
                 :markdown="markdownOptions"
                 :starter-kit="CANVAS_STARTER_KIT"
@@ -1026,7 +1119,12 @@ defineExpose({
                 :image="false"
                 :mention="false"
                 :editor-props="{
-                  attributes: { 'aria-label': '直接编辑文章正文', spellcheck: 'false' },
+                  attributes: {
+                    'aria-label': '直接编辑文章正文',
+                    spellcheck: 'false',
+                    writingsuggestions: 'false',
+                  },
+                  handleClickOn: selectFormula,
                   handlePaste: (_view, event) => {
                     const files = Array.from(event.clipboardData?.files ?? [])
                     if (!files.length) {
@@ -1110,6 +1208,7 @@ defineExpose({
               :touch-directory="false"
               @toggle="toggleToc"
               @navigate="navigate"
+              @mousedown="preserveTocFocus"
           /></template>
         </USlideover>
       </div>
@@ -1388,9 +1487,59 @@ defineExpose({
   background: transparent;
 }
 .workbench-body :deep(.tiptap) {
+  position: relative;
+  word-wrap: break-word;
+  white-space: break-spaces;
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0;
   padding: 0;
   font-size: 1.0625rem;
   line-height: 1.85;
+}
+/* 保留编辑器的基础排版/间隙光标；选区失焦不通过通配选择器改变整篇后代样式。 */
+.workbench-body :deep(.tiptap [contenteditable='false']) {
+  white-space: normal;
+}
+.workbench-body :deep(.tiptap [contenteditable='false'] [contenteditable='true']) {
+  white-space: pre-wrap;
+}
+.workbench-body :deep(img.ProseMirror-separator) {
+  display: inline !important;
+  border: 0 !important;
+  margin: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.workbench-body :deep(.ProseMirror-gapcursor) {
+  display: none;
+  pointer-events: none;
+  position: absolute;
+  margin: 0;
+}
+.workbench-body :deep(.ProseMirror-gapcursor::after) {
+  content: '';
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid currentColor;
+  animation: canvas-caret-blink 1.1s steps(2, start) infinite;
+}
+
+.workbench-body :deep(.ProseMirror-focused .ProseMirror-gapcursor) {
+  display: block;
+}
+@keyframes canvas-caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+/* 原生内容块独立布局，折叠/公式切换不反复排版其他块；完整 DOM 和原生选区保持。 */
+.workbench-body :deep(.tiptap > :not(.ProseMirror-widget):not(.ProseMirror-gapcursor)) {
+  contain: layout style;
+}
+.workbench-body :deep(.immersive-chapter-hidden) {
+  display: none !important;
 }
 .workbench-body :deep(.tiptap > :first-child) {
   margin-top: 0;
@@ -1455,18 +1604,6 @@ defineExpose({
   outline-offset: 3px;
   background-color: color-mix(in srgb, var(--site-accent) 10%, transparent);
   border-radius: 0.4rem;
-}
-.workbench-body :deep(.immersive-position-flash) {
-  animation: immersive-locate 1.1s ease-out;
-  border-radius: 0.25rem;
-}
-@keyframes immersive-locate {
-  from {
-    background-color: color-mix(in srgb, var(--site-accent) 16%, transparent);
-  }
-  to {
-    background-color: transparent;
-  }
 }
 .workbench-body :deep(.immersive-math-node.ProseMirror-selectednode),
 .workbench-body :deep(.immersive-math-node.immersive-selected-block) {
@@ -1537,9 +1674,7 @@ defineExpose({
   scrollbar-color: color-mix(in srgb, var(--ui-text-muted) 28%, transparent) transparent;
   scrollbar-gutter: stable;
 }
-.canvas-pane:hover {
-  scrollbar-color: color-mix(in srgb, var(--ui-text-muted) 50%, transparent) transparent;
-}
+/* scrollbar-color 会继承到整篇正文。悬浮时改变它会使长文中的公式/代码全部重新计算样式。 */
 .canvas-pane::-webkit-scrollbar {
   width: 6px;
   height: 6px;

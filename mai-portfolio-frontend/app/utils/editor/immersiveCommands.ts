@@ -1,5 +1,6 @@
 import type { Editor, ChainedCommands } from '@tiptap/core'
-import { PluginKey } from '@tiptap/pm/state'
+import { PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
+import { isHistoryTransaction } from '@tiptap/pm/history'
 import { immersiveInsertionProblem, immersiveDocumentProblem } from './immersiveCapabilities'
 import type { Node } from '@tiptap/pm/model'
 
@@ -17,7 +18,7 @@ export function canConvertImmersiveTextBlock(node: Node | null) {
 }
 
 export interface ImmersiveMenuTarget {
-  kind: 'block' | 'slash'
+  kind: 'block' | 'slash' | 'line'
   from: number
   to: number
   query: string
@@ -64,12 +65,94 @@ export const IMMERSIVE_COMMANDS: ImmersiveCommandItem[] = [
   { kind: 'math', label: '独立公式', icon: 'i-lucide-square-sigma', aliases: ['formula', 'latex'] },
   { kind: 'horizontalRule', label: '分隔线', icon: 'i-lucide-minus', aliases: ['hr'] },
 ]
+/** Shift+Enter 仍在同一段落内；命令入口取最后一个真实 hardBreak 之后的行。 */
+function currentLineStart(state: EditorState) {
+  const { selection } = state
+  const resolved = selection.$from
+  if (!selection.empty || resolved.parent.type.name !== 'paragraph') {
+    return null
+  }
+  let start = resolved.start()
+  resolved.parent.forEach((node, offset) => {
+    if (offset < resolved.parentOffset && node.type.name === 'hardBreak') {
+      start = resolved.start() + offset + node.nodeSize
+    }
+  })
+  return start
+}
+const SLASH_QUERY_LIMIT = 6
+export function immersiveSlashTarget(state: EditorState): ImmersiveMenuTarget | null {
+  const from = currentLineStart(state)
+  if (from === null) {
+    return null
+  }
+  const resolved = state.selection.$from
+  // 查询最多六个 Unicode 字符，普通长段落不复制整行文本来判断菜单。
+  if (state.selection.from - from > 1 + SLASH_QUERY_LIMIT * 2) {
+    return null
+  }
+  const text = resolved.parent.textBetween(
+    from - resolved.start(),
+    resolved.parentOffset,
+    undefined,
+    '\ufffc',
+  )
+  const match = text.match(/^\/([^\n]*)$/u)
+  return match && Array.from(match[1] || '').length <= SLASH_QUERY_LIMIT
+    ? { kind: 'slash', from, to: state.selection.from, query: match[1] || '' }
+    : null
+}
+
+/** 菜单属于本次新输入的斜杠；退出后，定位或继续编辑同一个斜杠都不重新激活。 */
+export function advanceImmersiveMenu(
+  tr: Transaction,
+  previous: ImmersiveMenuTarget | null,
+  old: EditorState,
+  state: EditorState,
+): ImmersiveMenuTarget | null {
+  const explicit = tr.getMeta(IMMERSIVE_MENU_KEY)
+  if (explicit !== undefined) {
+    return explicit
+  }
+  if (previous && previous.kind !== 'slash' && !tr.docChanged) {
+    return tr.selectionSet ? null : previous
+  }
+  if (!tr.docChanged && !tr.selectionSet) {
+    return previous
+  }
+  if (!previous && !tr.docChanged) {
+    return null
+  }
+  const next = immersiveSlashTarget(state)
+  if (!next) {
+    return null
+  }
+  if (previous?.kind === 'slash') {
+    return next.from === tr.mapping.map(previous.from, -1) ? next : null
+  }
+  if (next.query || tr.getMeta('uiEvent') === 'paste' || isHistoryTransaction(tr)) {
+    return null
+  }
+  const before = tr.mapping.invert().map(next.from, 1)
+  const sameSlash =
+    old.doc.textBetween(before, Math.min(before + 1, old.doc.content.size)) === '/' &&
+    tr.mapping.map(before, 1) === next.from
+  return sameSlash ? null : next
+}
 export function openImmersiveMenu(editor: Editor, position: number) {
+  const line = currentLineStart(editor.state)
+  const node = editor.state.doc.nodeAt(position)
+  const atSoftLine =
+    line !== null &&
+    line > editor.state.selection.$from.start() &&
+    node &&
+    position <= line &&
+    line < position + node.nodeSize
   editor.view.dispatch(
     editor.state.tr.setMeta(IMMERSIVE_MENU_KEY, {
-      kind: 'block',
-      from: position,
-      to: position,
+      kind: atSoftLine ? 'line' : 'block',
+      from: atSoftLine ? line : position,
+      to: atSoftLine ? line : position,
       query: '',
     }),
   )
@@ -89,8 +172,34 @@ function insertionChain(
   item: ImmersiveCommandItem,
 ): ChainedCommands | null {
   let chain = editor.chain()
+  let afterSoftBreak = false
   if (target.kind === 'slash') {
     chain = chain.deleteRange({ from: target.from, to: target.to }).setTextSelection(target.from)
+  } else if (target.kind === 'line') {
+    chain = chain.setTextSelection(target.from)
+  }
+  if (target.kind !== 'block') {
+    const resolved = editor.state.doc.resolve(target.from)
+    if (resolved.nodeBefore?.type.name === 'hardBreak') {
+      afterSoftBreak = true
+      // 先在软换行处拆成同一列表项里的独立段落，再插入块；前一行和其他列表项保留。
+      chain = chain
+        .deleteRange({ from: target.from - 1, to: target.from })
+        .setTextSelection(target.from - 1)
+        .splitBlock()
+      if (target.kind === 'line') {
+        chain = chain.command(({ tr, commands }) => {
+          if (!tr.selection.$from.parent.content.size) {
+            return true
+          }
+          const before = tr.selection.$from.before()
+          return (
+            commands.insertContentAt(before, { type: 'paragraph' }) &&
+            commands.setTextSelection(before + 1)
+          )
+        })
+      }
+    }
   } else {
     const node = editor.state.doc.nodeAt(target.from)
     if (!node) {
@@ -114,9 +223,10 @@ function insertionChain(
     case 'heading':
       return chain.setHeading({ level: item.level! })
     case 'bulletList':
-      return chain.toggleBulletList()
+      // 软换行后插入子列表，不能把外层列表整体切换类型；其他入口保留原转换语义。
+      return afterSoftBreak ? chain.wrapInList('bulletList') : chain.toggleBulletList()
     case 'orderedList':
-      return chain.toggleOrderedList()
+      return afterSoftBreak ? chain.wrapInList('orderedList') : chain.toggleOrderedList()
     case 'blockquote':
       return chain.toggleBlockquote()
     case 'alert':
@@ -155,7 +265,7 @@ export function immersiveCommandProblem(
   if (needed && !editor.schema.nodes[needed]) {
     return '当前文档未启用此语法。'
   }
-  if (target.kind === 'slash') {
+  if (target.kind !== 'block') {
     const problem = immersiveInsertionProblem(editor, item.kind)
     if (problem) {
       return problem

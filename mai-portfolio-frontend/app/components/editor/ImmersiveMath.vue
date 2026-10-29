@@ -8,15 +8,55 @@ import {
   mathExitDirection,
   exitImmersiveMath,
 } from '../../utils/editor/immersiveMath'
-import { IMMERSIVE_MATH_PREVIEWS } from '../../utils/editor/immersiveContext'
+import { IMMERSIVE_MATH_PREVIEWS, IMMERSIVE_MATH_LAYOUT } from '../../utils/editor/immersiveContext'
 const props = defineProps<NodeViewProps>()
+const mathLayout = inject(IMMERSIVE_MATH_LAYOUT, undefined)
 const previews = inject(IMMERSIVE_MATH_PREVIEWS, undefined)
 const editing = ref(false)
 const input = useTemplateRef<HTMLTextAreaElement>('input')
+const anchor = useTemplateRef<HTMLElement>('anchor')
+const editReference = shallowRef<{
+  contextElement: HTMLElement
+  getBoundingClientRect: () => DOMRect
+}>()
+function anchorInput() {
+  const element = anchor.value
+  const context =
+    element?.closest<HTMLElement>('.math-block, p, h1, h2, h3, h4, h5, h6, td, th') ??
+    element?.parentElement
+  if (!element || !context) {
+    return
+  }
+  const initial = element.getBoundingClientRect()
+  const origin = context.getBoundingClientRect()
+  // 预览可实时改变尺寸，输入框保留打开时的锚点；上下文位置仍跟随正文滚动/位移。
+  editReference.value = {
+    contextElement: element,
+    getBoundingClientRect: () => {
+      const current = context.getBoundingClientRect()
+      return new DOMRect(
+        current.left + initial.left - origin.left,
+        current.top + initial.top - origin.top,
+        initial.width,
+        initial.height,
+      )
+    },
+  }
+}
 const expression = ref('')
 const error = ref('')
 const html = shallowRef('')
 const block = computed(() => props.node.type.name === 'preservedMathBlock')
+watch(
+  [html, anchor, editing],
+  (_values, _previous, cleanup) => {
+    const element = anchor.value?.querySelector<HTMLElement>('.blog-math')
+    if (element && !editing.value) {
+      cleanup(mathLayout?.observe(element) ?? (() => {}))
+    }
+  },
+  { flush: 'post' },
+)
 const composing = ref(false)
 let revision = 0
 const pointerOrigin = ref({ x: 0, y: 0 })
@@ -74,6 +114,9 @@ function open(event?: MouseEvent) {
   ) {
     return
   }
+  if (!editing.value) {
+    anchorInput()
+  }
   editing.value = true
 }
 function panFormula(event: KeyboardEvent) {
@@ -128,8 +171,11 @@ function navigateExpression(event: KeyboardEvent) {
     closeWithFocus(direction < 0 ? 'before' : 'after')
   }
 }
-watch(editing, (value) => {
-  if (!value) {
+watch(editing, (value, _, cleanup) => {
+  if (value) {
+    window.addEventListener('resize', anchorInput)
+    cleanup(() => window.removeEventListener('resize', anchorInput))
+  } else {
     composing.value = false
     commit()
   }
@@ -207,7 +253,7 @@ onBeforeUnmount(() => {
   >
     <!-- 静态公式不初始化浮层上下文；仅当前正在编辑的公式创建 Popover。 -->
     <span
-      v-if="!editing"
+      ref="anchor"
       role="button"
       tabindex="0"
       class="math-open"
@@ -224,8 +270,9 @@ onBeforeUnmount(() => {
       ><BlogMath v-else-if="html" :block="block" :html="html" /><code v-else>{{ expression }}</code>
     </span>
     <UPopover
-      v-else
+      v-if="editing"
       v-model:open="editing"
+      :reference="editReference ?? anchor ?? undefined"
       :content="{
         onOpenAutoFocus: (event: Event) => {
           event.preventDefault()
@@ -239,27 +286,6 @@ onBeforeUnmount(() => {
       }"
       :ui="{ content: 'p-3 w-[min(28rem,calc(100vw-2rem))]' }"
     >
-      <template #anchor>
-        <span
-          role="button"
-          tabindex="0"
-          class="math-open"
-          aria-label="原位编辑公式"
-          title="点击编辑公式；长公式可横向滑动或按 Shift + 左右键平移"
-          :aria-expanded="editing"
-          @keydown="panFormula"
-          @pointerdown="pointerOrigin = { x: $event.clientX, y: $event.clientY }"
-          @click="open"
-          @keydown.enter.prevent="open()"
-          @keydown.space.prevent="open()"
-        >
-          <span v-if="!expression.trim()" class="math-empty text-sm text-muted"
-            >添加 LaTeX 公式</span
-          ><BlogMath v-else-if="html" :block="block" :html="html" /><code v-else>{{
-            expression
-          }}</code>
-        </span>
-      </template>
       <template #content>
         <div data-editor-controls data-immersive-overlay class="math-editor" @pointerdown.stop>
           <textarea
@@ -268,6 +294,7 @@ onBeforeUnmount(() => {
             aria-label="公式 LaTeX"
             :rows="Math.max(1, expression.split('\n').length)"
             spellcheck="false"
+            writingsuggestions="false"
             @input="change"
             @compositionstart="composing = true"
             @compositionend="finishComposition"

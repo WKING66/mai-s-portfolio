@@ -40,8 +40,8 @@ defineProps<{ loaded?: number; total?: number; phase?: string }>()
   font-size: 0.875rem;
 }
 .loading-count {
-  margin-inline-start: auto;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 progress {
   width: 100%;

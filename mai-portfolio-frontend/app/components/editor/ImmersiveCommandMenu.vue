@@ -8,6 +8,7 @@ import {
   IMMERSIVE_COMMANDS,
   immersiveCommandProblem,
   executeImmersiveCommand,
+  advanceImmersiveMenu,
   nextImmersiveMenuIndex,
   type ImmersiveMenuTarget,
   type ImmersiveCommandItem,
@@ -107,6 +108,11 @@ function keydown(event: KeyboardEvent) {
   if (!target.value || event.isComposing) {
     return false
   }
+  if (event.key === 'ArrowRight' && target.value.kind === 'slash') {
+    close()
+    // 退出菜单后仍允许正文执行原生向右移动。
+    return false
+  }
   if (event.key === 'Escape') {
     close()
     event.preventDefault()
@@ -180,33 +186,7 @@ onMounted(() => {
       key: IMMERSIVE_MENU_KEY,
       state: {
         init: () => null,
-        apply(tr, previous, _old, state) {
-          const explicit = tr.getMeta(IMMERSIVE_MENU_KEY)
-          if (explicit !== undefined) {
-            return explicit
-          }
-          if (previous?.kind === 'block') {
-            return tr.docChanged ? null : previous
-          }
-          if (!tr.docChanged && !tr.selectionSet) {
-            return previous
-          }
-          const resolved = state.selection.$from
-          if (!state.selection.empty || resolved.parent.type.name !== 'paragraph') {
-            return null
-          }
-          const text = resolved.parent.textBetween(0, resolved.parentOffset, undefined, '\ufffc')
-          const match = text.match(new RegExp('^/([^\\n]{0,60})$'))
-          if (!match || (!previous && !tr.docChanged)) {
-            return null
-          }
-          return {
-            kind: 'slash',
-            from: resolved.start(),
-            to: state.selection.from,
-            query: match[1] || '',
-          }
-        },
+        apply: advanceImmersiveMenu,
       },
       props: { handleKeyDown: (_view, event) => keydown(event) },
       view: (view) => {
@@ -250,7 +230,7 @@ onBeforeUnmount(() => {
         @mousedown="target.kind === 'slash' && $event.preventDefault()"
       >
         <input
-          v-if="target.kind === 'block'"
+          v-if="target.kind !== 'slash'"
           v-model="search"
           aria-label="搜索插入命令"
           placeholder="搜索内容块…"

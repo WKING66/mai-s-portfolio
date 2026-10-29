@@ -1,5 +1,7 @@
 // 全站组件默认样式统一交给 Nuxt UI；代码块局部主题仍由块内语义变量覆盖。
 export default defineAppConfig({
+  // 原生 SVG 不在首次打开菜单时注入全局图标样式，避免长正文被整篇重新计算样式。
+  icon: { mode: 'svg' },
   ui: {
     colors: { primary: 'teal', neutral: 'slate' },
     button: { slots: { base: 'cursor-pointer disabled:cursor-not-allowed rounded-lg' } },

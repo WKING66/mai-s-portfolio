@@ -84,7 +84,7 @@ export const ImmersiveMarkdownGuard = Extension.create<{
           if (!transaction.docChanged || transaction.getMeta('immersive-source')) {
             return true
           }
-          let failure = immersiveDocumentProblem(transaction.doc)
+
           // 普通同段输入只改变文本，不在每个按键上全文序列化；结构/属性事务才进行严格往返。
           const plainText = transaction.steps.every((step, index) => {
             if (!(step instanceof ReplaceStep) || step.slice.openStart || step.slice.openEnd) {
@@ -102,8 +102,10 @@ export const ImmersiveMarkdownGuard = Extension.create<{
             )
           })
           if (plainText) {
+            // 同一文本块的纯文字替换不能改变表格结构；不重复扫描整篇已导入文档。
             transaction.setMeta('immersive-plain-text', true)
           }
+          let failure = plainText ? undefined : immersiveDocumentProblem(transaction.doc)
           if (!failure && !plainText && this.options.roundtrip) {
             try {
               const markdown = validateImmersiveChange(editor, transaction)
