@@ -1568,10 +1568,6 @@ defineExpose({
   background: transparent;
   border-radius: 0;
 }
-.workbench-body :deep(.editor-image img) {
-  max-height: 18rem;
-  width: auto;
-}
 .workbench-mobile-toc {
   position: absolute;
   top: 0.75rem;

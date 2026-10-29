@@ -16,12 +16,12 @@ const previewSource = computed(() => localPreview?.(String(props.node.attrs.src)
     :title="node.attrs.title"
     contenteditable="false"
   >
-    <img
+    <ProseImg
       v-if="previewSource"
       :src="previewSource"
       :alt="node.attrs.alt || ''"
       :title="node.attrs.title"
-      class="max-w-full"
+      :zoom="false"
       loading="lazy"
       decoding="async"
     />
