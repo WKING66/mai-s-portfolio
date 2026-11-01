@@ -45,7 +45,7 @@ const project: ProjectEditor = {
   updatedAt: '2026-10-06T01:00:00.123456',
 }
 function page(current = 1, total = 21): ProjectPage<ProjectEditor> {
-  return { view: 'MANAGE', page: current, size: 20, total, items: [{ ...project }] }
+  return { view: 'MANAGE', page: current, size: 10, total, items: [{ ...project }] }
 }
 
 beforeEach(() => {
@@ -77,7 +77,7 @@ describe('managed project list interactions', () => {
     api.getManagedProjects.mockResolvedValueOnce(page(2))
     await list.load()
     expect(api.getManagedProjects).toHaveBeenLastCalledWith(
-      { page: 2, size: 20, keyword: '' },
+      { page: 2, size: 10, keyword: '' },
       false,
     )
     expect(list.result.value?.page).toBe(2)
@@ -111,7 +111,7 @@ describe('managed project list interactions', () => {
     await list.changeFilter(ADMIN_PROJECT_STATUS.DRAFT)
     await list.search()
     expect(api.getManagedProjects).toHaveBeenLastCalledWith(
-      { page: 1, size: 20, keyword: '', status: ADMIN_PROJECT_STATUS.DRAFT },
+      { page: 1, size: 10, keyword: '', status: ADMIN_PROJECT_STATUS.DRAFT },
       true,
     )
     expect(list.canPrevious.value).toBe(false)
@@ -129,7 +129,7 @@ describe('managed project list interactions', () => {
     expect(list.canNext.value).toBe(false)
     await list.changePage(4)
     expect(api.getManagedProjects).toHaveBeenLastCalledWith(
-      { page: 4, size: 20, keyword: '' },
+      { page: 4, size: 10, keyword: '' },
       false,
     )
   })
@@ -415,13 +415,13 @@ it('searches the complete managed query and clears without losing page size', as
   expect(api.getManagedProjects).not.toHaveBeenCalled()
   await list.search()
   expect(api.getManagedProjects).toHaveBeenLastCalledWith(
-    { page: 1, size: 20, keyword: 'Vue' },
+    { page: 1, size: 10, keyword: 'Vue' },
     true,
   )
   list.keyword.value = 'unsubmitted'
   await list.changePage(2)
   expect(api.getManagedProjects).toHaveBeenLastCalledWith(
-    { page: 2, size: 20, keyword: 'Vue' },
+    { page: 2, size: 10, keyword: 'Vue' },
     false,
   )
   await list.changeFilter('DRAFT')
@@ -454,13 +454,32 @@ it('uses applied project filters when paging or reloading after form changes', a
   list.keyword.value = 'unsubmitted'
   await list.changePage(2)
   expect(api.getManagedProjects).toHaveBeenLastCalledWith(
-    { page: 2, size: 20, keyword: '', status: 'PUBLISHED' },
+    { page: 2, size: 10, keyword: '', status: 'PUBLISHED' },
     false,
   )
   list.clear()
   await list.reload()
   expect(api.getManagedProjects).toHaveBeenLastCalledWith(
-    { page: 2, size: 20, keyword: '', status: 'PUBLISHED' },
+    { page: 2, size: 10, keyword: '', status: 'PUBLISHED' },
     true,
   )
+})
+
+it('keeps the displayed rows while a new page is loading', async () => {
+  const list = useAdminProjectList()
+  await list.load()
+  const snapshot = list.result.value
+  let finish!: (value: ProjectPage<ProjectEditor>) => void
+  api.getManagedProjects.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const loading = list.load(2)
+  expect(list.pending.value).toBe(true)
+  expect(list.result.value).toBe(snapshot)
+  finish(page())
+  await loading
+  expect(list.pending.value).toBe(false)
 })

@@ -41,8 +41,8 @@ watch(
 onMounted(() => load())
 </script>
 <template>
-  <div class="admin-list flex min-h-0 flex-1 flex-col gap-5">
-    <UCard :ui="{ body: 'flex flex-wrap items-end justify-between gap-4 p-4 sm:p-5' }">
+  <div class="admin-list flex min-h-0 flex-1 flex-col gap-3">
+    <div class="admin-list-toolbar flex shrink-0 flex-wrap items-center justify-between gap-3">
       <AdminListFilters
         :keyword="keyword"
         :status="filter"
@@ -64,14 +64,8 @@ onMounted(() => load())
           >刷新</UButton
         ><UButton :to="ADMIN_PATHS.newProject" icon="i-lucide-plus">新建项目</UButton>
       </div>
-    </UCard>
-    <UCard
-      v-if="!result || !result.items.length"
-      class="min-h-0 flex-1 overflow-y-auto"
-      :ui="{ body: 'p-0 sm:p-0' }"
-      ><AdminListState :loading="pending" :error="error" @retry="reload()"
-    /></UCard>
-    <template v-else>
+    </div>
+    <div class="relative flex min-h-0 flex-1 flex-col" :aria-busy="pending">
       <UCard
         class="admin-desktop-list admin-list-card min-h-0 flex-1 flex-col"
         :ui="{ body: 'flex min-h-0 flex-1 flex-col p-0 sm:p-0' }"
@@ -79,15 +73,18 @@ onMounted(() => load())
         <UTable
           sticky="header"
           class="min-h-0 flex-1"
-          :data="result.items"
+          :data="result?.items ?? []"
           :columns="columns"
           :ui="{
-            th: 'px-5 py-4 text-xs text-muted',
-            td: 'px-5 py-5',
-            tr: 'border-b border-default last:border-b-0',
+            th: 'px-4 py-3 text-xs text-muted',
+            td: 'px-4 py-3',
+            tr: 'border-b border-default',
             thead: 'bg-elevated/50',
           }"
         >
+          <template #empty
+            ><AdminListState :loading="false" :error="error" @retry="reload()"
+          /></template>
           <template #title-cell="{ row }"
             ><div class="min-w-40 max-w-lg">
               <NuxtLink
@@ -123,7 +120,13 @@ onMounted(() => load())
         </UTable>
       </UCard>
       <div class="admin-mobile-list min-h-0 flex-1 overflow-y-auto">
-        <UCard v-for="project in result.items" :key="project.id" as="article">
+        <AdminListState
+          v-if="!result?.items.length"
+          :loading="false"
+          :error="error"
+          @retry="reload()"
+        />
+        <UCard v-for="project in result?.items ?? []" :key="project.id" as="article">
           <div class="flex items-start justify-between gap-3">
             <h2 class="font-semibold">{{ project.title || '未命名草稿' }}</h2>
             <UBadge
@@ -143,12 +146,25 @@ onMounted(() => load())
           <AdminProjectActions :project="project" :pending="pending" :transition="transition" />
         </UCard>
       </div>
-    </template>
+      <div
+        v-if="pending"
+        class="absolute inset-0 z-10 grid place-items-center rounded-xl bg-default/75"
+        role="status"
+        aria-label="正在读取列表"
+      >
+        <span
+          class="flex items-center gap-2 rounded-lg bg-default px-4 py-3 text-sm font-medium shadow-sm"
+          ><UIcon
+            name="i-lucide-loader-circle"
+            class="size-5 animate-spin text-primary"
+          />正在加载…</span
+        >
+      </div>
+    </div>
     <AdminPagination
-      v-if="result"
-      :page="result.page"
+      :page="result?.page ?? 1"
       :size="pageSize"
-      :total="result.total"
+      :total="result?.total ?? 0"
       :disabled="pending"
       @page="changePage"
       @size="changeSize"

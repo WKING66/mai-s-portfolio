@@ -31,13 +31,12 @@ export function useAdminProjectList() {
   )
 
   async function load(nextPage = requestedPage.value, force = false) {
-    // 1. 在途操作互斥；先记录本次筛选和页码，不把旧列表展示为新结果。
+    // 在途请求保留旧行并由界面遮罩，成功后原位替换；失败时清空并展示错误。
     if (isPending.value) {
       return
     }
     isPending.value = true
     requestedPage.value = nextPage
-    projectPage.value = null
     errorMessage.value = ''
     try {
       // 2. 查询成功才设置当前结果，失败保留目标页码以便重试。
@@ -49,6 +48,7 @@ export function useAdminProjectList() {
       }
       projectPage.value = await getManagedProjects(query, force)
     } catch (error) {
+      projectPage.value = null
       errorMessage.value = error instanceof Error ? error.message : PROJECT_MESSAGES.loadFailed
       feedback.error(error, PROJECT_MESSAGES.loadFailed)
     } finally {

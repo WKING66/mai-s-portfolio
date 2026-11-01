@@ -124,11 +124,17 @@ const activePage = computed(() => {
             </USlideover>
           </aside>
           <div class="min-w-0">
-            <header v-if="!immersive" class="mb-8 flex flex-wrap items-start justify-between gap-5">
+            <header
+              v-if="!immersive"
+              class="flex flex-wrap items-start justify-between gap-3"
+              :class="contained ? 'mb-3' : 'mb-8'"
+            >
               <div class="max-w-2xl">
-                <p class="mb-2 text-xs text-muted">管理后台 / {{ title }}</p>
+                <p v-if="!contained" class="mb-2 text-xs text-muted">管理后台 / {{ title }}</p>
                 <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ title }}</h1>
-                <p class="mt-3 text-sm leading-7 text-muted sm:text-base">{{ description }}</p>
+                <p v-if="!contained" class="mt-3 text-sm leading-7 text-muted sm:text-base">
+                  {{ description }}
+                </p>
               </div>
               <div v-if="$slots.actions" class="flex flex-wrap gap-3"><slot name="actions" /></div>
             </header>
@@ -231,5 +237,8 @@ const activePage = computed(() => {
   flex: 1;
   min-height: 0;
   align-items: stretch;
+}
+.admin-contained.admin-standard .admin-workspace > .min-w-0 {
+  padding: 1rem 1.25rem;
 }
 </style>

@@ -35,7 +35,7 @@ function post(revision = 2): Blog {
   }
 }
 function page(): BlogPage {
-  return { view: 'MANAGE', page: 1, size: 20, total: 1, items: [post()] }
+  return { view: 'MANAGE', page: 1, size: 10, total: 1, items: [post()] }
 }
 beforeEach(() => {
   vi.clearAllMocks()
@@ -51,7 +51,7 @@ describe('admin blog list', () => {
     expect(list.result.value).toBeNull()
     expect(list.error.value).toBe('读取失败')
     await list.load()
-    expect(api.list).toHaveBeenLastCalledWith({ page: 3, size: 20, keyword: '' })
+    expect(api.list).toHaveBeenLastCalledWith({ page: 3, size: 10, keyword: '' })
   })
   it('does not overlap list requests', async () => {
     let finish!: (result: BlogPage) => void
@@ -155,10 +155,10 @@ it('submits trimmed search once and preserves the applied query while paging', a
   list.keyword.value = '  algorithms  '
   expect(api.list).not.toHaveBeenCalled()
   await list.search()
-  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: 'algorithms' })
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 10, keyword: 'algorithms' })
   list.keyword.value = 'not submitted'
   await list.load(2)
-  expect(api.list).toHaveBeenLastCalledWith({ page: 2, size: 20, keyword: 'algorithms' })
+  expect(api.list).toHaveBeenLastCalledWith({ page: 2, size: 10, keyword: 'algorithms' })
   await list.changeFilter('PUBLISHED')
   await list.search()
   await list.changeSize(5)
@@ -182,7 +182,7 @@ it('clears the applied query even after the search input was manually emptied', 
   list.keyword.value = ''
   await list.clear()
   await list.search()
-  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: '' })
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 10, keyword: '' })
   expect(api.list).toHaveBeenCalledTimes(2)
 })
 
@@ -202,10 +202,10 @@ it('keeps submitted status when paging with different unsubmitted controls', asy
   await list.search()
   list.changeFilter('DRAFT')
   await list.load(2)
-  expect(api.list).toHaveBeenLastCalledWith({ page: 2, size: 20, keyword: '', status: 'PUBLISHED' })
+  expect(api.list).toHaveBeenLastCalledWith({ page: 2, size: 10, keyword: '', status: 'PUBLISHED' })
   list.clear()
   await list.load(3)
-  expect(api.list).toHaveBeenLastCalledWith({ page: 3, size: 20, keyword: '', status: 'PUBLISHED' })
+  expect(api.list).toHaveBeenLastCalledWith({ page: 3, size: 10, keyword: '', status: 'PUBLISHED' })
 })
 it('deletes a draft using its confirmed revision and refreshes only after success', async () => {
   const list = useAdminBlogList()
@@ -236,7 +236,7 @@ it('returns to the previous page after deleting the last row of a page', async (
   api.list.mockResolvedValueOnce({ ...page(), page: 2, total: 6, size: 5 })
   await list.load(2)
   await list.remove(post())
-  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: '' })
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 10, keyword: '' })
 })
 
 it('keeps the list intact on a delete revision conflict and never repeats a pending delete', async () => {
@@ -257,4 +257,23 @@ it('keeps the list intact on a delete revision conflict and never repeats a pend
   await expect(deleting).rejects.toThrow('revision conflict')
   expect(list.result.value).toBe(snapshot)
   expect(api.list).toHaveBeenCalledTimes(1)
+})
+
+it('keeps the displayed rows while a new page is loading', async () => {
+  const list = useAdminBlogList()
+  await list.load()
+  const snapshot = list.result.value
+  let finish!: (value: BlogPage) => void
+  api.list.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const loading = list.load(2)
+  expect(list.pending.value).toBe(true)
+  expect(list.result.value).toBe(snapshot)
+  finish(page())
+  await loading
+  expect(list.pending.value).toBe(false)
 })

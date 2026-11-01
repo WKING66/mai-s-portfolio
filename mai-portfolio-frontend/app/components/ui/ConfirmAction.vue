@@ -49,12 +49,27 @@ async function confirm() {
       variant="soft"
       size="sm"
       class="justify-center"
-      :disabled="disabled || pending"
+      :disabled="pending || (disabled && !disabledReason)"
       :loading="confirming"
       >{{ icon ? undefined : label }}</UButton
     >
     <template #content>
-      <div role="group" :aria-label="title" class="space-y-3">
+      <div v-if="disabledReason" class="space-y-3">
+        <UAlert
+          color="warning"
+          variant="soft"
+          icon="i-lucide-triangle-alert"
+          title="暂时无法删除"
+          :description="disabledReason"
+          role="alert"
+        />
+        <div class="flex justify-end">
+          <UButton color="neutral" variant="outline" size="sm" @click="open = false"
+            >知道了</UButton
+          >
+        </div>
+      </div>
+      <div v-else role="group" :aria-label="title" class="space-y-3">
         <p class="font-semibold">{{ title }}</p>
         <p class="text-sm leading-6 text-muted">{{ description }}</p>
         <p v-if="error" role="alert" class="text-sm text-error">{{ error }}</p>

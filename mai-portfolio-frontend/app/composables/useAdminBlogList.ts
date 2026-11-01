@@ -32,7 +32,6 @@ export function useAdminBlogList() {
     pending.value = true
     page.value = nextPage
     error.value = ''
-    result.value = null
     try {
       result.value = await api.list({
         page: nextPage,
@@ -57,6 +56,7 @@ export function useAdminBlogList() {
         }
       }
     } catch (cause) {
+      result.value = null
       error.value = cause instanceof Error ? cause.message : '文章列表读取失败。'
     } finally {
       pending.value = false

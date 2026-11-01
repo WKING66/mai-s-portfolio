@@ -34,11 +34,18 @@ const columns: TableColumn<BlogCard>[] = [
 onMounted(() => load())
 </script>
 <template>
-  <div class="admin-list flex min-h-0 flex-1 flex-col gap-5">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <p class="text-sm text-muted">
-        共 {{ blogPage?.total ?? '—' }} 篇文章 · 每页 {{ pageSize }} 条
-      </p>
+  <div class="admin-list flex min-h-0 flex-1 flex-col gap-3">
+    <div class="admin-list-toolbar flex shrink-0 flex-wrap items-center justify-between gap-3">
+      <AdminListFilters
+        :keyword="keyword"
+        :status="filter"
+        :pending="pending"
+        noun="文章"
+        @keyword="keyword = $event"
+        @status="changeFilter"
+        @search="search"
+        @clear="clear"
+      />
       <div class="flex flex-wrap gap-2">
         <UButton
           color="neutral"
@@ -59,24 +66,7 @@ onMounted(() => load())
         <UButton :to="`${ADMIN_PATHS.blogs}/new`" icon="i-lucide-plus">新建文章</UButton>
       </div>
     </div>
-    <UCard class="shrink-0" :ui="{ body: 'p-4 sm:p-5' }"
-      ><AdminListFilters
-        :keyword="keyword"
-        :status="filter"
-        :pending="pending"
-        noun="文章"
-        @keyword="keyword = $event"
-        @status="changeFilter"
-        @search="search"
-        @clear="clear"
-    /></UCard>
-    <UCard
-      v-if="!blogPage || !blogPage.items.length"
-      class="min-h-0 flex-1 overflow-y-auto"
-      :ui="{ body: 'p-0 sm:p-0' }"
-      ><AdminListState :loading="pending" :error="error" @retry="load()"
-    /></UCard>
-    <template v-else>
+    <div class="relative flex min-h-0 flex-1 flex-col" :aria-busy="pending">
       <UCard
         class="admin-desktop-list admin-list-card min-h-0 flex-1 flex-col"
         :ui="{ body: 'flex min-h-0 flex-1 flex-col p-0 sm:p-0' }"
@@ -84,15 +74,18 @@ onMounted(() => load())
         <UTable
           sticky="header"
           class="min-h-0 flex-1"
-          :data="blogPage.items"
+          :data="blogPage?.items ?? []"
           :columns="columns"
           :ui="{
-            th: 'px-5 py-4 text-xs text-muted',
-            td: 'px-5 py-5',
-            tr: 'border-b border-default last:border-b-0',
+            th: 'px-4 py-3 text-xs text-muted',
+            td: 'px-4 py-3',
+            tr: 'border-b border-default',
             thead: 'bg-elevated/50',
           }"
         >
+          <template #empty
+            ><AdminListState :loading="false" :error="error" @retry="load()"
+          /></template>
           <template #title-cell="{ row }"
             ><div class="min-w-40 max-w-md">
               <NuxtLink
@@ -133,7 +126,13 @@ onMounted(() => load())
         </UTable>
       </UCard>
       <div class="admin-mobile-list min-h-0 flex-1 overflow-y-auto">
-        <UCard v-for="article in blogPage.items" :key="article.id" as="article">
+        <AdminListState
+          v-if="!blogPage?.items.length"
+          :loading="false"
+          :error="error"
+          @retry="load()"
+        />
+        <UCard v-for="article in blogPage?.items ?? []" :key="article.id" as="article">
           <div class="flex items-start justify-between gap-3">
             <h2 class="font-semibold">{{ article.title || '未命名草稿' }}</h2>
             <UBadge
@@ -157,12 +156,25 @@ onMounted(() => load())
           />
         </UCard>
       </div>
-    </template>
+      <div
+        v-if="pending"
+        class="absolute inset-0 z-10 grid place-items-center rounded-xl bg-default/75"
+        role="status"
+        aria-label="正在读取列表"
+      >
+        <span
+          class="flex items-center gap-2 rounded-lg bg-default px-4 py-3 text-sm font-medium shadow-sm"
+          ><UIcon
+            name="i-lucide-loader-circle"
+            class="size-5 animate-spin text-primary"
+          />正在加载…</span
+        >
+      </div>
+    </div>
     <AdminPagination
-      v-if="blogPage"
-      :page="blogPage.page"
+      :page="blogPage?.page ?? 1"
       :size="pageSize"
-      :total="blogPage.total"
+      :total="blogPage?.total ?? 0"
       :disabled="pending"
       @page="load"
       @size="changeSize"
