@@ -26,7 +26,6 @@ const {
   load,
   save,
   transition,
-  setTag,
   addLink,
   removeLink,
   coverPreview,
@@ -268,17 +267,20 @@ onMounted(() => load())
           <fieldset :disabled="isPending" class="grid gap-6">
             <fieldset>
               <legend class="mb-3 text-sm font-medium">技术标签</legend>
-              <div v-if="projectTags.length" class="flex flex-wrap gap-x-6 gap-y-4">
-                <UCheckbox
-                  v-for="tag in projectTags"
-                  :key="tag.id"
-                  :model-value="projectForm.tagIds.includes(tag.id)"
-                  :data-tag-id="tag.id"
-                  :label="tag.name"
-                  :disabled="isPending"
-                  @update:model-value="setTag(tag.id, $event === true)"
-                />
-              </div>
+              <USelectMenu
+                v-if="projectTags.length"
+                id="project-tags"
+                v-model="projectForm.tagIds"
+                multiple
+                value-key="value"
+                :items="projectTags.map((tag) => ({ label: tag.name, value: tag.id }))"
+                :disabled="isPending"
+                class="w-full"
+                placeholder="选择技术标签"
+                aria-label="技术标签"
+                :search-input="{ placeholder: '搜索技术标签…' }"
+                ><template #empty>没有匹配的技术标签</template></USelectMenu
+              >
               <p v-else class="text-sm text-muted">{{ ADMIN_MESSAGES.tagsEmpty }}</p>
             </fieldset>
             <div class="grid items-start gap-5">

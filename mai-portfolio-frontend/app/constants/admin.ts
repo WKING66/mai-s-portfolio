@@ -13,12 +13,12 @@ export const ADMIN_NAVIGATION = [
 ] as const
 
 export const ADMIN_PROJECT_STATUS = { DRAFT: 'DRAFT', PUBLISHED: 'PUBLISHED' } as const
-export const ADMIN_PROJECT_FILTERS = [
+export const ADMIN_STATUS_FILTERS = [
   { label: '全部状态', value: 'ALL' },
   { label: '草稿', value: ADMIN_PROJECT_STATUS.DRAFT },
   { label: '已发布', value: ADMIN_PROJECT_STATUS.PUBLISHED },
 ] as const
-export type AdminProjectFilter = (typeof ADMIN_PROJECT_FILTERS)[number]['value']
+export type AdminStatusFilter = (typeof ADMIN_STATUS_FILTERS)[number]['value']
 
 export const ADMIN_PROJECT_LINK_TYPES = [
   { label: '代码仓库', value: 'CODE' },
@@ -62,3 +62,10 @@ export const ADMIN_MESSAGES = {
   legacyDateHint: '现有展示时间不是单个日期，未选择新日期或清除前会原样保留：',
   clearDate: '清除日期',
 } as const
+
+/** 管理列表只开放已确认的分页选项，默认保持既有 20 条。 */
+export const ADMIN_PAGE_SIZES = [5, 10, 20] as const
+export const ADMIN_DEFAULT_PAGE_SIZE = 20
+
+/** 与管理查询 keyword 契约保持一致；用户输入在提交查询时 trim。 */
+export const ADMIN_KEYWORD_MAX_LENGTH = 200

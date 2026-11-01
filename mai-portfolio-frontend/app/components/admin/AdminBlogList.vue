@@ -2,25 +2,41 @@
 import type { TableColumn } from '@nuxt/ui'
 import type { BlogCard } from '../../api/blogs'
 import { ADMIN_PATHS } from '../../constants/admin'
-import { BLOG_PAGE_SIZE } from '../../constants/blogs'
-const { result: blogPage, pending, error, load, transition } = useAdminBlogList()
+const {
+  result: blogPage,
+  pending,
+  error,
+  pageSize,
+  keyword,
+  filter,
+  search,
+  clear,
+  changeFilter,
+  load,
+  changeSize,
+  transition,
+} = useAdminBlogList()
 const importOpen = ref(false)
 const importing = ref(false)
 const propertiesId = ref<number | null>(null)
 const columns: TableColumn<BlogCard>[] = [
   { accessorKey: 'title', header: '文章' },
   { accessorKey: 'status', header: '状态' },
-  { accessorKey: 'revision', header: '修订号' },
+  { accessorKey: 'revision', header: '修订号', meta: { class: { th: 'whitespace-nowrap' } } },
   { accessorKey: 'slug', header: 'Slug' },
-  { id: 'actions', header: '操作', meta: { class: { th: 'text-right', td: 'text-right' } } },
+  {
+    id: 'actions',
+    header: '操作',
+    meta: { class: { th: 'min-w-48 text-right whitespace-nowrap', td: 'min-w-48 text-right' } },
+  },
 ]
 onMounted(() => load())
 </script>
 <template>
-  <div class="grid min-w-0 gap-5">
+  <div class="admin-list flex min-h-0 flex-1 flex-col gap-5">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-sm text-muted">
-        共 {{ blogPage?.total ?? '—' }} 篇文章 · 每页 {{ BLOG_PAGE_SIZE }} 条
+        共 {{ blogPage?.total ?? '—' }} 篇文章 · 每页 {{ pageSize }} 条
       </p>
       <div class="flex flex-wrap gap-2">
         <UButton
@@ -42,12 +58,31 @@ onMounted(() => load())
         <UButton :to="`${ADMIN_PATHS.blogs}/new`" icon="i-lucide-plus">新建文章</UButton>
       </div>
     </div>
-    <UCard v-if="!blogPage || !blogPage.items.length" :ui="{ body: 'p-0 sm:p-0' }"
+    <UCard class="shrink-0" :ui="{ body: 'p-4 sm:p-5' }"
+      ><AdminListFilters
+        :keyword="keyword"
+        :status="filter"
+        :pending="pending"
+        noun="文章"
+        @keyword="keyword = $event"
+        @status="changeFilter"
+        @search="search"
+        @clear="clear"
+    /></UCard>
+    <UCard
+      v-if="!blogPage || !blogPage.items.length"
+      class="min-h-0 flex-1 overflow-y-auto"
+      :ui="{ body: 'p-0 sm:p-0' }"
       ><AdminListState :loading="pending" :error="error" @retry="load()"
     /></UCard>
     <template v-else>
-      <UCard class="admin-desktop-list admin-list-card" :ui="{ body: 'p-0 sm:p-0' }">
+      <UCard
+        class="admin-desktop-list admin-list-card min-h-0 flex-1 flex-col"
+        :ui="{ body: 'flex min-h-0 flex-1 flex-col p-0 sm:p-0' }"
+      >
         <UTable
+          sticky="header"
+          class="min-h-0 flex-1"
           :data="blogPage.items"
           :columns="columns"
           :ui="{
@@ -95,7 +130,7 @@ onMounted(() => load())
           /></template>
         </UTable>
       </UCard>
-      <div class="admin-mobile-list">
+      <div class="admin-mobile-list min-h-0 flex-1 overflow-y-auto">
         <UCard v-for="article in blogPage.items" :key="article.id" as="article">
           <div class="flex items-start justify-between gap-3">
             <h2 class="font-semibold">{{ article.title || '未命名草稿' }}</h2>
@@ -120,17 +155,15 @@ onMounted(() => load())
         </UCard>
       </div>
     </template>
-    <div v-if="blogPage" class="admin-pagination">
-      <p class="text-sm text-muted">第 {{ blogPage.page }} 页 · 共 {{ blogPage.total }} 篇</p>
-      <UPagination
-        v-if="blogPage.total > BLOG_PAGE_SIZE || blogPage.page > 1"
-        :page="blogPage.page"
-        :total="Math.max(blogPage.total, (blogPage.page - 1) * BLOG_PAGE_SIZE + 1)"
-        :items-per-page="BLOG_PAGE_SIZE"
-        :disabled="pending"
-        @update:page="load"
-      />
-    </div>
+    <AdminPagination
+      v-if="blogPage"
+      :page="blogPage.page"
+      :size="pageSize"
+      :total="blogPage.total"
+      :disabled="pending"
+      @page="load"
+      @size="changeSize"
+    />
     <UModal
       :open="importOpen"
       title="导入 Markdown"

@@ -8,6 +8,7 @@ useSeoMeta({ title: ADMIN_MESSAGES.projectsTitle, robots: 'noindex,nofollow' })
 
 <template>
   <AdminShell
+    contained
     :title="ADMIN_MESSAGES.projectsTitle"
     :description="ADMIN_MESSAGES.projectsDescription"
   >

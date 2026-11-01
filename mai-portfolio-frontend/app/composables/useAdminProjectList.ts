@@ -1,6 +1,11 @@
 import { computed, ref } from 'vue'
 import { useProjectApi, type ProjectEditor, type ProjectPage } from '../api/projects'
-import { ADMIN_PROJECT_STATUS, type AdminProjectFilter } from '../constants/admin'
+import {
+  ADMIN_DEFAULT_PAGE_SIZE,
+  ADMIN_PAGE_SIZES,
+  ADMIN_PROJECT_STATUS,
+  type AdminStatusFilter,
+} from '../constants/admin'
 import { PROJECT_MESSAGES } from '../constants/projects'
 import { useFeedback } from './useFeedback'
 
@@ -10,7 +15,10 @@ export function useAdminProjectList() {
   const feedback = useFeedback()
   const projectPage = ref<ProjectPage<ProjectEditor> | null>(null)
   const requestedPage = ref(1)
-  const statusFilter = ref<AdminProjectFilter>('ALL')
+  const pageSize = ref(ADMIN_DEFAULT_PAGE_SIZE)
+  const keyword = ref('')
+  const appliedKeyword = ref('')
+  const statusFilter = ref<AdminStatusFilter>('ALL')
   const isPending = ref(false)
   const errorMessage = ref('')
   const changingProjectId = ref<number | null>(null)
@@ -37,10 +45,13 @@ export function useAdminProjectList() {
     errorMessage.value = ''
     try {
       // 2. 查询成功才设置当前结果，失败保留目标页码以便重试。
-      const status = nextFilter === 'ALL' ? '' : nextFilter
-      projectPage.value = await (force
-        ? getManagedProjects(nextPage, status, true)
-        : getManagedProjects(nextPage, status))
+      const query = {
+        page: nextPage,
+        size: pageSize.value,
+        keyword: appliedKeyword.value,
+        ...(nextFilter === 'ALL' ? {} : { status: nextFilter }),
+      }
+      projectPage.value = await getManagedProjects(query, force)
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : PROJECT_MESSAGES.loadFailed
       feedback.error(error, PROJECT_MESSAGES.loadFailed)
@@ -90,13 +101,36 @@ export function useAdminProjectList() {
     await load(nextPage)
   }
 
-  async function changeFilter(nextFilter: AdminProjectFilter) {
+  async function search() {
     if (isPending.value) {
       return
     }
-    await load(1, nextFilter)
+    keyword.value = keyword.value.trim()
+    appliedKeyword.value = keyword.value
+    await load(1, statusFilter.value, true)
   }
-
+  async function changeFilter(nextFilter: AdminStatusFilter) {
+    if (isPending.value) {
+      return
+    }
+    statusFilter.value = nextFilter
+    await search()
+  }
+  async function clear() {
+    if (isPending.value) {
+      return
+    }
+    keyword.value = ''
+    statusFilter.value = 'ALL'
+    await search()
+  }
+  async function changeSize(size: number) {
+    if (isPending.value || !ADMIN_PAGE_SIZES.some((value) => value === size)) {
+      return
+    }
+    pageSize.value = size
+    await load(1)
+  }
   function reload() {
     return load(requestedPage.value, statusFilter.value, true)
   }
@@ -105,6 +139,11 @@ export function useAdminProjectList() {
     result: projectPage,
     error: errorMessage,
     filter: statusFilter,
+    keyword,
+    search,
+    clear,
+    pageSize,
+    changeSize,
     pending: isPending,
     changingProjectId,
     canPrevious: canGoToPreviousPage,

@@ -46,7 +46,7 @@ describe('admin blog list', () => {
     expect(list.result.value).toBeNull()
     expect(list.error.value).toBe('读取失败')
     await list.load()
-    expect(api.list).toHaveBeenLastCalledWith(3)
+    expect(api.list).toHaveBeenLastCalledWith({ page: 3, size: 20, keyword: '' })
   })
   it('does not overlap list requests', async () => {
     let finish!: (result: BlogPage) => void
@@ -130,4 +130,38 @@ describe('shared article property rules', () => {
         ?.name,
     ).toBe('summary')
   })
+})
+
+it('changes article page size and resets to the first page, preserving the choice on retry', async () => {
+  const list = useAdminBlogList()
+  await list.load(3)
+  api.list.mockRejectedValueOnce(new Error('读取失败'))
+  await list.changeSize(5)
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 5, keyword: '' })
+  expect(list.pageSize.value).toBe(5)
+  await list.load()
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 5, keyword: '' })
+  await list.changeSize(50)
+  expect(list.pageSize.value).toBe(5)
+})
+
+it('submits trimmed search once and preserves the applied query while paging', async () => {
+  const list = useAdminBlogList()
+  list.keyword.value = '  algorithms  '
+  expect(api.list).not.toHaveBeenCalled()
+  await list.search()
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: 'algorithms' })
+  list.keyword.value = 'not submitted'
+  await list.load(2)
+  expect(api.list).toHaveBeenLastCalledWith({ page: 2, size: 20, keyword: 'algorithms' })
+  await list.changeFilter('PUBLISHED')
+  await list.changeSize(5)
+  expect(api.list).toHaveBeenLastCalledWith({
+    page: 1,
+    size: 5,
+    keyword: 'not submitted',
+    status: 'PUBLISHED',
+  })
+  await list.clear()
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 5, keyword: '' })
 })

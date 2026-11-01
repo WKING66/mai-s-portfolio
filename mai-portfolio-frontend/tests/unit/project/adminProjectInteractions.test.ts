@@ -76,7 +76,10 @@ describe('managed project list interactions', () => {
     expect(list.pending.value).toBe(false)
     api.getManagedProjects.mockResolvedValueOnce(page(2))
     await list.load()
-    expect(api.getManagedProjects).toHaveBeenLastCalledWith(2, '')
+    expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+      { page: 2, size: 20, keyword: '' },
+      false,
+    )
     expect(list.result.value?.page).toBe(2)
     expect(feedback.error).toHaveBeenCalledOnce()
   })
@@ -106,7 +109,10 @@ describe('managed project list interactions', () => {
     await list.load(2)
     api.getManagedProjects.mockResolvedValueOnce(page(1, 1))
     await list.changeFilter(ADMIN_PROJECT_STATUS.DRAFT)
-    expect(api.getManagedProjects).toHaveBeenLastCalledWith(1, ADMIN_PROJECT_STATUS.DRAFT)
+    expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+      { page: 1, size: 20, keyword: '', status: ADMIN_PROJECT_STATUS.DRAFT },
+      true,
+    )
     expect(list.canPrevious.value).toBe(false)
     expect(list.canNext.value).toBe(false)
     await list.changePage(2)
@@ -121,7 +127,10 @@ describe('managed project list interactions', () => {
     expect(list.canPrevious.value).toBe(true)
     expect(list.canNext.value).toBe(false)
     await list.changePage(4)
-    expect(api.getManagedProjects).toHaveBeenLastCalledWith(4, '')
+    expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+      { page: 4, size: 20, keyword: '' },
+      false,
+    )
   })
 
   it('preserves a genuine empty result without turning an API failure into empty success', async () => {
@@ -378,4 +387,47 @@ it('does not save an unchanged existing project', async () => {
   await editor.load()
   expect(await editor.save()).toBe(project.id)
   expect(api.saveProject).not.toHaveBeenCalled()
+})
+
+it('changes project page size without losing its status filter', async () => {
+  const list = useAdminProjectList()
+  await list.changeFilter(ADMIN_PROJECT_STATUS.PUBLISHED)
+  await list.changeSize(10)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 10, keyword: '', status: ADMIN_PROJECT_STATUS.PUBLISHED },
+    false,
+  )
+  expect(list.pageSize.value).toBe(10)
+  await list.reload()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 10, keyword: '', status: ADMIN_PROJECT_STATUS.PUBLISHED },
+    true,
+  )
+  await list.changeSize(50)
+  expect(list.pageSize.value).toBe(10)
+})
+
+it('searches the complete managed query and clears without losing page size', async () => {
+  const list = useAdminProjectList()
+  list.keyword.value = '  Vue  '
+  expect(api.getManagedProjects).not.toHaveBeenCalled()
+  await list.search()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 20, keyword: 'Vue' },
+    true,
+  )
+  list.keyword.value = 'unsubmitted'
+  await list.changePage(2)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 2, size: 20, keyword: 'Vue' },
+    false,
+  )
+  await list.changeFilter('DRAFT')
+  await list.changeSize(10)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 10, keyword: 'unsubmitted', status: 'DRAFT' },
+    false,
+  )
+  await list.clear()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith({ page: 1, size: 10, keyword: '' }, true)
 })

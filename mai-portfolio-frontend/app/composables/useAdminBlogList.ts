@@ -1,5 +1,10 @@
 import { ref, shallowRef } from 'vue'
 import { useBlogApi, type BlogCard, type BlogPage } from '../api/blogs'
+import {
+  ADMIN_DEFAULT_PAGE_SIZE,
+  ADMIN_PAGE_SIZES,
+  type AdminStatusFilter,
+} from '../constants/admin'
 import { BLOG_FIRST_PAGE } from '../constants/blogs'
 import { useFeedback } from './useFeedback'
 import { createBlogPersistence } from '../utils/editor/session/blogPersistence'
@@ -11,6 +16,10 @@ export function useAdminBlogList() {
   const pending = ref(false)
   const error = ref('')
   const page = ref(BLOG_FIRST_PAGE)
+  const pageSize = ref(ADMIN_DEFAULT_PAGE_SIZE)
+  const keyword = ref('')
+  const appliedKeyword = ref('')
+  const filter = ref<AdminStatusFilter>('ALL')
   const sessions = new Map<number, ReturnType<typeof createBlogPersistence>>()
   const feedback = useFeedback()
   async function load(nextPage = page.value) {
@@ -22,7 +31,12 @@ export function useAdminBlogList() {
     error.value = ''
     result.value = null
     try {
-      result.value = await api.list(nextPage)
+      result.value = await api.list({
+        page: nextPage,
+        size: pageSize.value,
+        keyword: appliedKeyword.value,
+        ...(filter.value === 'ALL' ? {} : { status: filter.value }),
+      })
       for (const [id, session] of sessions) {
         // 重读已确认新修订时，旧状态请求不能再阻止用户操作当前版本。
         const current = result.value.items.find((article) => article.id === id)
@@ -38,6 +52,36 @@ export function useAdminBlogList() {
     } finally {
       pending.value = false
     }
+  }
+  async function search() {
+    if (pending.value) {
+      return
+    }
+    keyword.value = keyword.value.trim()
+    appliedKeyword.value = keyword.value
+    await load(BLOG_FIRST_PAGE)
+  }
+  async function changeFilter(status: AdminStatusFilter) {
+    if (pending.value) {
+      return
+    }
+    filter.value = status
+    await search()
+  }
+  async function clear() {
+    if (pending.value) {
+      return
+    }
+    keyword.value = ''
+    filter.value = 'ALL'
+    await search()
+  }
+  async function changeSize(size: number) {
+    if (pending.value || !ADMIN_PAGE_SIZES.some((value) => value === size)) {
+      return
+    }
+    pageSize.value = size
+    await load(BLOG_FIRST_PAGE)
   }
   async function transition(article: BlogCard): Promise<boolean> {
     if (pending.value) {
@@ -74,5 +118,18 @@ export function useAdminBlogList() {
     await load()
     return true
   }
-  return { result, pending, error, load, transition }
+  return {
+    result,
+    pending,
+    error,
+    pageSize,
+    keyword,
+    filter,
+    search,
+    clear,
+    changeFilter,
+    load,
+    changeSize,
+    transition,
+  }
 }

@@ -53,6 +53,12 @@ export interface Blog extends BlogCard {
   allowDownload: boolean
   updatedAt: string
 }
+export interface BlogManageQuery {
+  page?: number
+  size?: number
+  keyword?: string
+  status?: BlogCard['status']
+}
 export interface BlogPage {
   view: string
   page: number
@@ -189,9 +195,20 @@ export function useBlogApi() {
     }
   }
   return {
-    list: (page = BLOG_FIRST_PAGE) =>
+    list: ({
+      page = BLOG_FIRST_PAGE,
+      size = BLOG_PAGE_SIZE,
+      keyword = '',
+      status,
+    }: BlogManageQuery = {}) =>
       request<BlogPage>(BLOG_PATH, {
-        query: { view: BLOG_VIEW.MANAGE, page, size: BLOG_PAGE_SIZE },
+        query: {
+          view: BLOG_VIEW.MANAGE,
+          page,
+          size,
+          ...(keyword.trim() ? { keyword: keyword.trim() } : {}),
+          ...(status ? { status } : {}),
+        },
       }),
     get: (id: number) => request<Blog>(BLOG_PATH + '/' + id),
     create,

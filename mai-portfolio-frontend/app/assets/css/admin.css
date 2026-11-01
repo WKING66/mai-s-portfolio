@@ -17,6 +17,8 @@
 .admin-mobile-list {
   display: grid;
   gap: 1rem;
+  grid-auto-rows: max-content;
+  align-content: start;
 }
 .admin-pagination {
   display: flex;
@@ -24,11 +26,11 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
-  padding-top: 1.25rem;
+  padding-top: 0;
 }
 @media (min-width: 1024px) {
   .admin-desktop-list {
-    display: block;
+    display: flex;
   }
   .admin-mobile-list {
     display: none;

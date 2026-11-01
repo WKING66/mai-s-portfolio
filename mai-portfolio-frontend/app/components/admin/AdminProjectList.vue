@@ -1,16 +1,34 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
 import type { ProjectEditor } from '../../api/projects'
-import { ADMIN_PATHS, ADMIN_PROJECT_FILTERS } from '../../constants/admin'
-const { result, filter, pending, error, load, reload, transition, changePage, changeFilter } =
-  useAdminProjectList()
+import { ADMIN_PATHS } from '../../constants/admin'
+const {
+  result,
+  filter,
+  pending,
+  error,
+  load,
+  reload,
+  transition,
+  changePage,
+  changeFilter,
+  pageSize,
+  changeSize,
+  keyword,
+  search,
+  clear,
+} = useAdminProjectList()
 const route = useRoute()
 const columns: TableColumn<ProjectEditor>[] = [
   { accessorKey: 'title', header: '项目' },
   { accessorKey: 'status', header: '状态' },
   { accessorKey: 'featured', header: '首页重点' },
   { accessorKey: 'sortOrder', header: '排序' },
-  { id: 'actions', header: '操作', meta: { class: { th: 'text-right', td: 'text-right' } } },
+  {
+    id: 'actions',
+    header: '操作',
+    meta: { class: { th: 'min-w-48 text-right whitespace-nowrap', td: 'min-w-48 text-right' } },
+  },
 ]
 watch(
   () => route.path,
@@ -23,16 +41,18 @@ watch(
 onMounted(() => load())
 </script>
 <template>
-  <div class="grid min-w-0 gap-5">
+  <div class="admin-list flex min-h-0 flex-1 flex-col gap-5">
     <UCard :ui="{ body: 'flex flex-wrap items-end justify-between gap-4 p-4 sm:p-5' }">
-      <UFormField label="项目状态" name="project-status-filter"
-        ><USelect
-          :model-value="filter"
-          :items="ADMIN_PROJECT_FILTERS.map((item) => ({ ...item }))"
-          :disabled="pending"
-          class="w-40"
-          @update:model-value="changeFilter"
-      /></UFormField>
+      <AdminListFilters
+        :keyword="keyword"
+        :status="filter"
+        :pending="pending"
+        noun="项目"
+        @keyword="keyword = $event"
+        @status="changeFilter"
+        @search="search"
+        @clear="clear"
+      />
       <div class="flex flex-wrap gap-2">
         <UButton
           color="neutral"
@@ -45,12 +65,20 @@ onMounted(() => load())
         ><UButton :to="ADMIN_PATHS.newProject" icon="i-lucide-plus">新建项目</UButton>
       </div>
     </UCard>
-    <UCard v-if="!result || !result.items.length" :ui="{ body: 'p-0 sm:p-0' }"
+    <UCard
+      v-if="!result || !result.items.length"
+      class="min-h-0 flex-1 overflow-y-auto"
+      :ui="{ body: 'p-0 sm:p-0' }"
       ><AdminListState :loading="pending" :error="error" @retry="reload()"
     /></UCard>
     <template v-else>
-      <UCard class="admin-desktop-list admin-list-card" :ui="{ body: 'p-0 sm:p-0' }">
+      <UCard
+        class="admin-desktop-list admin-list-card min-h-0 flex-1 flex-col"
+        :ui="{ body: 'flex min-h-0 flex-1 flex-col p-0 sm:p-0' }"
+      >
         <UTable
+          sticky="header"
+          class="min-h-0 flex-1"
           :data="result.items"
           :columns="columns"
           :ui="{
@@ -94,7 +122,7 @@ onMounted(() => load())
           /></template>
         </UTable>
       </UCard>
-      <div class="admin-mobile-list">
+      <div class="admin-mobile-list min-h-0 flex-1 overflow-y-auto">
         <UCard v-for="project in result.items" :key="project.id" as="article">
           <div class="flex items-start justify-between gap-3">
             <h2 class="font-semibold">{{ project.title || '未命名草稿' }}</h2>
@@ -116,16 +144,14 @@ onMounted(() => load())
         </UCard>
       </div>
     </template>
-    <div v-if="result" class="admin-pagination">
-      <p class="text-sm text-muted">第 {{ result.page }} 页 · 共 {{ result.total }} 个项目</p>
-      <UPagination
-        v-if="result.total > result.size || result.page > 1"
-        :page="result.page"
-        :total="Math.max(result.total, (result.page - 1) * result.size + 1)"
-        :items-per-page="result.size"
-        :disabled="pending"
-        @update:page="changePage"
-      />
-    </div>
+    <AdminPagination
+      v-if="result"
+      :page="result.page"
+      :size="pageSize"
+      :total="result.total"
+      :disabled="pending"
+      @page="changePage"
+      @size="changeSize"
+    />
   </div>
 </template>

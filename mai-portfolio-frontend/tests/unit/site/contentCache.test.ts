@@ -3,6 +3,7 @@ import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import type { ApiResponse } from '../../../app/api/types'
 import { ref } from 'vue'
 import { usePortfolioStore } from '../../../app/stores/portfolio'
+import { useBlogApi } from '../../../app/api/blogs'
 import { useManagementStore } from '../../../app/stores/management'
 import { PROFILE_PUBLIC_DATA_KEY } from '../../../app/constants/profile'
 import { useSiteProfile, useSiteProfileApi } from '../../../app/api/profile'
@@ -180,4 +181,53 @@ describe('API-level Pinia cache behavior', () => {
       }),
     ).toBeUndefined()
   })
+})
+
+it('separates managed project caches by page size', async () => {
+  mocks.request.mockResolvedValue({ view: 'MANAGE', page: 1, size: 5, total: 18, items: [project] })
+  const api = useProjectApi()
+  await api.getManagedProjects({ page: 1, size: 5 })
+  await api.getManagedProjects({ page: 1, size: 10 })
+  await api.getManagedProjects({ page: 1, size: 5 })
+  expect(mocks.request).toHaveBeenCalledTimes(2)
+  expect(mocks.request.mock.calls[0]![1].query.size).toBe(5)
+  expect(mocks.request.mock.calls[1]![1].query.size).toBe(10)
+})
+
+it('isolates project caches by trimmed keyword and status', async () => {
+  mocks.request.mockResolvedValue({ view: 'MANAGE', page: 1, size: 20, total: 1, items: [project] })
+  const api = useProjectApi()
+  await api.getManagedProjects({ keyword: ' Vue ' })
+  await api.getManagedProjects({ keyword: 'Vue' })
+  await api.getManagedProjects({ keyword: 'Redis' })
+  await api.getManagedProjects({ keyword: 'Vue', status: 'DRAFT' })
+  expect(mocks.request).toHaveBeenCalledTimes(3)
+  expect(mocks.request.mock.calls[0]![1].query).toEqual({
+    view: 'MANAGE',
+    page: 1,
+    size: 20,
+    keyword: 'Vue',
+  })
+  expect(mocks.request.mock.calls[2]![1].query).toEqual({
+    view: 'MANAGE',
+    page: 1,
+    size: 20,
+    keyword: 'Vue',
+    status: 'DRAFT',
+  })
+})
+
+it('sends blog management search without changing public query rules', async () => {
+  mocks.request.mockResolvedValue({ view: 'MANAGE', page: 1, size: 5, total: 0, items: [] })
+  const api = useBlogApi()
+  await api.list({ page: 1, size: 5, keyword: '  algorithms  ', status: 'PUBLISHED' })
+  expect(mocks.request.mock.calls[0]![1].query).toEqual({
+    view: 'MANAGE',
+    page: 1,
+    size: 5,
+    keyword: 'algorithms',
+    status: 'PUBLISHED',
+  })
+  await api.list({ keyword: '  ' })
+  expect(mocks.request.mock.calls[1]![1].query).toEqual({ view: 'MANAGE', page: 1, size: 20 })
 })

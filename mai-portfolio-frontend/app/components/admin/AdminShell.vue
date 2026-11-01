@@ -13,6 +13,7 @@ const props = defineProps<{
   description: string
   wide?: boolean
   immersive?: boolean
+  contained?: boolean
 }>()
 const editorLoading = shallowRef<CanvasLoadingProgress | null>({ phase: '正在准备编辑器' })
 if (props.immersive) {
@@ -51,7 +52,12 @@ const activePage = computed(() => {
   <div :class="{ 'admin-immersive-root': immersive }">
     <main
       class="site-container site-page"
-      :class="{ 'admin-wide': wide, 'admin-immersive': immersive, 'admin-standard': !immersive }"
+      :class="{
+        'admin-wide': wide,
+        'admin-immersive': immersive,
+        'admin-standard': !immersive,
+        'admin-contained': contained,
+      }"
     >
       <!-- 同一实例覆盖身份恢复、取文、异步组件下载和首屏绘制，避免阶段间空白与位置跳动。 -->
       <div v-if="showEditorLoading" class="admin-editor-loading">
@@ -155,6 +161,30 @@ const activePage = computed(() => {
 }
 .admin-standard .admin-workspace > .min-w-0 {
   padding: 1.5rem var(--site-gutter) 3rem;
+}
+.admin-contained {
+  min-height: 0;
+  height: calc(100dvh - var(--site-header-height));
+  overflow: hidden;
+}
+.admin-contained .admin-workspace {
+  height: 100%;
+  min-height: 0;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-items: stretch;
+}
+.admin-contained .admin-workspace > .min-w-0 {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: 1.5rem;
+}
+@media (min-width: 1024px) {
+  .admin-contained .admin-workspace {
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
 }
 .admin-sidebar {
   padding: 1rem var(--site-gutter) 0;
