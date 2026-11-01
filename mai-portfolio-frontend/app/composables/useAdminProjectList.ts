@@ -117,7 +117,10 @@ export function useAdminProjectList() {
     await search()
   }
   async function clear() {
-    if (isPending.value) {
+    if (
+      isPending.value ||
+      (!keyword.value && !appliedKeyword.value && statusFilter.value === 'ALL')
+    ) {
       return
     }
     keyword.value = ''

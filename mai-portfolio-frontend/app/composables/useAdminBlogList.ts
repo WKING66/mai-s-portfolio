@@ -69,7 +69,7 @@ export function useAdminBlogList() {
     await search()
   }
   async function clear() {
-    if (pending.value) {
+    if (pending.value || (!keyword.value && !appliedKeyword.value && filter.value === 'ALL')) {
       return
     }
     keyword.value = ''

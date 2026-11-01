@@ -165,3 +165,15 @@ it('submits trimmed search once and preserves the applied query while paging', a
   await list.clear()
   expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 5, keyword: '' })
 })
+
+it('clears the applied query even after the search input was manually emptied', async () => {
+  const list = useAdminBlogList()
+  await list.clear()
+  expect(api.list).not.toHaveBeenCalled()
+  list.keyword.value = 'Vue'
+  await list.search()
+  list.keyword.value = ''
+  await list.clear()
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: '' })
+  expect(api.list).toHaveBeenCalledTimes(2)
+})

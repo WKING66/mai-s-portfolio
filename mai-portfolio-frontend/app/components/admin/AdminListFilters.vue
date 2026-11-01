@@ -43,7 +43,7 @@ const options = ADMIN_STATUS_FILTERS.map((item) => ({ ...item }))
       type="button"
       color="neutral"
       variant="ghost"
-      :disabled="pending || (!keyword && status === 'ALL')"
+      :disabled="pending"
       @click="$emit('clear')"
       >清除</UButton
     >
