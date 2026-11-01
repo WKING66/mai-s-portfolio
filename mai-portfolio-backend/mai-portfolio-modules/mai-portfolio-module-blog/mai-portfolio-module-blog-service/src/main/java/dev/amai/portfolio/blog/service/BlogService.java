@@ -4,14 +4,14 @@ import dev.amai.portfolio.blog.entity.domain.Document;
 import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.BlogAction;
-import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.ViewPageVO;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
 /** 博客权限、可见性与文档流程编排，不重复实现文件上传或正文持久化。 */
 public interface BlogService {
-    ViewPageVO<BlogCardVo> list(String view, PageRequest pagination);
+    ViewPageVO<BlogCardVo> list(ContentListRequest request);
 
     BlogVo get(long id);
 

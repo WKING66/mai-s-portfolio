@@ -9,6 +9,7 @@ import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.PageRequest;
 import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.common.R;
@@ -54,13 +55,12 @@ public class BlogController {
 
     @OwnerView
     @GetMapping
-    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，读取草稿投影。")
+    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，可按 status=DRAFT/PUBLISHED 筛选；两种视图均可用 keyword 搜索；keyword 最多50字符，按当前编辑标题或文章标识进行不区分大小写的字面子串搜索。")
     public ResponseEntity<R<ViewPageVO<BlogCardVo>>> list(
-            @RequestParam(defaultValue = PUBLIC_VIEW) String view,
-            @Valid @ParameterObject @ModelAttribute PageRequest pagination) {
+            @Valid @ParameterObject @ModelAttribute ContentListRequest input) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
-                .body(R.success(blogService.list(view, pagination)));
+                .body(R.success(blogService.list(input)));
     }
 
     @GetMapping("/by-slug/{slug}")
