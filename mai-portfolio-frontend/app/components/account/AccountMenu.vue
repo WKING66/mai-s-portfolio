@@ -81,9 +81,9 @@ const menuItems = computed<DropdownMenuItem[][]>(() => {
   if (authState.canAccess(AUTH_ACCESS.OWNER)) {
     actions.unshift({
       label: ACCOUNT_MENU_MESSAGES.manageProjects,
-      icon: 'i-lucide-folder-kanban',
+      icon: 'i-lucide-layout-dashboard',
       to: AUTH_PATHS.manageProjects,
-      active: route.path.startsWith(AUTH_PATHS.manageProjects),
+      active: route.path.startsWith('/admin/'),
     })
   }
   return [

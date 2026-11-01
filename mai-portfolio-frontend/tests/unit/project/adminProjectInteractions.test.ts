@@ -303,6 +303,7 @@ describe('project editor interactions', () => {
     expect(api.saveProject).toHaveBeenCalledTimes(1)
     finish?.(project)
     expect(await saving).toBe(project.id)
+    editor.form.title = '后续编辑'
     await editor.save()
     expect(api.saveProject).toHaveBeenLastCalledWith(
       project.id,
@@ -370,4 +371,11 @@ it('starts tags before detail in parallel and enables editing only after both re
   expect(editor.loaded.value).toBe(true)
   expect(editor.pending.value).toBe(false)
   expect(editor.form.version).toBe(project.version)
+})
+
+it('does not save an unchanged existing project', async () => {
+  const editor = useProjectEditor(project.id)
+  await editor.load()
+  expect(await editor.save()).toBe(project.id)
+  expect(api.saveProject).not.toHaveBeenCalled()
 })

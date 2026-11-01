@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { validateBlogProperties } from '../../utils/blog/properties'
 import DocumentSearch from '../blog/DocumentSearch.vue'
 import { createCanvasSearch } from '../../utils/editor/interaction/documentSearch'
 import { CanvasSearchHistory } from '../../utils/editor/interaction/canvasSearchHistory'
@@ -16,7 +17,7 @@ import {
 import { visibleToc } from '../../utils/blog/chapters'
 import { NodeSelection, TextSelection, type Transaction } from '@tiptap/pm/state'
 import type { EditorProps } from '@tiptap/pm/view'
-import type { EditorToolbarItem, FormError } from '@nuxt/ui'
+import type { EditorToolbarItem } from '@nuxt/ui'
 import {
   CanvasNodePositions,
   canvasNodeViewRenderer,
@@ -57,9 +58,8 @@ import {
   CANVAS_RESOURCE_PREVIEW,
   insertCanvasFiles,
 } from '../../utils/editor/session/canvasResources'
-import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS, BLOG_INPUT_LIMITS } from '../../constants/blogs'
+import { BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS } from '../../constants/blogs'
 import { useCanvasDocument } from '../../composables/useCanvasDocument'
-import { blogSlugIssue } from '../../utils/blog/slug'
 import {
   IMMERSIVE_CODE_THEMES,
   IMMERSIVE_EDITABLE,
@@ -355,20 +355,8 @@ function toggleEditing() {
   isEditing.value = !isEditing.value
   editor.value?.setEditable(isEditing.value, false)
 }
-function validateMetadata(state: typeof settingsDraft): FormError[] {
-  const errors: FormError[] = []
-  const slugIssue =
-    state.slug === metadata.value.slug ? '' : blogSlugIssue(state.slug.trim() ? state.slug : '')
-  if (slugIssue) {
-    errors.push({ name: 'slug', message: slugIssue })
-  }
-  if (state.title.length > BLOG_INPUT_LIMITS.title) {
-    errors.push({ name: 'title', message: `标题最多 ${BLOG_INPUT_LIMITS.title} 字。` })
-  }
-  if (state.summary.length > BLOG_INPUT_LIMITS.summary) {
-    errors.push({ name: 'summary', message: `摘要最多 ${BLOG_INPUT_LIMITS.summary} 字。` })
-  }
-  return errors
+function validateMetadata(state: typeof settingsDraft) {
+  return validateBlogProperties({ ...state, tagIds: state.tagIds ?? [] }, metadata.value.slug)
 }
 async function applySettings() {
   if (propertiesSaving.value) {
@@ -1221,34 +1209,14 @@ defineExpose({
             <span class="text-sm text-muted">文章状态</span
             ><UBadge color="neutral" variant="subtle">{{ stateLabel || '服务器草稿' }}</UBadge>
           </div>
-          <UFormField name="title" label="文章标题"
-            ><UInput v-model="settingsDraft.title" class="w-full"
-          /></UFormField>
-          <UFormField name="slug" label="Slug" description="文章地址独立编辑，不会随标题自动改变。"
-            ><UInput v-model="settingsDraft.slug" :disabled="slugLocked" class="w-full"
-          /></UFormField>
-          <UFormField
-            name="summary"
-            label="文章摘要"
-            :hint="settingsDraft.summary.length + '/' + BLOG_INPUT_LIMITS.summary"
-            ><UTextarea v-model="settingsDraft.summary" autoresize :rows="3" class="w-full"
-          /></UFormField>
-          <UFormField name="tagIds" label="文章标签">
-            <USelect
-              v-model="settingsDraft.tagIds"
-              multiple
-              :items="(tags ?? []).map((tag) => ({ label: tag.name, value: tag.id }))"
-              class="w-full"
-              placeholder="选择标签"
-            />
-          </UFormField>
+          <BlogPropertiesFields
+            :model-value="{ ...settingsDraft, tagIds: settingsDraft.tagIds ?? [] }"
+            :tags="tags ?? []"
+            :slug-locked="slugLocked"
+            :disabled="propertiesSaving"
+            @update:model-value="Object.assign(settingsDraft, $event)"
+          />
           <div class="space-y-3 border-t border-default pt-4">
-            <h3 class="text-sm font-semibold">发布与下载</h3>
-            <USwitch
-              v-model="settingsDraft.allowDownload"
-              label="允许下载 Markdown"
-              description="保存后立即生效。"
-            />
             <UCheckbox
               v-model="remoteRights"
               label="已确认远程图片与附件的使用权"

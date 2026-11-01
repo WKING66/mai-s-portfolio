@@ -4,6 +4,7 @@ import { useBlogImportSelection } from '../../composables/useBlogImportSelection
 import { MARKDOWN_EXTENSION } from '../../constants/blogs'
 import { ADMIN_PATHS } from '../../constants/admin'
 
+const emit = defineEmits<{ busy: [value: boolean] }>()
 const blogApi = useBlogApi()
 const feedback = useFeedback()
 const importSelection = useBlogImportSelection()
@@ -26,6 +27,7 @@ const importModeOptions = [
 ]
 const folderInput = ref<HTMLInputElement | null>(null)
 const isImporting = ref(false)
+watch(isImporting, (value) => emit('busy', value), { flush: 'sync' })
 let importRevision = 0
 let pendingImport: { revision: number; requestId: string } | undefined
 watch(
@@ -128,15 +130,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <UCard class="blog-import-panel min-w-0" :aria-busy="isImporting" aria-label="文档导入面板">
-    <template #header>
-      <div class="flex flex-wrap items-center gap-2">
-        <UIcon name="i-lucide-file-up" class="size-5 shrink-0 text-primary" aria-hidden="true" />
-        <h2 class="font-semibold">导入文档</h2>
-        <UBadge color="neutral" variant="subtle" class="ml-auto">Markdown</UBadge>
-      </div>
-      <p class="mt-2 text-sm leading-6 text-muted">选择正文，导入为草稿。检查后再发布。</p>
-    </template>
+  <UCard
+    class="blog-import-panel min-w-0"
+    :ui="{ root: 'rounded-none ring-0' }"
+    :aria-busy="isImporting"
+    aria-label="文档导入面板"
+  >
     <div class="grid min-w-0 gap-5">
       <URadioGroup
         :model-value="importMode"

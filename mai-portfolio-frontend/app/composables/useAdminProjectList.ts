@@ -12,6 +12,7 @@ export function useAdminProjectList() {
   const requestedPage = ref(1)
   const statusFilter = ref<AdminProjectFilter>('ALL')
   const isPending = ref(false)
+  const errorMessage = ref('')
   const changingProjectId = ref<number | null>(null)
   const canGoToPreviousPage = computed(() => !!projectPage.value && projectPage.value.page > 1)
   const canGoToNextPage = computed(
@@ -33,6 +34,7 @@ export function useAdminProjectList() {
     requestedPage.value = nextPage
     statusFilter.value = nextFilter
     projectPage.value = null
+    errorMessage.value = ''
     try {
       // 2. 查询成功才设置当前结果，失败保留目标页码以便重试。
       const status = nextFilter === 'ALL' ? '' : nextFilter
@@ -40,15 +42,16 @@ export function useAdminProjectList() {
         ? getManagedProjects(nextPage, status, true)
         : getManagedProjects(nextPage, status))
     } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : PROJECT_MESSAGES.loadFailed
       feedback.error(error, PROJECT_MESSAGES.loadFailed)
     } finally {
       isPending.value = false
     }
   }
 
-  async function transition(project: ProjectEditor) {
+  async function transition(project: ProjectEditor): Promise<boolean> {
     if (isPending.value) {
-      return
+      return false
     }
     // 1. 根据当前发布状态选择操作，并锁定本次变更的项目。
     const shouldPublish = project.status === ADMIN_PROJECT_STATUS.DRAFT
@@ -61,13 +64,14 @@ export function useAdminProjectList() {
     } catch (error) {
       // 冲突或校验失败保留原列表，允许重新读取，不自动重试写入。
       feedback.error(error, PROJECT_MESSAGES.saveFailed)
-      return
+      return false
     } finally {
       isPending.value = false
       changingProjectId.value = null
     }
     // 3. 写入成功且互斥锁释放后重新读取列表；失败分支提前返回。
     await load()
+    return true
   }
 
   async function changePage(nextPage: number) {
@@ -99,6 +103,7 @@ export function useAdminProjectList() {
 
   return {
     result: projectPage,
+    error: errorMessage,
     filter: statusFilter,
     pending: isPending,
     changingProjectId,

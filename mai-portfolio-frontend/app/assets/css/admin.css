@@ -1,0 +1,47 @@
+/* 管理列表共用密度与断点；不把编辑画布的排版规则带入表格。 */
+.admin-list-card {
+  overflow: hidden;
+}
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+.admin-row-actions > * {
+  flex-shrink: 0;
+}
+.admin-desktop-list {
+  display: none;
+}
+.admin-mobile-list {
+  display: grid;
+  gap: 1rem;
+}
+.admin-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding-top: 1.25rem;
+}
+@media (min-width: 1024px) {
+  .admin-desktop-list {
+    display: block;
+  }
+  .admin-mobile-list {
+    display: none;
+  }
+}
+@media (max-width: 1023px) {
+  .admin-row-actions {
+    justify-content: center;
+    padding-top: 1rem;
+  }
+  .admin-row-actions button,
+  .admin-row-actions a {
+    min-height: 2.75rem;
+    justify-content: center;
+  }
+}

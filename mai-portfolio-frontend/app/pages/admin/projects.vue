@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { AUTH_ACCESS } from '../../../constants/auth'
-import { ADMIN_MESSAGES, ADMIN_PATHS } from '../../../constants/admin'
+import { AUTH_ACCESS } from '../../constants/auth'
+import { ADMIN_MESSAGES } from '../../constants/admin'
 
 definePageMeta({ auth: AUTH_ACCESS.OWNER })
 useSeoMeta({ title: ADMIN_MESSAGES.projectsTitle, robots: 'noindex,nofollow' })
@@ -11,9 +11,7 @@ useSeoMeta({ title: ADMIN_MESSAGES.projectsTitle, robots: 'noindex,nofollow' })
     :title="ADMIN_MESSAGES.projectsTitle"
     :description="ADMIN_MESSAGES.projectsDescription"
   >
-    <template #actions>
-      <UButton :to="ADMIN_PATHS.newProject" icon="i-lucide-plus">新增项目</UButton>
-    </template>
     <AdminProjectList />
+    <NuxtPage />
   </AdminShell>
 </template>

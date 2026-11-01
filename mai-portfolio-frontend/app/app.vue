@@ -33,7 +33,7 @@ onMounted(initialize)
         <SiteHeader :restore-session="!isAuthPage" />
         <NuxtLoadingIndicator :height="2" color="var(--site-accent)" />
         <NuxtPage />
-        <SiteFooter v-if="!route.meta.immersiveWorkbench" />
+        <SiteFooter v-if="!route.meta.immersiveWorkbench && !route.path.startsWith('/admin/')" />
       </div>
     </UTheme>
   </UApp>

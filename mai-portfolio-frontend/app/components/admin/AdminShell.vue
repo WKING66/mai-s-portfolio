@@ -3,7 +3,10 @@ import { computed, provide, shallowRef } from 'vue'
 import { useRoute } from '#app'
 import { AUTH_ACCESS, AUTH_MESSAGES } from '../../constants/auth'
 import { ADMIN_NAVIGATION, ADMIN_PATHS } from '../../constants/admin'
-import { CANVAS_LOADING, type CanvasLoadingProgress } from '../../utils/editor/session/canvasLoading'
+import {
+  CANVAS_LOADING,
+  type CanvasLoadingProgress,
+} from '../../utils/editor/session/canvasLoading'
 
 const props = defineProps<{
   title: string
@@ -23,6 +26,13 @@ const showEditorLoading = computed(
     (!authState.ready.value || authState.canAccess(AUTH_ACCESS.OWNER)),
 )
 const route = useRoute()
+const navigationOpen = ref(false)
+watch(
+  () => route.path,
+  () => {
+    navigationOpen.value = false
+  },
+)
 const activePage = computed(() => {
   if (route.path.startsWith(ADMIN_PATHS.blogs)) {
     return ADMIN_PATHS.blogs
@@ -41,7 +51,7 @@ const activePage = computed(() => {
   <div :class="{ 'admin-immersive-root': immersive }">
     <main
       class="site-container site-page"
-      :class="{ 'admin-wide': wide, 'admin-immersive': immersive }"
+      :class="{ 'admin-wide': wide, 'admin-immersive': immersive, 'admin-standard': !immersive }"
     >
       <!-- 同一实例覆盖身份恢复、取文、异步组件下载和首屏绘制，避免阶段间空白与位置跳动。 -->
       <div v-if="showEditorLoading" class="admin-editor-loading">
@@ -58,28 +68,60 @@ const activePage = computed(() => {
           :inert="showEditorLoading"
           :aria-hidden="showEditorLoading || undefined"
         >
-          <nav
-            v-if="!immersive"
-            class="admin-navigation flex flex-wrap gap-2 border-b border-line pb-5"
-            aria-label="作品集管理导航"
-          >
+          <aside v-if="!immersive" class="admin-sidebar">
+            <p class="mb-5 hidden px-3 text-xs font-medium text-muted lg:block">内容管理</p>
+            <nav class="hidden space-y-2 lg:block" aria-label="作品集管理导航">
+              <UButton
+                v-for="item in ADMIN_NAVIGATION"
+                :key="item.to"
+                :to="item.to"
+                :icon="item.icon"
+                :color="activePage === item.to ? 'primary' : 'neutral'"
+                :variant="activePage === item.to ? 'soft' : 'ghost'"
+                :aria-current="activePage === item.to ? 'page' : undefined"
+                block
+                class="justify-start py-3"
+              >
+                {{ item.label }}
+              </UButton>
+            </nav>
             <UButton
-              v-for="item in ADMIN_NAVIGATION"
-              :key="item.to"
-              :to="item.to"
-              :icon="item.icon"
-              :color="activePage === item.to ? 'primary' : 'neutral'"
-              :variant="activePage === item.to ? 'soft' : 'ghost'"
-              :aria-current="activePage === item.to ? 'page' : undefined"
+              color="neutral"
+              variant="outline"
+              icon="i-lucide-menu"
+              class="lg:hidden"
+              @click="navigationOpen = true"
+              >{{ title }}</UButton
             >
-              {{ item.label }}
-            </UButton>
-          </nav>
+            <USlideover
+              v-model:open="navigationOpen"
+              title="管理后台"
+              side="left"
+              :ui="{ content: 'max-w-72' }"
+            >
+              <template #body>
+                <nav class="grid gap-2" aria-label="窄屏管理导航">
+                  <UButton
+                    v-for="item in ADMIN_NAVIGATION"
+                    :key="item.to"
+                    :to="item.to"
+                    :icon="item.icon"
+                    :variant="activePage === item.to ? 'soft' : 'ghost'"
+                    color="primary"
+                    block
+                    class="justify-start py-3"
+                    @click="navigationOpen = false"
+                    >{{ item.label }}</UButton
+                  >
+                </nav>
+              </template>
+            </USlideover>
+          </aside>
           <div class="min-w-0">
             <header v-if="!immersive" class="mb-8 flex flex-wrap items-start justify-between gap-5">
               <div class="max-w-2xl">
-                <p class="eyebrow mb-3">作品集管理</p>
-                <h1 class="site-page-title">{{ title }}</h1>
+                <p class="mb-2 text-xs text-muted">管理后台 / {{ title }}</p>
+                <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ title }}</h1>
                 <p class="mt-3 text-sm leading-7 text-muted sm:text-base">{{ description }}</p>
               </div>
               <div v-if="$slots.actions" class="flex flex-wrap gap-3"><slot name="actions" /></div>
@@ -104,42 +146,37 @@ const activePage = computed(() => {
 </template>
 
 <style scoped>
+.admin-standard {
+  max-width: none;
+  padding: 0;
+}
+.admin-standard .admin-workspace {
+  gap: 0;
+}
+.admin-standard .admin-workspace > .min-w-0 {
+  padding: 1.5rem var(--site-gutter) 3rem;
+}
+.admin-sidebar {
+  padding: 1rem var(--site-gutter) 0;
+}
 @media (min-width: 1024px) {
-  .admin-workspace {
-    grid-template-columns: 11rem minmax(0, 1fr);
+  .admin-standard .admin-workspace {
+    grid-template-columns: 14rem minmax(0, 1fr);
+    min-height: calc(100dvh - var(--site-header-height));
   }
-  .admin-navigation {
+  .admin-standard .admin-workspace > .min-w-0 {
+    padding: 2.5rem;
+    max-width: 100rem;
+    width: 100%;
+    margin-inline: auto;
+  }
+  .admin-sidebar {
     position: sticky;
-    top: calc(var(--site-header-height) + 24px);
-    flex-direction: column;
-    border-bottom: 0;
+    top: var(--site-header-height);
+    height: calc(100dvh - var(--site-header-height));
+    padding: 2rem 0.75rem;
     border-right: 1px solid var(--site-line);
-    padding: 0 1.5rem 0 0;
-  }
-}
-.admin-wide {
-  max-width: 100rem;
-  padding-top: 1.5rem;
-}
-.admin-wide .admin-workspace {
-  gap: 1.25rem;
-}
-.admin-wide header {
-  margin-bottom: 1.5rem;
-}
-.admin-wide header .eyebrow {
-  display: none;
-}
-@media (min-width: 1024px) {
-  .admin-wide .admin-workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .admin-wide .admin-navigation {
-    position: static;
-    flex-direction: row;
-    border-right: 0;
-    border-bottom: 1px solid var(--site-line);
-    padding: 0 0 1rem;
+    background: var(--site-surface);
   }
 }
 .admin-immersive {
