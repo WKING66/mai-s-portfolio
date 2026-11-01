@@ -68,4 +68,4 @@ export const ADMIN_PAGE_SIZES = [5, 10, 20] as const
 export const ADMIN_DEFAULT_PAGE_SIZE = 20
 
 /** 与管理查询 keyword 契约保持一致；用户输入在提交查询时 trim。 */
-export const ADMIN_KEYWORD_MAX_LENGTH = 200
+export const ADMIN_KEYWORD_MAX_LENGTH = 50
