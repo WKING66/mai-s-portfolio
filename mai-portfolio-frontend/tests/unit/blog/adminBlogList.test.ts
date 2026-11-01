@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Blog, BlogPage } from '../../../app/api/blogs'
 import { useAdminBlogList } from '../../../app/composables/useAdminBlogList'
 import { validateBlogProperties, sameBlogProperties } from '../../../app/utils/blog/properties'
-const api = vi.hoisted(() => ({ list: vi.fn(), get: vi.fn(), transition: vi.fn() }))
+const api = vi.hoisted(() => ({
+  list: vi.fn(),
+  get: vi.fn(),
+  transition: vi.fn(),
+  remove: vi.fn(),
+}))
 const feedback = vi.hoisted(() => ({ success: vi.fn() }))
 vi.mock('../../../app/api/blogs', () => ({ useBlogApi: () => api }))
 vi.mock('../../../app/composables/useFeedback', () => ({ useFeedback: () => feedback }))
@@ -155,6 +160,7 @@ it('submits trimmed search once and preserves the applied query while paging', a
   await list.load(2)
   expect(api.list).toHaveBeenLastCalledWith({ page: 2, size: 20, keyword: 'algorithms' })
   await list.changeFilter('PUBLISHED')
+  await list.search()
   await list.changeSize(5)
   expect(api.list).toHaveBeenLastCalledWith({
     page: 1,
@@ -163,6 +169,7 @@ it('submits trimmed search once and preserves the applied query while paging', a
     status: 'PUBLISHED',
   })
   await list.clear()
+  await list.search()
   expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 5, keyword: '' })
 })
 
@@ -174,6 +181,80 @@ it('clears the applied query even after the search input was manually emptied', 
   await list.search()
   list.keyword.value = ''
   await list.clear()
+  await list.search()
   expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: '' })
   expect(api.list).toHaveBeenCalledTimes(2)
+})
+
+it('keeps changed filters and cleared inputs local until querying', async () => {
+  const list = useAdminBlogList()
+  await list.load()
+  await list.changeFilter('PUBLISHED')
+  list.keyword.value = 'algorithm'
+  expect(api.list).toHaveBeenCalledTimes(1)
+  await list.clear()
+  expect(api.list).toHaveBeenCalledTimes(1)
+})
+
+it('keeps submitted status when paging with different unsubmitted controls', async () => {
+  const list = useAdminBlogList()
+  list.changeFilter('PUBLISHED')
+  await list.search()
+  list.changeFilter('DRAFT')
+  await list.load(2)
+  expect(api.list).toHaveBeenLastCalledWith({ page: 2, size: 20, keyword: '', status: 'PUBLISHED' })
+  list.clear()
+  await list.load(3)
+  expect(api.list).toHaveBeenLastCalledWith({ page: 3, size: 20, keyword: '', status: 'PUBLISHED' })
+})
+it('deletes a draft using its confirmed revision and refreshes only after success', async () => {
+  const list = useAdminBlogList()
+  expect(await list.remove(post())).toBe(true)
+  expect(api.remove).toHaveBeenCalledWith(7, { revision: 2, requestId: expect.any(String) })
+  expect(api.get).not.toHaveBeenCalled()
+  expect(api.list).toHaveBeenCalledOnce()
+})
+it('does not delete published articles or a published document with a working draft', async () => {
+  const list = useAdminBlogList()
+  await expect(list.remove({ ...post(), status: 'PUBLISHED' })).rejects.toThrow('先下架')
+  await expect(list.remove({ ...post(), hasPublished: true })).rejects.toThrow('工作草稿')
+  await expect(list.remove({ ...post(), revision: null })).rejects.toThrow('修订号')
+  expect(api.remove).not.toHaveBeenCalled()
+})
+it('preserves the delete request identity on uncertain failures and does not auto-retry', async () => {
+  const list = useAdminBlogList()
+  api.remove.mockRejectedValueOnce(new Error('network'))
+  await expect(list.remove(post())).rejects.toThrow('network')
+  expect(api.list).not.toHaveBeenCalled()
+  expect(list.pending.value).toBe(false)
+  const body = api.remove.mock.calls[0]![1]
+  await list.remove(post())
+  expect(api.remove.mock.calls[1]![1]).toEqual(body)
+})
+it('returns to the previous page after deleting the last row of a page', async () => {
+  const list = useAdminBlogList()
+  api.list.mockResolvedValueOnce({ ...page(), page: 2, total: 6, size: 5 })
+  await list.load(2)
+  await list.remove(post())
+  expect(api.list).toHaveBeenLastCalledWith({ page: 1, size: 20, keyword: '' })
+})
+
+it('keeps the list intact on a delete revision conflict and never repeats a pending delete', async () => {
+  const list = useAdminBlogList()
+  await list.load()
+  const snapshot = list.result.value
+  let reject!: (error: Error) => void
+  api.remove.mockImplementationOnce(
+    () =>
+      new Promise((_, fail) => {
+        reject = fail
+      }),
+  )
+  const deleting = list.remove(post())
+  expect(await list.remove(post())).toBe(false)
+  expect(api.remove).toHaveBeenCalledTimes(1)
+  reject(new Error('revision conflict'))
+  await expect(deleting).rejects.toThrow('revision conflict')
+  expect(list.result.value).toBe(snapshot)
+  expect(api.list).toHaveBeenCalledTimes(1)
 })

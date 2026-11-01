@@ -109,6 +109,7 @@ describe('managed project list interactions', () => {
     await list.load(2)
     api.getManagedProjects.mockResolvedValueOnce(page(1, 1))
     await list.changeFilter(ADMIN_PROJECT_STATUS.DRAFT)
+    await list.search()
     expect(api.getManagedProjects).toHaveBeenLastCalledWith(
       { page: 1, size: 20, keyword: '', status: ADMIN_PROJECT_STATUS.DRAFT },
       true,
@@ -392,6 +393,7 @@ it('does not save an unchanged existing project', async () => {
 it('changes project page size without losing its status filter', async () => {
   const list = useAdminProjectList()
   await list.changeFilter(ADMIN_PROJECT_STATUS.PUBLISHED)
+  await list.search()
   await list.changeSize(10)
   expect(api.getManagedProjects).toHaveBeenLastCalledWith(
     { page: 1, size: 10, keyword: '', status: ADMIN_PROJECT_STATUS.PUBLISHED },
@@ -423,11 +425,42 @@ it('searches the complete managed query and clears without losing page size', as
     false,
   )
   await list.changeFilter('DRAFT')
+  await list.search()
   await list.changeSize(10)
   expect(api.getManagedProjects).toHaveBeenLastCalledWith(
     { page: 1, size: 10, keyword: 'unsubmitted', status: 'DRAFT' },
     false,
   )
   await list.clear()
+  await list.search()
   expect(api.getManagedProjects).toHaveBeenLastCalledWith({ page: 1, size: 10, keyword: '' }, true)
+})
+
+it('keeps changed filters and cleared inputs local until querying', async () => {
+  const list = useAdminProjectList()
+  await list.load()
+  await list.changeFilter('PUBLISHED')
+  list.keyword.value = 'algorithm'
+  expect(api.getManagedProjects).toHaveBeenCalledTimes(1)
+  await list.clear()
+  expect(api.getManagedProjects).toHaveBeenCalledTimes(1)
+})
+
+it('uses applied project filters when paging or reloading after form changes', async () => {
+  const list = useAdminProjectList()
+  list.changeFilter('PUBLISHED')
+  await list.search()
+  list.changeFilter('DRAFT')
+  list.keyword.value = 'unsubmitted'
+  await list.changePage(2)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 2, size: 20, keyword: '', status: 'PUBLISHED' },
+    false,
+  )
+  list.clear()
+  await list.reload()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 2, size: 20, keyword: '', status: 'PUBLISHED' },
+    true,
+  )
 })

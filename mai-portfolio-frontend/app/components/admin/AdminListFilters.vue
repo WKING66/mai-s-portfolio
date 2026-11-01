@@ -18,7 +18,7 @@ const options = ADMIN_STATUS_FILTERS.map((item) => ({ ...item }))
     class="flex w-full min-w-0 flex-wrap items-center gap-3 lg:w-auto"
     role="search"
     :aria-label="noun + '列表查询'"
-    @submit.prevent="$emit('search')"
+    @submit.prevent
   >
     <UInput
       :model-value="keyword"
@@ -38,14 +38,24 @@ const options = ADMIN_STATUS_FILTERS.map((item) => ({ ...item }))
       class="w-32"
       @update:model-value="$emit('status', $event)"
     />
-    <UButton type="submit" :loading="pending" :disabled="pending">查询</UButton>
     <UButton
       type="button"
+      icon="i-lucide-search"
+      aria-label="查询"
+      title="查询"
+      :loading="pending"
+      :disabled="pending"
+      @click="$emit('search')"
+    />
+    <UButton
+      type="button"
+      icon="i-lucide-rotate-ccw"
+      aria-label="重置查询条件"
+      title="重置查询条件"
       color="neutral"
       variant="ghost"
       :disabled="pending"
       @click="$emit('clear')"
-      >清除</UButton
-    >
+    />
   </form>
 </template>

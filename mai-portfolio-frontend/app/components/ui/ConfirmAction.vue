@@ -2,6 +2,8 @@
 const props = withDefaults(
   defineProps<{
     label: string
+    icon?: string
+    disabledReason?: string
     title: string
     description: string
     pending?: boolean
@@ -9,7 +11,7 @@ const props = withDefaults(
     destructive?: boolean
     action: () => Promise<boolean>
   }>(),
-  { pending: false, disabled: false, destructive: false },
+  { pending: false, disabled: false, destructive: false, icon: undefined, disabledReason: '' },
 )
 const open = ref(false)
 const error = ref('')
@@ -40,13 +42,16 @@ async function confirm() {
   >
     <UButton
       type="button"
+      :icon="icon"
+      :aria-label="label"
+      :title="disabledReason || label"
       :color="destructive ? 'error' : 'primary'"
       variant="soft"
       size="sm"
       class="justify-center"
       :disabled="disabled || pending"
       :loading="confirming"
-      >{{ label }}</UButton
+      >{{ icon ? undefined : label }}</UButton
     >
     <template #content>
       <div role="group" :aria-label="title" class="space-y-3">

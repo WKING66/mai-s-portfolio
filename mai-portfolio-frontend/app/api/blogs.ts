@@ -1,5 +1,6 @@
 import { clearNuxtData, useNuxtApp } from '#app'
 import { useAuthState } from '../composables/useAuthState'
+import { ApiRequestError } from './request'
 import { AUTH_ACCESS } from '../constants/auth'
 import {
   BLOG_DOWNLOAD_URL_RELEASE_DELAY_MS,
@@ -52,6 +53,10 @@ export interface Blog extends BlogCard {
   resources: DocumentResource[]
   allowDownload: boolean
   updatedAt: string
+}
+export interface BlogRevisionInput {
+  revision: number
+  requestId: string
 }
 export interface BlogManageQuery {
   page?: number
@@ -141,7 +146,7 @@ export function useBlogApi() {
   async function transition(
     id: number,
     action: 'publish' | 'unpublish' | 'restore' | 'draft',
-    body: { revision: number; requestId: string },
+    body: BlogRevisionInput,
   ) {
     const blogPost = await request<Blog>(BLOG_PATH + '/' + id + '/' + action, {
       method: action === 'draft' ? 'DELETE' : 'POST',
@@ -149,6 +154,23 @@ export function useBlogApi() {
     })
     invalidate()
     return blogPost
+  }
+  async function remove(id: number, body: BlogRevisionInput) {
+    // 删除成功是 data=null，不能使用要求非空数据的详情请求适配。
+    try {
+      await authState.request<null>(
+        BLOG_PATH + '/' + id,
+        { method: 'DELETE', body },
+        AUTH_ACCESS.OWNER,
+        '文章删除失败，请重试。',
+      )
+    } catch (cause) {
+      // 删除响应丢失后重试可能为404：目标已不存在，同样清理旧公开缓存。
+      if (!(cause instanceof ApiRequestError && cause.status === 404)) {
+        throw cause
+      }
+    }
+    invalidate()
   }
   async function importDocument(
     file: File,
@@ -215,6 +237,7 @@ export function useBlogApi() {
     saveContent,
     saveProperties,
     transition,
+    remove,
     tags: () => request<BlogTag[]>('/api/v1/tags'),
     importDocument,
     download,

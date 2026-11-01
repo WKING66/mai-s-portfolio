@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import type { BlogCard } from '../../api/blogs'
+import { blogDeletionBlocker } from '../../utils/blog/lifecycle'
 import { ADMIN_PATHS } from '../../constants/admin'
 defineProps<{
   article: BlogCard
   pending: boolean
   transition: (article: BlogCard) => Promise<boolean>
+  remove: (article: BlogCard) => Promise<boolean>
 }>()
 defineEmits<{ properties: [id: number] }>()
 </script>
@@ -39,6 +41,17 @@ defineEmits<{ properties: [id: number] }>()
       :pending="pending"
       :disabled="article.status !== 'PUBLISHED' && !article.hasDraft"
       :action="() => transition(article)"
+    />
+    <UiConfirmAction
+      label="删除"
+      icon="i-lucide-trash-2"
+      destructive
+      :title="`删除文章「${article.title || '未命名草稿'}」？`"
+      description="将永久删除整篇文章及草稿和关联关系，无法恢复；共享图片与附件文件会保留。"
+      :pending="pending"
+      :disabled="!!blogDeletionBlocker(article)"
+      :disabled-reason="blogDeletionBlocker(article)"
+      :action="() => remove(article)"
     />
   </div>
 </template>

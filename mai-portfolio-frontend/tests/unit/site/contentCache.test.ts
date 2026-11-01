@@ -3,6 +3,8 @@ import { createPinia, setActivePinia, type Pinia } from 'pinia'
 import type { ApiResponse } from '../../../app/api/types'
 import { ref } from 'vue'
 import { usePortfolioStore } from '../../../app/stores/portfolio'
+import { AUTH_ACCESS } from '../../../app/constants/auth'
+import { ApiRequestError } from '../../../app/api/request'
 import { useBlogApi } from '../../../app/api/blogs'
 import { useManagementStore } from '../../../app/stores/management'
 import { PROFILE_PUBLIC_DATA_KEY } from '../../../app/constants/profile'
@@ -230,4 +232,29 @@ it('sends blog management search without changing public query rules', async () 
   })
   await api.list({ keyword: '  ' })
   expect(mocks.request.mock.calls[1]![1].query).toEqual({ view: 'MANAGE', page: 1, size: 20 })
+})
+
+it('accepts null-data delete success and keeps the existing revision request contract', async () => {
+  mocks.request.mockResolvedValue(null)
+  const body = { revision: 2, requestId: 'e89a3a56-dc86-4cd7-a40b-45d25b777540' }
+  await useBlogApi().remove(7, body)
+  expect(mocks.request).toHaveBeenCalledWith(
+    '/api/v1/blogs/7',
+    { method: 'DELETE', body },
+    AUTH_ACCESS.OWNER,
+    expect.any(String),
+  )
+  expect(mocks.clearNuxtData).toHaveBeenCalledOnce()
+})
+it('treats already-deleted 404 as complete but never swallows revision conflicts', async () => {
+  const api = useBlogApi()
+  const body = { revision: 2, requestId: 'e89a3a56-dc86-4cd7-a40b-45d25b777540' }
+  mocks.request.mockRejectedValueOnce(new ApiRequestError('not found', 404, 'NOT_FOUND'))
+  await api.remove(7, body)
+  expect(mocks.clearNuxtData).toHaveBeenCalledOnce()
+  mocks.request.mockRejectedValueOnce(
+    new ApiRequestError('revision conflict', 409, 'DOCUMENT_REVISION_CONFLICT'),
+  )
+  await expect(api.remove(7, body)).rejects.toThrow('revision conflict')
+  expect(mocks.clearNuxtData).toHaveBeenCalledOnce()
 })

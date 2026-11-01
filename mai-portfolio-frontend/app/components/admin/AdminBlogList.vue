@@ -15,6 +15,7 @@ const {
   load,
   changeSize,
   transition,
+  remove,
 } = useAdminBlogList()
 const importOpen = ref(false)
 const importing = ref(false)
@@ -27,7 +28,7 @@ const columns: TableColumn<BlogCard>[] = [
   {
     id: 'actions',
     header: '操作',
-    meta: { class: { th: 'min-w-48 text-right whitespace-nowrap', td: 'min-w-48 text-right' } },
+    meta: { class: { th: 'min-w-60 text-right whitespace-nowrap', td: 'min-w-60 text-right' } },
   },
 ]
 onMounted(() => load())
@@ -126,6 +127,7 @@ onMounted(() => load())
               :article="row.original"
               :pending="pending"
               :transition="transition"
+              :remove="remove"
               @properties="propertiesId = $event"
           /></template>
         </UTable>
@@ -150,6 +152,7 @@ onMounted(() => load())
             :article="article"
             :pending="pending"
             :transition="transition"
+            :remove="remove"
             @properties="propertiesId = $event"
           />
         </UCard>

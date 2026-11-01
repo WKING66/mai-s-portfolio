@@ -19,6 +19,7 @@ export function useAdminProjectList() {
   const keyword = ref('')
   const appliedKeyword = ref('')
   const statusFilter = ref<AdminStatusFilter>('ALL')
+  const appliedFilter = ref<AdminStatusFilter>('ALL')
   const isPending = ref(false)
   const errorMessage = ref('')
   const changingProjectId = ref<number | null>(null)
@@ -29,18 +30,13 @@ export function useAdminProjectList() {
       projectPage.value.page * projectPage.value.size < projectPage.value.total,
   )
 
-  async function load(
-    nextPage = requestedPage.value,
-    nextFilter = statusFilter.value,
-    force = false,
-  ) {
+  async function load(nextPage = requestedPage.value, force = false) {
     // 1. 在途操作互斥；先记录本次筛选和页码，不把旧列表展示为新结果。
     if (isPending.value) {
       return
     }
     isPending.value = true
     requestedPage.value = nextPage
-    statusFilter.value = nextFilter
     projectPage.value = null
     errorMessage.value = ''
     try {
@@ -49,7 +45,7 @@ export function useAdminProjectList() {
         page: nextPage,
         size: pageSize.value,
         keyword: appliedKeyword.value,
-        ...(nextFilter === 'ALL' ? {} : { status: nextFilter }),
+        ...(appliedFilter.value === 'ALL' ? {} : { status: appliedFilter.value }),
       }
       projectPage.value = await getManagedProjects(query, force)
     } catch (error) {
@@ -107,25 +103,19 @@ export function useAdminProjectList() {
     }
     keyword.value = keyword.value.trim()
     appliedKeyword.value = keyword.value
-    await load(1, statusFilter.value, true)
+    appliedFilter.value = statusFilter.value
+    await load(1, true)
   }
-  async function changeFilter(nextFilter: AdminStatusFilter) {
-    if (isPending.value) {
-      return
+  function changeFilter(nextFilter: AdminStatusFilter) {
+    if (!isPending.value) {
+      statusFilter.value = nextFilter
     }
-    statusFilter.value = nextFilter
-    await search()
   }
-  async function clear() {
-    if (
-      isPending.value ||
-      (!keyword.value && !appliedKeyword.value && statusFilter.value === 'ALL')
-    ) {
-      return
+  function clear() {
+    if (!isPending.value) {
+      keyword.value = ''
+      statusFilter.value = 'ALL'
     }
-    keyword.value = ''
-    statusFilter.value = 'ALL'
-    await search()
   }
   async function changeSize(size: number) {
     if (isPending.value || !ADMIN_PAGE_SIZES.some((value) => value === size)) {
@@ -135,7 +125,7 @@ export function useAdminProjectList() {
     await load(1)
   }
   function reload() {
-    return load(requestedPage.value, statusFilter.value, true)
+    return load(requestedPage.value, true)
   }
 
   return {

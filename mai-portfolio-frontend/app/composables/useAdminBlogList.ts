@@ -1,10 +1,11 @@
 import { ref, shallowRef } from 'vue'
-import { useBlogApi, type BlogCard, type BlogPage } from '../api/blogs'
+import { useBlogApi, type BlogCard, type BlogPage, type BlogRevisionInput } from '../api/blogs'
 import {
   ADMIN_DEFAULT_PAGE_SIZE,
   ADMIN_PAGE_SIZES,
   type AdminStatusFilter,
 } from '../constants/admin'
+import { blogDeletionBlocker } from '../utils/blog/lifecycle'
 import { BLOG_FIRST_PAGE } from '../constants/blogs'
 import { useFeedback } from './useFeedback'
 import { createBlogPersistence } from '../utils/editor/session/blogPersistence'
@@ -20,7 +21,9 @@ export function useAdminBlogList() {
   const keyword = ref('')
   const appliedKeyword = ref('')
   const filter = ref<AdminStatusFilter>('ALL')
+  const appliedFilter = ref<AdminStatusFilter>('ALL')
   const sessions = new Map<number, ReturnType<typeof createBlogPersistence>>()
+  const deletions = new Map<number, BlogRevisionInput>()
   const feedback = useFeedback()
   async function load(nextPage = page.value) {
     if (pending.value) {
@@ -35,8 +38,14 @@ export function useAdminBlogList() {
         page: nextPage,
         size: pageSize.value,
         keyword: appliedKeyword.value,
-        ...(filter.value === 'ALL' ? {} : { status: filter.value }),
+        ...(appliedFilter.value === 'ALL' ? {} : { status: appliedFilter.value }),
       })
+      for (const [id, deletion] of deletions) {
+        const current = result.value.items.find((article) => article.id === id)
+        if (current && current.revision !== deletion.revision) {
+          deletions.delete(id)
+        }
+      }
       for (const [id, session] of sessions) {
         // 重读已确认新修订时，旧状态请求不能再阻止用户操作当前版本。
         const current = result.value.items.find((article) => article.id === id)
@@ -59,22 +68,19 @@ export function useAdminBlogList() {
     }
     keyword.value = keyword.value.trim()
     appliedKeyword.value = keyword.value
+    appliedFilter.value = filter.value
     await load(BLOG_FIRST_PAGE)
   }
-  async function changeFilter(status: AdminStatusFilter) {
-    if (pending.value) {
-      return
+  function changeFilter(status: AdminStatusFilter) {
+    if (!pending.value) {
+      filter.value = status
     }
-    filter.value = status
-    await search()
   }
-  async function clear() {
-    if (pending.value || (!keyword.value && !appliedKeyword.value && filter.value === 'ALL')) {
-      return
+  function clear() {
+    if (!pending.value) {
+      keyword.value = ''
+      filter.value = 'ALL'
     }
-    keyword.value = ''
-    filter.value = 'ALL'
-    await search()
   }
   async function changeSize(size: number) {
     if (pending.value || !ADMIN_PAGE_SIZES.some((value) => value === size)) {
@@ -118,6 +124,34 @@ export function useAdminBlogList() {
     await load()
     return true
   }
+  async function remove(article: BlogCard): Promise<boolean> {
+    if (pending.value) {
+      return false
+    }
+    const blocker = blogDeletionBlocker(article)
+    if (blocker) {
+      throw new Error(blocker)
+    }
+    const targetPage =
+      result.value?.items.length === 1 && page.value > 1 ? page.value - 1 : page.value
+    const previous = deletions.get(article.id)
+    const body =
+      previous?.revision === article.revision
+        ? previous
+        : { revision: article.revision!, requestId: crypto.randomUUID() }
+    deletions.set(article.id, body)
+    pending.value = true
+    try {
+      await api.remove(article.id, body)
+      deletions.delete(article.id)
+      sessions.delete(article.id)
+      feedback.success('文章已删除。')
+    } finally {
+      pending.value = false
+    }
+    await load(targetPage)
+    return true
+  }
   return {
     result,
     pending,
@@ -131,5 +165,6 @@ export function useAdminBlogList() {
     load,
     changeSize,
     transition,
+    remove,
   }
 }
