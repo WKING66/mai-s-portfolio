@@ -29,6 +29,10 @@
   padding-top: 0;
 }
 @media (min-width: 1024px) {
+  /* 桌面默认约五行内容，不再随剩余页面空间继续拉长。 */
+  .admin-table-viewport {
+    flex: 0 1 22rem;
+  }
   .admin-desktop-list {
     display: flex;
   }

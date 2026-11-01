@@ -66,7 +66,7 @@ onMounted(() => load())
         <UButton :to="`${ADMIN_PATHS.blogs}/new`" icon="i-lucide-plus">新建文章</UButton>
       </div>
     </div>
-    <div class="relative flex min-h-0 flex-1 flex-col" :aria-busy="pending">
+    <div class="admin-table-viewport relative flex min-h-0 flex-1 flex-col" :aria-busy="pending">
       <UCard
         class="admin-desktop-list admin-list-card min-h-0 flex-1 flex-col"
         :ui="{ body: 'flex min-h-0 flex-1 flex-col p-0 sm:p-0' }"
