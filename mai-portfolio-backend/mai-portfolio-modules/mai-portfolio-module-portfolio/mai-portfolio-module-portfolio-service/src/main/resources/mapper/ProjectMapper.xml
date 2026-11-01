@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.portfolio.mapper.ProjectMapper">
+    <!-- strpos 按字面匹配，用户输入的百分号、下划线、反斜杠都不是 SQL 通配符。 -->
+    <select id="selectManagementPage" resultType="dev.amai.portfolio.portfolio.entity.domain.ProjectDO">
+        SELECT p.* FROM project p
+        <where>
+            <if test="status != null">
+                p.status = #{status}
+            </if>
+            <if test="keyword != null">
+                AND (
+                    strpos(LOWER(p.title), LOWER(#{keyword})) &gt; 0
+                    OR strpos(LOWER(p.slug), LOWER(#{keyword})) &gt; 0
+                )
+            </if>
+        </where>
+        ORDER BY p.is_featured DESC, p.sort_order ASC, p.id DESC
+    </select>
+</mapper>

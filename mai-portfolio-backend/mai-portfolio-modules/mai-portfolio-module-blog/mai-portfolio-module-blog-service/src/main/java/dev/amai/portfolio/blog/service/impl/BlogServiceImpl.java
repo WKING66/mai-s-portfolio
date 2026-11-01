@@ -16,13 +16,13 @@ import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
 import dev.amai.portfolio.blog.service.*;
-import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.validation.ValidationGroups;
-import jakarta.validation.Validator;
 import dev.amai.portfolio.web.exception.*;
+import jakarta.validation.Validator;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -99,16 +99,29 @@ public class BlogServiceImpl implements BlogService {
     /** 公开列表只展示已上架正文；管理列表优先展示草稿，方便站长继续编辑。 */
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public ViewPageVO<BlogCardVo> list(String view, PageRequest pagination) {
-        boolean manage = manage(view);
-        int page = pagination.getPage();
-        int size = pagination.sizeOrDefault();
+    public ViewPageVO<BlogCardVo> list(ContentListRequest request) {
+        boolean manage = manage(request.getView() == null ? PUBLIC_VIEW : request.getView());
+        int page = request.getPage();
+        int size = request.sizeOrDefault();
         var query = Wrappers.<BlogPostDO>lambdaQuery();
         if (!manage) {
+            if (request.getStatus() != null || request.getKeyword() != null) {
+                throw invalid("状态或关键词筛选仅可用于管理列表");
+            }
             query.eq(BlogPostDO::getStatus, PUBLISHED);
         }
         query.orderByDesc(BlogPostDO::getPublishedAt).orderByDesc(BlogPostDO::getId);
-        var result = blogPostMapper.selectPage(new Page<BlogPostDO>(page, size), query);
+        // 管理搜索按“有草稿取草稿，否则取正文”在数据库选标题；不能先分页再在内存过滤。
+        Integer status = request.getStatus() == null || request.getStatus().isBlank() ? null
+                : switch (request.getStatus()) {
+                    case "DRAFT" -> DRAFT;
+                    case "PUBLISHED" -> PUBLISHED;
+                    default -> throw invalid("文章状态仅支持 DRAFT 或 PUBLISHED");
+                };
+        var result = manage
+                ? blogPostMapper.selectManagementPage(new Page<>(page, size), status,
+                        request.getKeyword(), ContentStage.DRAFT.code(), ContentStage.PUBLISHED.code())
+                : blogPostMapper.selectPage(new Page<BlogPostDO>(page, size), query);
         var summaries = documentService.summaries(result.getRecords().stream()
                 .map(BlogPostDO::getDocumentId)
                 .collect(Collectors.toSet()), manage);

@@ -2,6 +2,17 @@
 
 本契约对应 V8 内容槽位模型及 V9 分类编码，替换旧 `version/documentVersionId` 语义；前端需同步后再做页面联调。前缀均为 `/api/v1`。既有会话、CSRF、OWNER 与错误响应规则不变，错误使用现有 ApiErrorCode。
 
+## 管理列表搜索与分页
+
+`GET /api/v1/blogs` 与 `GET /api/v1/projects` 共用查询参数：
+
+- `view=MANAGE`：需要 OWNER；可选 `status=DRAFT|PUBLISHED`、`keyword`。
+- `keyword` 去除首尾空白，空白等同未提供，最多 200 字符；标题或 slug 不区分大小写的字面子串匹配，`%`、`_`、反斜杠不作通配符。
+- 博客按管理卡片的标题搜索：存在草稿就采用草稿标题，即使草稿标题为空，也不回退正式正文；没有草稿才用正式正文。
+- `page`、`size` 继续复用既有分页规范，size 上限 50；前端可传 5/10/20。排序和未指定 size 时的默认值不变。
+- 在数据库分页之前应用筛选，响应 `total` 是筛选后的总数；响应结构不变。
+- PUBLIC 保持原查询；传入管理用 status 或非空 keyword 返回 422。未知状态、超长关键词和重复查询参数返回 422。
+
 ## 写入请求
 
 POST /blogs 创建：

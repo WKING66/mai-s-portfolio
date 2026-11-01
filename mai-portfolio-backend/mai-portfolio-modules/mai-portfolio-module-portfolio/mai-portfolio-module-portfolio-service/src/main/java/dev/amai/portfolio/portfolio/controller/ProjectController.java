@@ -1,11 +1,11 @@
 package dev.amai.portfolio.portfolio.controller;
 
 import cn.dev33.satoken.annotation.SaCheckRole;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.logging.annotation.ApiLog;
 import dev.amai.portfolio.portfolio.constant.ProjectMessageConstants;
-import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectEditorVo;
@@ -55,7 +55,7 @@ public class ProjectController {
     @GetMapping
     @Operation(summary = "分页读取项目",
         description = "view 默认 PUBLIC，只返回已发布卡片。MANAGE 需要有效 OWNER Cookie，返回管理快照。"
-            + "page 默认 1；PUBLIC size 默认 12、MANAGE 默认 20，最大 50；status 仅用于 MANAGE。")
+            + "page 默认 1；PUBLIC size 默认 12、MANAGE 默认 20，最大 50；status、keyword 仅用于 MANAGE；keyword 最多200字符，按标题或标识进行不区分大小写的字面子串搜索。")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "按视图投影的项目分页"),
         @ApiResponse(responseCode = "401", description = "MANAGE 未登录"),
@@ -63,10 +63,10 @@ public class ProjectController {
         @ApiResponse(responseCode = "422", description = "非法视图、重复参数、分页或状态")
     })
     public ResponseEntity<R<ViewPageVO<ProjectItemVo>>> list(
-            @Valid @ParameterObject @ModelAttribute ProjectListRequest input,
+            @Valid @ParameterObject @ModelAttribute ContentListRequest input,
             HttpServletRequest request) {
         // 不接受重复参数，避免 MVC 将重复值静默绑定为某个视图。
-        for (String name : List.of("view", "page", "size", "status")) {
+        for (String name : List.of("view", "page", "size", "status", "keyword")) {
             String[] values = request.getParameterValues(name);
             if (values != null && values.length != 1) {
                 throw new ApiException(ApiErrorCode.VALIDATION_FAILED, ProjectMessageConstants.INVALID_QUERY);

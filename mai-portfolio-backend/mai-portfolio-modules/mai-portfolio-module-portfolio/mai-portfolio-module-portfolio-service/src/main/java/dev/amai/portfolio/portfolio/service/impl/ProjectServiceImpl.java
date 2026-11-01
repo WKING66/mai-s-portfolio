@@ -8,6 +8,7 @@ import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.PageRequest;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.portfolio.constant.ProjectConstants;
@@ -18,7 +19,6 @@ import dev.amai.portfolio.portfolio.entity.domain.ProjectLinkDO;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectMediaDO;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectTagDO;
 import dev.amai.portfolio.portfolio.entity.request.ProjectLinkRequest;
-import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectCoverVo;
@@ -82,7 +82,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public ViewPageVO<ProjectItemVo> list(ProjectListRequest request) {
+    public ViewPageVO<ProjectItemVo> list(ContentListRequest request) {
         // 1. 先确定查询视图；管理视图权限由 Controller 声明并在请求入口校验。
         ProjectView view = parseView(request.getView());
         int page = request.getPage();
@@ -93,18 +93,22 @@ public class ProjectServiceImpl implements ProjectService {
         // 2. 公开列表固定为已发布状态，管理列表才接受状态过滤。
         var query = Wrappers.<ProjectDO>lambdaQuery();
         if (view == ProjectView.PUBLIC) {
-            if (request.getStatus() != null) {
+            if (request.getStatus() != null || request.getKeyword() != null) {
                 throw invalid(ProjectMessageConstants.INVALID_QUERY);
             }
             query.eq(ProjectDO::getStatus, ProjectStatus.PUBLISHED.code());
-        } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            query.eq(ProjectDO::getStatus, parseStatus(request.getStatus()).code());
         }
         query.orderByDesc(ProjectDO::getIsFeatured)
                 .orderByAsc(ProjectDO::getSortOrder)
                 .orderByDesc(ProjectDO::getId);
         // 3. 在同一只读快照内分页并批量装配关联，避免卡片逐条查询。
-        var result = projectMapper.selectPage(new Page<>(page, size), query);
+        // 搜索在 SQL 分页前完成；公开视图保留原查询，不接受借 keyword 探测未发布内容。
+        var result = view == ProjectView.MANAGE
+                ? projectMapper.selectManagementPage(new Page<>(page, size),
+                        request.getStatus() == null || request.getStatus().isBlank()
+                                ? null : parseStatus(request.getStatus()).code(),
+                        request.getKeyword())
+                : projectMapper.selectPage(new Page<>(page, size), query);
         List<ProjectItemVo> items = projectViews(result.getRecords(), view);
         return new ViewPageVO<>(view.name(), page, size, result.getTotal(), items);
     }

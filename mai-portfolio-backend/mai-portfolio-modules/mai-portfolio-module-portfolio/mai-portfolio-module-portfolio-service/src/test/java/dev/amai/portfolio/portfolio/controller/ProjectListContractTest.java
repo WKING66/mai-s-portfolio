@@ -3,13 +3,13 @@ package dev.amai.portfolio.portfolio.controller;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-import dev.amai.portfolio.portfolio.service.ProjectService;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.ViewPageVO;
-import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectItemVo;
-import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
+import dev.amai.portfolio.portfolio.service.ProjectService;
 import dev.amai.portfolio.web.advice.GlobalExceptionHandler;
+import static org.assertj.core.api.Assertions.assertThat;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -27,7 +27,7 @@ class ProjectListContractTest {
     void inheritedPaginationBindsFlatParametersAndKeepsManageDefault() throws Exception {
         var projects = mock(ProjectService.class);
         when(projects.list(any())).thenAnswer(invocation -> {
-            ProjectListRequest request = invocation.getArgument(0);
+            ContentListRequest request = invocation.getArgument(0);
             assertThat(request.getView()).isEqualTo("MANAGE");
             assertThat(request.sizeOrDefault(20)).isEqualTo(20);
             return new ViewPageVO<ProjectItemVo>("MANAGE", request.getPage(),
