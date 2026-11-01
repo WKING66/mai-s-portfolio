@@ -90,25 +90,17 @@ public class ProjectServiceImpl implements ProjectService {
                 ? PageRequest.DEFAULT_SIZE : ProjectConstants.MANAGE_PAGE_SIZE;
         int size = request.sizeOrDefault(defaultSize);
 
-        // 2. 公开列表固定为已发布状态，管理列表才接受状态过滤。
-        var query = Wrappers.<ProjectDO>lambdaQuery();
-        if (view == ProjectView.PUBLIC) {
-            if (request.getStatus() != null || request.getKeyword() != null) {
-                throw invalid(ProjectMessageConstants.INVALID_QUERY);
-            }
-            query.eq(ProjectDO::getStatus, ProjectStatus.PUBLISHED.code());
+        // 公开搜索只缩小已发布项目范围；管理列表可选状态，搜索条件不会放宽公开权限。
+        if (view == ProjectView.PUBLIC && request.getStatus() != null) {
+            throw invalid("status 仅用于 MANAGE；公开列表固定返回已发布项目，请移除 status 参数");
         }
-        query.orderByDesc(ProjectDO::getIsFeatured)
-                .orderByAsc(ProjectDO::getSortOrder)
-                .orderByDesc(ProjectDO::getId);
-        // 3. 在同一只读快照内分页并批量装配关联，避免卡片逐条查询。
-        // 搜索在 SQL 分页前完成；公开视图保留原查询，不接受借 keyword 探测未发布内容。
-        var result = view == ProjectView.MANAGE
-                ? projectMapper.selectManagementPage(new Page<>(page, size),
-                        request.getStatus() == null || request.getStatus().isBlank()
-                                ? null : parseStatus(request.getStatus()).code(),
-                        request.getKeyword())
-                : projectMapper.selectPage(new Page<>(page, size), query);
+        Integer status = null;
+        if (view == ProjectView.PUBLIC) {
+            status = ProjectStatus.PUBLISHED.code();
+        } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            status = parseStatus(request.getStatus()).code();
+        }
+        var result = projectMapper.selectListPage(new Page<>(page, size), status, request.getKeyword());
         List<ProjectItemVo> items = projectViews(result.getRecords(), view);
         return new ViewPageVO<>(view.name(), page, size, result.getTotal(), items);
     }
@@ -443,7 +435,7 @@ public class ProjectServiceImpl implements ProjectService {
         try {
             return view == null ? ProjectView.PUBLIC : ProjectView.valueOf(view);
         } catch (IllegalArgumentException exception) {
-            throw invalid(ProjectMessageConstants.INVALID_QUERY);
+            throw invalid("view 仅支持 PUBLIC（公开列表）或 MANAGE（管理列表）");
         }
     }
 
@@ -451,7 +443,7 @@ public class ProjectServiceImpl implements ProjectService {
         try {
             return ProjectStatus.valueOf(status);
         } catch (IllegalArgumentException exception) {
-            throw invalid(ProjectMessageConstants.INVALID_QUERY);
+            throw invalid("status 仅支持 DRAFT（未发布）或 PUBLISHED（已发布）");
         }
     }
 

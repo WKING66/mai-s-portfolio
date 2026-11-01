@@ -35,15 +35,14 @@ class BlogSearchContractTest {
     }
 
     @Test
-    void oversizedAndDuplicateKeywordAreRejectedBeforeBusinessQuery() throws Exception {
+    void oversizedKeywordReportsItsFieldAndLimit() throws Exception {
         var service = mock(BlogService.class);
         var mvc = MockMvcBuilders.standaloneSetup(
                         new BlogController(service, mock(DocumentExportService.class), mock(DocumentImportTaskService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
         mvc.perform(get("/api/v1/blogs").param("keyword", "x".repeat(201)))
-                .andExpect(status().isUnprocessableEntity());
-        mvc.perform(get("/api/v1/blogs").param("keyword", "first", "second"))
-                .andExpect(status().isUnprocessableEntity());
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message").value("keyword: 搜索关键词不能超过 200 个字符"));
         verifyNoInteractions(service);
     }
 }

@@ -103,25 +103,23 @@ public class BlogServiceImpl implements BlogService {
         boolean manage = manage(request.getView() == null ? PUBLIC_VIEW : request.getView());
         int page = request.getPage();
         int size = request.sizeOrDefault();
-        var query = Wrappers.<BlogPostDO>lambdaQuery();
-        if (!manage) {
-            if (request.getStatus() != null || request.getKeyword() != null) {
-                throw invalid("状态或关键词筛选仅可用于管理列表");
-            }
-            query.eq(BlogPostDO::getStatus, PUBLISHED);
+        // 公开查询固定为已上架状态，只搜索正式正文；管理查询才按草稿优先选择标题。
+        // keyword 只是缩小各自可见范围，不承担权限判断，也不因此拒绝公开搜索。
+        if (!manage && request.getStatus() != null) {
+            throw invalid("status 仅用于 MANAGE；公开列表固定返回已上架文章，请移除 status 参数");
         }
-        query.orderByDesc(BlogPostDO::getPublishedAt).orderByDesc(BlogPostDO::getId);
-        // 管理搜索按“有草稿取草稿，否则取正文”在数据库选标题；不能先分页再在内存过滤。
-        Integer status = request.getStatus() == null || request.getStatus().isBlank() ? null
-                : switch (request.getStatus()) {
-                    case "DRAFT" -> DRAFT;
-                    case "PUBLISHED" -> PUBLISHED;
-                    default -> throw invalid("文章状态仅支持 DRAFT 或 PUBLISHED");
-                };
-        var result = manage
-                ? blogPostMapper.selectManagementPage(new Page<>(page, size), status,
-                        request.getKeyword(), ContentStage.DRAFT.code(), ContentStage.PUBLISHED.code())
-                : blogPostMapper.selectPage(new Page<BlogPostDO>(page, size), query);
+        Integer status = null;
+        if (!manage) {
+            status = PUBLISHED;
+        } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            status = switch (request.getStatus()) {
+                case "DRAFT" -> DRAFT;
+                case "PUBLISHED" -> PUBLISHED;
+                default -> throw invalid("status 仅支持 DRAFT（未上架）或 PUBLISHED（已上架）");
+            };
+        }
+        var result = blogPostMapper.selectListPage(new Page<>(page, size), status,
+                request.getKeyword(), manage, ContentStage.DRAFT.code(), ContentStage.PUBLISHED.code());
         var summaries = documentService.summaries(result.getRecords().stream()
                 .map(BlogPostDO::getDocumentId)
                 .collect(Collectors.toSet()), manage);
@@ -630,7 +628,7 @@ public class BlogServiceImpl implements BlogService {
         if (PUBLIC_VIEW.equals(view)) {
             return false;
         }
-        throw invalid("列表视图无效");
+        throw invalid("view 仅支持 PUBLIC（公开列表）或 MANAGE（管理列表）");
     }
 
     private String cleanSlug(String slug) {

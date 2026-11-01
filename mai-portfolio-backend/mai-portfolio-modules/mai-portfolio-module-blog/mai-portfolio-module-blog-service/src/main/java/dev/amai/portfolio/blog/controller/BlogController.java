@@ -16,14 +16,11 @@ import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
-import dev.amai.portfolio.web.exception.ApiErrorCode;
-import dev.amai.portfolio.web.exception.ApiException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -58,17 +55,9 @@ public class BlogController {
 
     @OwnerView
     @GetMapping
-    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，可按 status=DRAFT/PUBLISHED 和 keyword 筛选；keyword 最多200字符，按当前编辑标题或文章标识进行不区分大小写的字面子串搜索。")
+    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，可按 status=DRAFT/PUBLISHED 筛选；两种视图均可用 keyword 搜索；keyword 最多200字符，按当前编辑标题或文章标识进行不区分大小写的字面子串搜索。")
     public ResponseEntity<R<ViewPageVO<BlogCardVo>>> list(
-            @Valid @ParameterObject @ModelAttribute ContentListRequest input,
-            HttpServletRequest request) {
-        // 拒绝重复筛选参数，避免绑定时拼接/取舍多个值，使权限视图与实际查询不一致。
-        for (String name : List.of("view", "page", "size", "status", "keyword")) {
-            String[] values = request.getParameterValues(name);
-            if (values != null && values.length != 1) {
-                throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "列表查询参数不得重复");
-            }
-        }
+            @Valid @ParameterObject @ModelAttribute ContentListRequest input) {
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.noStore())
                 .body(R.success(blogService.list(input)));

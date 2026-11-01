@@ -14,8 +14,6 @@ import dev.amai.portfolio.portfolio.service.ProjectService;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
-import dev.amai.portfolio.web.exception.ApiErrorCode;
-import dev.amai.portfolio.web.exception.ApiException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -23,10 +21,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
-import java.util.List;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -55,23 +51,15 @@ public class ProjectController {
     @GetMapping
     @Operation(summary = "分页读取项目",
         description = "view 默认 PUBLIC，只返回已发布卡片。MANAGE 需要有效 OWNER Cookie，返回管理快照。"
-            + "page 默认 1；PUBLIC size 默认 12、MANAGE 默认 20，最大 50；status、keyword 仅用于 MANAGE；keyword 最多200字符，按标题或标识进行不区分大小写的字面子串搜索。")
+            + "page 默认 1；PUBLIC size 默认 12、MANAGE 默认 20，最大 50；status 仅用于 MANAGE；公开搜索只匹配已发布内容；keyword 最多200字符，按标题或标识进行不区分大小写的字面子串搜索。")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "按视图投影的项目分页"),
         @ApiResponse(responseCode = "401", description = "MANAGE 未登录"),
         @ApiResponse(responseCode = "403", description = "MANAGE 无站长权限、账号停用或传输不安全"),
-        @ApiResponse(responseCode = "422", description = "非法视图、重复参数、分页或状态")
+        @ApiResponse(responseCode = "422", description = "非法视图、分页、状态或超长关键词")
     })
     public ResponseEntity<R<ViewPageVO<ProjectItemVo>>> list(
-            @Valid @ParameterObject @ModelAttribute ContentListRequest input,
-            HttpServletRequest request) {
-        // 不接受重复参数，避免 MVC 将重复值静默绑定为某个视图。
-        for (String name : List.of("view", "page", "size", "status", "keyword")) {
-            String[] values = request.getParameterValues(name);
-            if (values != null && values.length != 1) {
-                throw new ApiException(ApiErrorCode.VALIDATION_FAILED, ProjectMessageConstants.INVALID_QUERY);
-            }
-        }
+            @Valid @ParameterObject @ModelAttribute ContentListRequest input) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(R.success(projectService.list(input)));
     }
 

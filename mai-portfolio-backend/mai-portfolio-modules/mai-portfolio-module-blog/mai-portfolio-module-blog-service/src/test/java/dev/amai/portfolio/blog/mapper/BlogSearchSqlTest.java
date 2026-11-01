@@ -21,9 +21,10 @@ class BlogSearchSqlTest {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("keyword", keyword);
         parameters.put("status", status);
+        parameters.put("manage", true);
         parameters.put("draftStage", 0);
         parameters.put("publishedStage", 1);
-        return configuration.getMappedStatement(BlogPostMapper.class.getName() + ".selectManagementPage")
+        return configuration.getMappedStatement(BlogPostMapper.class.getName() + ".selectListPage")
                 .getBoundSql(parameters).getSql().replaceAll("\\s+", " ");
     }
 

@@ -17,11 +17,11 @@
     </resultMap>
 
     <!-- 每个槽位由既有唯一键保证至多一行。草稿存在即采用其标题，不能用 COALESCE 回退旧正文。 -->
-    <select id="selectManagementPage" resultType="dev.amai.portfolio.blog.entity.domain.BlogPostDO">
+    <select id="selectListPage" resultType="dev.amai.portfolio.blog.entity.domain.BlogPostDO">
         SELECT b.* FROM blog_post b
         <if test="keyword != null">
             LEFT JOIN document_content draft
-                ON draft.document_id = b.document_id AND draft.stage = #{draftStage}
+                ON draft.document_id = b.document_id AND draft.stage = #{draftStage} AND #{manage}
             LEFT JOIN document_content published
                 ON published.document_id = b.document_id AND published.stage = #{publishedStage}
         </if>

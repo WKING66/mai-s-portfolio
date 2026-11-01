@@ -19,7 +19,7 @@ class ProjectSearchServiceTest {
     void managePassesNormalizedKeywordStatusAndPaginationToDatabase() {
         var input = new ContentListRequest("MANAGE", 2, 5, "PUBLISHED");
         input.setKeyword("  C++%_  ");
-        when(mapper.selectManagementPage(any(), eq(1), eq("C++%_")))
+        when(mapper.selectListPage(any(), eq(1), eq("C++%_")))
                 .thenAnswer(call -> ((Page<ProjectDO>) call.getArgument(0)).setTotal(17));
         var result = service.list(input);
         assertThat(result.getPage()).isEqualTo(2);
@@ -30,19 +30,20 @@ class ProjectSearchServiceTest {
 
     @Test
     void noSearchKeepsManageDefaultSize() {
-        when(mapper.selectManagementPage(any(), isNull(), isNull()))
+        when(mapper.selectListPage(any(), isNull(), isNull()))
                 .thenAnswer(call -> call.getArgument(0));
         assertThat(service.list(new ContentListRequest("MANAGE", 1, null, null)).getSize()).isEqualTo(20);
     }
 
     @Test
-    void publicCannotFilterPrivateContent() {
+    void publicSearchKeepsPublishedScopeAndRejectsStatusOverride() {
         var input = new ContentListRequest("PUBLIC", 1, 5, null);
         input.setKeyword("draft");
-        assertThatThrownBy(() -> service.list(input)).isInstanceOf(ApiException.class);
+        when(mapper.selectListPage(any(), eq(1), eq("draft"))).thenAnswer(call -> call.getArgument(0));
+        service.list(input);
+        verify(mapper).selectListPage(any(), eq(1), eq("draft"));
         assertThatThrownBy(() -> service.list(new ContentListRequest("PUBLIC", 1, 5, "DRAFT")))
-                .isInstanceOf(ApiException.class);
-        verifyNoInteractions(mapper);
+                .hasMessageContaining("status");
     }
 
     @Test

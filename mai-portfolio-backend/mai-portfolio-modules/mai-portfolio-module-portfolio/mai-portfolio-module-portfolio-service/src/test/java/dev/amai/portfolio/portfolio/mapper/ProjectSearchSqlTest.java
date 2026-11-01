@@ -21,7 +21,7 @@ class ProjectSearchSqlTest {
         var parameters = new HashMap<String, Object>();
         parameters.put("keyword", "x%'_\\");
         parameters.put("status", 0);
-        String query = configuration.getMappedStatement(ProjectMapper.class.getName() + ".selectManagementPage")
+        String query = configuration.getMappedStatement(ProjectMapper.class.getName() + ".selectListPage")
                 .getBoundSql(parameters).getSql().replaceAll("\\s+", " ");
         assertThat(query).contains("p.status = ?", "LOWER(p.title)", "LOWER(p.slug)", "LOWER(?)")
                 .doesNotContain("x%'_", " LIKE ")
