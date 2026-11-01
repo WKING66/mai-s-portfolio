@@ -8,6 +8,7 @@ import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetResourceData;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.asset.api.AssetUsage;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.PageRequest;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.portfolio.constant.ProjectConstants;
@@ -18,7 +19,6 @@ import dev.amai.portfolio.portfolio.entity.domain.ProjectLinkDO;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectMediaDO;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectTagDO;
 import dev.amai.portfolio.portfolio.entity.request.ProjectLinkRequest;
-import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectCoverVo;
@@ -82,29 +82,25 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public ViewPageVO<ProjectItemVo> list(ProjectListRequest request) {
+    public ViewPageVO<ProjectItemVo> list(ContentListRequest request) {
         // 1. 先确定查询视图；管理视图权限由 Controller 声明并在请求入口校验。
-        ProjectView view = parseView(request.getView());
+        ProjectView view = request.getView() == null ? ProjectView.PUBLIC : ProjectView.valueOf(request.getView());
         int page = request.getPage();
         int defaultSize = view == ProjectView.PUBLIC
                 ? PageRequest.DEFAULT_SIZE : ProjectConstants.MANAGE_PAGE_SIZE;
         int size = request.sizeOrDefault(defaultSize);
 
-        // 2. 公开列表固定为已发布状态，管理列表才接受状态过滤。
-        var query = Wrappers.<ProjectDO>lambdaQuery();
-        if (view == ProjectView.PUBLIC) {
-            if (request.getStatus() != null) {
-                throw invalid(ProjectMessageConstants.INVALID_QUERY);
-            }
-            query.eq(ProjectDO::getStatus, ProjectStatus.PUBLISHED.code());
-        } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            query.eq(ProjectDO::getStatus, parseStatus(request.getStatus()).code());
+        // 公开搜索只缩小已发布项目范围；管理列表可选状态，搜索条件不会放宽公开权限。
+        if (view == ProjectView.PUBLIC && request.getStatus() != null) {
+            throw invalid("status 仅用于 MANAGE；公开列表固定返回已发布项目，请移除 status 参数");
         }
-        query.orderByDesc(ProjectDO::getIsFeatured)
-                .orderByAsc(ProjectDO::getSortOrder)
-                .orderByDesc(ProjectDO::getId);
-        // 3. 在同一只读快照内分页并批量装配关联，避免卡片逐条查询。
-        var result = projectMapper.selectPage(new Page<>(page, size), query);
+        Integer status = null;
+        if (view == ProjectView.PUBLIC) {
+            status = ProjectStatus.PUBLISHED.code();
+        } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            status = ProjectStatus.valueOf(request.getStatus()).code();
+        }
+        var result = projectMapper.selectListPage(new Page<>(page, size), status, request.getKeyword());
         List<ProjectItemVo> items = projectViews(result.getRecords(), view);
         return new ViewPageVO<>(view.name(), page, size, result.getTotal(), items);
     }
@@ -433,22 +429,6 @@ public class ProjectServiceImpl implements ProjectService {
         project.setTimeLabel(clean(request.timeLabel()));
         project.setIsFeatured(Boolean.TRUE.equals(request.featured()) ? 1 : 0);
         project.setSortOrder(ObjectUtil.defaultIfNull(request.sortOrder(), ProjectConstants.INITIAL_SORT_ORDER));
-    }
-
-    private ProjectView parseView(String view) {
-        try {
-            return view == null ? ProjectView.PUBLIC : ProjectView.valueOf(view);
-        } catch (IllegalArgumentException exception) {
-            throw invalid(ProjectMessageConstants.INVALID_QUERY);
-        }
-    }
-
-    private ProjectStatus parseStatus(String status) {
-        try {
-            return ProjectStatus.valueOf(status);
-        } catch (IllegalArgumentException exception) {
-            throw invalid(ProjectMessageConstants.INVALID_QUERY);
-        }
     }
 
     private ProjectLinkType parseLinkType(String type) {

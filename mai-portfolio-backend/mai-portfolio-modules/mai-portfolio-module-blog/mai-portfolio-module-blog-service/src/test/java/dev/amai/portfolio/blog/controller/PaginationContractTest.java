@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.amai.portfolio.blog.service.BlogService;
 import dev.amai.portfolio.blog.service.DocumentExportService;
 import dev.amai.portfolio.blog.service.DocumentImportTaskService;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.PageRequest;
 import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.common.ViewPageVO;
@@ -21,8 +22,8 @@ class PaginationContractTest {
     @Test
     void defaultsAndFlatParametersKeepViewAndPageResponseFields() throws Exception {
         var blogs = mock(BlogService.class);
-        when(blogs.list(eq("PUBLIC"), any(PageRequest.class))).thenAnswer(invocation -> {
-            PageRequest page = invocation.getArgument(1);
+        when(blogs.list(any(ContentListRequest.class))).thenAnswer(invocation -> {
+            PageRequest page = invocation.getArgument(0);
             return new ViewPageVO<>("PUBLIC", page.getPage(), page.sizeOrDefault(), 1, List.of());
         });
         var tasks = mock(DocumentImportTaskService.class);

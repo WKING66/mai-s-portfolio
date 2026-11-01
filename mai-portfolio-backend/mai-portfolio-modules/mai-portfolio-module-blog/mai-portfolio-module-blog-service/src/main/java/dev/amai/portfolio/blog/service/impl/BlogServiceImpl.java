@@ -16,13 +16,13 @@ import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.*;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
 import dev.amai.portfolio.blog.service.*;
-import dev.amai.portfolio.common.PageRequest;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.validation.ValidationGroups;
-import jakarta.validation.Validator;
 import dev.amai.portfolio.web.exception.*;
+import jakarta.validation.Validator;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -99,16 +99,24 @@ public class BlogServiceImpl implements BlogService {
     /** 公开列表只展示已上架正文；管理列表优先展示草稿，方便站长继续编辑。 */
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
-    public ViewPageVO<BlogCardVo> list(String view, PageRequest pagination) {
-        boolean manage = manage(view);
-        int page = pagination.getPage();
-        int size = pagination.sizeOrDefault();
-        var query = Wrappers.<BlogPostDO>lambdaQuery();
-        if (!manage) {
-            query.eq(BlogPostDO::getStatus, PUBLISHED);
+    public ViewPageVO<BlogCardVo> list(ContentListRequest request) {
+        boolean manage = MANAGE_VIEW.equals(request.getView());
+        int page = request.getPage();
+        int size = request.sizeOrDefault();
+        // 公开查询固定为已上架状态，只搜索正式正文；管理查询才按草稿优先选择标题。
+        // keyword 只是缩小各自可见范围，不承担权限判断，也不因此拒绝公开搜索。
+        if (!manage && request.getStatus() != null) {
+            throw invalid("status 仅用于 MANAGE；公开列表固定返回已上架文章，请移除 status 参数");
         }
-        query.orderByDesc(BlogPostDO::getPublishedAt).orderByDesc(BlogPostDO::getId);
-        var result = blogPostMapper.selectPage(new Page<BlogPostDO>(page, size), query);
+        Integer status = null;
+        if (!manage) {
+            status = PUBLISHED;
+        } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
+            // 入口已校验枚举名称，这里只负责映射既有数据库状态码。
+            status = "DRAFT".equals(request.getStatus()) ? DRAFT : PUBLISHED;
+        }
+        var result = blogPostMapper.selectListPage(new Page<>(page, size), status,
+                request.getKeyword(), manage, ContentStage.DRAFT.code(), ContentStage.PUBLISHED.code());
         var summaries = documentService.summaries(result.getRecords().stream()
                 .map(BlogPostDO::getDocumentId)
                 .collect(Collectors.toSet()), manage);
@@ -617,7 +625,7 @@ public class BlogServiceImpl implements BlogService {
         if (PUBLIC_VIEW.equals(view)) {
             return false;
         }
-        throw invalid("列表视图无效");
+        throw invalid("view 仅支持 PUBLIC（公开列表）或 MANAGE（管理列表）");
     }
 
     private String cleanSlug(String slug) {

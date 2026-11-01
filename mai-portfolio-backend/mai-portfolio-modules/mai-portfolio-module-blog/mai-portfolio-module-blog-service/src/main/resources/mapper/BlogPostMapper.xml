@@ -16,6 +16,30 @@
         </association>
     </resultMap>
 
+    <!-- 每个槽位由既有唯一键保证至多一行。草稿存在即采用其标题，不能用 COALESCE 回退旧正文。 -->
+    <select id="selectListPage" resultType="dev.amai.portfolio.blog.entity.domain.BlogPostDO">
+        SELECT b.* FROM blog_post b
+        <if test="keyword != null">
+            LEFT JOIN document_content draft
+                ON draft.document_id = b.document_id AND draft.stage = #{draftStage} AND #{manage}
+            LEFT JOIN document_content published
+                ON published.document_id = b.document_id AND published.stage = #{publishedStage}
+        </if>
+        <where>
+            <if test="status != null">
+                b.status = #{status}
+            </if>
+            <if test="keyword != null">
+                AND (
+                    strpos(LOWER(CASE WHEN draft.id IS NOT NULL THEN draft.title ELSE published.title END),
+                            LOWER(#{keyword})) &gt; 0
+                    OR strpos(LOWER(b.slug), LOWER(#{keyword})) &gt; 0
+                )
+            </if>
+        </where>
+        ORDER BY b.published_at DESC, b.id DESC
+    </select>
+
     <select id="existsOtherSlug" resultType="boolean">
         SELECT EXISTS (
             SELECT 1 FROM blog_post

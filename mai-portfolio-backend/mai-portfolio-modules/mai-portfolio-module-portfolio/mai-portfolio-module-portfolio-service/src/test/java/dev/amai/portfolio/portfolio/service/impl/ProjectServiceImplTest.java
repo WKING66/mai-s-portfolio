@@ -6,17 +6,17 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
+import dev.amai.portfolio.asset.api.AssetQueryService;
+import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.portfolio.constant.ProjectMessageConstants;
 import dev.amai.portfolio.portfolio.entity.domain.ProjectDO;
 import dev.amai.portfolio.portfolio.entity.request.ProjectLinkRequest;
-import dev.amai.portfolio.portfolio.entity.request.ProjectListRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectRequest;
 import dev.amai.portfolio.portfolio.entity.request.ProjectVersionRequest;
 import dev.amai.portfolio.portfolio.mapper.ProjectLinkMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectMapper;
-import dev.amai.portfolio.portfolio.mapper.ProjectTagMapper;
 import dev.amai.portfolio.portfolio.mapper.ProjectMediaMapper;
-import dev.amai.portfolio.asset.api.AssetQueryService;
+import dev.amai.portfolio.portfolio.mapper.ProjectTagMapper;
 import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.api.TechTagOptionData;
 import dev.amai.portfolio.web.exception.ApiException;
@@ -50,16 +50,16 @@ class ProjectServiceImplTest {
     @ParameterizedTest
     @ValueSource(strings = {"manage", "INVALID", ""})
     void rejectsInvalidViewsBeforeQuery(String view) {
-        assertThatThrownBy(() -> service.list(new ProjectListRequest(view, 1, 12, null)))
+        assertThatThrownBy(() -> service.list(new ContentListRequest(view, 1, 12, null)))
             .isInstanceOf(ApiException.class).hasMessage(ProjectMessageConstants.INVALID_QUERY);
         verifyNoInteractions(projects, links, tags);
     }
 
     @Test
     void rejectsOversizeAndPublicStatusFilter() {
-        assertThatThrownBy(() -> service.list(new ProjectListRequest("PUBLIC", 1, 51, null)))
+        assertThatThrownBy(() -> service.list(new ContentListRequest("PUBLIC", 1, 51, null)))
             .isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> service.list(new ProjectListRequest("PUBLIC", 1, 3, "DRAFT")))
+        assertThatThrownBy(() -> service.list(new ContentListRequest("PUBLIC", 1, 3, "DRAFT")))
             .isInstanceOf(ApiException.class);
         verifyNoInteractions(projects, links, tags);
     }

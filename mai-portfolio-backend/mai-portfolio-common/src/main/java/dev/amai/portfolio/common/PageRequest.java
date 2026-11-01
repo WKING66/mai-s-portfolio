@@ -2,11 +2,15 @@ package dev.amai.portfolio.common;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import lombok.Getter;
+import lombok.Setter;
 
 /**
  * 所有列表共用页码、条数和校验。size 未填写时允许业务选择自己的既有默认值，
  * 例如项目管理列表每页 20 条；不能因统一分页而改变原有页面的读取数量。
  */
+@Getter
+@Setter
 public class PageRequest {
     public static final int FIRST_PAGE = 1;
 
@@ -29,22 +33,6 @@ public class PageRequest {
 
     public PageRequest(int page, Integer size) {
         this.page = page;
-        this.size = size;
-    }
-
-    public int getPage() {
-        return page;
-    }
-
-    public void setPage(int page) {
-        this.page = page;
-    }
-
-    public Integer getSize() {
-        return size;
-    }
-
-    public void setSize(Integer size) {
         this.size = size;
     }
 

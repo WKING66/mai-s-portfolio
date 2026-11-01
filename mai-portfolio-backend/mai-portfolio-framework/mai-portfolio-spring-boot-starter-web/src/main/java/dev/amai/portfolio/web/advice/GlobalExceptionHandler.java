@@ -42,7 +42,8 @@ public class GlobalExceptionHandler {
     ResponseEntity<R<Void>> handleValidation(MethodArgumentNotValidException exception) {
         return validationFailure(
                 exception.getBindingResult().getFieldErrors().stream()
-                        .map(field -> field.getField() + ": " + field.getDefaultMessage())
+                        .map(field -> field.getField() + ": " + (field.isBindingFailure()
+                                ? "参数类型不正确，请按接口要求填写" : field.getDefaultMessage()))
                         .toList());
     }
 
@@ -74,7 +75,7 @@ public class GlobalExceptionHandler {
                 .body(
                         R.failure(
                                 ApiErrorCode.VALIDATION_FAILED.name(),
-                                WebMessageConstants.VALIDATION_FAILED,
+                                details.isEmpty() ? WebMessageConstants.VALIDATION_FAILED : String.join("；", details),
                                 details.stream()
                                         .distinct()
                                         .sorted(Comparator.naturalOrder())
@@ -133,7 +134,7 @@ public class GlobalExceptionHandler {
                 .body(
                         R.failure(
                                 ApiErrorCode.MALFORMED_REQUEST.name(),
-                                WebMessageConstants.MALFORMED_PARAMETER,
+                                "参数 " + exception.getName() + " 格式不正确，请按接口要求提供正确类型",
                                 List.of()));
     }
 

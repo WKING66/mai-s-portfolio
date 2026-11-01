@@ -31,6 +31,6 @@ class SaTokenExceptionHandlerTest {
                 saTokenExceptionHandler.handleMissingRole(new NotRoleException("private-role"));
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
         assertThat(response.getBody())
-                .isEqualTo(R.failure("FORBIDDEN", "权限不足", java.util.List.of()));
+                .isEqualTo(R.failure("FORBIDDEN", "当前账号没有执行此操作的权限，请使用具备权限的账号登录", java.util.List.of()));
     }
 }
