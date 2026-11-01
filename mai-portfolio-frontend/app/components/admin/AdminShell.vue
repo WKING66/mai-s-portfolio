@@ -130,9 +130,9 @@ const activePage = computed(() => {
               :class="contained ? 'mb-3' : 'mb-8'"
             >
               <div class="max-w-2xl">
-                <p v-if="!contained" class="mb-2 text-xs text-muted">管理后台 / {{ title }}</p>
+                <p class="mb-2 text-xs text-muted">管理后台 / {{ title }}</p>
                 <h1 class="text-2xl font-semibold tracking-tight sm:text-3xl">{{ title }}</h1>
-                <p v-if="!contained" class="mt-3 text-sm leading-7 text-muted sm:text-base">
+                <p class="mt-3 text-sm leading-7 text-muted sm:text-base">
                   {{ description }}
                 </p>
               </div>
