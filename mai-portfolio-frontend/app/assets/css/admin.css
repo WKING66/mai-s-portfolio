@@ -29,9 +29,9 @@
   padding-top: 0;
 }
 @media (min-width: 1024px) {
-  /* 桌面默认约五行内容，不再随剩余页面空间继续拉长。 */
+  /* 以约五行作为初始尺寸，剩余空间给表格，分页保持在内容区底部。 */
   .admin-table-viewport {
-    flex: 0 1 22rem;
+    flex: 1 1 22rem;
   }
   .admin-desktop-list {
     display: flex;
