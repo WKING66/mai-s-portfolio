@@ -55,7 +55,7 @@ public class BlogController {
 
     @OwnerView
     @GetMapping
-    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，可按 status=DRAFT/PUBLISHED 筛选；两种视图均可用 keyword 搜索；keyword 最多200字符，按当前编辑标题或文章标识进行不区分大小写的字面子串搜索。")
+    @Operation(summary = "分页读取博客", description = "PUBLIC 默认读取正式正文；MANAGE 需要 OWNER，可按 status=DRAFT/PUBLISHED 筛选；两种视图均可用 keyword 搜索；keyword 最多50字符，按当前编辑标题或文章标识进行不区分大小写的字面子串搜索。")
     public ResponseEntity<R<ViewPageVO<BlogCardVo>>> list(
             @Valid @ParameterObject @ModelAttribute ContentListRequest input) {
         return ResponseEntity.ok()

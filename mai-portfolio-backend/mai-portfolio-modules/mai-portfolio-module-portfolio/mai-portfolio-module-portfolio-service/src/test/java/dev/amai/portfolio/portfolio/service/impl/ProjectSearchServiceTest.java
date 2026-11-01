@@ -46,10 +46,4 @@ class ProjectSearchServiceTest {
                 .hasMessageContaining("status");
     }
 
-    @Test
-    void invalidStatusIsRejectedBeforeDatabaseQuery() {
-        assertThatThrownBy(() -> service.list(new ContentListRequest("MANAGE", 1, 5, "unknown")))
-                .isInstanceOf(ApiException.class);
-        verifyNoInteractions(mapper);
-    }
 }

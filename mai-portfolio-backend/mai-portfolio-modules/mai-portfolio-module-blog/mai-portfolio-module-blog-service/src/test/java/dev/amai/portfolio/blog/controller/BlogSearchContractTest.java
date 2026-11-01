@@ -40,9 +40,23 @@ class BlogSearchContractTest {
         var mvc = MockMvcBuilders.standaloneSetup(
                         new BlogController(service, mock(DocumentExportService.class), mock(DocumentImportTaskService.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
-        mvc.perform(get("/api/v1/blogs").param("keyword", "x".repeat(201)))
+        mvc.perform(get("/api/v1/blogs").param("keyword", "x".repeat(51)))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(jsonPath("$.message").value("keyword: 搜索关键词不能超过 200 个字符"));
+                .andExpect(jsonPath("$.message").value("keyword: 搜索关键词不能超过 50 个字符"));
+        verifyNoInteractions(service);
+    }
+    @Test
+    void invalidViewAndStatusAreRejectedByDtoBeforeService() throws Exception {
+        var service = mock(BlogService.class);
+        var mvc = MockMvcBuilders.standaloneSetup(new BlogController(service,
+                        mock(DocumentExportService.class), mock(DocumentImportTaskService.class)))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
+        mvc.perform(get("/api/v1/blogs").param("view", "unknown"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message").value("view: view 仅支持 PUBLIC（公开列表）或 MANAGE（管理列表）"));
+        mvc.perform(get("/api/v1/blogs").param("view", "MANAGE").param("status", "unknown"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.message").value("status: status 仅支持 DRAFT（未发布）或 PUBLISHED（已发布）"));
         verifyNoInteractions(service);
     }
 }

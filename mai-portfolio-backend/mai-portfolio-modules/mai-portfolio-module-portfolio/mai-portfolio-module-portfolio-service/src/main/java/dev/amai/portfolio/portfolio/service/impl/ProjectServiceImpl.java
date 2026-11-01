@@ -84,7 +84,7 @@ public class ProjectServiceImpl implements ProjectService {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ViewPageVO<ProjectItemVo> list(ContentListRequest request) {
         // 1. 先确定查询视图；管理视图权限由 Controller 声明并在请求入口校验。
-        ProjectView view = parseView(request.getView());
+        ProjectView view = request.getView() == null ? ProjectView.PUBLIC : ProjectView.valueOf(request.getView());
         int page = request.getPage();
         int defaultSize = view == ProjectView.PUBLIC
                 ? PageRequest.DEFAULT_SIZE : ProjectConstants.MANAGE_PAGE_SIZE;
@@ -98,7 +98,7 @@ public class ProjectServiceImpl implements ProjectService {
         if (view == ProjectView.PUBLIC) {
             status = ProjectStatus.PUBLISHED.code();
         } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            status = parseStatus(request.getStatus()).code();
+            status = ProjectStatus.valueOf(request.getStatus()).code();
         }
         var result = projectMapper.selectListPage(new Page<>(page, size), status, request.getKeyword());
         List<ProjectItemVo> items = projectViews(result.getRecords(), view);
@@ -429,22 +429,6 @@ public class ProjectServiceImpl implements ProjectService {
         project.setTimeLabel(clean(request.timeLabel()));
         project.setIsFeatured(Boolean.TRUE.equals(request.featured()) ? 1 : 0);
         project.setSortOrder(ObjectUtil.defaultIfNull(request.sortOrder(), ProjectConstants.INITIAL_SORT_ORDER));
-    }
-
-    private ProjectView parseView(String view) {
-        try {
-            return view == null ? ProjectView.PUBLIC : ProjectView.valueOf(view);
-        } catch (IllegalArgumentException exception) {
-            throw invalid("view 仅支持 PUBLIC（公开列表）或 MANAGE（管理列表）");
-        }
-    }
-
-    private ProjectStatus parseStatus(String status) {
-        try {
-            return ProjectStatus.valueOf(status);
-        } catch (IllegalArgumentException exception) {
-            throw invalid("status 仅支持 DRAFT（未发布）或 PUBLISHED（已发布）");
-        }
     }
 
     private ProjectLinkType parseLinkType(String type) {

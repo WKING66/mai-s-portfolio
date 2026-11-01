@@ -100,7 +100,7 @@ public class BlogServiceImpl implements BlogService {
     @Override
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ViewPageVO<BlogCardVo> list(ContentListRequest request) {
-        boolean manage = manage(request.getView() == null ? PUBLIC_VIEW : request.getView());
+        boolean manage = MANAGE_VIEW.equals(request.getView());
         int page = request.getPage();
         int size = request.sizeOrDefault();
         // 公开查询固定为已上架状态，只搜索正式正文；管理查询才按草稿优先选择标题。
@@ -112,11 +112,8 @@ public class BlogServiceImpl implements BlogService {
         if (!manage) {
             status = PUBLISHED;
         } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            status = switch (request.getStatus()) {
-                case "DRAFT" -> DRAFT;
-                case "PUBLISHED" -> PUBLISHED;
-                default -> throw invalid("status 仅支持 DRAFT（未上架）或 PUBLISHED（已上架）");
-            };
+            // 入口已校验枚举名称，这里只负责映射既有数据库状态码。
+            status = "DRAFT".equals(request.getStatus()) ? DRAFT : PUBLISHED;
         }
         var result = blogPostMapper.selectListPage(new Page<>(page, size), status,
                 request.getKeyword(), manage, ContentStage.DRAFT.code(), ContentStage.PUBLISHED.code());

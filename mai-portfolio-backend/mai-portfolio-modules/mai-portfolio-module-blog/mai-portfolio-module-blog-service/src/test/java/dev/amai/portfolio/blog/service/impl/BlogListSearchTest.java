@@ -52,14 +52,6 @@ class BlogListSearchTest {
     }
 
     @Test
-    void unknownStatusIsRejectedBeforeQuerying() {
-        assertThatThrownBy(() -> service.list(new ContentListRequest("MANAGE", 1, 20, "unknown")))
-                .isInstanceOfSatisfying(ApiException.class,
-                        e -> assertThat(e.code()).isEqualTo(ApiErrorCode.VALIDATION_FAILED));
-        verifyNoInteractions(mapper, documents);
-    }
-
-    @Test
     void publicSearchKeepsPublishedScopeAndRejectsStatusOverride() {
         var input = new ContentListRequest("PUBLIC", 1, 5, null);
         input.setKeyword("draft");

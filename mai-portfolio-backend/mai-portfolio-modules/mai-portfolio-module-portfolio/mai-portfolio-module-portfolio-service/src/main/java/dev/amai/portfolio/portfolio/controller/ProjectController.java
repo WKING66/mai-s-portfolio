@@ -51,7 +51,7 @@ public class ProjectController {
     @GetMapping
     @Operation(summary = "分页读取项目",
         description = "view 默认 PUBLIC，只返回已发布卡片。MANAGE 需要有效 OWNER Cookie，返回管理快照。"
-            + "page 默认 1；PUBLIC size 默认 12、MANAGE 默认 20，最大 50；status 仅用于 MANAGE；公开搜索只匹配已发布内容；keyword 最多200字符，按标题或标识进行不区分大小写的字面子串搜索。")
+            + "page 默认 1；PUBLIC size 默认 12、MANAGE 默认 20，最大 50；status 仅用于 MANAGE；公开搜索只匹配已发布内容；keyword 最多50字符，按标题或标识进行不区分大小写的字面子串搜索。")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "按视图投影的项目分页"),
         @ApiResponse(responseCode = "401", description = "MANAGE 未登录"),
