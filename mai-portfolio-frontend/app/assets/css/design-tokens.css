@@ -1,7 +1,7 @@
 /* 全站语义 token，由 html 的主题状态统一选择。 */
 :root {
   color-scheme: light;
-  --site-bg: #f5f7f6;
+  --site-bg: #f5f2e9;
   --site-surface: #ffffff;
   --site-text: #1f2d2b;
   --site-muted: #596c69;
@@ -23,20 +23,20 @@
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --site-bg: #10191c;
-  --site-surface: #182326;
-  --site-text: #e5eeeb;
-  --site-muted: #a2b5b2;
-  --site-line: #35494b;
-  --site-accent: #82b8ad;
-  --site-accent-secondary: #82b8ad;
-  --site-primary-hover: #9ac4b8;
-  --site-inverted: #10191c;
-  --site-bg-muted: #1d2c30;
-  --site-bg-elevated: #243438;
-  --site-bg-accented: #2d4245;
-  --site-border-muted: #2d3d40;
-  --site-border-accented: #4c6868;
+  --site-bg: #101010;
+  --site-surface: #181818;
+  --site-text: #ededed;
+  --site-muted: #aaaaaa;
+  --site-line: #333333;
+  --site-accent: #b4c9bb;
+  --site-accent-secondary: #b4c9bb;
+  --site-primary-hover: #c5d5ca;
+  --site-inverted: #101010;
+  --site-bg-muted: #222222;
+  --site-bg-elevated: #252525;
+  --site-bg-accented: #2a2a2a;
+  --site-border-muted: #303030;
+  --site-border-accented: #505050;
   --site-success: #8dc6a5;
   --site-info: #99bde0;
   --site-warning: #dcc28b;

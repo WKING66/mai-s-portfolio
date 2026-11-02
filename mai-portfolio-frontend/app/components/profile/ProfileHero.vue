@@ -1,159 +1,168 @@
 <script setup lang="ts">
 import type { SiteProfileResponse } from '../../api/profile'
-import { SITE_MESSAGES } from '../../constants/messages'
-
+import { HOME_INTRO } from '../../constants/home'
 defineProps<{ profile: SiteProfileResponse }>()
 </script>
-
 <template>
-  <section id="about" class="py-12 md:py-16" aria-labelledby="profile-name">
-    <div class="min-w-0">
-      <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
-        <h1
-          id="profile-name"
-          class="m-0 text-[clamp(3rem,5vw,4.2rem)] leading-none font-bold tracking-[-.055em]"
-        >
-          {{ profile.displayName }}
-        </h1>
-        <span class="availability inline-flex items-center gap-2.5 rounded-full px-3 py-1.5 text-xs"
-          >关注 Java 后端与 AI 智能体开发</span
-        >
-        <img
-          v-if="profile.avatarUrl"
-          :src="profile.avatarUrl"
-          :alt="`${profile.displayName}的头像`"
-          class="size-12 rounded-full object-cover"
-        />
-      </div>
-      <p
-        class="hero-role mt-7 mb-5 text-[clamp(1.3rem,2.2vw,1.7rem)] font-medium tracking-[-.03em]"
-      >
-        {{ profile.headline }}
+  <section id="about" class="home-hero" aria-labelledby="profile-name">
+    <div>
+      <p class="home-eyebrow">A STUDENT, STILL LEARNING</p>
+      <h1 id="profile-name">
+        你好，我是{{ profile.displayName }}。<br />在学习，也在<em>做东西。</em>
+      </h1>
+      <p class="hero-copy">
+        <strong>{{ HOME_INTRO }}</strong
+        ><br />这里放着我写过的笔记、动手做的小项目，以及学习过程中留下的问题和思考。欢迎从这些小小的积累认识我。
       </p>
-      <p
-        class="max-w-[760px] whitespace-pre-line text-[clamp(1rem,1.4vw,1.1rem)] leading-[1.85] text-muted"
-      >
-        {{ profile.intro }}
-      </p>
-      <div class="mt-6 flex flex-wrap gap-3" aria-label="简历与联系方式">
-        <a v-if="profile.resumeUrl" class="hero-shortcut resume" :href="profile.resumeUrl">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 2h9l5 5v6M5 2v20h8M14 2v5h5M16 18l2 2 4-4" /></svg
-          >Resume
-        </a>
-        <span
-          v-else
-          class="hero-shortcut resume unavailable"
-          aria-disabled="true"
-          :title="SITE_MESSAGES.resumeUnavailable"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 2h9l5 5v6M5 2v20h8M14 2v5h5M16 18l2 2 4-4" /></svg
-          >Resume
-        </span>
-        <a
+      <div class="hero-actions">
+        <a href="#projects" class="hero-primary">看看我在做什么</a
+        ><a
           v-if="profile.githubUrl"
-          class="hero-shortcut"
           :href="profile.githubUrl"
           target="_blank"
           rel="noopener noreferrer"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path
-              d="M9 19c-4 1-4-2-6-2m12 4v-3a3 3 0 0 0-.8-2.3c2.7-.3 5.6-1.3 5.6-6A4.7 4.7 0 0 0 18.5 6 4.3 4.3 0 0 0 18.4 3S17.3 2.7 15 4.2a12 12 0 0 0-6 0C6.7 2.7 5.6 3 5.6 3A4.3 4.3 0 0 0 5.5 6a4.7 4.7 0 0 0-1.3 3.7c0 4.7 2.9 5.7 5.6 6A3 3 0 0 0 9 18v3"
-            /></svg
-          >GitHub
-        </a>
-        <a v-if="profile.email" class="hero-shortcut" :href="`mailto:${profile.email}`">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <rect x="2.5" y="5" width="19" height="14" rx="2" />
-            <path d="m3 7 9 7 9-7" /></svg
-          >Email
-        </a>
-      </div>
-      <div class="mt-5 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
-        <a class="underline decoration-accent underline-offset-4 hover:text-accent" href="#projects"
-          >查看项目 →</a
-        >
-        <a class="underline decoration-accent underline-offset-4 hover:text-accent" href="#blog"
-          >阅读博客 →</a
+          >在 GitHub 找到我 ↗</a
         >
       </div>
     </div>
-    <SiteTechStack :items="profile.techStack" />
+    <aside class="profile-note">
+      <img
+        :src="profile.avatarUrl || '/images/home/avatar.jpg'"
+        :alt="profile.displayName + '的头像'"
+        width="130"
+        height="130"
+      />
+      <p class="profile-name">{{ profile.displayName }}</p>
+      <p class="profile-caption">写一点代码，记一些笔记。<br />屏幕之外，也会弹电吉他。</p>
+    </aside>
   </section>
 </template>
-
 <style scoped>
-.hero-role {
+.home-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 60px;
+  align-items: center;
+  padding: 64px 0 48px;
+}
+.home-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.5px;
   color: var(--site-accent);
 }
-.availability {
-  border: 1px solid color-mix(in srgb, var(--site-accent-secondary) 50%, transparent);
-  background: color-mix(in srgb, var(--site-accent-secondary) 10%, transparent);
+h1 {
+  font-size: clamp(40px, 4.6vw, 66px);
+  line-height: 1.25;
+  font-weight: 750;
+  letter-spacing: -2.5px;
+  margin: 21px 0 22px;
 }
-.availability::before {
-  content: '';
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--site-accent-secondary);
+h1 em {
+  font-style: normal;
+  color: var(--site-accent);
 }
-.hero-shortcut {
-  min-height: 40px;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 0 13px;
-  border: 1px solid color-mix(in srgb, var(--site-accent) 48%, var(--site-line));
-  border-radius: var(--site-radius);
-  background: var(--site-surface);
+.hero-copy {
+  font-size: 15px;
+  color: var(--site-muted);
+  line-height: 2;
+  max-width: 620px;
+}
+.hero-copy strong {
   color: var(--site-text);
-  text-decoration: none;
-  font-size: 0.9rem;
   font-weight: 600;
-  transition:
-    background-color 0.2s,
-    border-color 0.2s;
 }
-a.hero-shortcut:hover {
-  border-color: var(--site-accent);
-  background: var(--site-bg-muted);
+.hero-actions {
+  display: flex;
+  gap: 25px;
+  align-items: center;
+  margin-top: 27px;
+  font-size: 13px;
 }
-.hero-shortcut.resume {
-  border-color: transparent;
+.hero-primary {
+  padding: 11px 22px;
+  border-radius: 28px;
   background: var(--site-accent);
   color: var(--site-inverted);
+  font-weight: 600;
 }
-a.hero-shortcut.resume:hover {
-  background: var(--site-primary-hover);
+.profile-note {
+  background: var(--site-bg-muted);
+  border: 1px solid var(--site-line);
+  border-radius: 100px 100px 12px 12px;
+  padding: 30px;
+  text-align: center;
+  transform: rotate(2deg);
+  transition: transform 0.3s;
 }
-.hero-shortcut.unavailable {
-  opacity: 0.72;
-  cursor: not-allowed;
+.profile-note:hover {
+  transform: rotate(0) translateY(-3px);
 }
-.hero-shortcut svg {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+.profile-note img {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 auto 20px;
 }
-@media (max-width: 520px) {
-  .hero-shortcut {
-    padding-inline: 11px;
-    font-size: 0.9rem;
+.profile-name {
+  font-size: 22px;
+  font-weight: 650;
+}
+.profile-caption {
+  font-size: 12px;
+  color: var(--site-muted);
+  margin-top: 12px;
+  line-height: 1.9;
+}
+@media (max-width: 800px) {
+  .home-hero {
+    gap: 30px;
+    grid-template-columns: 1fr 200px;
+  }
+  .profile-note {
+    padding: 24px;
+  }
+}
+@media (max-width: 600px) {
+  .home-hero {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: stretch;
+    padding: 30px 0;
+    gap: 24px;
+  }
+  .profile-note {
+    transform: none;
+    border: 0;
+    background: none;
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    padding: 0;
+    text-align: left;
+  }
+  .profile-note img {
+    width: 66px;
+    height: 66px;
+    margin: 0;
+  }
+  .profile-caption {
+    display: none;
+  }
+  h1 {
+    font-size: 32px;
+    letter-spacing: -1.3px;
+  }
+  .hero-copy {
+    font-size: 14px;
+  }
+  .hero-actions {
+    gap: 18px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-shortcut {
+  .profile-note {
     transition: none;
-  }
-  a.hero-shortcut:hover {
-    transform: none;
   }
 }
 </style>
