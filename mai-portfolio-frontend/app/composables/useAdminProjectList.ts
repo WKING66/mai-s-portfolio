@@ -1,6 +1,11 @@
 import { computed, ref } from 'vue'
 import { useProjectApi, type ProjectEditor, type ProjectPage } from '../api/projects'
-import { ADMIN_PROJECT_STATUS, type AdminProjectFilter } from '../constants/admin'
+import {
+  ADMIN_DEFAULT_PAGE_SIZE,
+  ADMIN_PAGE_SIZES,
+  ADMIN_PROJECT_STATUS,
+  type AdminStatusFilter,
+} from '../constants/admin'
 import { PROJECT_MESSAGES } from '../constants/projects'
 import { useFeedback } from './useFeedback'
 
@@ -10,8 +15,13 @@ export function useAdminProjectList() {
   const feedback = useFeedback()
   const projectPage = ref<ProjectPage<ProjectEditor> | null>(null)
   const requestedPage = ref(1)
-  const statusFilter = ref<AdminProjectFilter>('ALL')
+  const pageSize = ref(ADMIN_DEFAULT_PAGE_SIZE)
+  const keyword = ref('')
+  const appliedKeyword = ref('')
+  const statusFilter = ref<AdminStatusFilter>('ALL')
+  const appliedFilter = ref<AdminStatusFilter>('ALL')
   const isPending = ref(false)
+  const errorMessage = ref('')
   const changingProjectId = ref<number | null>(null)
   const canGoToPreviousPage = computed(() => !!projectPage.value && projectPage.value.page > 1)
   const canGoToNextPage = computed(
@@ -20,35 +30,35 @@ export function useAdminProjectList() {
       projectPage.value.page * projectPage.value.size < projectPage.value.total,
   )
 
-  async function load(
-    nextPage = requestedPage.value,
-    nextFilter = statusFilter.value,
-    force = false,
-  ) {
-    // 1. 在途操作互斥；先记录本次筛选和页码，不把旧列表展示为新结果。
+  async function load(nextPage = requestedPage.value, force = false) {
+    // 在途请求保留旧行并由界面遮罩，成功后原位替换；失败时清空并展示错误。
     if (isPending.value) {
       return
     }
     isPending.value = true
     requestedPage.value = nextPage
-    statusFilter.value = nextFilter
-    projectPage.value = null
+    errorMessage.value = ''
     try {
       // 2. 查询成功才设置当前结果，失败保留目标页码以便重试。
-      const status = nextFilter === 'ALL' ? '' : nextFilter
-      projectPage.value = await (force
-        ? getManagedProjects(nextPage, status, true)
-        : getManagedProjects(nextPage, status))
+      const query = {
+        page: nextPage,
+        size: pageSize.value,
+        keyword: appliedKeyword.value,
+        ...(appliedFilter.value === 'ALL' ? {} : { status: appliedFilter.value }),
+      }
+      projectPage.value = await getManagedProjects(query, force)
     } catch (error) {
+      projectPage.value = null
+      errorMessage.value = error instanceof Error ? error.message : PROJECT_MESSAGES.loadFailed
       feedback.error(error, PROJECT_MESSAGES.loadFailed)
     } finally {
       isPending.value = false
     }
   }
 
-  async function transition(project: ProjectEditor) {
+  async function transition(project: ProjectEditor): Promise<boolean> {
     if (isPending.value) {
-      return
+      return false
     }
     // 1. 根据当前发布状态选择操作，并锁定本次变更的项目。
     const shouldPublish = project.status === ADMIN_PROJECT_STATUS.DRAFT
@@ -61,13 +71,14 @@ export function useAdminProjectList() {
     } catch (error) {
       // 冲突或校验失败保留原列表，允许重新读取，不自动重试写入。
       feedback.error(error, PROJECT_MESSAGES.saveFailed)
-      return
+      return false
     } finally {
       isPending.value = false
       changingProjectId.value = null
     }
     // 3. 写入成功且互斥锁释放后重新读取列表；失败分支提前返回。
     await load()
+    return true
   }
 
   async function changePage(nextPage: number) {
@@ -86,20 +97,46 @@ export function useAdminProjectList() {
     await load(nextPage)
   }
 
-  async function changeFilter(nextFilter: AdminProjectFilter) {
+  async function search() {
     if (isPending.value) {
       return
     }
-    await load(1, nextFilter)
+    keyword.value = keyword.value.trim()
+    appliedKeyword.value = keyword.value
+    appliedFilter.value = statusFilter.value
+    await load(1, true)
   }
-
+  function changeFilter(nextFilter: AdminStatusFilter) {
+    if (!isPending.value) {
+      statusFilter.value = nextFilter
+    }
+  }
+  function clear() {
+    if (!isPending.value) {
+      keyword.value = ''
+      statusFilter.value = 'ALL'
+    }
+  }
+  async function changeSize(size: number) {
+    if (isPending.value || !ADMIN_PAGE_SIZES.some((value) => value === size)) {
+      return
+    }
+    pageSize.value = size
+    await load(1)
+  }
   function reload() {
-    return load(requestedPage.value, statusFilter.value, true)
+    return load(requestedPage.value, true)
   }
 
   return {
     result: projectPage,
+    error: errorMessage,
     filter: statusFilter,
+    keyword,
+    search,
+    clear,
+    pageSize,
+    changeSize,
     pending: isPending,
     changingProjectId,
     canPrevious: canGoToPreviousPage,

@@ -30,6 +30,10 @@ onBeforeUnmount(() => {
 
 // 登录/注册页自行恢复会话，其余页面共用这一次查询；NuxtLink 跳转不重置权限状态。
 const props = withDefaults(defineProps<{ restoreSession?: boolean }>(), { restoreSession: true })
+const headerRoute = useRoute()
+const adminRoute = computed(
+  () => headerRoute.path.startsWith('/admin/') && !headerRoute.meta.immersiveWorkbench,
+)
 const authState = useAuthState()
 const feedback = useFeedback()
 const { activeSection, mobileOpen, selectSection } = useSiteNavigation()
@@ -57,6 +61,7 @@ onMounted(() => {
   <header ref="header" class="site-header sticky top-0 z-30 border-b border-line">
     <div
       class="site-container flex min-h-18 flex-wrap items-center justify-between gap-3 py-3 sm:gap-5"
+      :class="{ 'admin-header-container': adminRoute }"
     >
       <NuxtLink
         class="flex shrink-0 items-center gap-2.5 whitespace-nowrap font-extrabold tracking-tight no-underline"
@@ -69,11 +74,15 @@ onMounted(() => {
         >
           M
         </span>
-        <span class="hidden sm:inline">阿霾 · 个人作品集</span><span class="sm:hidden">阿霾</span>
+        <span v-if="adminRoute">管理后台</span
+        ><template v-else
+          ><span class="hidden sm:inline">阿霾 · 个人作品集</span
+          ><span class="sm:hidden">阿霾</span></template
+        >
       </NuxtLink>
       <nav class="flex min-w-0 flex-wrap items-center gap-2 sm:gap-4" aria-label="主导航">
         <NuxtLink
-          v-for="item in SITE_NAVIGATION"
+          v-for="item in adminRoute ? [] : SITE_NAVIGATION"
           :key="item.id"
           :to="item.href"
           :aria-current="activeSection === item.id ? 'location' : undefined"
@@ -86,6 +95,15 @@ onMounted(() => {
         >
           {{ item.label }}
         </NuxtLink>
+        <UButton
+          v-if="adminRoute"
+          to="/"
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-external-link"
+          class="hidden sm:inline-flex"
+          >公开站点</UButton
+        >
         <AccountMenu />
         <UButton
           class="theme-toggle"
@@ -98,6 +116,7 @@ onMounted(() => {
         />
         <!-- Reka/Nuxt UI 管理焦点、方向键、Escape 和点击外部关闭，不自行实现菜单键盘协议。 -->
         <UDropdownMenu
+          v-if="!adminRoute"
           v-model:open="mobileOpen"
           :modal="false"
           :items="mobileItems"
@@ -120,6 +139,9 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.admin-header-container {
+  max-width: none;
+}
 .site-header {
   background: var(--site-bg);
 }

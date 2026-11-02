@@ -2,6 +2,7 @@
 @import '@nuxt/ui';
 @import 'katex/dist/katex.min.css';
 @import './design-tokens.css';
+@import './admin.css';
 @import './blog-code.css';
 @import './blog-reading.css';
 
@@ -77,13 +78,6 @@
     font-weight: 600;
     letter-spacing: -0.025em;
   }
-  .admin-content-layout {
-    display: grid;
-    grid-auto-columns: minmax(0, 1fr);
-    min-width: 0;
-    align-items: start;
-    gap: 1.5rem;
-  }
   .eyebrow {
     color: var(--site-accent);
     font: 600 0.6875rem var(--font-mono);
@@ -99,11 +93,6 @@
 }
 :is(button, a).bg-primary:where(:hover, :active):not(:disabled):not([aria-disabled='true']) {
   background-color: var(--site-primary-hover);
-}
-@media (min-width: 1280px) {
-  .admin-content-layout {
-    grid-template-columns: minmax(0, 1fr) 18rem;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,

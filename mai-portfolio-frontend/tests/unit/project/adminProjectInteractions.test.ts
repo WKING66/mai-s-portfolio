@@ -45,7 +45,7 @@ const project: ProjectEditor = {
   updatedAt: '2026-10-06T01:00:00.123456',
 }
 function page(current = 1, total = 21): ProjectPage<ProjectEditor> {
-  return { view: 'MANAGE', page: current, size: 20, total, items: [{ ...project }] }
+  return { view: 'MANAGE', page: current, size: 10, total, items: [{ ...project }] }
 }
 
 beforeEach(() => {
@@ -76,7 +76,10 @@ describe('managed project list interactions', () => {
     expect(list.pending.value).toBe(false)
     api.getManagedProjects.mockResolvedValueOnce(page(2))
     await list.load()
-    expect(api.getManagedProjects).toHaveBeenLastCalledWith(2, '')
+    expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+      { page: 2, size: 10, keyword: '' },
+      false,
+    )
     expect(list.result.value?.page).toBe(2)
     expect(feedback.error).toHaveBeenCalledOnce()
   })
@@ -106,7 +109,11 @@ describe('managed project list interactions', () => {
     await list.load(2)
     api.getManagedProjects.mockResolvedValueOnce(page(1, 1))
     await list.changeFilter(ADMIN_PROJECT_STATUS.DRAFT)
-    expect(api.getManagedProjects).toHaveBeenLastCalledWith(1, ADMIN_PROJECT_STATUS.DRAFT)
+    await list.search()
+    expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+      { page: 1, size: 10, keyword: '', status: ADMIN_PROJECT_STATUS.DRAFT },
+      true,
+    )
     expect(list.canPrevious.value).toBe(false)
     expect(list.canNext.value).toBe(false)
     await list.changePage(2)
@@ -121,7 +128,10 @@ describe('managed project list interactions', () => {
     expect(list.canPrevious.value).toBe(true)
     expect(list.canNext.value).toBe(false)
     await list.changePage(4)
-    expect(api.getManagedProjects).toHaveBeenLastCalledWith(4, '')
+    expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+      { page: 4, size: 10, keyword: '' },
+      false,
+    )
   })
 
   it('preserves a genuine empty result without turning an API failure into empty success', async () => {
@@ -303,6 +313,7 @@ describe('project editor interactions', () => {
     expect(api.saveProject).toHaveBeenCalledTimes(1)
     finish?.(project)
     expect(await saving).toBe(project.id)
+    editor.form.title = '后续编辑'
     await editor.save()
     expect(api.saveProject).toHaveBeenLastCalledWith(
       project.id,
@@ -370,4 +381,105 @@ it('starts tags before detail in parallel and enables editing only after both re
   expect(editor.loaded.value).toBe(true)
   expect(editor.pending.value).toBe(false)
   expect(editor.form.version).toBe(project.version)
+})
+
+it('does not save an unchanged existing project', async () => {
+  const editor = useProjectEditor(project.id)
+  await editor.load()
+  expect(await editor.save()).toBe(project.id)
+  expect(api.saveProject).not.toHaveBeenCalled()
+})
+
+it('changes project page size without losing its status filter', async () => {
+  const list = useAdminProjectList()
+  await list.changeFilter(ADMIN_PROJECT_STATUS.PUBLISHED)
+  await list.search()
+  await list.changeSize(10)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 10, keyword: '', status: ADMIN_PROJECT_STATUS.PUBLISHED },
+    false,
+  )
+  expect(list.pageSize.value).toBe(10)
+  await list.reload()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 10, keyword: '', status: ADMIN_PROJECT_STATUS.PUBLISHED },
+    true,
+  )
+  await list.changeSize(50)
+  expect(list.pageSize.value).toBe(10)
+})
+
+it('searches the complete managed query and clears without losing page size', async () => {
+  const list = useAdminProjectList()
+  list.keyword.value = '  Vue  '
+  expect(api.getManagedProjects).not.toHaveBeenCalled()
+  await list.search()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 10, keyword: 'Vue' },
+    true,
+  )
+  list.keyword.value = 'unsubmitted'
+  await list.changePage(2)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 2, size: 10, keyword: 'Vue' },
+    false,
+  )
+  await list.changeFilter('DRAFT')
+  await list.search()
+  await list.changeSize(10)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 1, size: 10, keyword: 'unsubmitted', status: 'DRAFT' },
+    false,
+  )
+  await list.clear()
+  await list.search()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith({ page: 1, size: 10, keyword: '' }, true)
+})
+
+it('keeps changed filters and cleared inputs local until querying', async () => {
+  const list = useAdminProjectList()
+  await list.load()
+  await list.changeFilter('PUBLISHED')
+  list.keyword.value = 'algorithm'
+  expect(api.getManagedProjects).toHaveBeenCalledTimes(1)
+  await list.clear()
+  expect(api.getManagedProjects).toHaveBeenCalledTimes(1)
+})
+
+it('uses applied project filters when paging or reloading after form changes', async () => {
+  const list = useAdminProjectList()
+  list.changeFilter('PUBLISHED')
+  await list.search()
+  list.changeFilter('DRAFT')
+  list.keyword.value = 'unsubmitted'
+  await list.changePage(2)
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 2, size: 10, keyword: '', status: 'PUBLISHED' },
+    false,
+  )
+  list.clear()
+  await list.reload()
+  expect(api.getManagedProjects).toHaveBeenLastCalledWith(
+    { page: 2, size: 10, keyword: '', status: 'PUBLISHED' },
+    true,
+  )
+})
+
+it('keeps the displayed rows while a new page is loading', async () => {
+  const list = useAdminProjectList()
+  await list.load()
+  const snapshot = list.result.value
+  let finish!: (value: ProjectPage<ProjectEditor>) => void
+  api.getManagedProjects.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve
+      }),
+  )
+  const loading = list.load(2)
+  expect(list.pending.value).toBe(true)
+  expect(list.result.value).toBe(snapshot)
+  finish(page())
+  await loading
+  expect(list.pending.value).toBe(false)
 })

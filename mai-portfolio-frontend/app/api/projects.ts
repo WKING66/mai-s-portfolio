@@ -51,6 +51,12 @@ export interface ProjectPage<T> {
   total: number
   items: T[]
 }
+export interface ProjectManageQuery {
+  page?: number
+  size?: number
+  keyword?: string
+  status?: ProjectEditor['status']
+}
 export interface ProjectInput {
   version?: number
   slug: string
@@ -137,15 +143,25 @@ export function useProjectApi() {
     }
     return requestResult
   }
-  function getManagedProjects(page = 1, status = '', force = false) {
+  function getManagedProjects(
+    { page = 1, size = 20, status, keyword = '' }: ProjectManageQuery = {},
+    force = false,
+  ) {
+    const term = keyword.trim()
     const fetcher = () =>
       projectRequest<ProjectPage<ProjectEditor>>(PROJECT_PATH, {
-        query: { view: 'MANAGE', page, size: 20, ...(status ? { status } : {}) },
+        query: {
+          view: 'MANAGE',
+          page,
+          size,
+          ...(status ? { status } : {}),
+          ...(term ? { keyword: term } : {}),
+        },
       })
     if (!authState.canAccess(AUTH_ACCESS.OWNER)) {
       return fetcher()
     }
-    return managementStore.getList(page + ':' + status, fetcher, force)
+    return managementStore.getList(JSON.stringify([page, size, status ?? '', term]), fetcher, force)
   }
   function getProject(id: number, force = false) {
     const fetcher = () => projectRequest<ProjectEditor>(PROJECT_PATH + '/' + id)

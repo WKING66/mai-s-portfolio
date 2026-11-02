@@ -36,6 +36,7 @@ export function useProjectEditor(projectId?: number) {
   const projectStatus = ref<ProjectEditor['status']>(ADMIN_PROJECT_STATUS.DRAFT)
   const wasPreviouslyPublished = ref(false)
   const isLoaded = ref(false)
+  const errorMessage = ref('')
   const activeOperation = ref<'load' | 'save' | 'publish' | 'unpublish' | 'upload' | null>(null)
   const isPending = computed(() => activeOperation.value !== null)
   const savedFormSnapshot = ref('')
@@ -74,6 +75,7 @@ export function useProjectEditor(projectId?: number) {
     }
     // 1. 设置互斥状态；两项只读请求都成功后才启用编辑。
     activeOperation.value = 'load'
+    errorMessage.value = ''
     try {
       // 初次失败同样允许重试；两个只读请求完成后才启用编辑器。
       const currentProjectId = savedProjectId.value
@@ -97,6 +99,7 @@ export function useProjectEditor(projectId?: number) {
       // 3. 响应完整后记录干净快照；失败仍保留输入，finally 释放操作锁。
       isLoaded.value = true
     } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : PROJECT_MESSAGES.loadFailed
       feedback.error(error, PROJECT_MESSAGES.loadFailed)
     } finally {
       activeOperation.value = null
@@ -107,6 +110,10 @@ export function useProjectEditor(projectId?: number) {
     if (!canEditProject.value) {
       return null
     }
+    if (savedProjectId.value !== null && !hasUnsavedChanges.value) {
+      return savedProjectId.value
+    }
+    errorMessage.value = ''
     // 1. 仅已加载且空闲时保存；保留现有版本和全部未保存字段。
     activeOperation.value = 'save'
     try {
@@ -122,6 +129,7 @@ export function useProjectEditor(projectId?: number) {
       feedback.success(PROJECT_MESSAGES.saved)
       return project.id
     } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : PROJECT_MESSAGES.saveFailed
       feedback.error(error, PROJECT_MESSAGES.saveFailed)
       return null
     } finally {
@@ -136,23 +144,28 @@ export function useProjectEditor(projectId?: number) {
     await load(true)
   }
 
-  async function transition(publish: boolean) {
+  async function transition(publish: boolean): Promise<boolean> {
     // 1. 发布/下架只能针对已保存内容；此限制不代替 OWNER 鉴权。
     if (
       !canEditProject.value ||
       hasUnsavedChanges.value ||
-      !projectId ||
+      !savedProjectId.value ||
       projectForm.version === undefined
     ) {
-      return
+      return false
     }
     activeOperation.value = publish ? 'publish' : 'unpublish'
     try {
       // 2. 使用已保存版本执行状态变更，成功后才应用新快照。
-      applyProjectSnapshot(await changeProjectStatus(projectId, projectForm.version, publish))
+      applyProjectSnapshot(
+        await changeProjectStatus(savedProjectId.value, projectForm.version, publish),
+      )
       feedback.success(publish ? PROJECT_MESSAGES.published : PROJECT_MESSAGES.unpublished)
+      return true
     } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : PROJECT_MESSAGES.saveFailed
       feedback.error(error, PROJECT_MESSAGES.saveFailed)
+      return false
     } finally {
       activeOperation.value = null
     }
@@ -250,6 +263,7 @@ export function useProjectEditor(projectId?: number) {
 
   return {
     form: projectForm,
+    error: errorMessage,
     tags: projectTags,
     status: projectStatus,
     previouslyPublished: wasPreviouslyPublished,

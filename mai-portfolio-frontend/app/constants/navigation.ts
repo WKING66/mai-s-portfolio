@@ -14,7 +14,7 @@ export const ACCOUNT_MENU_MESSAGES = {
   verifying: '正在恢复账户…',
   login: '登录',
   personalCenter: '个人中心',
-  manageProjects: '管理项目',
+  manageProjects: '管理后台',
   logout: '退出登录',
   loggingOut: '正在退出…',
   logoutFailed: '退出登录失败，请重试。',
