@@ -1,9 +1,9 @@
 /** 公开栏目与账户菜单统一使用这些文案和链接，不依赖用户名推断权限。 */
 export const SITE_NAVIGATION = [
   { id: 'about', href: '/#about', label: '关于我' },
-  { id: 'stack', href: '/#stack', label: '技术栈' },
   { id: 'projects', href: '/#projects', label: '项目' },
   { id: 'blog', href: '/#blog', label: '博客' },
+  { id: 'stack', href: '/#stack', label: '技术栈' },
   { id: 'contact', href: '/#contact', label: '联系' },
 ] as const
 

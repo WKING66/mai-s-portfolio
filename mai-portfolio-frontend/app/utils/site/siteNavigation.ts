@@ -25,11 +25,13 @@ export function visibleSection(
   if (!sectionPositions.length) {
     return null
   }
+  // 首页装配可以调整栏目顺序；几何位置才是滚动高亮的依据，且不修改调用方数组。
+  const orderedSections = [...sectionPositions].sort((a, b) => a.top - b.top)
   if (isAtPageBottom) {
-    return sectionPositions[sectionPositions.length - 1]!.id
+    return orderedSections[orderedSections.length - 1]!.id
   }
-  let selectedSectionId = sectionPositions[0]!.id
-  for (const section of sectionPositions) {
+  let selectedSectionId = orderedSections[0]!.id
+  for (const section of orderedSections) {
     if (section.top > readingLine) {
       break
     }
