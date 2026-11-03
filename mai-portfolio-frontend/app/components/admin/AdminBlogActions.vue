@@ -5,7 +5,7 @@ import { ADMIN_PATHS } from '../../constants/admin'
 defineProps<{
   article: BlogCard
   pending: boolean
-  transition: (article: BlogCard) => Promise<boolean>
+  transition: (article: BlogCard, action: 'publish' | 'unpublish') => Promise<boolean>
   remove: (article: BlogCard) => Promise<boolean>
 }>()
 defineEmits<{ properties: [id: number] }>()
@@ -31,16 +31,20 @@ defineEmits<{ properties: [id: number] }>()
       >属性</UButton
     >
     <UiConfirmAction
-      :label="article.status === 'PUBLISHED' ? '下架' : '发布'"
-      :title="article.status === 'PUBLISHED' ? '下架文章？' : '发布已保存草稿？'"
-      :description="
-        article.status === 'PUBLISHED'
-          ? '关闭公开入口，保留正式正文和工作草稿。'
-          : '将已保存的草稿作为公开正文，请确认内容和资源已经准备完成。'
-      "
+      v-if="article.hasDraft"
+      label="发布草稿"
+      title="发布已保存草稿？"
+      description="将已保存的草稿作为公开正文，请确认内容和资源已经准备完成。"
       :pending="pending"
-      :disabled="article.status !== 'PUBLISHED' && !article.hasDraft"
-      :action="() => transition(article)"
+      :action="() => transition(article, 'publish')"
+    />
+    <UiConfirmAction
+      v-if="article.status === 'PUBLISHED'"
+      label="下架"
+      title="下架文章？"
+      description="关闭公开入口，保留正式正文和工作草稿。"
+      :pending="pending"
+      :action="() => transition(article, 'unpublish')"
     />
     <UiConfirmAction
       label="删除"

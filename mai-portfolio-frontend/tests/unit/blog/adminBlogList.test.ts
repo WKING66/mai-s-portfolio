@@ -72,19 +72,19 @@ describe('admin blog list', () => {
   it('refuses to publish a newer revision than the card the user confirmed', async () => {
     api.get.mockResolvedValueOnce(post(4))
     const list = useAdminBlogList()
-    await expect(list.transition(post())).rejects.toThrow('文章已被更新')
+    await expect(list.transition(post(), 'publish')).rejects.toThrow('文章已被更新')
     expect(api.transition).not.toHaveBeenCalled()
     expect(list.pending.value).toBe(false)
   })
   it('refuses incomplete resources without creating a publication request', async () => {
     api.get.mockResolvedValueOnce({ ...post(), resourcesReady: false })
     const list = useAdminBlogList()
-    await expect(list.transition(post())).rejects.toThrow('未就绪资源')
+    await expect(list.transition(post(), 'publish')).rejects.toThrow('未就绪资源')
     expect(api.transition).not.toHaveBeenCalled()
   })
   it('publishes with the existing revision contract and refreshes only on success', async () => {
     const list = useAdminBlogList()
-    expect(await list.transition(post())).toBe(true)
+    expect(await list.transition(post(), 'publish')).toBe(true)
     expect(api.transition).toHaveBeenCalledWith(7, 'publish', {
       revision: 2,
       requestId: expect.any(String),
@@ -95,22 +95,22 @@ describe('admin blog list', () => {
   it('reuses the same idempotency key after an uncertain network response', async () => {
     api.transition.mockRejectedValueOnce(new Error('network'))
     const list = useAdminBlogList()
-    await expect(list.transition(post())).rejects.toThrow('network')
+    await expect(list.transition(post(), 'publish')).rejects.toThrow('network')
     const first = api.transition.mock.calls[0]![2]
     expect(api.list).not.toHaveBeenCalled()
-    await list.transition(post())
+    await list.transition(post(), 'publish')
     expect(api.transition.mock.calls[1]![2]).toEqual(first)
   })
 })
 it('accepts a newer revision after reloading an uncertain completed transition', async () => {
   api.transition.mockRejectedValueOnce(new Error('network'))
   const list = useAdminBlogList()
-  await expect(list.transition(post())).rejects.toThrow('network')
+  await expect(list.transition(post(), 'publish')).rejects.toThrow('network')
   const published: Blog = { ...post(3), status: 'PUBLISHED' }
   api.list.mockResolvedValueOnce({ ...page(), items: [published] })
   await list.load()
   api.get.mockResolvedValueOnce(published)
-  expect(await list.transition(published)).toBe(true)
+  expect(await list.transition(published, 'unpublish')).toBe(true)
   expect(api.transition).toHaveBeenLastCalledWith(7, 'unpublish', {
     revision: 3,
     requestId: expect.any(String),
@@ -276,4 +276,26 @@ it('keeps the displayed rows while a new page is loading', async () => {
   finish(page())
   await loading
   expect(list.pending.value).toBe(false)
+})
+
+it('publishes a new draft on an already published article instead of unpublishing it', async () => {
+  const article: Blog = { ...post(), status: 'PUBLISHED', hasPublished: true, hasDraft: true }
+  api.get.mockResolvedValueOnce(article)
+  const list = useAdminBlogList()
+  expect(await list.transition(article, 'publish')).toBe(true)
+  expect(api.transition).toHaveBeenCalledWith(article.id, 'publish', {
+    revision: article.revision,
+    requestId: expect.any(String),
+  })
+})
+
+it('still unpublishes explicitly when a new draft also exists', async () => {
+  const article: Blog = { ...post(), status: 'PUBLISHED', hasPublished: true, hasDraft: true }
+  api.get.mockResolvedValueOnce(article)
+  const list = useAdminBlogList()
+  expect(await list.transition(article, 'unpublish')).toBe(true)
+  expect(api.transition).toHaveBeenCalledWith(article.id, 'unpublish', {
+    revision: article.revision,
+    requestId: expect.any(String),
+  })
 })
