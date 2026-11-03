@@ -24,6 +24,7 @@ spring:
       timeout: ${REDIS_COMMAND_TIMEOUT:3s}
   flyway:
     locations: classpath:db/postgresql
+    clean-disabled: true
 
 mybatis-plus:
   configuration:
