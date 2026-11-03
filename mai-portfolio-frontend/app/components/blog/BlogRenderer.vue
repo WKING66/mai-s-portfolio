@@ -67,6 +67,24 @@ const readerKey = props.cacheKey ?? instanceId
 const initialMarkdown = props.markdown
 provide(BLOG_RESOURCES, toRef(props, 'resources'))
 const bodyRoot = useTemplateRef<HTMLElement>('bodyRoot')
+const bodyVisible = ref(false)
+let visibilityObserver: IntersectionObserver | undefined
+function observeBodyVisibility() {
+  visibilityObserver?.disconnect()
+  if (!bodyRoot.value || !props.showToc) {
+    return
+  }
+  visibilityObserver = new IntersectionObserver(
+    ([entry]) => {
+      bodyVisible.value = entry?.isIntersecting ?? false
+    },
+    { root: props.scrollRoot ?? null },
+  )
+  visibilityObserver.observe(bodyRoot.value)
+}
+onMounted(observeBodyVisibility)
+watch(() => props.scrollRoot, observeBodyVisibility, { flush: 'post' })
+onBeforeUnmount(() => visibilityObserver?.disconnect())
 // 所有叶章节共用一个尺寸观察器。使用浏览器已完成的布局结果，不逐帧强制测量。
 let bodyResizeObserver: ResizeObserver | undefined
 const measuredChapterBodies = new Map<
@@ -442,7 +460,12 @@ onBeforeUnmount(() => {
       :data-reading-ready="readingReady"
       :aria-busy="!readingReady"
     >
-      <div v-if="showToc" class="blog-reading-find" data-document-search-ignore>
+      <div
+        v-if="showToc"
+        class="blog-reading-find"
+        :class="{ invisible: !bodyVisible }"
+        data-document-search-ignore
+      >
         <DocumentSearch :adapter="documentSearch" :disabled="!readingReady" />
       </div>
       <p v-if="!readingReady" data-document-search-ignore role="status" class="text-sm text-muted">

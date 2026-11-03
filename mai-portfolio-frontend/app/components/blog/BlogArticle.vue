@@ -34,6 +34,7 @@ defineEmits<{ share: [] }>()
       :published-at="publishedAt"
       :updated-at="updatedAt"
       :shareable="shareable"
+      :scroll-root="scrollRoot"
       @share="$emit('share')"
     />
     <BlogRenderer
