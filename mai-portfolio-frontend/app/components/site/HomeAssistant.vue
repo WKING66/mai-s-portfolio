@@ -9,13 +9,10 @@ const log = useTemplateRef<HTMLElement>('log')
 const input = useTemplateRef<HTMLInputElement>('input')
 const draft = ref('')
 const homeQuestion = ref('')
-const invitation = useTemplateRef<HTMLElement>('invitation')
 const inviting = ref(false)
-let invitationObserver: IntersectionObserver | undefined
 
 function dismissInvitation() {
   inviting.value = false
-  invitationObserver?.disconnect()
 }
 const quote = ref('')
 const selectedText = ref('')
@@ -161,25 +158,13 @@ function onResize() {
 }
 onMounted(() => {
   pipelineOpen.value = innerWidth > 1000
-  // 只在首次进入视野时提示两次；交互后不再打扰，不注册循环定时器。
-  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && invitation.value) {
-    invitationObserver = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          inviting.value = true
-          invitationObserver?.disconnect()
-        }
-      },
-      { threshold: 0.4 },
-    )
-    invitationObserver.observe(invitation.value)
-  }
+  // 浮动入口短暂邀请一次，交互后停止；不循环提醒。
+  inviting.value = !matchMedia('(prefers-reduced-motion: reduce)').matches
   document.addEventListener('pointerup', onPointerUp)
   document.addEventListener('scroll', hideTools, true)
   window.addEventListener('resize', onResize)
 })
 onBeforeUnmount(() => {
-  invitationObserver?.disconnect()
   cancelAnimationFrame(selectionFrame)
   document.removeEventListener('pointerup', onPointerUp)
   document.removeEventListener('scroll', hideTools, true)
@@ -192,9 +177,7 @@ onBeforeUnmount(() => {
 
 <template>
   <section
-    ref="invitation"
     class="home-ask"
-    :class="{ 'is-inviting': inviting }"
     aria-labelledby="home-ask-title"
     @focusin="dismissInvitation"
     @pointerdown="dismissInvitation"
@@ -205,11 +188,7 @@ onBeforeUnmount(() => {
       <p class="text-muted text-sm">关于我的项目、笔记和学习路线，问问站内向导。</p>
     </div>
     <div>
-      <form
-        class="assistant-form"
-        @submit.prevent="submit(homeQuestion)"
-        @animationend.self="dismissInvitation"
-      >
+      <form class="assistant-form" @submit.prevent="submit(homeQuestion)">
         <input
           v-model="homeQuestion"
           aria-label="向 AI 提问"
@@ -230,8 +209,17 @@ onBeforeUnmount(() => {
       </div>
     </div>
   </section>
-  <button class="assistant-launch" @click="open">
-    <UIcon name="i-lucide-message-circle" />问问 AI ↗
+  <button
+    class="assistant-launch"
+    :class="{ 'is-inviting': inviting }"
+    @click="open"
+    @animationend.self="$event.animationName.startsWith('launch-welcome') && dismissInvitation()"
+  >
+    <span v-if="inviting" class="assistant-launch-hint" aria-hidden="true"
+      >想了解我？从这里问问</span
+    >
+    <span class="assistant-launch-icon" aria-hidden="true"><UIcon name="i-lucide-sparkles" /></span>
+    <span>问问 AI</span><span aria-hidden="true">↗</span>
   </button>
   <Teleport to="body">
     <div
@@ -443,34 +431,6 @@ onBeforeUnmount(() => {
   border-radius: 9px;
   background: var(--site-bg);
 }
-.home-ask .assistant-form {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease;
-}
-.home-ask .assistant-form::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  background: linear-gradient(
-    105deg,
-    transparent 25%,
-    color-mix(in srgb, var(--site-accent) 24%, transparent) 50%,
-    transparent 75%
-  );
-  transform: translateX(-110%);
-}
-.is-inviting .assistant-form {
-  animation: invitation-glow 2.6s ease-in-out 2;
-}
-.is-inviting .assistant-form::after {
-  animation: invitation-sheen 2.6s ease-in-out 2;
-}
 .assistant-form:focus-within {
   outline: 2px solid var(--site-accent);
 }
@@ -514,22 +474,103 @@ onBeforeUnmount(() => {
   z-index: 35;
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: 10px;
   background: var(--site-text);
   color: var(--site-bg);
-  padding: 12px 20px;
+  padding: 11px 18px 11px 11px;
+  border: 1px solid color-mix(in srgb, var(--site-accent) 40%, var(--site-text));
   border-radius: 30px;
   box-shadow: var(--site-shadow);
-}
-.assistant-launch {
   transition:
     transform 180ms ease,
     box-shadow 180ms ease;
 }
+.assistant-launch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(110deg, transparent 15%, #ffffff30 48%, transparent 80%);
+  transform: scaleX(0.3);
+}
+.assistant-launch.is-inviting {
+  animation: launch-welcome 8s ease both;
+}
+.assistant-launch.is-inviting::after {
+  animation: launch-shimmer 2.6s ease-in-out 0.6s 2;
+}
+.assistant-launch-icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--site-accent);
+  color: var(--site-inverted);
+}
+.assistant-launch-hint {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 12px);
+  padding: 10px 14px;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--site-text);
+  background: var(--site-surface);
+  border: 1px solid var(--site-line);
+  border-radius: 12px 12px 4px 12px;
+  box-shadow: var(--site-shadow);
+  pointer-events: none;
+  animation: launch-hint 8s ease both;
+}
 .assistant-launch:hover,
 .assistant-launch:focus-visible {
   transform: translateY(-3px);
-  box-shadow: 0 7px 24px color-mix(in srgb, var(--site-accent) 22%, transparent);
+  box-shadow: 0 7px 24px color-mix(in srgb, var(--site-accent) 25%, transparent);
+}
+@keyframes launch-welcome {
+  0% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  8%,
+  35%,
+  70%,
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  22%,
+  56% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.025);
+  }
+}
+@keyframes launch-shimmer {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scaleX(0.3);
+  }
+  40% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+@keyframes launch-hint {
+  0%,
+  10%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  20%,
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .assistant-suggestions button {
   transition:
@@ -542,35 +583,6 @@ onBeforeUnmount(() => {
   color: var(--site-text);
   border-color: var(--site-accent);
   background: var(--site-bg-muted);
-}
-@keyframes invitation-glow {
-  0%,
-  100% {
-    border-color: var(--site-line);
-    box-shadow: 0 0 0 0 transparent;
-  }
-  35%,
-  60% {
-    border-color: var(--site-accent);
-    box-shadow:
-      0 0 0 4px color-mix(in srgb, var(--site-accent) 10%, transparent),
-      0 0 22px color-mix(in srgb, var(--site-accent) 14%, transparent);
-  }
-}
-@keyframes invitation-sheen {
-  0%,
-  15% {
-    opacity: 0;
-    transform: translateX(-110%);
-  }
-  30% {
-    opacity: 1;
-  }
-  70%,
-  100% {
-    opacity: 0;
-    transform: translateX(110%);
-  }
 }
 .assistant-drawer {
   position: fixed;
