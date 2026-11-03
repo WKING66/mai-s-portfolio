@@ -32,7 +32,7 @@ const feedback = useFeedback()
 const blogApi = useBlogApi()
 const includeResources = ref(false)
 const isDownloading = ref(false)
-useReadErrorFeedback(() => blogError.value, '文章读取失败，请重试。')
+useReadErrorFeedback(() => blogError.value, '文章读取失败，请重试。', refreshBlogPost)
 // 2. 复用资源地址续签调度和统一阅读器，不在页面重新解析 Markdown。
 useAssetUrlRefresh(() => blogResponse.value, refreshBlogPost)
 usePortfolioSeo({
@@ -70,8 +70,7 @@ async function downloadBlogPost() {
 <template>
   <main class="site-container site-page blog-reading-page">
     <NuxtLink to="/blog" class="article-back text-accent">← 博客笔记</NuxtLink>
-    <UButton v-if="blogError" class="mt-8" @click="refreshBlogPost()">重新读取文章</UButton>
-    <article v-else-if="blogPost" class="blog-reading-article">
+    <article v-if="blogPost && !blogError" class="blog-reading-article">
       <header class="article-intro" aria-labelledby="article-title">
         <div class="article-intro-copy">
           <p class="eyebrow">笔记 / JOURNAL</p>
