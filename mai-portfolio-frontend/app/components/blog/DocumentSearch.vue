@@ -342,7 +342,8 @@ onBeforeUnmount(() => {
   <UButton
     icon="i-lucide-search"
     color="neutral"
-    variant="ghost"
+    variant="outline"
+    class="document-search-trigger"
     aria-label="查找正文"
     title="查找正文（Ctrl / ⌘ + F）"
     :disabled="disabled"
@@ -491,6 +492,10 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.document-search-trigger {
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow);
+}
 .document-search-panel {
   position: fixed;
   z-index: 60;
