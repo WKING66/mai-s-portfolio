@@ -1,21 +1,28 @@
 package dev.amai.portfolio.system.auth;
 
 import dev.amai.portfolio.common.R;
-import dev.amai.portfolio.system.exception.InvalidCredentialPayloadException;
+import dev.amai.portfolio.system.constant.SystemMessageConstants;
+import dev.amai.portfolio.system.controller.AuthController;
+import dev.amai.portfolio.web.exception.ApiErrorCode;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-/** 翻译认证服务抛出的参数异常，不接管其他业务的 MVC 校验。 */
-@RestControllerAdvice
+/** 登录和注册的 DTO 约束错误保持原认证参数 400 契约，不改变其他接口的 422 校验。 */
+@RestControllerAdvice(assignableTypes = AuthController.class)
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class AuthRequestExceptionHandler {
-    @ExceptionHandler(InvalidCredentialPayloadException.class)
-    public ResponseEntity<R<Void>> invalidCredentialPayload(
-            InvalidCredentialPayloadException error) {
-        return ResponseEntity.badRequest()
-                .body(R.failure(error.code().name(), error.getMessage(), error.details()));
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<R<Void>> invalidCredentialPayload(MethodArgumentNotValidException error) {
+        var details = error.getBindingResult().getFieldErrors().stream()
+                .map(field -> field.getField() + ": " + field.getDefaultMessage())
+                .distinct()
+                .sorted()
+                .toList();
+        return ResponseEntity.badRequest().body(R.failure(ApiErrorCode.AUTH_INVALID_CREDENTIAL_PAYLOAD.name(),
+                SystemMessageConstants.AUTH_REQUEST_INVALID, details));
     }
 }

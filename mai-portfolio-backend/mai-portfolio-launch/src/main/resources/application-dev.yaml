@@ -49,10 +49,8 @@ portfolio:
   security:
     require-https: false
     allowed-origins: ${ADMIN_ALLOWED_ORIGINS:http://127.0.0.1:3000,http://127.0.0.1:9333,http://127.0.0.1:8080}
-      # 外部 PKCS#8 PEM 文件 URI；不提供内置私钥或临时生成回退。
+    # 外部 PKCS#8 PEM 文件 URI；不提供内置私钥或临时生成回退。
     rsa-private-key: ${AUTH_RSA_PRIVATE_KEY_LOCATION:file:F:/secrets/mai-portfolio/auth/private.pem}
-    max-login-attempts-per-client: 5
-    login-attempt-window: 5m
   api-log:
     enabled: ${API_LOG_ENABLED:true}
     max-payload-length: ${API_LOG_MAX_PAYLOAD_LENGTH:2048}

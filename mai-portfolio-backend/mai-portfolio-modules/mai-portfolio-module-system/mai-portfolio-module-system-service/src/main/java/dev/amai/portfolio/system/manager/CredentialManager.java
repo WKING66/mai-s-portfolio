@@ -1,9 +1,9 @@
-package dev.amai.portfolio.system.service.impl;
+package dev.amai.portfolio.system.manager;
 
+import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.PasswordCipherConstants;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.io.IOException;
@@ -18,14 +18,19 @@ import java.security.spec.MGF1ParameterSpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.regex.Pattern;
 import javax.crypto.Cipher;
 import javax.crypto.spec.OAEPParameterSpec;
 import javax.crypto.spec.PSource;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
-/** 启动时加载固定私钥，每次解密创建独立 Cipher，避免并发复用非线程安全对象。 */
-@Service
-public class PasswordCryptoServiceImpl implements PasswordCryptoService {
+/**
+ * 账号凭据处理：允许来源、固定 RSA 解密、新密码规则与散列。
+ * 登录保留原密码字符，只有注册和改密规范化新密码；数据库与会话生命周期由业务 Service 管理。
+ * 私钥启动时加载，Cipher 按调用创建；绝不将明文密码保存到成员变量或日志中。
+ */
+@Component
+public class CredentialManager {
     private static final int RSA_BITS = PasswordCipherConstants.RSA_BITS;
     private static final int CIPHERTEXT_BYTES = PasswordCipherConstants.CIPHERTEXT_BYTES;
     private static final int CIPHERTEXT_BASE64_LENGTH = 4 * ((CIPHERTEXT_BYTES + 2) / 3);
@@ -33,9 +38,17 @@ public class PasswordCryptoServiceImpl implements PasswordCryptoService {
     private static final OAEPParameterSpec OAEP_SHA256 =
             new OAEPParameterSpec(
                     "SHA-256", "MGF1", MGF1ParameterSpec.SHA256, PSource.PSpecified.DEFAULT);
-    private final RSAPrivateKey rsaPrivateKey;
+    private static final int MIN_CHARACTERS = 12;
+    private static final Pattern PADDING = Pattern.compile("^[\\s\\p{Z}\\uFEFF]+|[\\s\\p{Z}\\uFEFF]+$");
+    private static final Pattern CHARACTERS = Pattern.compile("[\\x21-\\x7E]+");
 
-    public PasswordCryptoServiceImpl(SecurityProperties securityProperties) {
+    private final RSAPrivateKey rsaPrivateKey;
+    private final SecurityProperties securityProperties;
+    private final PasswordHasher passwordHasher;
+
+    public CredentialManager(SecurityProperties securityProperties, PasswordHasher passwordHasher) {
+        this.securityProperties = securityProperties;
+        this.passwordHasher = passwordHasher;
         byte[] encodedPrivateKey = null;
         byte[] privateKeyFileBytes = null;
         try (var input = securityProperties.rsaPrivateKey().getInputStream()) {
@@ -73,7 +86,6 @@ public class PasswordCryptoServiceImpl implements PasswordCryptoService {
         }
     }
 
-    @Override
     public String decryptPassword(String encryptedPassword) {
         byte[] plaintext = null;
         try {
@@ -109,5 +121,42 @@ public class PasswordCryptoServiceImpl implements PasswordCryptoService {
                 Arrays.fill(plaintext, (byte) 0);
             }
         }
+    }
+
+    /**
+     * 注册和改密使用同一套新密码规则：只去除首尾空白，内部只允许可见 ASCII，长度 12 至 190 字节。
+     * 登录不能调用此方法，否则会改变已有账号密码的实际匹配语义。
+     */
+    public String normalizeNewPassword(String value) {
+        String password = value == null ? "" : PADDING.matcher(value).replaceAll("");
+        if (!password.isEmpty() && !CHARACTERS.matcher(password).matches()) {
+            throw invalid(SystemMessageConstants.REGISTER_PASSWORD_CHARACTERS_INVALID);
+        }
+        if (password.codePointCount(0, password.length()) < MIN_CHARACTERS
+                || password.getBytes(StandardCharsets.UTF_8).length
+                        > PasswordCipherConstants.MAX_PLAINTEXT_BYTES) {
+            throw invalid(SystemMessageConstants.REGISTER_PASSWORD_INVALID);
+        }
+        return password;
+    }
+
+    private ApiException invalid(String message) {
+        return new ApiException(ApiErrorCode.VALIDATION_FAILED, message);
+    }
+
+    /** 登录与注册只接受配置允许的页面来源；拒绝时不解密密码、不读取账号。 */
+    public void requireAllowedOrigin(String origin) {
+        if (origin == null || !securityProperties.allowedOrigins().contains(origin)) {
+            throw new ApiException(ApiErrorCode.ORIGIN_INVALID, SystemMessageConstants.ORIGIN_INVALID);
+        }
+    }
+
+    /** 只处理密码散列，不查询账号，也不在此建立或注销会话。 */
+    public String encode(String password) {
+        return passwordHasher.encode(password);
+    }
+
+    public boolean matches(String password, String hash) {
+        return passwordHasher.matches(password, hash);
     }
 }

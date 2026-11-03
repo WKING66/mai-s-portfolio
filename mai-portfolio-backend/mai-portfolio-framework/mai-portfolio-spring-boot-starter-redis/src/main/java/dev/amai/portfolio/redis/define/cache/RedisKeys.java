@@ -15,12 +15,6 @@ import java.util.regex.Pattern;
  * 修改已有格式会影响存量会话与短时数据，需明确迁移策略后再调整。</p>
  */
 public final class RedisKeys {
-    /** 登录尝试限流窗口，TTL 来自安全配置。 */
-    public static final String LOGIN_RATE_NAMESPACE = "auth:login";
-
-    /** 注册尝试的独立窗口；注册失败或防刷不能消耗正常登录额度。 */
-    public static final String REGISTRATION_RATE_NAMESPACE = "auth:register";
-
     private static final String RATE_KEY_NAMESPACE_PREFIX = "rate:";
     private static final String SA_TOKEN_NAMESPACE_SUFFIX = ":sa-token:";
     private static final String SUBJECT_DIGEST_ALGORITHM = "SHA-256";
@@ -34,7 +28,7 @@ public final class RedisKeys {
         this.keyPrefix = redisInfrastructureProperties.keyPrefix();
     }
 
-    /** 固定窗口计数 String：{应用前缀}:rate:{命名空间}:{主体摘要}。 */
+    /** 限流键（固定窗口 String、令牌桶 Hash）：{应用前缀}:rate:{命名空间}:{主体摘要}。 */
     public String rateLimit(String namespace, String subject) {
         return subjectKey(RATE_KEY_NAMESPACE_PREFIX + namespace, subject);
     }

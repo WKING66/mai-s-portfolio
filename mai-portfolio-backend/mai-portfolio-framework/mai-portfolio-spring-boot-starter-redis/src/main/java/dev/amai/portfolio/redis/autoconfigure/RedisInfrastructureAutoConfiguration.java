@@ -1,8 +1,7 @@
 package dev.amai.portfolio.redis.autoconfigure;
 
-import dev.amai.portfolio.redis.FixedWindowRateLimiter;
 import dev.amai.portfolio.redis.define.cache.RedisKeys;
-import dev.amai.portfolio.redis.rate.RedissonFixedWindowRateLimiter;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
 import org.redisson.api.RedissonClient;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -22,9 +21,9 @@ public class RedisInfrastructureAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean(FixedWindowRateLimiter.class)
-    FixedWindowRateLimiter fixedWindowRateLimiter(
+    @ConditionalOnMissingBean(RedisRateLimiter.class)
+    RedisRateLimiter redisRateLimiter(
             RedissonClient redissonClient, RedisKeys redisKeys) {
-        return new RedissonFixedWindowRateLimiter(redissonClient, redisKeys);
+        return new RedisRateLimiter(redissonClient, redisKeys);
     }
 }

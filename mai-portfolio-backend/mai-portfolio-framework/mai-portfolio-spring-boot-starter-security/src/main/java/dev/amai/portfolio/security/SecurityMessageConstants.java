@@ -7,5 +7,7 @@ public final class SecurityMessageConstants {
 
     public static final String SESSION_EXPIRED = "登录凭据已失效，请重新登录";
 
+    public static final String RATE_LIMITED = "请求过于频繁，请稍后重试";
+
     private SecurityMessageConstants() {}
 }

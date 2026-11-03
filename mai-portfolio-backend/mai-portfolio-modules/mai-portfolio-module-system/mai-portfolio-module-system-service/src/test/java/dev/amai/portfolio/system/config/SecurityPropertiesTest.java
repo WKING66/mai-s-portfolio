@@ -15,41 +15,16 @@ class SecurityPropertiesTest {
         .withUserConfiguration(PropertiesConfiguration.class)
         .withPropertyValues(
             "portfolio.security.allowed-origins=http://localhost",
-            "portfolio.security.rsa-private-key=classpath:test-private-key.pem",
-            "portfolio.security.max-login-attempts-per-client=2",
-            "portfolio.security.login-attempt-window=10m");
+            "portfolio.security.rsa-private-key=classpath:test-private-key.pem");
 
     @Test
-    void existingConfigurationGetsRegistrationDefaults() {
+    void bindsOnlySecurityConfigurationWhileRatePoliciesBelongToAnnotations() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
-            SecurityProperties properties = context.getBean(SecurityProperties.class);
-            assertThat(properties.maxRegistrationAttemptsPerClient()).isEqualTo(5);
-            assertThat(properties.registrationAttemptWindow()).isEqualTo(Duration.ofMinutes(5));
+            var properties = context.getBean(SecurityProperties.class);
+            assertThat(properties.allowedOrigins()).containsExactly("http://localhost");
+            assertThat(properties.rsaPrivateKey()).isNotNull();
         });
-    }
-
-    @Test
-    void registrationValuesCanDifferFromLogin() {
-        contextRunner.withPropertyValues(
-            "portfolio.security.max-registration-attempts-per-client=3",
-            "portfolio.security.registration-attempt-window=30s")
-            .run(context -> {
-                assertThat(context).hasNotFailed();
-                SecurityProperties properties = context.getBean(SecurityProperties.class);
-                assertThat(properties.maxRegistrationAttemptsPerClient()).isEqualTo(3);
-                assertThat(properties.registrationAttemptWindow()).isEqualTo(Duration.ofSeconds(30));
-                assertThat(properties.maxLoginAttemptsPerClient()).isEqualTo(2);
-                assertThat(properties.loginAttemptWindow()).isEqualTo(Duration.ofMinutes(10));
-            });
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {0, -1})
-    void rejectsNonPositiveRegistrationLimit(int limit) {
-        contextRunner.withPropertyValues(
-            "portfolio.security.max-registration-attempts-per-client=" + limit)
-            .run(context -> assertThat(context).hasFailed());
     }
 
     @Configuration(proxyBeanMethods = false)

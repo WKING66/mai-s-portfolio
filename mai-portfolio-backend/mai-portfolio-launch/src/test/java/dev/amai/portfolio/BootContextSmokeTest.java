@@ -12,7 +12,7 @@ import com.alibaba.druid.pool.DruidDataSource;
 
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.api.AuthConstants;
-import dev.amai.portfolio.system.exception.InvalidCredentialPayloadException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,7 +83,7 @@ class BootContextSmokeTest extends AuthKeyTestSupport {
                     .andExpect(
                             result ->
                                     assertThat(result.getResolvedException())
-                                            .isInstanceOf(InvalidCredentialPayloadException.class));
+                                            .isInstanceOf(MethodArgumentNotValidException.class));
         }
     }
 

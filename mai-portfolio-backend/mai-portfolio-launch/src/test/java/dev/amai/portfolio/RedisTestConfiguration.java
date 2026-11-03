@@ -2,7 +2,7 @@ package dev.amai.portfolio;
 
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.dao.SaTokenDaoDefaultImpl;
-import dev.amai.portfolio.redis.FixedWindowRateLimiter;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -21,22 +21,26 @@ class RedisTestConfiguration {
     }
 
     @Bean
-    FixedWindowRateLimiter testFixedWindowRateLimiter() {
+    RedisRateLimiter testRedisRateLimiter() {
         return new InMemoryFixedWindowRateLimiter();
     }
 
     private static final class InMemoryFixedWindowRateLimiter
-            implements FixedWindowRateLimiter {
+            extends RedisRateLimiter {
         private final Map<String, Window> windows = new HashMap<>();
 
+        InMemoryFixedWindowRateLimiter() {
+            super(null, null);
+        }
+
         @Override
-        public synchronized boolean tryAcquire(String namespace, String subject,
-                int limit, Duration window) {
+        public synchronized boolean fixedWindow(String namespace, String subject,
+                int limit, int windowSeconds) {
             String key = namespace + ':' + subject;
             Instant now = Instant.now();
             Window current = windows.get(key);
             if (current == null || !now.isBefore(current.expiresAt())) {
-                windows.put(key, new Window(1, now.plus(window)));
+                windows.put(key, new Window(1, now.plusSeconds(windowSeconds)));
                 return true;
             }
             if (current.count() >= limit) {
@@ -46,7 +50,6 @@ class RedisTestConfiguration {
             return true;
         }
 
-        @Override
         public synchronized void reset(String namespace, String subject) {
             windows.remove(namespace + ':' + subject);
         }

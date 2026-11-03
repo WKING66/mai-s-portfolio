@@ -10,13 +10,19 @@
 sequenceDiagram
     participant Browser as 浏览器
     participant Gate as AuthenticationInterceptor.preHandle
+    participant Rate as RateLimitAspect
+    participant Credential as CredentialManager
     participant Auth as AuthServiceImpl
     participant DB as PostgreSQL
     participant Context as AccountContext
     participant Redis as Sa-Token / Redis
     Browser->>Gate: POST /auth/session
     Gate->>Gate: 配置要求 HTTPS 时检查连接
-    Gate->>Auth: login（校验参数、来源和限流）
+    Gate->>Rate: MVC @Valid 通过后执行 @RateLimit
+    Rate->>Redis: 接口方法 + IP 独立限流
+    Rate->>Auth: login（限流通过后）
+    Auth->>Credential: 来源校验、RSA 解密
+    Credential-->>Auth: 已解密密码（只在当前调用使用）
     Auth->>DB: authenticateLocked（查询账号并验证密码）
     Auth->>Auth: startSession（检查状态、确定角色）
     Auth->>Redis: StpUtil.login + 保存 CSRF

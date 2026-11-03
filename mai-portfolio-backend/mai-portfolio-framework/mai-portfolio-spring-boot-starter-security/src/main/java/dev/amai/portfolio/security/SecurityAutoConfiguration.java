@@ -5,8 +5,10 @@ import cn.dev33.satoken.filter.SaTokenContextFilterForJakartaServlet;
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureAutoConfiguration;
 import dev.amai.portfolio.redis.define.cache.RedisKeys;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
 import dev.amai.portfolio.security.password.Argon2PasswordHasher;
 import dev.amai.portfolio.security.password.PasswordHasher;
+import dev.amai.portfolio.security.rate.RateLimitAspect;
 import dev.amai.portfolio.security.session.NamespacedSaTokenDao;
 import jakarta.servlet.DispatcherType;
 import org.redisson.api.RedissonClient;
@@ -48,6 +50,12 @@ public class SecurityAutoConfiguration implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(new SaInterceptor()).addPathPatterns("/**");
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    RateLimitAspect rateLimitAspect(RedisRateLimiter redisRateLimiter) {
+        return new RateLimitAspect(redisRateLimiter);
     }
 
     @Bean

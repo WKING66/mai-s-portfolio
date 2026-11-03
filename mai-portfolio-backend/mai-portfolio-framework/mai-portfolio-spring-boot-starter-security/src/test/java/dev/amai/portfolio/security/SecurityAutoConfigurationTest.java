@@ -7,6 +7,8 @@ import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.filter.SaTokenContextFilterForJakartaServlet;
 import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
 import dev.amai.portfolio.redis.define.cache.RedisKeys;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
+import dev.amai.portfolio.security.rate.RateLimitAspect;
 import dev.amai.portfolio.security.password.Argon2PasswordHasher;
 import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.security.session.NamespacedSaTokenDao;
@@ -27,6 +29,7 @@ class SecurityAutoConfigurationTest {
                             SaTokenContextFilterForJakartaServlet.class,
                             SaTokenContextFilterForJakartaServlet::new)
                     .withBean(RedissonClient.class, () -> mock(RedissonClient.class))
+                    .withBean(RedisRateLimiter.class, () -> mock(RedisRateLimiter.class))
                     .withBean(
                             RedisKeys.class,
                             () ->
@@ -39,6 +42,7 @@ class SecurityAutoConfigurationTest {
                 context -> {
                     assertThat(context)
                             .hasNotFailed()
+                            .hasSingleBean(RateLimitAspect.class)
                             .hasSingleBean(PasswordHasher.class)
                             .hasSingleBean(SaTokenDao.class)
                             .hasSingleBean(SaTokenExceptionHandler.class);
@@ -92,7 +96,8 @@ class SecurityAutoConfigurationTest {
                         context -> {
                             assertThat(context)
                                     .hasNotFailed()
-                                    .hasSingleBean(PasswordHasher.class)
+                                    .hasSingleBean(RateLimitAspect.class)
+                            .hasSingleBean(PasswordHasher.class)
                                     .hasSingleBean(SaTokenDao.class)
                                     .hasSingleBean(SaTokenExceptionHandler.class);
                             assertThat(context.getBean(PasswordHasher.class))
