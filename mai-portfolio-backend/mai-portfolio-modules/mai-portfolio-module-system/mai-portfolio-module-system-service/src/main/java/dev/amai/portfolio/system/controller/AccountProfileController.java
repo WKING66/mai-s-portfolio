@@ -13,7 +13,6 @@ import dev.amai.portfolio.system.entity.vo.AccountProfileVo;
 import dev.amai.portfolio.system.service.AccountProfileService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -45,11 +44,7 @@ public class AccountProfileController {
     @ApiLog
     @Operation(
             summary = "修改本人昵称",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<AccountProfileVo> update(@Valid @RequestBody AccountProfileRequest request) {
         return R.success(accountProfileService.update(request));
     }
@@ -59,11 +54,7 @@ public class AccountProfileController {
     @Operation(
             summary = "绑定本人头像",
             description = "仅接受当前账号通过 POST /assets、usage=AVATAR 创建的 READY 资产；不上传文件，不删除旧对象。",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<AccountProfileVo> avatar(@Valid @RequestBody AccountAvatarRequest request) {
         return R.success(accountProfileService.bindAvatar(request));
     }
@@ -85,11 +76,7 @@ public class AccountProfileController {
     @Operation(
             summary = "修改本人密码",
             description = "原密码精确验证，新密码使用共享政策；密码和凭据版本原子更新，旧会话失效。",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<Void> password(@Valid @RequestBody AccountPasswordRequest request) {
         accountProfileService.changePassword(request);
         return R.success(null);
