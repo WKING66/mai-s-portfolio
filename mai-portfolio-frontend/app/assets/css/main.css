@@ -102,3 +102,26 @@
     animation-duration: 0s !important;
   }
 }
+
+/* Use the same quiet scrollbar treatment for reading, drawers and controls. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--site-border-accented) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--site-border-accented);
+  border-radius: 10px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--site-muted);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { HOME_INTRO, HOME_ABOUT } from '../constants/home'
+import { BLOG_PATH, type BlogPage } from '../api/blogs'
+import { BLOG_HOME_ARTICLE_COUNT, BLOG_PUBLIC_CACHE_PREFIX, BLOG_VIEW } from '../constants/blogs'
+import type { ApiResponse } from '../api/types'
+import type { AssistantContext } from '../utils/site/mockAssistant'
 import { useSiteProfile } from '../api/profile'
 import { SITE_MESSAGES } from '../constants/messages'
 import { usePublicProjects } from '../api/projects'
@@ -8,9 +13,13 @@ import { createProfileStructuredData, SEO_SITE_NAME } from '#shared/utils/seo'
 import { useReadErrorFeedback } from '../composables/useFeedback'
 
 // 1. 公开资料与项目并行读取；水合复用 SSR 快照，不等待账号会话恢复。
-const [profileRequest, projectsRequest] = await Promise.all([
+const [profileRequest, projectsRequest, articlesRequest] = await Promise.all([
   useSiteProfile(),
   usePublicProjects(1, HOME_PROJECT_LIMIT),
+  useFetch<ApiResponse<BlogPage>>(BLOG_PATH, {
+    key: BLOG_PUBLIC_CACHE_PREFIX + 'home',
+    query: { view: BLOG_VIEW.PUBLIC, page: 1, size: BLOG_HOME_ARTICLE_COUNT },
+  }),
 ])
 const { data: profileResponse, error: profileError } = profileRequest
 const siteProfile = computed(() =>
@@ -22,38 +31,20 @@ const featuredProjectPage = computed(() => projectListResponse.value?.data)
 useReadErrorFeedback(() => profileError.value, SITE_MESSAGES.profileLoadFailed)
 useReadErrorFeedback(() => projectsError.value, PROJECT_MESSAGES.loadFailed)
 
-const focusAreas = [
-  {
-    index: '01 / ENGINEERING',
-    title: '工具权限',
-    description: '关注 AI 智能体调用工具时的权限边界与可控性。',
-  },
-  {
-    index: '02 / EFFICIENCY',
-    title: 'Token 预算',
-    description: '在效果与成本之间寻找可度量、可复盘的平衡。',
-  },
-  {
-    index: '03 / EVALUATION',
-    title: '性能验证',
-    description: '不只追求看起来更好，更要证明改进确实发生。',
-  },
-]
-
 // 3. SEO 与结构化数据只消费当前公开资料，部署域名仍由共用 SEO 能力校验。
 const { siteOrigin } = usePortfolioSeo({
   title: () =>
-    siteProfile.value
-      ? siteProfile.value.displayName + ' · ' + siteProfile.value.headline
-      : SEO_SITE_NAME,
-  description: () => siteProfile.value?.intro ?? '',
+    siteProfile.value ? siteProfile.value.displayName + ' · ' + HOME_INTRO : SEO_SITE_NAME,
+  description: () => HOME_INTRO,
   canonicalPath: '/',
   available: () => !profileError.value && Boolean(siteProfile.value),
 })
 useHead(() => {
   const structuredData = createProfileStructuredData(
     siteOrigin,
-    profileError.value ? null : siteProfile.value,
+    profileError.value || !siteProfile.value
+      ? null
+      : { ...siteProfile.value, headline: HOME_INTRO, intro: HOME_ABOUT },
   )
   return {
     script: structuredData
@@ -67,200 +58,409 @@ useHead(() => {
       : [],
   }
 })
+
+const articles = computed(() => articlesRequest.data.value?.data?.items ?? [])
+useReadErrorFeedback(() => articlesRequest.error.value, '文章读取失败，请重试。')
+const assistantContext = computed<AssistantContext>(() => ({
+  name: siteProfile.value?.displayName ?? '阿霾',
+  sources: [
+    {
+      title: '关于' + (siteProfile.value?.displayName ?? '阿霾'),
+      summary: HOME_INTRO + HOME_ABOUT,
+      url: '/#about',
+      kind: 'profile',
+    },
+    ...(featuredProjectPage.value?.items ?? []).map((project) => ({
+      title: project.title,
+      summary: project.summary,
+      url: project.links[0]?.url ?? '/projects',
+      kind: 'project' as const,
+    })),
+    ...articles.value
+      .filter((article) => article.slug)
+      .map((article) => ({
+        title: article.title,
+        summary: article.summary,
+        url: '/blog/' + encodeURIComponent(article.slug!),
+        kind: 'article' as const,
+      })),
+  ],
+}))
 </script>
 
 <template>
-  <div class="min-h-screen font-sans text-ink">
-    <main class="site-container">
-      <div v-if="profileError" class="py-10">
+  <main class="site-container home-page" data-home-content>
+    <UButton
+      v-if="profileError"
+      class="my-10"
+      color="neutral"
+      variant="outline"
+      @click="profileRequest.refresh()"
+      >重新读取资料</UButton
+    >
+    <template v-else-if="siteProfile">
+      <ProfileHero :profile="siteProfile" />
+      <SiteHomeAssistant :context="assistantContext" />
+      <aside class="home-now">
+        <strong>● 最近在折腾</strong><span>完善这个个人站的博客与文档体验</span
+        ><span>学习 Agent 的工具调用与对话流程</span>
+      </aside>
+      <section id="projects" class="home-section" aria-labelledby="projects-title">
+        <div class="home-section-head">
+          <div>
+            <p class="home-label">01 / MAKING THINGS</p>
+            <h2 id="projects-title">一些正在做的东西</h2>
+            <p>从自己的小需求出发，把学到的知识接起来。</p>
+          </div>
+          <NuxtLink to="/projects">全部项目 ↗</NuxtLink>
+        </div>
         <UButton
+          v-if="projectsError"
           color="neutral"
           variant="outline"
-          icon="i-lucide-refresh-cw"
-          @click="profileRequest.refresh()"
-          >重新读取资料</UButton
+          @click="projectsRequest.refresh()"
+          >重新读取项目</UButton
         >
-      </div>
-      <template v-else-if="siteProfile">
-        <ProfileHero :profile="siteProfile" />
-
-        <section class="section-space border-t border-line" aria-labelledby="focus-title">
-          <UiSectionHeading
-            id="focus-title"
-            eyebrow="02 / FOCUS"
-            title="我关注的问题"
-            description="一次大语言模型项目复盘，促使我把注意力放在更扎实的工程问题上。"
+        <div v-else-if="featuredProjectPage?.items.length" class="home-projects">
+          <ProjectCard
+            v-for="project in featuredProjectPage.items"
+            :key="project.id"
+            :project="project"
+            motion
           />
-          <div class="grid gap-5 md:grid-cols-3">
-            <UiSurfaceCard
-              v-for="area in focusAreas"
-              :key="area.index"
-              motion
-              class="focus-card flex min-h-52 flex-col justify-between gap-6 p-6"
-            >
-              <small class="font-mono text-xs font-bold tracking-wider text-accent">{{
-                area.index
-              }}</small>
-              <div>
-                <h3 class="mb-2 text-xl font-semibold tracking-tight">{{ area.title }}</h3>
-                <p class="leading-7 text-muted">{{ area.description }}</p>
-              </div>
-            </UiSurfaceCard>
-          </div>
-        </section>
-
-        <section
-          id="projects"
-          class="section-space border-t border-line"
-          aria-labelledby="projects-title"
-        >
-          <UiSectionHeading
-            id="projects-title"
-            eyebrow="03 / SELECTED WORK"
-            title="项目作品"
-            description="围绕 Java 后端与 AI 智能体开发的项目实践。"
+        </div>
+        <p v-else class="home-empty">
+          {{ SITE_MESSAGES.projectsEmpty }}
+          <a
+            v-if="siteProfile.githubUrl"
+            :href="siteProfile.githubUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            >去 GitHub 看看 ↗</a
           >
-            <template #actions>
-              <NuxtLink
-                v-if="
-                  !projectsError &&
-                  featuredProjectPage &&
-                  featuredProjectPage.total > HOME_PROJECT_LIMIT
-                "
-                to="/projects"
-                data-more-projects
-                class="inline-flex items-center gap-2 whitespace-nowrap text-sm font-semibold text-accent underline underline-offset-4"
-              >
-                更多项目 <span aria-hidden="true">↗</span>
-              </NuxtLink>
-            </template>
-          </UiSectionHeading>
+        </p>
+      </section>
+      <section id="blog" class="home-section home-notes" aria-labelledby="blog-title">
+        <div>
+          <p class="home-label">02 / LEARNING IN PUBLIC</p>
+          <h2 id="blog-title">边学，边记。</h2>
+          <p class="home-description">
+            把暂时理解的东西写下来。既是给自己的备忘，也希望能帮到遇见同一个问题的人。
+          </p>
+          <NuxtLink to="/blog">去笔记本看看 ↗</NuxtLink>
+        </div>
+        <div>
           <UButton
-            v-if="projectsError"
+            v-if="articlesRequest.error.value"
             color="neutral"
             variant="outline"
-            icon="i-lucide-refresh-cw"
-            @click="projectsRequest.refresh()"
-            >重新读取项目</UButton
+            @click="articlesRequest.refresh()"
+            >重新读取文章</UButton
+          ><template v-else-if="articles.length">
+            <NuxtLink
+              v-for="(article, index) in articles"
+              :key="article.id"
+              :to="'/blog/' + encodeURIComponent(article.slug ?? '')"
+              class="home-note"
+            >
+              <span class="home-note-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <div class="home-note-copy">
+                <h3>{{ article.title }}</h3>
+                <p>{{ article.summary }}</p>
+              </div>
+              <time v-if="article.publishedAt" :datetime="article.publishedAt">{{
+                article.publishedAt.slice(0, 10)
+              }}</time>
+              <span class="home-note-arrow" aria-hidden="true">↗</span>
+            </NuxtLink></template
           >
-          <div v-else-if="featuredProjectPage?.items.length" class="grid gap-6 md:grid-cols-2">
-            <ProjectCard
-              v-for="project in featuredProjectPage.items"
-              :key="project.id"
-              :project="project"
-              motion
-            />
+          <p v-else>文章尚未发布。</p>
+        </div>
+      </section>
+      <section id="stack" class="home-section home-about" aria-labelledby="learning-title">
+        <div>
+          <p class="home-label">03 / A LITTLE ABOUT ME</p>
+          <h2 id="learning-title">技术之外，也是普通学生。</h2>
+          <p class="home-description">{{ HOME_ABOUT }}</p>
+          <div v-if="siteProfile.techStack.length" class="home-tags">
+            <span v-for="tag in siteProfile.techStack" :key="tag.slug">{{ tag.name }}</span>
           </div>
-          <UiSurfaceCard
-            v-if="!projectsError && !featuredProjectPage?.items.length"
-            motion
-            class="project-placeholder grid min-h-[330px] overflow-hidden p-7 md:grid-cols-[1fr_.8fr] md:gap-8 md:p-8"
-          >
-            <div class="flex flex-col justify-end">
-              <span class="mb-4 w-fit rounded-full border border-line px-3 py-1 text-xs text-muted"
-                >即将更新</span
-              >
-              <h3 class="mb-3 text-[clamp(1.7rem,3vw,2.6rem)] font-semibold tracking-tight">
-                真实项目，逐个呈现。
-              </h3>
-              <p class="max-w-[480px] leading-7 text-muted">{{ SITE_MESSAGES.projectsEmpty }}</p>
-              <a
-                v-if="siteProfile.githubUrl"
-                :href="siteProfile.githubUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="mt-6 w-fit text-sm font-bold text-accent underline underline-offset-4"
-                >先看看我的 GitHub ↗</a
-              >
-            </div>
-            <div
-              class="project-visual relative mt-8 min-h-[170px] overflow-hidden rounded-2xl md:mt-0"
-              aria-hidden="true"
-            >
-              <span
-                class="absolute right-4 bottom-0 text-[clamp(7rem,17vw,13rem)] leading-none font-black text-accent/15"
-                >01</span
-              >
-            </div>
-          </UiSurfaceCard>
-        </section>
-
-        <section id="blog" class="section-space border-t border-line" aria-labelledby="blog-title">
-          <UiSectionHeading
-            id="blog-title"
-            eyebrow="04 / JOURNAL"
-            title="博客笔记"
-            description="记录技术实践、项目复盘与持续学习；正式文章发布后在这里展示。"
-          />
-          <BlogJournal />
-        </section>
-
-        <section
-          id="contact"
-          class="section-space border-t border-line"
-          aria-labelledby="contact-title"
-        >
-          <UiSurfaceCard motion class="contact-hub p-7 sm:p-10">
-            <span class="eyebrow">05 / CONTACT</span>
-            <h2
-              id="contact-title"
-              class="mt-3 text-[clamp(1.875rem,4vw,2.5rem)] leading-tight font-semibold tracking-tight"
-            >
-              聊聊你的想法。
-            </h2>
-            <p class="mt-4 max-w-[620px] leading-7 text-muted">
-              {{ SITE_MESSAGES.contactInvitation }}
-            </p>
-            <div class="mt-7 flex flex-wrap gap-3">
-              <a v-if="siteProfile.email" :href="`mailto:${siteProfile.email}`" class="contact-link"
-                >✉ {{ siteProfile.email }}</a
-              >
-              <a
-                v-if="siteProfile.githubUrl"
-                :href="siteProfile.githubUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="contact-link"
-                >↗ GitHub / WKING66</a
-              >
-            </div>
-          </UiSurfaceCard>
-        </section>
-      </template>
-    </main>
-  </div>
+        </div>
+        <aside>
+          <p class="home-label">AWAY FROM THE KEYBOARD</p>
+          <h3>写累了，就弹会儿电吉他。</h3>
+          <p>代码之外，也会在宿舍插上静音耳放，练一会儿电吉他。这里希望保留一点这样的日常。</p>
+        </aside>
+      </section>
+      <section id="contact" class="home-contact">
+        <h2>保持联系。</h2>
+        <p>如果你也在学习，或对某个小项目感兴趣，欢迎来聊聊。</p>
+        <div>
+          <a
+            v-if="siteProfile.githubUrl"
+            :href="siteProfile.githubUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            >GitHub ↗</a
+          ><a v-if="siteProfile.email" :href="'mailto:' + siteProfile.email">{{
+            siteProfile.email
+          }}</a>
+        </div>
+      </section>
+    </template>
+  </main>
 </template>
-
 <style scoped>
-.section-space {
-  padding-block: 64px;
+.home-page {
+  max-width: 1120px;
 }
-.project-visual {
-  background: var(--site-bg-muted);
+/* 首页短栏目共用可视区中线定位，避免底部锚点都被钳制到同一个滚动位置。
+   路由、首屏锚点恢复与导航高亮均读取这份 scroll-margin。 */
+.home-page > section {
+  scroll-margin-top: calc((100svh + var(--site-header-height)) / 2);
 }
-.contact-link {
-  padding: 11px 16px;
-  border: 1px solid var(--site-line);
-  border-radius: var(--site-radius);
+.home-now {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 30px;
+  padding: 18px 0;
+  border-block: 1px solid var(--site-line);
+  font-size: 12px;
+  color: var(--site-muted);
+}
+.home-now strong {
+  color: var(--site-accent);
+}
+.home-section {
+  padding: 50px 0;
+}
+.home-section h2,
+.home-contact h2 {
+  font-size: 28px;
+  font-weight: 650;
+  letter-spacing: -1px;
+  line-height: 1.4;
+}
+.home-label {
+  font-size: 10px;
+  color: var(--site-muted);
+  letter-spacing: 1.7px;
+  margin-bottom: 6px;
+}
+.home-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 25px;
+  margin-bottom: 26px;
+}
+.home-section-head p:last-child {
+  font-size: 13px;
+  color: var(--site-muted);
+  margin-top: 7px;
+}
+.home-section a,
+.home-contact a {
+  color: var(--site-accent);
+}
+.home-section-head > a {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.home-projects {
+  display: grid;
+  gap: 28px;
+}
+.home-projects :deep(.project-card) {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  align-items: center;
+}
+.home-projects :deep(.project-card:not(:has(.project-cover))) {
+  grid-template-columns: 1fr;
+}
+.home-projects :deep(.project-cover) {
+  aspect-ratio: 1.5;
+  border: 0;
+  border-radius: 8px;
+  margin-left: 25px;
+}
+.home-projects :deep(.project-card h3) {
+  font-size: 27px;
+}
+.home-notes {
+  display: grid;
+  grid-template-columns: 230px 1fr;
+  gap: 48px;
+  border-top: 1px solid var(--site-line);
+}
+.home-description {
+  color: var(--site-muted);
+  font-size: 14px;
+  line-height: 1.95;
+  margin: 17px 0;
+}
+.home-notes > div > a {
+  font-size: 12px;
+}
+.home-note {
+  display: grid;
+  grid-template-columns: 24px 1fr 85px 16px;
+  gap: 18px;
+  padding: 22px 12px;
+  margin-inline: -12px;
+  border-top: 1px solid var(--site-line);
   text-decoration: none;
+  border-radius: 6px;
+  transition: background-color 200ms ease;
+}
+.home-note:hover,
+.home-note:focus-visible {
+  background: color-mix(in srgb, var(--site-accent) 7%, transparent);
+}
+.home-note:focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 3px;
+}
+.home-note-copy {
+  min-width: 0;
+  transition: transform 200ms ease;
+}
+.home-note h3 {
+  transition: color 200ms ease;
+}
+.home-note:hover .home-note-copy,
+.home-note:focus-visible .home-note-copy {
+  transform: translateX(4px);
+}
+.home-note:hover h3,
+.home-note:focus-visible h3 {
+  color: var(--site-accent);
+}
+.home-note-arrow {
+  opacity: 0;
+  transform: translate(-4px, 4px);
   transition:
-    border-color 0.2s ease,
-    background-color 0.2s ease;
+    opacity 200ms ease,
+    transform 200ms ease;
 }
-.contact-link:hover {
-  border-color: var(--site-accent);
+.home-note:hover .home-note-arrow,
+.home-note:focus-visible .home-note-arrow {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+.home-note:first-child {
+  padding-top: 0;
+  border: 0;
+}
+.home-note > span,
+.home-note time {
+  font-size: 10px;
+  color: var(--site-muted);
+}
+.home-note h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--site-text);
+}
+.home-note p {
+  font-size: 12px;
+  color: var(--site-muted);
+  line-height: 1.9;
+  margin-top: 10px;
+}
+.home-about {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 70px;
+  border-top: 1px solid var(--site-line);
+}
+.home-about aside {
   background: var(--site-bg-muted);
+  padding: 28px;
+  border-radius: 10px;
 }
-@media (max-width: 720px) {
-  .section-space {
-    padding-block: 40px;
+.home-about h3 {
+  font-size: 21px;
+  margin: 14px 0;
+}
+.home-about aside > p:last-child {
+  color: var(--site-muted);
+  font-size: 13px;
+  line-height: 1.9;
+}
+.home-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.home-tags span {
+  padding: 3px 9px;
+  border: 1px solid var(--site-line);
+  border-radius: 5px;
+}
+.home-contact {
+  border-top: 1px solid var(--site-line);
+  padding: 35px 0 60px;
+}
+.home-contact p {
+  font-size: 14px;
+  color: var(--site-muted);
+  margin: 14px 0;
+}
+.home-contact > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  font-size: 13px;
+}
+.home-empty {
+  padding: 30px;
+  border: 1px solid var(--site-line);
+  border-radius: 10px;
+  color: var(--site-muted);
+}
+@media (max-width: 700px) {
+  .home-section {
+    padding: 34px 0;
+  }
+  .home-notes,
+  .home-about {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+  .home-note {
+    grid-template-columns: 22px 1fr;
+    gap: 12px;
+  }
+  .home-note time {
+    grid-column: 2;
+  }
+  .home-note-arrow {
+    display: none;
+  }
+  .home-projects :deep(.project-card) {
+    grid-template-columns: 1fr;
+  }
+  .home-projects :deep(.project-cover) {
+    margin: 20px 20px 0;
+    aspect-ratio: 1.8;
+  }
+  .home-projects :deep(.project-card h3) {
+    font-size: 23px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .contact-link {
+  .home-note,
+  .home-note-copy,
+  .home-note h3,
+  .home-note-arrow {
     transition: none;
   }
-  .contact-link:hover {
+  .home-note:hover .home-note-copy,
+  .home-note:focus-visible .home-note-copy {
     transform: none;
   }
 }

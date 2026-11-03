@@ -25,15 +25,28 @@ export function visibleSection(
   if (!sectionPositions.length) {
     return null
   }
+  // 首页装配可以调整栏目顺序；几何位置才是滚动高亮的依据，且不修改调用方数组。
+  const orderedSections = [...sectionPositions].sort((a, b) => a.top - b.top)
   if (isAtPageBottom) {
-    return sectionPositions[sectionPositions.length - 1]!.id
+    return orderedSections[orderedSections.length - 1]!.id
   }
-  let selectedSectionId = sectionPositions[0]!.id
-  for (const section of sectionPositions) {
-    if (section.top > readingLine) {
+  let selectedIndex = 0
+  for (let index = 0; index < orderedSections.length; index++) {
+    if (orderedSections[index]!.top > readingLine) {
       break
     }
-    selectedSectionId = section.id
+    selectedIndex = index
   }
-  return selectedSectionId
+  const selected = orderedSections[selectedIndex]!
+  const next = orderedSections[selectedIndex + 1]
+  // 页尾两段不足一屏时，允许较近的短栏目提前接管；长栏目仍按越过阅读线判断，
+  // 避免浏览项目中段时提前高亮尚未进入视野的博客。
+  if (
+    next &&
+    selectedIndex + 1 >= orderedSections.length - 2 &&
+    Math.abs(next.top - readingLine) < Math.abs(selected.top - readingLine)
+  ) {
+    return next.id
+  }
+  return selected.id
 }
