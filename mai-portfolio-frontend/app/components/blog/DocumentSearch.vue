@@ -493,6 +493,7 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .document-search-trigger {
+  border: 1px solid var(--site-border-accented);
   background: var(--site-surface);
   box-shadow: var(--site-shadow);
 }
