@@ -9,6 +9,14 @@ const log = useTemplateRef<HTMLElement>('log')
 const input = useTemplateRef<HTMLInputElement>('input')
 const draft = ref('')
 const homeQuestion = ref('')
+const invitation = useTemplateRef<HTMLElement>('invitation')
+const inviting = ref(false)
+let invitationObserver: IntersectionObserver | undefined
+
+function dismissInvitation() {
+  inviting.value = false
+  invitationObserver?.disconnect()
+}
 const quote = ref('')
 const selectedText = ref('')
 const tools = ref<{ x: number; y: number } | null>(null)
@@ -24,6 +32,7 @@ let opener: HTMLElement | null = null
 let selectionFrame = 0
 
 function open() {
+  dismissInvitation()
   if (!dialog.value?.open) {
     opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
     previousOverflow = document.body.style.overflow
@@ -152,11 +161,25 @@ function onResize() {
 }
 onMounted(() => {
   pipelineOpen.value = innerWidth > 1000
+  // 只在首次进入视野时提示两次；交互后不再打扰，不注册循环定时器。
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches && invitation.value) {
+    invitationObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          inviting.value = true
+          invitationObserver?.disconnect()
+        }
+      },
+      { threshold: 0.4 },
+    )
+    invitationObserver.observe(invitation.value)
+  }
   document.addEventListener('pointerup', onPointerUp)
   document.addEventListener('scroll', hideTools, true)
   window.addEventListener('resize', onResize)
 })
 onBeforeUnmount(() => {
+  invitationObserver?.disconnect()
   cancelAnimationFrame(selectionFrame)
   document.removeEventListener('pointerup', onPointerUp)
   document.removeEventListener('scroll', hideTools, true)
@@ -168,14 +191,25 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="home-ask" aria-labelledby="home-ask-title">
+  <section
+    ref="invitation"
+    class="home-ask"
+    :class="{ 'is-inviting': inviting }"
+    aria-labelledby="home-ask-title"
+    @focusin="dismissInvitation"
+    @pointerdown="dismissInvitation"
+  >
     <div>
       <p class="assistant-kicker">● AMAI / AI GUIDE · MOCK</p>
       <h2 id="home-ask-title">从一个问题开始，认识我。</h2>
       <p class="text-muted text-sm">关于我的项目、笔记和学习路线，问问站内向导。</p>
     </div>
     <div>
-      <form class="assistant-form" @submit.prevent="submit(homeQuestion)">
+      <form
+        class="assistant-form"
+        @submit.prevent="submit(homeQuestion)"
+        @animationend.self="dismissInvitation"
+      >
         <input
           v-model="homeQuestion"
           aria-label="向 AI 提问"
@@ -409,6 +443,34 @@ onBeforeUnmount(() => {
   border-radius: 9px;
   background: var(--site-bg);
 }
+.home-ask .assistant-form {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+.home-ask .assistant-form::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 25%,
+    color-mix(in srgb, var(--site-accent) 24%, transparent) 50%,
+    transparent 75%
+  );
+  transform: translateX(-110%);
+}
+.is-inviting .assistant-form {
+  animation: invitation-glow 2.6s ease-in-out 2;
+}
+.is-inviting .assistant-form::after {
+  animation: invitation-sheen 2.6s ease-in-out 2;
+}
 .assistant-form:focus-within {
   outline: 2px solid var(--site-accent);
 }
@@ -458,6 +520,57 @@ onBeforeUnmount(() => {
   padding: 12px 20px;
   border-radius: 30px;
   box-shadow: var(--site-shadow);
+}
+.assistant-launch {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+.assistant-launch:hover,
+.assistant-launch:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 7px 24px color-mix(in srgb, var(--site-accent) 22%, transparent);
+}
+.assistant-suggestions button {
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    border-color 160ms ease;
+}
+.assistant-suggestions button:hover,
+.assistant-suggestions button:focus-visible {
+  color: var(--site-text);
+  border-color: var(--site-accent);
+  background: var(--site-bg-muted);
+}
+@keyframes invitation-glow {
+  0%,
+  100% {
+    border-color: var(--site-line);
+    box-shadow: 0 0 0 0 transparent;
+  }
+  35%,
+  60% {
+    border-color: var(--site-accent);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--site-accent) 10%, transparent),
+      0 0 22px color-mix(in srgb, var(--site-accent) 14%, transparent);
+  }
+}
+@keyframes invitation-sheen {
+  0%,
+  15% {
+    opacity: 0;
+    transform: translateX(-110%);
+  }
+  30% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: translateX(110%);
+  }
 }
 .assistant-drawer {
   position: fixed;

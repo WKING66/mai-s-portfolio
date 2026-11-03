@@ -156,19 +156,23 @@ const assistantContext = computed<AssistantContext>(() => ({
             variant="outline"
             @click="articlesRequest.refresh()"
             >重新读取文章</UButton
-          ><template v-else-if="articles.length"
-            ><article v-for="(article, index) in articles" :key="article.id" class="home-note">
-              <span>{{ String(index + 1).padStart(2, '0') }}</span>
-              <div>
-                <NuxtLink :to="'/blog/' + encodeURIComponent(article.slug ?? '')"
-                  ><h3>{{ article.title }}</h3></NuxtLink
-                >
+          ><template v-else-if="articles.length">
+            <NuxtLink
+              v-for="(article, index) in articles"
+              :key="article.id"
+              :to="'/blog/' + encodeURIComponent(article.slug ?? '')"
+              class="home-note"
+            >
+              <span class="home-note-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <div class="home-note-copy">
+                <h3>{{ article.title }}</h3>
                 <p>{{ article.summary }}</p>
               </div>
               <time v-if="article.publishedAt" :datetime="article.publishedAt">{{
                 article.publishedAt.slice(0, 10)
               }}</time>
-            </article></template
+              <span class="home-note-arrow" aria-hidden="true">↗</span>
+            </NuxtLink></template
           >
           <p v-else>文章尚未发布。</p>
         </div>
@@ -302,10 +306,49 @@ const assistantContext = computed<AssistantContext>(() => ({
 }
 .home-note {
   display: grid;
-  grid-template-columns: 24px 1fr 85px;
+  grid-template-columns: 24px 1fr 85px 16px;
   gap: 18px;
-  padding: 22px 0;
+  padding: 22px 12px;
+  margin-inline: -12px;
   border-top: 1px solid var(--site-line);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background-color 200ms ease;
+}
+.home-note:hover,
+.home-note:focus-visible {
+  background: color-mix(in srgb, var(--site-accent) 7%, transparent);
+}
+.home-note:focus-visible {
+  outline: 2px solid var(--site-accent);
+  outline-offset: 3px;
+}
+.home-note-copy {
+  min-width: 0;
+  transition: transform 200ms ease;
+}
+.home-note h3 {
+  transition: color 200ms ease;
+}
+.home-note:hover .home-note-copy,
+.home-note:focus-visible .home-note-copy {
+  transform: translateX(4px);
+}
+.home-note:hover h3,
+.home-note:focus-visible h3 {
+  color: var(--site-accent);
+}
+.home-note-arrow {
+  opacity: 0;
+  transform: translate(-4px, 4px);
+  transition:
+    opacity 200ms ease,
+    transform 200ms ease;
+}
+.home-note:hover .home-note-arrow,
+.home-note:focus-visible .home-note-arrow {
+  opacity: 1;
+  transform: translate(0, 0);
 }
 .home-note:first-child {
   padding-top: 0;
@@ -395,6 +438,9 @@ const assistantContext = computed<AssistantContext>(() => ({
   .home-note time {
     grid-column: 2;
   }
+  .home-note-arrow {
+    display: none;
+  }
   .home-projects :deep(.project-card) {
     grid-template-columns: 1fr;
   }
@@ -404,6 +450,18 @@ const assistantContext = computed<AssistantContext>(() => ({
   }
   .home-projects :deep(.project-card h3) {
     font-size: 23px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-note,
+  .home-note-copy,
+  .home-note h3,
+  .home-note-arrow {
+    transition: none;
+  }
+  .home-note:hover .home-note-copy,
+  .home-note:focus-visible .home-note-copy {
+    transform: none;
   }
 }
 </style>
