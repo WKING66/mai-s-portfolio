@@ -30,12 +30,23 @@ export function visibleSection(
   if (isAtPageBottom) {
     return orderedSections[orderedSections.length - 1]!.id
   }
-  let selectedSectionId = orderedSections[0]!.id
-  for (const section of orderedSections) {
-    if (section.top > readingLine) {
+  let selectedIndex = 0
+  for (let index = 0; index < orderedSections.length; index++) {
+    if (orderedSections[index]!.top > readingLine) {
       break
     }
-    selectedSectionId = section.id
+    selectedIndex = index
   }
-  return selectedSectionId
+  const selected = orderedSections[selectedIndex]!
+  const next = orderedSections[selectedIndex + 1]
+  // 页尾两段不足一屏时，允许较近的短栏目提前接管；长栏目仍按越过阅读线判断，
+  // 避免浏览项目中段时提前高亮尚未进入视野的博客。
+  if (
+    next &&
+    selectedIndex + 1 >= orderedSections.length - 2 &&
+    Math.abs(next.top - readingLine) < Math.abs(selected.top - readingLine)
+  ) {
+    return next.id
+  }
+  return selected.id
 }

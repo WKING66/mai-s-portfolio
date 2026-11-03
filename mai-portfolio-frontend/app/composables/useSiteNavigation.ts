@@ -47,11 +47,17 @@ export function useSiteNavigation() {
       visibleSectionId.value = navigationTarget
       return
     }
-    // 2. 按阅读线更新高亮，页面底部允许最后栏目成为当前项。
+    // 2. 与锚点共用 CSS 定位线；顶部判定会让底部短栏目永远无法成为当前项。
+    const firstSection = sectionPositions[0] && document.getElementById(sectionPositions[0].id)
+    const readingLine = firstSection
+      ? parseFloat(getComputedStyle(firstSection).scrollMarginTop)
+      : 0
+    // 页面底部仍允许联系成为当前项，不必为定位在页尾增加空白。
     visibleSectionId.value =
       visibleSection(
         sectionPositions,
-        (document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0) + 24,
+        readingLine ||
+          (document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0) + 24,
         isAtPageBottom,
       ) ?? navigationSection(route.path, route.hash)
   }

@@ -83,3 +83,42 @@ describe('homepage sections after layout changes', () => {
     ).toBe('contact')
   })
 })
+
+describe('short footer sections in a tall desktop viewport', () => {
+  it('does not select the next long section before its start reaches the reading line', () => {
+    expect(
+      visibleSection(
+        [
+          { id: 'about', top: -1000 },
+          { id: 'projects', top: 89 },
+          { id: 'blog', top: 1032 },
+          { id: 'stack', top: 1501 },
+          { id: 'contact', top: 1849 },
+        ],
+        576,
+      ),
+    ).toBe('projects')
+  })
+  it('keeps the stack active while scrolling upward from contact before reaching blog', () => {
+    expect(
+      visibleSection(
+        [
+          { id: 'blog', top: 115 },
+          { id: 'stack', top: 584 },
+          { id: 'contact', top: 933 },
+        ],
+        576,
+      ),
+    ).toBe('stack')
+    expect(
+      visibleSection(
+        [
+          { id: 'blog', top: 515 },
+          { id: 'stack', top: 984 },
+          { id: 'contact', top: 1333 },
+        ],
+        576,
+      ),
+    ).toBe('blog')
+  })
+})

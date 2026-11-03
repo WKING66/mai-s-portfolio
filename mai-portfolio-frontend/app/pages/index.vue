@@ -210,6 +210,11 @@ const assistantContext = computed<AssistantContext>(() => ({
 .home-page {
   max-width: 1120px;
 }
+/* 首页短栏目共用可视区中线定位，避免底部锚点都被钳制到同一个滚动位置。
+   路由、首屏锚点恢复与导航高亮均读取这份 scroll-margin。 */
+.home-page > section {
+  scroll-margin-top: calc((100svh + var(--site-header-height)) / 2);
+}
 .home-now {
   display: flex;
   flex-wrap: wrap;
