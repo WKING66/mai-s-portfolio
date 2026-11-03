@@ -4,8 +4,7 @@ import type { ApiResponse } from '../../api/types'
 import { useAssetUrlRefresh } from '../../composables/useAssetUrlRefresh'
 import { assetUrlsFresh } from '../../utils/assets/urls'
 import { BLOG_PUBLIC_CACHE_PREFIX } from '../../constants/blogs'
-import BlogRenderer from '../../components/blog/BlogRenderer.vue'
-import BlogArticleIntro from '../../components/blog/BlogArticleIntro.vue'
+import BlogArticle from '../../components/blog/BlogArticle.vue'
 const route = useRoute()
 const articleSlug = computed(() => String(route.params.slug))
 // 1. SSR 与浏览器共享公开投影；签名地址过期则重新读取，正文引用不改写。
@@ -71,26 +70,21 @@ async function downloadBlogPost() {
 <template>
   <main class="site-container site-page blog-reading-page blog-editorial-page">
     <NuxtLink to="/blog" class="article-back text-accent">← 博客笔记</NuxtLink>
-    <article v-if="blogPost && !blogError" class="blog-reading-article">
-      <BlogArticleIntro
-        :title="blogPost.title"
-        :summary="blogPost.summary"
-        :published-at="blogPost.publishedAt"
-        :updated-at="blogPost.updatedAt"
-        @share="copyArticleLink"
-      />
-      <BlogRenderer
-        :key="blogPost.contentId"
-        :cache-key="'public:' + blogPost.contentId"
-        :markdown="blogPost.content"
-        :resources="blogPost.resources"
-        show-toc
-        toc-side="right"
-        class="mb-8"
-      />
+    <BlogArticle
+      v-if="blogPost && !blogError"
+      :key="blogPost.contentId"
+      :title="blogPost.title"
+      :summary="blogPost.summary"
+      :published-at="blogPost.publishedAt"
+      :updated-at="blogPost.updatedAt"
+      :cache-key="'public:' + blogPost.contentId"
+      :markdown="blogPost.content"
+      :resources="blogPost.resources"
+      @share="copyArticleLink"
+    >
       <div
         v-if="blogPost.allowDownload"
-        class="flex flex-wrap items-center gap-4 border-t border-line pt-6"
+        class="mt-8 flex flex-wrap items-center gap-4 border-t border-line pt-6"
       >
         <UCheckbox
           v-if="blogPost.resources.length"
@@ -103,7 +97,7 @@ async function downloadBlogPost() {
         }}</UButton>
         <span class="text-xs text-muted">需要登录。仅正文中的资源链接有有效期。</span>
       </div>
-    </article>
+    </BlogArticle>
   </main>
 </template>
 
@@ -120,28 +114,9 @@ async function downloadBlogPost() {
 .article-back:hover {
   color: var(--site-text);
 }
-.blog-reading-article > :deep(.blog-reader) {
-  margin-top: 5.5rem;
-}
-.blog-editorial-page :deep(.blog-renderer) {
-  font-size: 1.125rem;
-  line-height: 1.9;
-}
-.blog-editorial-page :deep(.blog-renderer :is(h1, h2, h3, h4)) {
-  font-family: var(--site-editorial-font);
-  font-weight: 400;
-  letter-spacing: normal;
-}
 @media (max-width: 600px) {
   .blog-editorial-page {
     --blog-reading-start-gap: 0.25rem;
-  }
-  .blog-reading-article > :deep(.blog-reader) {
-    margin-top: 3rem;
-  }
-  .blog-editorial-page :deep(.blog-renderer) {
-    font-size: 1rem;
-    line-height: 1.85;
   }
 }
 </style>

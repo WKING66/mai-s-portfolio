@@ -1,11 +1,18 @@
 <script setup lang="ts">
-defineProps<{
-  title: string
-  summary?: string | null
-  publishedAt?: string | null
-  updatedAt?: string | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    title: string
+    summary?: string | null
+    publishedAt?: string | null
+    updatedAt?: string | null
+    shareable?: boolean
+  }>(),
+  { summary: undefined, publishedAt: undefined, updatedAt: undefined, shareable: true },
+)
 defineEmits<{ share: [] }>()
+const titleId = useId()
+// 优先在中文语意停顿处换行，避免两行标题从‘应该’这样的词中间断开。
+const titleParts = computed(() => props.title.split(/(?<=[，。！？：；])/u))
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long', timeZone: 'UTC' })
 function displayDate(value: string) {
   // 保留接口日期部分，避免带时区的时间戳转换后跨日。
@@ -15,10 +22,12 @@ function displayDate(value: string) {
 </script>
 
 <template>
-  <header class="article-intro" aria-labelledby="article-title">
-    <h1 id="article-title">{{ title }}</h1>
+  <header class="article-intro" :aria-labelledby="titleId">
+    <h1 :id="titleId">
+      <span v-for="(part, index) in titleParts" :key="index">{{ part }}</span>
+    </h1>
     <p v-if="summary" class="article-summary">{{ summary }}</p>
-    <div class="article-intro-footer">
+    <div v-if="publishedAt || updatedAt || shareable" class="article-intro-footer">
       <dl class="article-metadata">
         <div v-if="publishedAt">
           <dt>发布</dt>
@@ -34,6 +43,7 @@ function displayDate(value: string) {
         </div>
       </dl>
       <UButton
+        v-if="shareable"
         color="neutral"
         variant="ghost"
         icon="i-lucide-share-2"
@@ -52,11 +62,15 @@ function displayDate(value: string) {
 .article-intro h1 {
   font-family: var(--site-editorial-font);
   font-size: clamp(2.5rem, 5.75vw, 5.5rem);
-  font-weight: 400;
+  font-weight: 300;
   line-height: 1.35;
   letter-spacing: normal;
   text-wrap: balance;
   overflow-wrap: anywhere;
+}
+.article-intro h1 span {
+  display: inline-block;
+  max-width: 100%;
 }
 .article-summary {
   max-width: 50rem;
@@ -71,14 +85,14 @@ function displayDate(value: string) {
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  margin-top: 2.5rem;
+  margin-top: 3rem;
   border-block: 1px solid var(--site-line);
-  padding-block: 1.5rem;
+  padding-block: 1.25rem;
 }
 .article-metadata {
   display: flex;
   flex-wrap: wrap;
-  gap: 1.5rem 3rem;
+  gap: 1.5rem 2.5rem;
   font-size: 0.9375rem;
 }
 .article-metadata dt {

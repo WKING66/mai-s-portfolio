@@ -43,12 +43,14 @@ const props = withDefaults(
     resources?: DocumentResource[]
     debounce?: number
     tocSide?: 'left' | 'right'
+    scrollRoot?: HTMLElement | null
     showToc?: boolean
     progressive?: boolean
     cacheKey?: string
   }>(),
   {
     tocSide: 'left',
+    scrollRoot: undefined,
     debounce: 150,
     progressive: false,
     resources: () => [],
@@ -393,6 +395,7 @@ async function retry() {
 }
 const documentSearch = createReadingSearch({
   root: () => bodyRoot.value,
+  scrollRoot: () => props.scrollRoot,
   reveal: async (element) => {
     await contentMountPromise
     const next = new Set(contentCollapsedIds.value)
@@ -455,6 +458,7 @@ onBeforeUnmount(() => {
       <BlogToc
         :items="toc"
         :root="bodyRoot"
+        :scroll-root="scrollRoot"
         :reveal="reveal"
         :content-collapsed-ids="contentCollapsedIds"
         :content-ready="readingReady"

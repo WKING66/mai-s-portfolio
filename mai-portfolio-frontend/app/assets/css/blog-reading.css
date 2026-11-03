@@ -499,3 +499,35 @@
     inset-inline-start: -1rem;
   }
 }
+
+/* 编辑画布和只读阅读共用同一套文章排版。 */
+
+.blog-article {
+  max-width: 72.5rem;
+  width: 100%;
+  margin-inline: auto;
+}
+.blog-article > :where(.blog-reader) {
+  margin-top: 3rem;
+}
+.blog-article :where(.blog-renderer) {
+  font-size: 1.125rem;
+  line-height: 1.9;
+}
+.blog-article :where(.blog-renderer :is(h1, h2, h3, h4)) {
+  font-family: var(--site-editorial-font);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+@media (max-width: 600px) {
+  .blog-article {
+    --blog-reading-start-gap: 0.25rem;
+  }
+  .blog-article > :where(.blog-reader) {
+    margin-top: 3rem;
+  }
+  .blog-article :where(.blog-renderer) {
+    font-size: 1rem;
+    line-height: 1.85;
+  }
+}
