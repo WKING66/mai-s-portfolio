@@ -80,6 +80,15 @@ class OpenApiContractTest extends AuthKeyTestSupport {
         assertThat(registration.path("responses").has("409")).isTrue();
         assertThat(registration.path("responses").has("422")).isTrue();
         assertThat(registration.path("responses").has("429")).isTrue();
+        JsonNode registrationError = registration.path("responses").path("400");
+        String errorRef = registrationError.path("content").path("application/json")
+                .path("schema").path("$ref").asText();
+        assertThat(errorRef).startsWith("#/components/schemas/");
+        assertThat(spec.at(errorRef.substring(1)).path("properties").has("code")).isTrue();
+        assertThat(spec.at(errorRef.substring(1)).path("properties").has("details")).isTrue();
+        assertThat(registrationError.path("description").asText())
+                .isEqualTo("必填字段缺失、请求体或密文格式无效");
+
         assertThat(spec.path("paths").has("/api/v1/auth/session/register")).isFalse();
         assertThat(spec.path("paths").has("/api/v1/admin/session")).isFalse();
         assertThat(spec.path("paths").has(AuthConstants.AUTH_SESSION_PATH + "/challenge"))
@@ -97,7 +106,7 @@ class OpenApiContractTest extends AuthKeyTestSupport {
         assertThat(profileOperations.path("patch").path("responses").has("422")).isTrue();
         assertThat(profileOperations.path("patch").path("security").get(0).has("userSession"))
                 .isTrue();
-        assertThat(profileOperations.path("patch").path("parameters").get(0).path("name").asText())
+        assertThat(resolveParameter(spec, profileOperations.path("patch").path("parameters").get(0)).path("name").asText())
                 .isEqualTo(AuthConstants.CSRF_HEADER_NAME);
         assertThat(
                         profileOperations
@@ -149,7 +158,7 @@ class OpenApiContractTest extends AuthKeyTestSupport {
         assertThat(session.path("post").path("security").isMissingNode()).isTrue();
         assertThat(profile.path("security").isMissingNode()).isTrue();
         assertThat(session.path("delete").path("security").get(0).has("userSession")).isTrue();
-        JsonNode csrfHeader = session.path("delete").path("parameters").get(0);
+        JsonNode csrfHeader = resolveParameter(spec, session.path("delete").path("parameters").get(0));
         assertThat(csrfHeader.path("name").asText()).isEqualTo(AuthConstants.CSRF_HEADER_NAME);
         assertThat(csrfHeader.path("required").asBoolean()).isTrue();
 
@@ -233,14 +242,13 @@ class OpenApiContractTest extends AuthKeyTestSupport {
                                 .path("security")
                                 .isMissingNode())
                 .isTrue();
-        assertThat(
-                        paths.path("/api/v1/blogs")
-                                .path("post")
-                                .path("parameters")
-                                .get(0)
-                                .path("name")
-                                .asText())
+        assertThat(resolveParameter(spec, paths.path("/api/v1/blogs").path("post")
+                        .path("parameters").get(0)).path("name").asText())
                 .isEqualTo(AuthConstants.CSRF_HEADER_NAME);
         assertThat(paths.has("/api/v1/blogs/{id}/images/{assetId}")).isFalse();
+    }
+    private JsonNode resolveParameter(JsonNode spec, JsonNode parameter) {
+        String reference = parameter.path("$ref").asText();
+        return reference.isEmpty() ? parameter : spec.at(reference.substring(1));
     }
 }

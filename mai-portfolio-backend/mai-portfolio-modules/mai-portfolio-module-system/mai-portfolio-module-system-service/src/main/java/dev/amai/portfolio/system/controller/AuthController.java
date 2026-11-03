@@ -13,10 +13,7 @@ import dev.amai.portfolio.system.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -35,19 +32,8 @@ public class AuthController {
 
     @GetMapping(AuthConstants.AUTH_SESSION_ROUTE)
     @Operation(summary = "查询用户会话", description = "返回登录状态；已登录时附带写操作所需的 CSRF 令牌")
-    @ApiResponses({
-        @ApiResponse(
-                responseCode = "200",
-                description = "未登录或账号已删除返回 loggedIn=false；用户已登录返回会话信息",
-                useReturnTypeSchema = true),
-        @ApiResponse(
-                responseCode = "403",
-                description = "会话账号已停用",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "未登录或账号已删除返回 loggedIn=false；用户已登录返回会话信息", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "403", description = "会话账号已停用")
     @ApiLog
     public R<SessionVo> current() {
         return R.success(authService.current());
@@ -61,33 +47,10 @@ public class AuthController {
             description =
                     "浏览器以配置中的固定 RSA-OAEP SHA-256 公钥加密密码；"
                             + "此接口不接受明文密码。校验来源与凭据后设置 HttpOnly 会话 Cookie；应用层加密不替代 HTTPS")
-    @ApiResponses({
-        @ApiResponse(
-                responseCode = "200",
-                description = "登录成功，返回会话与 CSRF 令牌",
-                useReturnTypeSchema = true),
-        @ApiResponse(
-                responseCode = "400",
-                description = "请求体无效、必填字段缺失或 RSA 密文格式无效",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "401",
-                description = "用户名或密码错误",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "403",
-                description = "来源不允许、传输未加密或账号已停用",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "登录成功，返回会话与 CSRF 令牌", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "400", description = "请求体无效、必填字段缺失或 RSA 密文格式无效")
+    @ApiResponse(responseCode = "401", description = "用户名或密码错误")
+    @ApiResponse(responseCode = "403", description = "来源不允许、传输未加密或账号已停用")
     public R<SessionVo> login(
             @RequestHeader(value = "Origin", required = false) String origin,
             @Valid @RequestBody LoginRequest input) {
@@ -103,44 +66,12 @@ public class AuthController {
                     "使用与登录一致的固定 RSA-OAEP SHA-256 公钥；"
                             + "服务端以 Argon2id 保存密码。固定普通账号和启用状态，不接收角色配置、不自动登录。"
                             + "需允许的 Origin，无需现有会话或 CSRF；注册 IP 限流与登录分别计数。RSA 不能代替 HTTPS")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "创建成功；请随后登录", useReturnTypeSchema = true),
-        @ApiResponse(
-                responseCode = "400",
-                description = "必填字段缺失、请求体或密文格式无效",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "403",
-                description = "来源不允许或生产环境非 HTTPS",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "409",
-                description = "用户名已使用（不区分大小写）",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "422",
-                description = "用户名或解密后的密码不符合注册规则",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "429",
-                description = "请求过于频繁",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class)))
-    })
+    @ApiResponse(responseCode = "200", description = "创建成功；请随后登录", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "400", description = "必填字段缺失、请求体或密文格式无效")
+    @ApiResponse(responseCode = "403", description = "来源不允许或生产环境非 HTTPS")
+    @ApiResponse(responseCode = "409", description = "用户名已使用（不区分大小写）")
+    @ApiResponse(responseCode = "422", description = "用户名或解密后的密码不符合注册规则")
+    @ApiResponse(responseCode = "429", description = "请求过于频繁")
     public R<RegistrationVo> register(
             @Parameter(
                             name = "Origin",
@@ -160,35 +91,10 @@ public class AuthController {
             summary = "用户登出",
             description = "需要有效用户会话与写入令牌",
             security = @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME),
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true,
-                            description = "从已登录会话查询结果的 csrfToken 获取"))
-    @ApiResponses({
-        @ApiResponse(
-                responseCode = "200",
-                description = "登出成功",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "401",
-                description = "未登录或会话失效",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class))),
-        @ApiResponse(
-                responseCode = "403",
-                description = "CSRF 令牌无效",
-                content =
-                        @Content(
-                                mediaType = "application/json",
-                                schema = @Schema(implementation = R.class)))
-    })
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
+    @ApiResponse(responseCode = "200", description = "登出成功")
+    @ApiResponse(responseCode = "401", description = "未登录或会话失效")
+    @ApiResponse(responseCode = "403", description = "CSRF 令牌无效")
     public R<Void> logout() {
         authService.logout();
         return R.success(null);

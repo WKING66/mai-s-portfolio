@@ -3,6 +3,11 @@ package dev.amai.portfolio.system.api;
 public final class AuthConstants {
     public static final String OWNER_ROLE = "OWNER";
     public static final String SESSION_COOKIE_NAME = "portfolio_session";
+    /** 统一 CSRF 文档引用；组件名称与接口引用从同一处生成。 */
+    public static final String OPENAPI_CSRF_PARAMETER = "csrfToken";
+    public static final String OPENAPI_CSRF_PARAMETER_REF =
+            "#/components/parameters/" + OPENAPI_CSRF_PARAMETER;
+
     public static final String OPENAPI_SESSION_SCHEME = "userSession";
     public static final String API_PATH_PATTERN = "/api/v1/**";
     public static final String AUTH_PATH = "/api/v1/auth";
