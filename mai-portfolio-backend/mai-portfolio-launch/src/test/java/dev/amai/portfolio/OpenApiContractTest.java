@@ -83,7 +83,7 @@ class OpenApiContractTest extends AuthKeyTestSupport {
         JsonNode registrationError = registration.path("responses").path("400");
         String errorRef = registrationError.path("content").path("application/json")
                 .path("schema").path("$ref").asText();
-        assertThat(errorRef).startsWith("#/components/schemas/");
+        assertThat(errorRef).isEqualTo("#/components/schemas/R");
         assertThat(spec.at(errorRef.substring(1)).path("properties").has("code")).isTrue();
         assertThat(spec.at(errorRef.substring(1)).path("properties").has("details")).isTrue();
         assertThat(registrationError.path("description").asText())
