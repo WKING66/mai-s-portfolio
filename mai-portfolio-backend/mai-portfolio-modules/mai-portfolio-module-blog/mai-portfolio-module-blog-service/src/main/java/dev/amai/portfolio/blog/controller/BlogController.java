@@ -18,7 +18,6 @@ import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -84,11 +83,7 @@ public class BlogController {
     @PostMapping
     @Operation(
             summary = "新建博客草稿",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<BlogVo> create(@Valid @RequestBody BlogRequest input) {
         return R.success(blogService.create(input));
     }
@@ -99,11 +94,7 @@ public class BlogController {
     @Operation(
             summary = "保存草稿正文",
             description = "仅接收 revision/requestId/content/remoteRightsConfirmed；只更新正文及资源，属性与公开正文不变。旧混合请求已收窄，客户端需同步更新。",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<BlogVo> save(
             @PathVariable long id,
             @Valid @RequestBody BlogContentRequest input) {
@@ -116,11 +107,7 @@ public class BlogController {
     @Operation(
             summary = "保存文章属性",
             description = "完整属性表单；标题、摘要和标签保存到草稿，下载开关立即生效；不解析正文或重新上传资源。无修改不推进 revision。",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<BlogVo> saveProperties(
             @PathVariable long id,
             @Valid @RequestBody BlogPropertiesRequest input) {
@@ -133,11 +120,7 @@ public class BlogController {
     @Operation(
             summary = "导入 Markdown 草稿",
             description = "file 是 UTF-8 .md；resources 按正文相对路径提供本地图片/附件，兼容 Windows 引用分隔符。支持 Base64 data URI 图片，经统一 Asset 校验归档；网络图片须确认使用权。失败资源保留草稿，管理投影返回具体 errorMessage。",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<BlogVo> importDocument(
             @RequestPart MultipartFile file,
             @RequestPart(required = false) List<MultipartFile> resources,
@@ -160,11 +143,7 @@ public class BlogController {
     @PostMapping("/{id}/publish")
     @Operation(
             summary = "发布已保存草稿并替换正式正文",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<BlogVo> publish(@PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
         return R.success(blogService.transition(id, input, BlogAction.PUBLISH));
     }
@@ -174,11 +153,7 @@ public class BlogController {
     @PostMapping("/{id}/unpublish")
     @Operation(
             summary = "下架文章，不删除文档或资源",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<BlogVo> unpublish(
             @PathVariable long id, @Valid @RequestBody BlogRevisionRequest input) {
         return R.success(blogService.transition(id, input, BlogAction.UNPUBLISH));

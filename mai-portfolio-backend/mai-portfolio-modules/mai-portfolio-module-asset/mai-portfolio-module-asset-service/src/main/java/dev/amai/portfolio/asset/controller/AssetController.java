@@ -10,7 +10,6 @@ import dev.amai.portfolio.logging.annotation.ApiLog;
 import dev.amai.portfolio.system.api.AuthConstants;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.CacheControl;
@@ -53,11 +52,7 @@ public class AssetController {
                     "AVATAR 仅本人：PNG/JPEG，默认 2 MiB / 2048 像素；"
                             + "IMAGE 要求 OWNER：PNG/JPEG，8 MiB / 4096 像素，封面、截图和博客插图共用；"
                             + "ATTACHMENT 要求 OWNER：最多 64 MiB，以下载文件保存。图片校验重编码后上传，返回 OSS 签名 URL 与到期时间，不自动绑定、不代理字节。",
-            parameters =
-                    @Parameter(
-                            name = AuthConstants.CSRF_HEADER_NAME,
-                            in = ParameterIn.HEADER,
-                            required = true))
+            parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<AssetVo> upload(
             @RequestPart("file") MultipartFile file, @RequestParam AssetUsage usage) {
         // 用途授权在入口完成；上传 Service 只处理文件校验与归档。

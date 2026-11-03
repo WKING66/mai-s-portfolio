@@ -9,9 +9,7 @@ import dev.amai.portfolio.portfolio.service.SiteProfileService;
 import dev.amai.portfolio.system.api.AuthConstants;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -39,19 +37,17 @@ public class ProfileController {
         return response(siteProfileService.profile());
     }
 
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "更新成功", useReturnTypeSchema = true),
-        @ApiResponse(responseCode = "401", description = "未登录"),
-        @ApiResponse(responseCode = "403", description = "无 OWNER 权限或 CSRF 无效"),
-        @ApiResponse(responseCode = "409", description = "并发资料更新冲突"),
-        @ApiResponse(responseCode = "422", description = "资料字段不合法")
-    })
+    @ApiResponse(responseCode = "200", description = "更新成功", useReturnTypeSchema = true)
+    @ApiResponse(responseCode = "401", description = "未登录")
+    @ApiResponse(responseCode = "403", description = "无 OWNER 权限或 CSRF 无效")
+    @ApiResponse(responseCode = "409", description = "并发资料更新冲突")
+    @ApiResponse(responseCode = "422", description = "资料字段不合法")
     @PatchMapping
     @SaCheckRole(AuthConstants.OWNER_ROLE)
     @SecurityRequirement(name = AuthConstants.OPENAPI_SESSION_SCHEME)
     @ApiLog
     @Operation(summary = "更新网站资料", description = "仅 OWNER 可写；updatedAt 用于防止覆盖他人修改",
-        parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
+        parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public ResponseEntity<R<SiteProfileVo>> update(@Valid @RequestBody UpdateProfileRequest request) {
         return response(siteProfileService.updateProfile(request));
     }

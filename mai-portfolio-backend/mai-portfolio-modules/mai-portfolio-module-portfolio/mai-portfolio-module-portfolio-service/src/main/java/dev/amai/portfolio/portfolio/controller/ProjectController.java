@@ -16,9 +16,7 @@ import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.validation.ValidationGroups;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -52,12 +50,10 @@ public class ProjectController {
     @Operation(summary = "分页读取项目",
         description = "view 默认 PUBLIC，只返回已发布卡片。MANAGE 需要有效 OWNER Cookie，返回管理快照。"
             + "page 默认 1；PUBLIC size 默认 12、MANAGE 默认 20，最大 50；status 仅用于 MANAGE；公开搜索只匹配已发布内容；keyword 最多50字符，按标题或标识进行不区分大小写的字面子串搜索。")
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "按视图投影的项目分页"),
-        @ApiResponse(responseCode = "401", description = "MANAGE 未登录"),
-        @ApiResponse(responseCode = "403", description = "MANAGE 无站长权限、账号停用或传输不安全"),
-        @ApiResponse(responseCode = "422", description = "非法视图、分页、状态或超长关键词")
-    })
+    @ApiResponse(responseCode = "200", description = "按视图投影的项目分页")
+    @ApiResponse(responseCode = "401", description = "MANAGE 未登录")
+    @ApiResponse(responseCode = "403", description = "MANAGE 无站长权限、账号停用或传输不安全")
+    @ApiResponse(responseCode = "422", description = "非法视图、分页、状态或超长关键词")
     public ResponseEntity<R<ViewPageVO<ProjectItemVo>>> list(
             @Valid @ParameterObject @ModelAttribute ContentListRequest input) {
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(R.success(projectService.list(input)));
@@ -68,7 +64,7 @@ public class ProjectController {
     @PostMapping
     @ApiLog
     @Operation(summary = "新建项目草稿", description = "文本可未填写；标签和外链若提供则必须有效。",
-        parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
+        parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<ProjectEditorVo> create(@Valid @RequestBody ProjectRequest request) {
         return R.success(projectService.create(request));
     }
@@ -88,7 +84,7 @@ public class ProjectController {
     @ApiLog
     @Operation(summary = "保存项目完整快照",
         description = "须带回 version。标签、外链、封面完整替换；coverMediaId=null 移除封面引用，不删除文件。已发布项目保存立即生效且仍须满足发布条件。首次发布后标识固定。",
-        parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
+        parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<ProjectEditorVo> update(
             @Positive(message = ProjectMessageConstants.INVALID_FIELDS) @PathVariable Long id,
             @Validated(ValidationGroups.Update.class) @RequestBody ProjectRequest request) {
@@ -100,7 +96,7 @@ public class ProjectController {
     @PostMapping("/{id}/publish")
     @ApiLog
     @Operation(summary = "发布项目", description = "携带 version；要求标题、摘要、贡献与技术标签，图片和外链可缺省。",
-        parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
+        parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<ProjectEditorVo> publish(
             @Positive(message = ProjectMessageConstants.INVALID_FIELDS) @PathVariable Long id,
             @Valid @RequestBody ProjectVersionRequest request) {
@@ -112,7 +108,7 @@ public class ProjectController {
     @PostMapping("/{id}/unpublish")
     @ApiLog
     @Operation(summary = "下架项目", description = "携带 version；只转回草稿，不删除项目或文件。",
-        parameters = @Parameter(name = AuthConstants.CSRF_HEADER_NAME, in = ParameterIn.HEADER, required = true))
+        parameters = @Parameter(ref = AuthConstants.OPENAPI_CSRF_PARAMETER_REF))
     public R<ProjectEditorVo> unpublish(
             @Positive(message = ProjectMessageConstants.INVALID_FIELDS) @PathVariable Long id,
             @Valid @RequestBody ProjectVersionRequest request) {
