@@ -65,10 +65,6 @@ portfolio:
   media:
     # 私有 Bucket 的签名直连地址有效期；浏览器到期前重新查询业务 API。
     signed-url-ttl: ${MEDIA_SIGNED_URL_TTL:1h}
-  security:
-    # 注册与登录分别限流；同一客户端默认每 5 分钟最多提交 5 次注册请求。
-    max-registration-attempts-per-client: ${PORTFOLIO_SECURITY_MAX_REGISTRATION_ATTEMPTS_PER_CLIENT:5}
-    registration-attempt-window: ${PORTFOLIO_SECURITY_REGISTRATION_ATTEMPT_WINDOW:5m}
 
 logging:
   file:

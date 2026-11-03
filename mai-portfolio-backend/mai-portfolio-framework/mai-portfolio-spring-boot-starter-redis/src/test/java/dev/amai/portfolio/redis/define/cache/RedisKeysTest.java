@@ -14,14 +14,14 @@ class RedisKeysTest {
     @Test
     void isolatesNamespacesAndUsesStableUtf8SubjectDigest() {
         String subjectDigest = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
-        assertThat(redisKeys.rateLimit(RedisKeys.LOGIN_RATE_NAMESPACE, "abc"))
+        assertThat(redisKeys.rateLimit("auth:login", "abc"))
                 .isEqualTo("portfolio:rate:auth:login:" + subjectDigest);
-        assertThat(redisKeys.rateLimit(RedisKeys.REGISTRATION_RATE_NAMESPACE, "abc"))
+        assertThat(redisKeys.rateLimit("auth:register", "abc"))
                 .isEqualTo("portfolio:rate:auth:register:" + subjectDigest);
         RedisKeys otherApplicationRedisKeys =
                 new RedisKeys(new RedisInfrastructureProperties("other-application"));
-        assertThat(otherApplicationRedisKeys.rateLimit(RedisKeys.LOGIN_RATE_NAMESPACE, "abc"))
-                .isNotEqualTo(redisKeys.rateLimit(RedisKeys.LOGIN_RATE_NAMESPACE, "abc"));
+        assertThat(otherApplicationRedisKeys.rateLimit("auth:login", "abc"))
+                .isNotEqualTo(redisKeys.rateLimit("auth:login", "abc"));
     }
 
     @Test

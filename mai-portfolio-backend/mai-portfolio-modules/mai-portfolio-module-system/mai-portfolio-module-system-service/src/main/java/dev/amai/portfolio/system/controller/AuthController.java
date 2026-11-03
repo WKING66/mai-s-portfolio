@@ -3,6 +3,7 @@ package dev.amai.portfolio.system.controller;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.logging.annotation.ApiLog;
+import dev.amai.portfolio.security.rate.RateLimit;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.entity.request.LoginRequest;
 import dev.amai.portfolio.system.entity.request.RegisterRequest;
@@ -18,10 +19,10 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
-/** 字段约束由认证服务入口执行，统一抛出认证参数异常。 */
+/** 认证入口统一执行 DTO 校验及请求限流；Service 仅负责账号与会话业务。 */
 @RestController
 @RequestMapping(value = AuthConstants.AUTH_PATH, produces = "application/json")
 @Tag(name = "用户会话", description = "用户登录、会话查询和登出")
@@ -52,6 +53,7 @@ public class AuthController {
         return R.success(authService.current());
     }
 
+    @RateLimit
     @PostMapping(AuthConstants.AUTH_SESSION_ROUTE)
     @ApiLog
     @Operation(
@@ -88,11 +90,11 @@ public class AuthController {
     })
     public R<SessionVo> login(
             @RequestHeader(value = "Origin", required = false) String origin,
-            HttpServletRequest request,
-            @RequestBody LoginRequest input) {
-        return R.success(authService.login(origin, clientKey(request), input));
+            @Valid @RequestBody LoginRequest input) {
+        return R.success(authService.login(origin, input));
     }
 
+    @RateLimit
     @PostMapping(AuthConstants.AUTH_REGISTER_ROUTE)
     @ApiLog
     @Operation(
@@ -147,10 +149,8 @@ public class AuthController {
                             description = "浏览器自动发送的页面来源；缺失或不在允许列表内返回 403")
                     @RequestHeader(value = "Origin", required = false)
                     String origin,
-            HttpServletRequest request,
-            @RequestBody RegisterRequest input) {
-        // 和登录一样只使用容器的直接来源地址，不信任客户端伪造的转发头。
-        return R.success(authService.register(origin, clientKey(request), input));
+            @Valid @RequestBody RegisterRequest input) {
+        return R.success(authService.register(origin, input));
     }
 
     @DeleteMapping(AuthConstants.AUTH_SESSION_ROUTE)
@@ -194,9 +194,4 @@ public class AuthController {
         return R.success(null);
     }
 
-    private String clientKey(HttpServletRequest request) {
-        // 不信任可伪造的 X-Forwarded-For；生产反向代理还应在入口层配置对应限流。
-        String remoteAddress = request.getRemoteAddr();
-        return remoteAddress == null || remoteAddress.isBlank() ? "unknown" : remoteAddress;
-    }
 }

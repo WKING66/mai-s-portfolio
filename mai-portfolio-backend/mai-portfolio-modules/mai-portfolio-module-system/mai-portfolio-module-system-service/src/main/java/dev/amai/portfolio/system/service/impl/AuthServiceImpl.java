@@ -3,12 +3,8 @@ package dev.amai.portfolio.system.service.impl;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
-import dev.amai.portfolio.security.password.PasswordHasher;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.AuthConstants;
-import dev.amai.portfolio.system.component.AuthRequestValidator;
-import dev.amai.portfolio.system.component.NewPasswordPolicy;
-import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.convert.AccountConvert;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
@@ -18,10 +14,9 @@ import dev.amai.portfolio.system.entity.vo.RegistrationVo;
 import dev.amai.portfolio.system.entity.vo.SessionVo;
 import dev.amai.portfolio.system.enums.AccountStatus;
 import dev.amai.portfolio.system.enums.AccountType;
+import dev.amai.portfolio.system.manager.CredentialManager;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.service.AuthService;
-import dev.amai.portfolio.system.service.LoginThrottleService;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.security.SecureRandom;
@@ -46,30 +41,13 @@ public class AuthServiceImpl implements AuthService {
 
     private final SecureRandom secureRandom = new SecureRandom();
     private final UserAccountMapper userAccountMapper;
-    private final PasswordHasher passwordHasher;
-    private final SecurityProperties securityProperties;
-    private final PasswordCryptoService passwordCryptoService;
-    private final LoginThrottleService loginThrottleService;
-    private final NewPasswordPolicy newPasswordPolicy;
-    private final AuthRequestValidator authRequestValidator;
+    private final CredentialManager credentialManager;
     private final TransactionTemplate transactionTemplate;
 
-    public AuthServiceImpl(
-            UserAccountMapper userAccountMapper,
-            PasswordHasher passwordHasher,
-            SecurityProperties securityProperties,
-            PasswordCryptoService passwordCryptoService,
-            LoginThrottleService loginThrottleService,
-            NewPasswordPolicy newPasswordPolicy,
-            AuthRequestValidator authRequestValidator,
+    public AuthServiceImpl(UserAccountMapper userAccountMapper, CredentialManager credentialManager,
             PlatformTransactionManager transactionManager) {
         this.userAccountMapper = userAccountMapper;
-        this.passwordHasher = passwordHasher;
-        this.securityProperties = securityProperties;
-        this.passwordCryptoService = passwordCryptoService;
-        this.loginThrottleService = loginThrottleService;
-        this.newPasswordPolicy = newPasswordPolicy;
-        this.authRequestValidator = authRequestValidator;
+        this.credentialManager = credentialManager;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -83,19 +61,11 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public SessionVo login(String origin, String clientKey, LoginRequest input) {
-        // 1. 先校验参数并占用登录额度；参数/来源/限流校验先于事务，非法请求不应依赖数据库连接。
-        authRequestValidator.validate(input);
-        // 在执行 RSA 解密和 Argon2 校验前占用额度，失败尝试也会进入固定窗口。
-        loginThrottleService.acquireLoginPermit(clientKey);
-        // 登录页面通过同源代理访问；显式核对 Origin，防止跨站表单建立受害者会话。
-        if (origin == null || !securityProperties.allowedOrigins().contains(origin)) {
-            LOG.warn("User login rejected, reason=ORIGIN_INVALID");
-            throw new ApiException(
-                    ApiErrorCode.ORIGIN_INVALID, SystemMessageConstants.ORIGIN_INVALID);
-        }
+    public SessionVo login(String origin, LoginRequest input) {
+        // 1. 请求字段和频率已在入口处理；只允许本站来源进入凭据解密及账号查询。
+        credentialManager.requireAllowedOrigin(origin);
         // 2. 来源校验通过后解密；只规范化用户名，登录密码保持原样匹配。
-        String password = passwordCryptoService.decryptPassword(input.encryptedPassword());
+        String password = credentialManager.decryptPassword(input.encryptedPassword());
         String username = input.username().trim().toLowerCase(Locale.ROOT);
         // 3. 在事务内锁定账号并校验密码，成功后建立必要的会话身份。
         return transactionTemplate.execute(status -> authenticateLocked(username, password));
@@ -109,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
                         Wrappers.<UserAccountDO>lambdaQuery()
                                 .apply("LOWER(username) = {0}", username)
                                 .last("FOR UPDATE"));
-        if (account == null || !passwordHasher.matches(password, account.getPasswordHash())) {
+        if (account == null || !credentialManager.matches(password, account.getPasswordHash())) {
             LOG.warn("User login rejected, reason=BAD_CREDENTIALS");
             throw new ApiException(
                     ApiErrorCode.AUTH_INVALID_CREDENTIALS, SystemMessageConstants.BAD_CREDENTIALS);
@@ -145,15 +115,9 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public RegistrationVo register(String origin, String clientKey, RegisterRequest input) {
-        // 1. 校验请求、注册额度和来源，复用认证边界而不创建登录会话。
-        authRequestValidator.validate(input);
-        // 注册单独计数；复用 Redis 原子限流组件，避免注册防刷影响正常登录。
-        loginThrottleService.acquireRegistrationPermit(clientKey);
-        if (origin == null || !securityProperties.allowedOrigins().contains(origin)) {
-            throw new ApiException(
-                    ApiErrorCode.ORIGIN_INVALID, SystemMessageConstants.ORIGIN_INVALID);
-        }
+    public RegistrationVo register(String origin, RegisterRequest input) {
+        // 1. 注册不自动创建会话；先限制来源，再处理新账号凭据。
+        credentialManager.requireAllowedOrigin(origin);
         // 2. 执行用户名规则及共享新密码政策；这些业务判断先于数据库事务。
         String username = input.username().trim();
         if (!REGISTER_USERNAME.matcher(username).matches()) {
@@ -162,8 +126,8 @@ public class AuthServiceImpl implements AuthService {
                     SystemMessageConstants.REGISTER_USERNAME_INVALID);
         }
         String password =
-                newPasswordPolicy.normalize(
-                        passwordCryptoService.decryptPassword(input.encryptedPassword()));
+                credentialManager.normalizeNewPassword(
+                        credentialManager.decryptPassword(input.encryptedPassword()));
         // 3. 事务内创建启用的普通账号，唯一索引兜底并发重名，不接受客户端角色。
         return transactionTemplate.execute(status -> createAccount(username, password));
     }
@@ -183,7 +147,7 @@ public class AuthServiceImpl implements AuthService {
         account.setUsername(username);
         account.setType(AccountType.NORMAL.code());
         account.setStatus(AccountStatus.ENABLED.code());
-        account.setPasswordHash(passwordHasher.encode(password));
+        account.setPasswordHash(credentialManager.encode(password));
         account.setCreatedAt(now);
         account.setUpdatedAt(now);
         try {

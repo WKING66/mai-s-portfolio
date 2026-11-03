@@ -6,15 +6,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.auth.AuthRequestExceptionHandler;
-import dev.amai.portfolio.system.component.AuthRequestValidator;
-import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.config.SecurityProperties;
-import dev.amai.portfolio.system.exception.InvalidCredentialPayloadException;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
-import dev.amai.portfolio.system.service.LoginThrottleService;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.system.service.impl.AuthServiceImpl;
 import dev.amai.portfolio.security.password.PasswordHasher;
+import dev.amai.portfolio.system.manager.CredentialManager;
+import dev.amai.portfolio.system.manager.CredentialTestSupport;
 import dev.amai.portfolio.system.entity.request.RegisterRequest;
 import dev.amai.portfolio.system.entity.vo.RegistrationVo;
 import dev.amai.portfolio.system.entity.vo.SessionVo;
@@ -42,14 +39,9 @@ class AuthContractTest {
     private final ValidatorFactory validators = Validation.buildDefaultValidatorFactory();
     private final UserAccountMapper accounts = mock(UserAccountMapper.class);
     private final PasswordHasher passwords = mock(PasswordHasher.class);
-    private final PasswordCryptoService crypto = mock(PasswordCryptoService.class);
-    private final LoginThrottleService throttle = mock(LoginThrottleService.class);
+    private final CredentialManager crypto = org.mockito.Mockito.spy(CredentialTestSupport.create(passwords));
     private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
-    private final AuthService auth = spy(new AuthServiceImpl(accounts, passwords,
-        new SecurityProperties(List.of(ORIGIN), new ByteArrayResource(new byte[0]),
-            false, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5)), crypto, throttle,
-        new NewPasswordPolicy(),
-        new AuthRequestValidator(validators.getValidator()), transactions));
+    private final AuthService auth = spy(new AuthServiceImpl(accounts, crypto, transactions));
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(new AuthController(auth), new OtherController())
         .setControllerAdvice(new AuthRequestExceptionHandler(), new GlobalExceptionHandler()).build();
 
@@ -59,14 +51,14 @@ class AuthContractTest {
     }
 
     @Test void loginRegistrationAndAnonymousSessionKeepDistinctRoutes() throws Exception {
-        doReturn(new RegistrationVo("visitor")).when(auth).register(any(), any(), any());
-        doReturn(new SessionVo(true, "visitor", "csrf", List.of())).when(auth).login(any(), any(), any());
+        doReturn(new RegistrationVo("visitor")).when(auth).register(any(), any());
+        doReturn(new SessionVo(true, "visitor", "csrf", List.of())).when(auth).login(any(), any());
         doReturn(new SessionVo(false, null, null, List.of())).when(auth).current();
         doNothing().when(auth).logout();
         mvc.perform(post("/api/v1/auth/register").header("Origin", "https://example.test")
                 .contentType(MediaType.APPLICATION_JSON).content("{\"username\":\"visitor\",\"encryptedPassword\":\"cipher\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.username").value("visitor"));
-        verify(auth).register(eq("https://example.test"), any(), any(RegisterRequest.class));
+        verify(auth).register(eq("https://example.test"), any(RegisterRequest.class));
         mvc.perform(post("/api/v1/auth/session").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"visitor\",\"encryptedPassword\":\"cipher\"}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.data.loggedIn").value(true));
@@ -83,11 +75,11 @@ class AuthContractTest {
                 .andExpect(jsonPath("$.message").value("认证请求参数不合法"))
                 .andExpect(jsonPath("$.details.length()").value(2))
                 .andExpect(result -> assertThat(result.getResolvedException())
-                    .isInstanceOf(InvalidCredentialPayloadException.class));
+                    .isInstanceOf(org.springframework.web.bind.MethodArgumentNotValidException.class));
         }
         mvc.perform(post("/test/business").contentType(MediaType.APPLICATION_JSON).content("{}"))
             .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        verifyNoInteractions(accounts, passwords, crypto, throttle, transactions);
+        verifyNoInteractions(accounts, passwords, crypto, transactions);
     }
 
     @Test void malformedJsonUsesProtocolErrorRatherThanCredentialError() throws Exception {
@@ -107,13 +99,13 @@ class AuthContractTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(result -> assertThat(result.getResponse().getContentAsString()).doesNotContain(ciphertext))
                 .andExpect(result -> assertThat(result.getResolvedException())
-                    .isInstanceOf(InvalidCredentialPayloadException.class));
+                    .isInstanceOf(org.springframework.web.bind.MethodArgumentNotValidException.class));
         }
-        verifyNoInteractions(accounts, passwords, crypto, throttle, transactions);
+        verifyNoInteractions(accounts, passwords, crypto, transactions);
     }
 
     @Test void realBusinessFailuresRemainDistinctFromRequestValidation() throws Exception {
-        when(crypto.decryptPassword("cipher")).thenReturn("valid-password-2026!");
+        org.mockito.Mockito.doReturn("valid-password-2026!").when(crypto).decryptPassword("cipher");
         mvc.perform(post("/api/v1/auth/session").header("Origin", ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"unknown\",\"encryptedPassword\":\"cipher\"}"))
@@ -122,12 +114,12 @@ class AuthContractTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"bad@name\",\"encryptedPassword\":\"cipher\"}"))
             .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        when(crypto.decryptPassword("cipher")).thenReturn("short");
+        org.mockito.Mockito.doReturn("short").when(crypto).decryptPassword("cipher");
         mvc.perform(post("/api/v1/auth/register").header("Origin", ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"username\":\"visitor\",\"encryptedPassword\":\"cipher\"}"))
             .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.code").value("VALIDATION_FAILED"));
-        when(crypto.decryptPassword("cipher")).thenReturn("valid-password-2026!");
+        org.mockito.Mockito.doReturn("valid-password-2026!").when(crypto).decryptPassword("cipher");
         when(accounts.selectCount(any())).thenReturn(1L);
         mvc.perform(post("/api/v1/auth/register").header("Origin", ORIGIN)
                 .contentType(MediaType.APPLICATION_JSON)

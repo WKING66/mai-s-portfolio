@@ -13,16 +13,14 @@ import cn.dev33.satoken.spring.SaTokenContextForSpringInJakartaServlet;
 import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.security.password.PasswordHasher;
-import dev.amai.portfolio.system.component.AuthRequestValidator;
-import dev.amai.portfolio.system.component.NewPasswordPolicy;
+import dev.amai.portfolio.system.manager.CredentialManager;
+import dev.amai.portfolio.system.manager.CredentialTestSupport;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.entity.request.LoginRequest;
 import dev.amai.portfolio.system.enums.AccountStatus;
 import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
-import dev.amai.portfolio.system.service.LoginThrottleService;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.Duration;
 import java.util.List;
@@ -41,13 +39,9 @@ class AuthServiceSessionTest {
     private static final String ORIGIN = "https://example.test";
     private final UserAccountMapper accounts = mock(UserAccountMapper.class);
     private final PasswordHasher passwords = mock(PasswordHasher.class);
-    private final PasswordCryptoService crypto = mock(PasswordCryptoService.class);
+    private final CredentialManager crypto = org.mockito.Mockito.spy(CredentialTestSupport.create(passwords));
     private final PlatformTransactionManager transactions = mock(PlatformTransactionManager.class);
-    private final AuthServiceImpl service = new AuthServiceImpl(accounts, passwords,
-            new SecurityProperties(List.of(ORIGIN), new ByteArrayResource(new byte[0]),
-                    false, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5)),
-            crypto, mock(LoginThrottleService.class), new NewPasswordPolicy(),
-            mock(AuthRequestValidator.class), transactions);
+    private final AuthServiceImpl service = new AuthServiceImpl(accounts, crypto, transactions);
     private SaTokenConfig previousConfig;
     private SaTokenDao previousDao;
     private SaTokenContext previousContext;
@@ -69,7 +63,7 @@ class AuthServiceSessionTest {
         account.setStatus(AccountStatus.ENABLED.code());
         account.setPasswordHash("private-password-hash");
         when(accounts.selectOne(any())).thenReturn(account);
-        when(crypto.decryptPassword("cipher")).thenReturn("password");
+        org.mockito.Mockito.doReturn("password").when(crypto).decryptPassword("cipher");
         when(passwords.matches("password", account.getPasswordHash())).thenReturn(true);
         when(transactions.getTransaction(any())).thenReturn(new SimpleTransactionStatus());
     }
@@ -84,7 +78,7 @@ class AuthServiceSessionTest {
 
     @Test
     void loginStoresOnlyIdentityAndRestoresSessionWithoutReadingAccounts() {
-        var login = service.login(ORIGIN, "browser", new LoginRequest("owner", "cipher"));
+        var login = service.login(ORIGIN, new LoginRequest("owner", "cipher"));
         assertThat(login.loggedIn()).isTrue();
         assertThat(login.roles()).containsExactly("OWNER");
         assertThat(login.csrfToken()).isNotBlank();
@@ -105,7 +99,7 @@ class AuthServiceSessionTest {
     @Test
     void normalAccountDoesNotAcquireOwnerRole() {
         account.setType(AccountType.NORMAL.code());
-        var login = service.login(ORIGIN, "browser", new LoginRequest("owner", "cipher"));
+        var login = service.login(ORIGIN, new LoginRequest("owner", "cipher"));
 
         assertThat(login.roles()).isEmpty();
         assertThat(AccountContext.currentAccount().roles()).isEmpty();
@@ -115,7 +109,7 @@ class AuthServiceSessionTest {
     void disabledAccountCannotCreateSession() {
         account.setStatus(AccountStatus.DISABLED.code());
 
-        assertThatThrownBy(() -> service.login(ORIGIN, "browser", new LoginRequest("owner", "cipher")))
+        assertThatThrownBy(() -> service.login(ORIGIN, new LoginRequest("owner", "cipher")))
                 .isInstanceOf(ApiException.class);
         assertThat(StpUtil.isLogin()).isFalse();
     }

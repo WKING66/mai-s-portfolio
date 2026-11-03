@@ -5,7 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.security.session.NamespacedSaTokenDao;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
+import dev.amai.portfolio.system.manager.CredentialManager;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -31,8 +31,8 @@ class RedisAuthFlowTest extends AuthKeyTestSupport {
         String prefix = "mai-portfolio:auth-test:" + UUID.randomUUID();
         try (var first = start(prefix); var second = start(prefix)) {
             try {
-                assertThat(first.getBean(PasswordCryptoService.class))
-                    .isNotSameAs(second.getBean(PasswordCryptoService.class));
+                assertThat(first.getBean(CredentialManager.class))
+                    .isNotSameAs(second.getBean(CredentialManager.class));
                 assertThat(first.getBean(SaTokenDao.class))
                     .isInstanceOf(NamespacedSaTokenDao.class);
                 String body = LoginTestClient.encryptedLoginBody(json, "owner", System.getenv("OWNER_PASSWORD"));

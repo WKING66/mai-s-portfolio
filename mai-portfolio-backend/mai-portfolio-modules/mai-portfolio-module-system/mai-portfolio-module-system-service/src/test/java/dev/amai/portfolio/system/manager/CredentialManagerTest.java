@@ -1,4 +1,4 @@
-package dev.amai.portfolio.system.service.impl;
+package dev.amai.portfolio.system.manager;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -23,10 +23,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ByteArrayResource;
 
-class PasswordCryptoServiceImplTest {
+class CredentialManagerTest {
     private static KeyPair keys;
     private static SecurityProperties properties;
-    private static PasswordCryptoServiceImpl crypto;
+    private static CredentialManager crypto;
 
     @BeforeAll
     static void setUp() throws Exception {
@@ -37,9 +37,8 @@ class PasswordCryptoServiceImplTest {
             + Base64.getEncoder().encodeToString(keys.getPrivate().getEncoded())
             + "\n-----END PRIVATE KEY-----";
         properties = new SecurityProperties(List.of("http://localhost"),
-            new ByteArrayResource(pem.getBytes(StandardCharsets.US_ASCII)), false, 5,
-            Duration.ofMinutes(10), 5, Duration.ofMinutes(5));
-        crypto = new PasswordCryptoServiceImpl(properties);
+            new ByteArrayResource(pem.getBytes(StandardCharsets.US_ASCII)), false);
+        crypto = new CredentialManager(properties, org.mockito.Mockito.mock(dev.amai.portfolio.security.password.PasswordHasher.class));
     }
 
     private String encrypt(byte[] plaintext, MGF1ParameterSpec mgf) throws Exception {
@@ -53,7 +52,7 @@ class PasswordCryptoServiceImplTest {
     void sameFixedKeyWorksAcrossInstancesAndConcurrentRequests() throws Exception {
         String password = "中文-password-测试";
         String ciphertext = encrypt(password.getBytes(StandardCharsets.UTF_8), MGF1ParameterSpec.SHA256);
-        var secondInstance = new PasswordCryptoServiceImpl(properties);
+        var secondInstance = new CredentialManager(properties, org.mockito.Mockito.mock(dev.amai.portfolio.security.password.PasswordHasher.class));
         try (var executor = Executors.newFixedThreadPool(4)) {
             List<Callable<String>> requests = IntStream.range(0, 24)
                 .mapToObj(i -> (Callable<String>) () ->
@@ -93,8 +92,8 @@ class PasswordCryptoServiceImplTest {
     void invalidPrivateKeyFailsStartupWithoutExposingMaterial() {
         var invalid = new SecurityProperties(List.of("http://localhost"),
             new ByteArrayResource("invalid-secret-material".getBytes(StandardCharsets.UTF_8)),
-            true, 5, Duration.ofMinutes(10), 5, Duration.ofMinutes(5));
-        assertThatThrownBy(() -> new PasswordCryptoServiceImpl(invalid))
+            true);
+        assertThatThrownBy(() -> new CredentialManager(invalid, org.mockito.Mockito.mock(dev.amai.portfolio.security.password.PasswordHasher.class)))
             .isInstanceOf(IllegalStateException.class).hasMessageNotContaining("invalid-secret-material");
     }
 

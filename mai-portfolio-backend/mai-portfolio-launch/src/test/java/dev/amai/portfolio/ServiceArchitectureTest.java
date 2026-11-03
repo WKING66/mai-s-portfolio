@@ -17,10 +17,8 @@ import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.system.config.SystemBootstrapRunner;
 import dev.amai.portfolio.system.controller.AuthController;
 import dev.amai.portfolio.system.service.AuthService;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.system.service.SystemBootstrapService;
 import dev.amai.portfolio.system.service.impl.AuthServiceImpl;
-import dev.amai.portfolio.system.service.impl.PasswordCryptoServiceImpl;
 import dev.amai.portfolio.system.service.impl.SystemBootstrapServiceImpl;
 import dev.amai.portfolio.system.api.TaxonomyQueryService;
 import dev.amai.portfolio.system.config.TaxonomyBootstrapRunner;
@@ -46,7 +44,6 @@ class ServiceArchitectureTest {
         assertService(AuthService.class, AuthServiceImpl.class);
         assertThat(PasswordHasher.class.isAssignableFrom(Argon2PasswordHasher.class)).isTrue();
         assertService(SystemBootstrapService.class, SystemBootstrapServiceImpl.class);
-        assertService(PasswordCryptoService.class, PasswordCryptoServiceImpl.class);
         assertService(AssetQueryService.class, AssetQueryServiceImpl.class);
         assertService(TaxonomyQueryService.class, TaxonomyQueryServiceImpl.class);
         assertService(TaxonomyBootstrapService.class, TaxonomyBootstrapServiceImpl.class);

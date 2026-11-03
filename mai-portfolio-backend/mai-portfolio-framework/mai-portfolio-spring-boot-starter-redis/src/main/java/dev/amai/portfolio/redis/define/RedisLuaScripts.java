@@ -22,6 +22,31 @@ public final class RedisLuaScripts {
         """;
 
     /**
+     * KEYS[1] 为桶 Hash；ARGV 为容量、每秒速率、补满时间毫秒；返回 1 通过或 0 拒绝。
+     * 使用 Redis 时间避免不同应用实例的时钟偏差；命令复制模式支持 Redis 3.2 的 TIME 后写入。
+     */
+    public static final String TOKEN_BUCKET_ACQUIRE = """
+            redis.replicate_commands()
+            local clock = redis.call('TIME')
+            local now = tonumber(clock[1]) * 1000 + tonumber(clock[2]) / 1000
+            local capacity = tonumber(ARGV[1])
+            local rate = tonumber(ARGV[2])
+            local state = redis.call('HMGET', KEYS[1], 'tokens', 'updated')
+            local tokens = tonumber(state[1]) or capacity
+            local updated = tonumber(state[2]) or now
+            now = math.max(now, updated)
+            tokens = math.min(capacity, tokens + (now - updated) * rate / 1000)
+            local allowed = 0
+            if tokens >= 1 then
+                tokens = tokens - 1
+                allowed = 1
+            end
+            redis.call('HMSET', KEYS[1], 'tokens', tokens, 'updated', now)
+            redis.call('PEXPIRE', KEYS[1], ARGV[3])
+            return allowed
+            """;
+
+    /**
      * 更新已存在的 String 并保留原 TTL，兼容 Redis 3.2 不支持 SET KEEPTTL 的情况。
      * KEYS[1]：目标 String；ARGV[1]：新值；不存在时返回 0，更新成功返回 1。
      * 原键无过期时间时继续永久保存；读取 TTL 与写入在同一次脚本中执行。

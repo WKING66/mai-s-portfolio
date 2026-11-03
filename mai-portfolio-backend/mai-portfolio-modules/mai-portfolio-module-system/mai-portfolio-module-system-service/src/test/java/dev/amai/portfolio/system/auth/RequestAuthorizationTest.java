@@ -63,8 +63,7 @@ class RequestAuthorizationTest {
         SaManager.setSaTokenContext(new SaTokenContextForSpringInJakartaServlet());
         SaManager.setStpInterface(roles);
         var policy = new SecurityProperties(List.of("https://example.test"),
-                new ByteArrayResource(new byte[0]), true, 5, Duration.ofMinutes(10),
-                5, Duration.ofMinutes(5));
+                new ByteArrayResource(new byte[0]), true);
         mvc = MockMvcBuilders.standaloneSetup(new Endpoints(), new AccountProfileController(profileService))
                 .addInterceptors(new AuthenticationInterceptor(policy), new SaInterceptor())
                 .setControllerAdvice(new SaTokenExceptionHandler(), new GlobalExceptionHandler()).build();

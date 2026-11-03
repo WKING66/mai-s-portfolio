@@ -9,8 +9,6 @@ import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.security.SecurityMessageConstants;
 import dev.amai.portfolio.security.context.AccountContext.Account;
 import dev.amai.portfolio.security.context.AccountContext;
-import dev.amai.portfolio.security.password.PasswordHasher;
-import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import dev.amai.portfolio.system.constant.AccountMessageConstants;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.convert.AccountConvert;
@@ -22,10 +20,10 @@ import dev.amai.portfolio.system.entity.request.AccountPasswordRequest;
 import dev.amai.portfolio.system.entity.request.AccountProfileRequest;
 import dev.amai.portfolio.system.entity.vo.AccountProfileVo;
 import dev.amai.portfolio.system.enums.AccountStatus;
+import dev.amai.portfolio.system.manager.CredentialManager;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.mapper.UserProfileMapper;
 import dev.amai.portfolio.system.service.AccountProfileService;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.LocalDateTime;
@@ -44,23 +42,14 @@ public class AccountProfileServiceImpl implements AccountProfileService {
     private final UserAccountMapper userAccountMapper;
     private final UserProfileMapper userProfileMapper;
     private final AssetQueryService assetQueryService;
-    private final PasswordCryptoService passwordCryptoService;
-    private final PasswordHasher passwordHasher;
-    private final NewPasswordPolicy newPasswordPolicy;
+    private final CredentialManager credentialManager;
 
-    public AccountProfileServiceImpl(
-            UserAccountMapper userAccountMapper,
-            UserProfileMapper userProfileMapper,
-            AssetQueryService assetQueryService,
-            PasswordCryptoService passwordCryptoService,
-            PasswordHasher passwordHasher,
-            NewPasswordPolicy newPasswordPolicy) {
+    public AccountProfileServiceImpl(UserAccountMapper userAccountMapper, UserProfileMapper userProfileMapper,
+            AssetQueryService assetQueryService, CredentialManager credentialManager) {
         this.userAccountMapper = userAccountMapper;
         this.userProfileMapper = userProfileMapper;
         this.assetQueryService = assetQueryService;
-        this.passwordCryptoService = passwordCryptoService;
-        this.passwordHasher = passwordHasher;
-        this.newPasswordPolicy = newPasswordPolicy;
+        this.credentialManager = credentialManager;
     }
 
     /** 读取当前登录账号的昵称和头像地址；与网站首页展示的站长介绍是两份不同资料。 */
@@ -119,13 +108,13 @@ public class AccountProfileServiceImpl implements AccountProfileService {
             throw new IllegalStateException(AccountMessageConstants.PASSWORD_TRANSACTION_REQUIRED);
         }
         // 2. 解密并校验密码，锁定账号后精确匹配旧密码；只规范化新密码。
-        String oldPassword = passwordCryptoService.decryptPassword(request.oldEncryptedPassword());
+        String oldPassword = credentialManager.decryptPassword(request.oldEncryptedPassword());
         String newPassword =
-                newPasswordPolicy.normalize(
-                        passwordCryptoService.decryptPassword(request.newEncryptedPassword()));
+                credentialManager.normalizeNewPassword(
+                        credentialManager.decryptPassword(request.newEncryptedPassword()));
         var identity = AccountContext.currentAccount();
         UserAccountDO account = lockAccount(identity.id());
-        if (!passwordHasher.matches(oldPassword, account.getPasswordHash())) {
+        if (!credentialManager.matches(oldPassword, account.getPasswordHash())) {
             // 422 保留当前登录态，不能把“旧密码输错”误当成会话失效的 401。
             throw invalid(AccountMessageConstants.CURRENT_PASSWORD_INVALID);
         }
@@ -147,7 +136,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
                                         Math.addExact(account.getCredentialVersion(), 1L))
                                 .set(
                                         UserAccountDO::getPasswordHash,
-                                        passwordHasher.encode(newPassword))
+                                        credentialManager.encode(newPassword))
                                 .set(
                                         UserAccountDO::getUpdatedAt,
                                         LocalDateTime.now(ZoneOffset.UTC)));

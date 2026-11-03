@@ -10,7 +10,7 @@
     </parent>
     <artifactId>mai-portfolio-spring-boot-starter-redis</artifactId>
     <name>mai-portfolio-spring-boot-starter-redis</name>
-    <description>Redisson 客户端与固定窗口限流基础设施。</description>
+    <description>Redisson 客户端与固定窗口、令牌桶限流基础设施。</description>
     <dependencies>
         <dependency>
             <groupId>org.redisson</groupId>

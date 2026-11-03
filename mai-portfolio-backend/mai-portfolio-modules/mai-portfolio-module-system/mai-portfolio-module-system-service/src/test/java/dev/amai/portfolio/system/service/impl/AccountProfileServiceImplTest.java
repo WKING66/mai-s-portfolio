@@ -1,6 +1,5 @@
 package dev.amai.portfolio.system.service.impl;
 
-import dev.amai.portfolio.system.component.NewPasswordPolicy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,6 +23,8 @@ import java.time.Instant;
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetType;
 import dev.amai.portfolio.security.password.PasswordHasher;
+import dev.amai.portfolio.system.manager.CredentialManager;
+import dev.amai.portfolio.system.manager.CredentialTestSupport;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
 import dev.amai.portfolio.system.entity.domain.UserProfileDO;
 import dev.amai.portfolio.system.entity.request.AccountPasswordRequest;
@@ -32,7 +33,6 @@ import dev.amai.portfolio.system.enums.AccountStatus;
 import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.mapper.UserProfileMapper;
-import dev.amai.portfolio.system.service.PasswordCryptoService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.io.ByteArrayInputStream;
@@ -60,13 +60,12 @@ class AccountProfileServiceImplTest {
     private final UserAccountMapper accounts = mock(UserAccountMapper.class);
     private final UserProfileMapper profiles = mock(UserProfileMapper.class);
     private final AssetQueryService assets = mock(AssetQueryService.class);
-    private final PasswordCryptoService crypto = mock(PasswordCryptoService.class);
     private final PasswordHasher passwords = mock(PasswordHasher.class);
+    private final CredentialManager crypto = org.mockito.Mockito.spy(CredentialTestSupport.create(passwords));
     private final TestTransactionManager manager = new TestTransactionManager();
     private final TransactionTemplate transaction = new TransactionTemplate(manager);
     private final AccountProfileServiceImpl service = new AccountProfileServiceImpl(
-        accounts, profiles, assets, crypto, passwords,
-        new NewPasswordPolicy());
+        accounts, profiles, assets, crypto);
     private final UserAccountDO account = new UserAccountDO();
 
     @BeforeAll
@@ -202,8 +201,8 @@ class AccountProfileServiceImplTest {
 
     @Test
     void passwordChangeRevokesRedisSessionsOnlyAfterCommitAndTrimsOnlyNewValue() {
-        when(crypto.decryptPassword("old-cipher")).thenReturn(" old-password ");
-        when(crypto.decryptPassword("new-cipher")).thenReturn(" \u00A0new-password-ab!\uFEFF ");
+        org.mockito.Mockito.doReturn(" old-password ").when(crypto).decryptPassword("old-cipher");
+        org.mockito.Mockito.doReturn(" \u00A0new-password-ab!\uFEFF ").when(crypto).decryptPassword("new-cipher");
         when(passwords.matches(" old-password ", "old-hash")).thenReturn(true);
         when(passwords.encode("new-password-ab!")).thenReturn("new-hash");
         try (var stp = authenticatedSession()) {
@@ -268,8 +267,8 @@ class AccountProfileServiceImplTest {
     @ParameterizedTest
     @ValueSource(strings = {"inside space-ab!", "含中文new-password!", "short-ab!", "newline\npassword-ab!"})
     void newPasswordReusesRegistrationRules(String password) {
-        when(crypto.decryptPassword("old-cipher")).thenReturn("old-password-ab!");
-        when(crypto.decryptPassword("new-cipher")).thenReturn(password);
+        org.mockito.Mockito.doReturn("old-password-ab!").when(crypto).decryptPassword("old-cipher");
+        org.mockito.Mockito.doReturn(password).when(crypto).decryptPassword("new-cipher");
         assertThatThrownBy(() -> transaction.executeWithoutResult(status -> service.changePassword(
             new AccountPasswordRequest("old-cipher", "new-cipher"))))
             .isInstanceOfSatisfying(ApiException.class,
@@ -380,8 +379,8 @@ class AccountProfileServiceImplTest {
     }
 
     private void validPasswordInput() {
-        when(crypto.decryptPassword("old-cipher")).thenReturn("old-password-ab!");
-        when(crypto.decryptPassword("new-cipher")).thenReturn("new-password-ab!");
+        org.mockito.Mockito.doReturn("old-password-ab!").when(crypto).decryptPassword("old-cipher");
+        org.mockito.Mockito.doReturn("new-password-ab!").when(crypto).decryptPassword("new-cipher");
         when(passwords.matches("old-password-ab!", "old-hash")).thenReturn(true);
         when(passwords.encode("new-password-ab!")).thenReturn("new-hash");
     }
