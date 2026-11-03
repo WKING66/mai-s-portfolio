@@ -42,11 +42,19 @@ const props = withDefaults(
     markdown: string
     resources?: DocumentResource[]
     debounce?: number
+    tocSide?: 'left' | 'right'
     showToc?: boolean
     progressive?: boolean
     cacheKey?: string
   }>(),
-  { debounce: 150, progressive: false, resources: () => [], showToc: false, cacheKey: undefined },
+  {
+    tocSide: 'left',
+    debounce: 150,
+    progressive: false,
+    resources: () => [],
+    showToc: false,
+    cacheKey: undefined,
+  },
 )
 const emit = defineEmits<{ toc: [items: TocLink[]] }>()
 // 1. 使用稳定版本键复用 SSR payload；资源投影单独注入，不写入正文 AST。
@@ -420,6 +428,7 @@ onBeforeUnmount(() => {
     :class="{
       'blog-reader': showToc,
       'blog-reading-layout': showToc && toc.length,
+      'blog-reading-toc-right': tocSide === 'right',
       'blog-reading-with-header': Boolean($slots.header),
     }"
   >
@@ -442,7 +451,7 @@ onBeforeUnmount(() => {
       <Markdown v-if="chapterDocument" :value="chapterDocument" :components="components" />
     </div>
     <aside v-if="showToc && toc.length" class="blog-reading-toc">
-      <BlogTocResizeHandle />
+      <BlogTocResizeHandle :side="tocSide" />
       <BlogToc
         :items="toc"
         :root="bodyRoot"

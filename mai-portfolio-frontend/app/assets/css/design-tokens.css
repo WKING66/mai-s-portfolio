@@ -1,6 +1,8 @@
 /* 全站语义 token，由 html 的主题状态统一选择。 */
 :root {
   color-scheme: light;
+  --site-editorial-font:
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', STSong, SimSun, Georgia, serif;
   --site-bg: #f5f2e9;
   --site-surface: #ffffff;
   --site-text: #1f2d2b;
@@ -83,4 +85,18 @@
   --ui-border-muted: var(--site-border-muted);
   --ui-border-accented: var(--site-border-accented);
   --ui-border-inverted: var(--site-text);
+}
+
+/* 公开阅读页使用中性纸面；选择器随页面退出而失效，不改首页/管理页主题状态。 */
+:root:has(.blog-editorial-page):not([data-theme='dark']) {
+  --site-bg: #ffffff;
+  --site-surface: #ffffff;
+  --site-text: #151515;
+  --site-muted: #555555;
+  --site-line: #e6e6e6;
+  --site-bg-muted: #f5f5f5;
+  --site-bg-elevated: #fafafa;
+  --site-bg-accented: #eeeeee;
+  --site-border-muted: #eeeeee;
+  --site-border-accented: #cccccc;
 }
