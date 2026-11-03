@@ -470,3 +470,12 @@
 .blog-reading-find > * {
   pointer-events: auto;
 }
+
+/* 紧凑目录与正文查找会同时吸顶；为目录保留一个按钮及间隔，避免点击区域重叠。
+   仅有目录的阅读布局需要该位置，无目录文章和桌面侧栏不留空位。 */
+@media (max-width: 1199px) {
+  .blog-reading-layout > .blog-renderer > .blog-reading-find {
+    top: calc(var(--site-header-height) + 0.5rem);
+    padding-inline-end: 3rem;
+  }
+}
