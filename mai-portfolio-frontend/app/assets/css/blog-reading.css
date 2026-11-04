@@ -470,3 +470,11 @@
 .blog-reading-find > * {
   pointer-events: auto;
 }
+
+/* 紧凑目录与正文查找分两行吸顶；查找在目录下方，无目录和桌面侧栏不受影响。 */
+@media (max-width: 1199px) {
+  .blog-reading-layout > .blog-renderer > .blog-reading-find {
+    top: calc(var(--site-header-height) + 3rem);
+    padding-inline-end: 0;
+  }
+}

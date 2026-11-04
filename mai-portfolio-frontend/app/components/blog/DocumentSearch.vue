@@ -21,6 +21,81 @@ const message = ref('')
 const historyAction = ref<'undo' | 'redo' | null>(null)
 const searchInput = useTemplateRef<HTMLInputElement>('searchInput')
 const panel = useTemplateRef<HTMLElement>('panel')
+const panelPosition = ref<{ x: number; y: number } | null>(null)
+let drag: { id: number; x: number; y: number; left: number; top: number } | null = null
+function placePanel(x: number, y: number) {
+  const element = panel.value
+  if (!element) {
+    return
+  }
+  const rect = element.getBoundingClientRect()
+  const minimumTop =
+    (document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0) + 8
+  panelPosition.value = {
+    x: innerWidth <= 1199 ? 0 : Math.max(8, Math.min(x, innerWidth - rect.width - 8)),
+    y: Math.max(minimumTop, Math.min(y, innerHeight - rect.height - 8)),
+  }
+}
+function fitPanel() {
+  if (panelPosition.value) {
+    placePanel(panelPosition.value.x, panelPosition.value.y)
+  }
+}
+function dragStart(event: PointerEvent) {
+  if (
+    event.button !== 0 ||
+    (event.target instanceof Element && event.target.closest('button, input'))
+  ) {
+    return
+  }
+  const rect = panel.value?.getBoundingClientRect()
+  if (!rect) {
+    return
+  }
+  event.preventDefault()
+  drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: rect.left, top: rect.top }
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+function dragMove(event: PointerEvent) {
+  if (drag?.id === event.pointerId) {
+    placePanel(drag.left + event.clientX - drag.x, drag.top + event.clientY - drag.y)
+  }
+}
+function dragEnd() {
+  drag = null
+}
+function movePanel(event: KeyboardEvent) {
+  if (
+    event.target !== event.currentTarget ||
+    !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)
+  ) {
+    return
+  }
+  const rect = panel.value?.getBoundingClientRect()
+  if (rect) {
+    event.preventDefault()
+    const step = event.shiftKey ? 40 : 10
+    let x = 0
+    let y = 0
+    if (event.key === 'ArrowLeft') {
+      x = -step
+    }
+    if (event.key === 'ArrowRight') {
+      x = step
+    }
+    if (event.key === 'ArrowUp') {
+      y = -step
+    }
+    if (event.key === 'ArrowDown') {
+      y = step
+    }
+    placePanel(rect.left + x, rect.top + y)
+  }
+}
+watch(replacing, async () => {
+  await nextTick()
+  fitPanel()
+})
 let timer: ReturnType<typeof setTimeout> | undefined
 let disconnect = () => {}
 let previousFocus: HTMLElement | undefined
@@ -111,6 +186,8 @@ function close(focus = true) {
     return
   }
   opened.value = false
+  dragEnd()
+  panelPosition.value = null
   version++
   clearTimeout(timer)
   disconnect()
@@ -248,9 +325,15 @@ function inputKey(event: KeyboardEvent) {
     void move(event.shiftKey ? -1 : 1)
   }
 }
-onMounted(() => window.addEventListener('keydown', keydown))
+onMounted(() => {
+  window.addEventListener('keydown', keydown)
+  window.addEventListener('resize', fitPanel)
+  window.visualViewport?.addEventListener('resize', fitPanel)
+})
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', keydown)
+  window.removeEventListener('resize', fitPanel)
+  window.visualViewport?.removeEventListener('resize', fitPanel)
   close(false)
 })
 </script>
@@ -259,7 +342,8 @@ onBeforeUnmount(() => {
   <UButton
     icon="i-lucide-search"
     color="neutral"
-    variant="ghost"
+    variant="outline"
+    class="document-search-trigger"
     aria-label="查找正文"
     title="查找正文（Ctrl / ⌘ + F）"
     :disabled="disabled"
@@ -273,9 +357,31 @@ onBeforeUnmount(() => {
       role="dialog"
       :aria-label="replaceable ? '正文查找与替换' : '正文查找'"
       class="document-search-panel"
+      :style="
+        panelPosition
+          ? { left: panelPosition.x + 'px', top: panelPosition.y + 'px', right: 'auto' }
+          : undefined
+      "
       data-document-search-panel
     >
-      <div class="document-search-heading">
+      <div
+        class="document-search-heading"
+        role="group"
+        tabindex="0"
+        aria-label="拖动查找面板，方向键可移动"
+        title="拖动此处移动面板，也可聚焦后使用方向键"
+        @pointerdown="dragStart"
+        @pointermove="dragMove"
+        @pointerup="dragEnd"
+        @pointercancel="dragEnd"
+        @lostpointercapture="dragEnd"
+        @keydown="movePanel"
+      >
+        <UIcon
+          name="i-lucide-grip-horizontal"
+          class="size-4 shrink-0 text-muted"
+          aria-hidden="true"
+        />
         <div role="tablist" aria-label="查找方式" class="document-search-tabs">
           <button
             type="button"
@@ -386,6 +492,11 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.document-search-trigger {
+  border: 1px solid var(--site-border-accented);
+  background: var(--site-surface);
+  box-shadow: var(--site-shadow);
+}
 .document-search-panel {
   position: fixed;
   z-index: 60;
@@ -413,6 +524,19 @@ onBeforeUnmount(() => {
 .document-search-heading {
   justify-content: space-between;
   margin-bottom: 0.75rem;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.document-search-tabs {
+  margin-right: auto;
+}
+.document-search-heading:active {
+  cursor: grabbing;
+}
+.document-search-heading:focus-visible {
+  outline: 2px solid var(--ui-primary);
+  outline-offset: 4px;
 }
 .document-search-tabs button {
   padding: 0.25rem 0.5rem;
@@ -453,5 +577,16 @@ onBeforeUnmount(() => {
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--ui-text-muted);
+}
+@media (max-width: 1199px) {
+  .document-search-panel {
+    left: 0;
+    right: 0;
+    width: 100%;
+    top: calc(var(--site-header-height, 5rem) + 6rem);
+    max-height: calc(100dvh - var(--site-header-height, 5rem) - 7rem);
+    padding-inline: max(1rem, env(safe-area-inset-left));
+    border-radius: 0 0 0.875rem 0.875rem;
+  }
 }
 </style>

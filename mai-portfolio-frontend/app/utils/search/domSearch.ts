@@ -110,7 +110,7 @@ export function scrollTextRange(range: Range, scrollRoot?: HTMLElement | null) {
 }
 
 export function scrollTextRect(
-  rect: { top: number; bottom: number; height: number },
+  rect: { top: number; bottom: number; height: number; left?: number; right?: number },
   element: HTMLElement,
   scrollRoot?: HTMLElement | null,
 ) {
@@ -121,13 +121,36 @@ export function scrollTextRect(
   const behavior = view.matchMedia('(prefers-reduced-motion: reduce)').matches
     ? 'instant'
     : 'smooth'
-  if (scrollRoot) {
-    const pane = scrollRoot.getBoundingClientRect()
-    if (rect.top >= pane.top + 16 && rect.bottom <= pane.bottom - 16) {
-      return
+  const pane = scrollRoot?.getBoundingClientRect()
+  const headerBottom =
+    element.ownerDocument.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0
+  let top = Math.max(headerBottom + 16, (pane?.top ?? 0) + 16)
+  let bottom = Math.min(pane?.bottom ?? view.innerHeight, view.innerHeight) - 16
+  const panel = element.ownerDocument
+    .querySelector('[data-document-search-panel]')
+    ?.getBoundingClientRect()
+  // 面板可拖动；只测量当前命中和面板，在较大的未遮挡区域定位。
+  if (
+    panel &&
+    (rect.left === undefined ||
+      rect.right === undefined ||
+      (rect.left < panel.right && rect.right > panel.left))
+  ) {
+    const above = Math.max(0, Math.min(bottom, panel.top - 12) - top)
+    const below = Math.max(0, bottom - Math.max(top, panel.bottom + 12))
+    if (above > below) {
+      bottom = Math.min(bottom, panel.top - 12)
+    } else {
+      top = Math.max(top, panel.bottom + 12)
     }
-    scrollRoot.scrollBy({ top: rect.top - pane.top - Math.min(pane.height / 3, 160), behavior })
-  } else if (rect.top < 100 || rect.bottom > view.innerHeight - 16) {
-    view.scrollBy({ top: rect.top - Math.min(view.innerHeight / 3, 200), behavior })
+  }
+  if (bottom <= top || (rect.top >= top && rect.bottom <= bottom)) {
+    return
+  }
+  const offset = rect.top - top - Math.min((bottom - top) / 3, 160)
+  if (scrollRoot) {
+    scrollRoot.scrollBy({ top: offset, behavior })
+  } else {
+    view.scrollBy({ top: offset, behavior })
   }
 }
