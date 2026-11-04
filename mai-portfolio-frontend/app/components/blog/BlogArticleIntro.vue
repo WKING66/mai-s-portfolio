@@ -1,67 +1,21 @@
 <script setup lang="ts">
-const props = withDefaults(
+withDefaults(
   defineProps<{
     title: string
     summary?: string | null
     publishedAt?: string | null
     updatedAt?: string | null
     shareable?: boolean
-    scrollRoot?: HTMLElement | null
-    active?: boolean
   }>(),
   {
     summary: undefined,
     publishedAt: undefined,
     updatedAt: undefined,
     shareable: true,
-    scrollRoot: undefined,
-    active: true,
   },
 )
 defineEmits<{ share: [] }>()
-const intro = useTemplateRef<HTMLElement>('intro')
-let viewportObserver: ResizeObserver | undefined
-// 只在容器/窗口尺寸或视图切换时测量，不在滚动和正文输入中重新计算首屏。
-function fitViewport() {
-  const element = intro.value
-  if (!props.active || !element?.getClientRects().length) {
-    return
-  }
-  const root = props.scrollRoot
-  const offset =
-    element.getBoundingClientRect().top -
-    (root?.getBoundingClientRect().top ?? 0) +
-    (root?.scrollTop ?? window.scrollY)
-  const height = Math.max(0, (root?.clientHeight ?? window.innerHeight) - offset)
-  const value = height + 'px'
-  if (element.style.getPropertyValue('--article-intro-height') !== value) {
-    element.style.setProperty('--article-intro-height', value)
-  }
-}
-function observeViewport() {
-  if (!viewportObserver) {
-    return
-  }
-  viewportObserver.disconnect()
-  const target = props.scrollRoot ?? document.querySelector('.site-header')
-  if (target) {
-    viewportObserver.observe(target)
-  }
-  fitViewport()
-}
-onMounted(() => {
-  viewportObserver = new ResizeObserver(fitViewport)
-  observeViewport()
-  window.addEventListener('resize', fitViewport, { passive: true })
-})
-watch([() => props.scrollRoot, () => props.active], observeViewport, { flush: 'post' })
-onBeforeUnmount(() => {
-  viewportObserver?.disconnect()
-  window.removeEventListener('resize', fitViewport)
-})
 const titleId = useId()
-// 优先在中文语意停顿处换行，避免两行标题从‘应该’这样的词中间断开。
-const titleParts = computed(() => props.title.split(/(?<=[，。！？：；])/u))
 const dateFormatter = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long', timeZone: 'UTC' })
 function displayDate(value: string) {
   // 保留接口日期部分，避免带时区的时间戳转换后跨日。
@@ -71,11 +25,9 @@ function displayDate(value: string) {
 </script>
 
 <template>
-  <header ref="intro" class="article-intro" :aria-labelledby="titleId">
+  <header class="article-intro" :aria-labelledby="titleId">
     <div class="article-opening">
-      <h1 :id="titleId">
-        <span v-for="(part, index) in titleParts" :key="index">{{ part }}</span>
-      </h1>
+      <h1 :id="titleId">{{ title }}</h1>
       <p v-if="summary" class="article-summary">{{ summary }}</p>
     </div>
     <div v-if="publishedAt || updatedAt || shareable" class="article-intro-footer">
@@ -106,15 +58,8 @@ function displayDate(value: string) {
 </template>
 
 <style scoped>
-/* 首屏至少填满可视区；长标题/摘要仍按自然高度撑开，不能裁切。 */
 .article-intro {
-  display: flex;
-  flex-direction: column;
-  min-height: var(--article-intro-height, calc(100svh - var(--site-header-height) - 6rem));
   padding-top: 2rem;
-}
-.article-opening {
-  flex: 1;
 }
 .article-intro h1 {
   font-family: var(--site-editorial-font);
@@ -125,12 +70,9 @@ function displayDate(value: string) {
   text-wrap: balance;
   overflow-wrap: anywhere;
 }
-.article-intro h1 span {
-  display: inline-block;
-  max-width: 100%;
-}
 .article-summary {
-  max-width: 50rem;
+  max-width: 64ch;
+  text-wrap: pretty;
   margin-top: 1.75rem;
   font-size: 1.25rem;
   line-height: 1.65;

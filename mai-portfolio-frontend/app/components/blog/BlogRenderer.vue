@@ -74,17 +74,29 @@ function observeBodyVisibility() {
   if (!bodyRoot.value || !props.showToc) {
     return
   }
+  // 正文到达阅读位置才显示入口，首屏底部仅露出正文时仍保持隐藏。
+  const rootHeight = props.scrollRoot?.clientHeight ?? window.innerHeight
+  const headerHeight = props.scrollRoot
+    ? 0
+    : (document.querySelector('.site-header')?.getBoundingClientRect().height ?? 0)
+  const bottomInset = Math.max(0, rootHeight - headerHeight - 48)
   visibilityObserver = new IntersectionObserver(
     ([entry]) => {
       bodyVisible.value = entry?.isIntersecting ?? false
     },
-    { root: props.scrollRoot ?? null },
+    { root: props.scrollRoot ?? null, rootMargin: `0px 0px -${bottomInset}px 0px` },
   )
   visibilityObserver.observe(bodyRoot.value)
 }
-onMounted(observeBodyVisibility)
+onMounted(() => {
+  observeBodyVisibility()
+  window.addEventListener('resize', observeBodyVisibility, { passive: true })
+})
 watch(() => props.scrollRoot, observeBodyVisibility, { flush: 'post' })
-onBeforeUnmount(() => visibilityObserver?.disconnect())
+onBeforeUnmount(() => {
+  visibilityObserver?.disconnect()
+  window.removeEventListener('resize', observeBodyVisibility)
+})
 // 所有叶章节共用一个尺寸观察器。使用浏览器已完成的布局结果，不逐帧强制测量。
 let bodyResizeObserver: ResizeObserver | undefined
 const measuredChapterBodies = new Map<

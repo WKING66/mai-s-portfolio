@@ -1110,8 +1110,6 @@ defineExpose({
           >
             <BlogArticleIntro
               class="blog-reading-title min-w-0"
-              :scroll-root="canvasPane"
-              :active="isEditing"
               :title="title || '未命名草稿'"
               :summary="summary"
               :published-at="publishedAt"
