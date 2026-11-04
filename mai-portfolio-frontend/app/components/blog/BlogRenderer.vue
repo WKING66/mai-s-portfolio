@@ -40,6 +40,7 @@ import type { TocLink } from 'comark/plugins/toc'
 const props = withDefaults(
   defineProps<{
     markdown: string
+    articleTitle?: string
     resources?: DocumentResource[]
     debounce?: number
     tocSide?: 'left' | 'right'
@@ -49,6 +50,7 @@ const props = withDefaults(
     cacheKey?: string
   }>(),
   {
+    articleTitle: undefined,
     tocSide: 'left',
     scrollRoot: undefined,
     debounce: 150,
@@ -193,7 +195,9 @@ let mountFrameId = 0,
   resolveContentMount: (() => void) | undefined,
   contentMountPromise = Promise.resolve()
 let isInitialPreparation = true
-const chapters = computed(() => markRaw(buildBlogChapters(parsedDocument.value?.nodes || [])))
+const chapters = computed(() =>
+  markRaw(buildBlogChapters(parsedDocument.value?.nodes || [], props.articleTitle)),
+)
 // 2. 内容版本变化才准备章节；折叠状态独立于章节树，不触发重新解析。
 function prepareContent() {
   cancelAnimationFrameSafe()
@@ -382,7 +386,7 @@ let parseTimer: ReturnType<typeof setTimeout>,
   parseRevision = 0,
   lastParsedMarkdown = initialMarkdown
 watch(
-  parsedDocument,
+  chapters,
   () => {
     contentCollapsedIds.value = new Set()
     prepareContent()

@@ -37,6 +37,7 @@ defineEmits<{ share: [] }>()
       @share="$emit('share')"
     />
     <BlogRenderer
+      :article-title="title"
       :cache-key="cacheKey"
       :markdown="markdown"
       :resources="resources"

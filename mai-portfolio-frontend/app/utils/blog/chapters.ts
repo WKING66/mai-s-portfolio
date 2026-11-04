@@ -31,13 +31,23 @@ export function headingParent<T extends { depth: number }>(
 }
 
 /** 单次遍历 Comark 顶层 AST，章节直到下一个同级或更高标题；引用/列表内部标题不割裂块。 */
-export function buildBlogChapters(nodes: Node[]) {
+export function buildBlogChapters(nodes: Node[], articleTitle?: string) {
   // 1. 栈维护当前标题的祖先链，只按正文结构构建，不读取折叠状态。
   const chapters: BlogChapter[] = [],
     preamble: Node[] = [],
     ancestorStack: BlogChapter[] = []
   const byId = new Map<string, BlogChapter>()
-  for (const node of nodes) {
+  for (const [index, node] of nodes.entries()) {
+    // 阅读首屏已展示文章标题；仅省略开头同名 H1，不改源文档或其他章节。
+    if (
+      index === 0 &&
+      articleTitle?.trim() &&
+      Array.isArray(node) &&
+      node[0] === 'h1' &&
+      textContent(node).trim() === articleTitle.trim()
+    ) {
+      continue
+    }
     if (Array.isArray(node) && /^h[1-6]$/.test(String(node[0]))) {
       const depth = Number(String(node[0]).slice(1))
       const parentChapter = headingParent(ancestorStack, depth)
