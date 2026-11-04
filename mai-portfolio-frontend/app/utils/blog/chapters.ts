@@ -30,22 +30,35 @@ export function headingParent<T extends { depth: number }>(
   return ancestors.at(-1)
 }
 
-/** 单次遍历 Comark 顶层 AST，章节直到下一个同级或更高标题；引用/列表内部标题不割裂块。 */
+/** 仅按顶层 H1–H6 划分章节；可省略与首屏文章标题重复的最高级标题。 */
 export function buildBlogChapters(nodes: Node[], articleTitle?: string) {
-  // 1. 栈维护当前标题的祖先链，只按正文结构构建，不读取折叠状态。
+  // 文章标题层级由正文决定，不假定必须是 H1；多个同级标题只核对首个。
+  let articleHeading: ElementNode | undefined
+  if (articleTitle?.trim()) {
+    for (const node of nodes) {
+      if (
+        Array.isArray(node) &&
+        /^h[1-6]$/.test(String(node[0])) &&
+        (!articleHeading || String(node[0]) < articleHeading[0])
+      ) {
+        articleHeading = node as ElementNode
+      }
+    }
+    if (
+      articleHeading &&
+      String(articleHeading[1]['data-toc-label'] ?? textContent(articleHeading)).trim() !==
+        articleTitle.trim()
+    ) {
+      articleHeading = undefined
+    }
+  }
+  // 栈维护当前标题的祖先链，省略仅影响阅读投影，不修改源 AST。
   const chapters: BlogChapter[] = [],
     preamble: Node[] = [],
     ancestorStack: BlogChapter[] = []
   const byId = new Map<string, BlogChapter>()
-  for (const [index, node] of nodes.entries()) {
-    // 阅读首屏已展示文章标题；仅省略开头同名 H1，不改源文档或其他章节。
-    if (
-      index === 0 &&
-      articleTitle?.trim() &&
-      Array.isArray(node) &&
-      node[0] === 'h1' &&
-      textContent(node).trim() === articleTitle.trim()
-    ) {
+  for (const node of nodes) {
+    if (node === articleHeading) {
       continue
     }
     if (Array.isArray(node) && /^h[1-6]$/.test(String(node[0]))) {

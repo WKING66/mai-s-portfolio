@@ -16,11 +16,35 @@ describe('AST chapters and one-way TOC visibility', () => {
     expect(buildBlogChapters(doc.nodes).chapters[0]!.text).toBe('数据结构与算法')
     expect(buildBlogChapters(doc.nodes, '另一个标题').chapters[0]!.text).toBe('数据结构与算法')
   })
-  it('keeps a same-name section heading and headings after introductory content', async () => {
-    for (const markdown of ['## 标题', '介绍\n\n# 标题']) {
+  it.each([1, 2, 3, 4, 5, 6])(
+    'recognizes the actual highest heading at H%i, including introductory content',
+    async (depth) => {
+      const doc = await parseBlogMarkdown(`介绍\n\n${'#'.repeat(depth)} **文章标题**\n\n正文`)
+      const original = JSON.stringify(doc.nodes)
+      const grouped = buildBlogChapters(doc.nodes, '文章标题')
+      expect(grouped.chapters).toHaveLength(0)
+      expect(grouped.nodes).toHaveLength(2)
+      expect(JSON.stringify(doc.nodes)).toBe(original)
+    },
+  )
+  it('keeps mismatches, later peer headings and same-name lower-level chapters', async () => {
+    for (const markdown of [
+      '# 其他标题\n\n## 文章标题',
+      '## 第一章\n\n## 文章标题',
+      '### 文章标题\n\n## 最高层级标题',
+    ]) {
       const doc = await parseBlogMarkdown(markdown)
-      expect(buildBlogChapters(doc.nodes, '标题').chapters).toHaveLength(1)
+      expect(buildBlogChapters(doc.nodes, '文章标题').byId.size).toBe(2)
     }
+    const doc = await parseBlogMarkdown('## 文章标题\n\n### 小节\n\n## 文章标题')
+    const grouped = buildBlogChapters(doc.nodes, '文章标题')
+    expect([...grouped.byId.values()].map((chapter) => chapter.text)).toEqual(['小节', '文章标题'])
+  })
+  it('does not use headings inside quotations or lists to determine the article heading', async () => {
+    const doc = await parseBlogMarkdown('> # 引用标题\n\n- # 列表标题\n\n## 文章标题\n\n正文')
+    const grouped = buildBlogChapters(doc.nodes, '文章标题')
+    expect(grouped.chapters).toHaveLength(0)
+    expect(grouped.nodes.map((node) => node[0])).toEqual(['blockquote', 'ul', 'p'])
   })
   it('does not duplicate MathML, annotation and visual text in mathematical heading labels', async () => {
     const grouped = buildBlogChapters((await parseBlogMarkdown('# 复杂度 $O(n^2)$')).nodes)
