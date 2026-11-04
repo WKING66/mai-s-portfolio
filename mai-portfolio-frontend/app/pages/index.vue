@@ -147,7 +147,7 @@ const assistantContext = computed<AssistantContext>(() => ({
           <p class="home-description">
             把暂时理解的东西写下来。既是给自己的备忘，也希望能帮到遇见同一个问题的人。
           </p>
-          <NuxtLink to="/blog">去笔记本看看 ↗</NuxtLink>
+          <NuxtLink to="/blog">查看全部文章 ↗</NuxtLink>
         </div>
         <div>
           <UButton
@@ -175,6 +175,9 @@ const assistantContext = computed<AssistantContext>(() => ({
             </NuxtLink></template
           >
           <p v-else>文章尚未发布。</p>
+          <NuxtLink v-if="articles.length" to="/blog" class="home-all-notes"
+            >查看全部文章 <span aria-hidden="true">→</span></NuxtLink
+          >
         </div>
       </section>
       <section id="stack" class="home-section home-about" aria-labelledby="learning-title">
@@ -303,6 +306,18 @@ const assistantContext = computed<AssistantContext>(() => ({
 }
 .home-notes > div > a {
   font-size: 12px;
+}
+.home-notes .home-all-notes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-block: 1.25rem;
+  color: var(--site-accent);
+  font-size: 0.9375rem;
+}
+.home-all-notes:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.3em;
 }
 .home-note {
   display: grid;
