@@ -59,6 +59,13 @@ const {
   },
 })
 const items = computed(() => blogListResponse.value?.data?.items ?? [])
+const articleCount = ref(blogListResponse.value?.data?.total ?? 0)
+watch(blogListResponse, (response) => {
+  if (response?.data) {
+    articleCount.value = response.data.total
+  }
+})
+const displayDate = useBlogDate()
 usePortfolioSeo({
   title: () => '博客笔记',
   description: () => '技术实践、项目复盘与学习记录',
@@ -73,9 +80,7 @@ usePortfolioSeo({
       <p class="eyebrow">笔记 / JOURNAL</p>
       <div class="journal-heading">
         <h1>学习中的笔记。</h1>
-        <span v-if="blogListResponse?.data" class="journal-count"
-          >{{ blogListResponse.data.total }} 篇文章</span
-        >
+        <span class="journal-count">{{ articleCount }} 篇文章</span>
       </div>
       <p class="journal-description">记录开发实践、项目里遇到的问题，还有学习过程中的想法。</p>
     </header>
@@ -98,23 +103,10 @@ usePortfolioSeo({
           color="neutral"
           variant="ghost"
           aria-label="搜索文章"
-          :loading="status === 'pending'"
-        />
-        <UButton
-          v-if="keyword"
-          type="button"
-          icon="i-lucide-x"
-          color="neutral"
-          variant="ghost"
-          aria-label="清除搜索"
-          @click="resetSearch"
         />
       </form>
     </div>
     <section class="journal-results" aria-label="博客文章列表" :aria-busy="status === 'pending'">
-      <p v-if="status === 'pending'" role="status" class="journal-loading">
-        <UIcon name="i-lucide-loader-circle" class="animate-spin" />正在读取文章…
-      </p>
       <UAlert
         v-if="blogListError"
         title="文章读取失败"
@@ -124,7 +116,7 @@ usePortfolioSeo({
         :actions="[{ label: '重试', onClick: () => refreshBlogPosts() }]"
         class="my-8"
       />
-      <template v-else-if="items.length">
+      <template v-else-if="status !== 'pending' && items.length">
         <NuxtLink
           v-for="article in items"
           :key="article.id"
@@ -137,23 +129,23 @@ usePortfolioSeo({
           </div>
           <div class="journal-entry-meta">
             <time v-if="article.publishedAt" :datetime="article.publishedAt">{{
-              article.publishedAt.slice(0, 10)
+              displayDate(article.publishedAt)
             }}</time>
             <span class="journal-entry-arrow" aria-hidden="true">↗</span>
           </div>
         </NuxtLink>
       </template>
-      <div v-else-if="status !== 'pending'" class="journal-empty">
+      <div v-else class="journal-empty">
         <h2>
           {{
-            keyword
+            status === 'pending' || keyword
               ? '没有找到相关文章'
               : currentPage > 1
                 ? '这一页暂时没有文章'
                 : '还没有公开的文章'
           }}
         </h2>
-        <p>
+        <p v-if="status !== 'pending'">
           {{
             keyword
               ? '试试其他标题关键词，或返回全部文章。'
@@ -163,7 +155,7 @@ usePortfolioSeo({
           }}
         </p>
         <UButton
-          v-if="keyword || currentPage > 1"
+          v-if="status !== 'pending' && (keyword || currentPage > 1)"
           color="neutral"
           variant="outline"
           @click="resetSearch"
@@ -249,14 +241,6 @@ usePortfolioSeo({
 .journal-results {
   position: relative;
   min-height: 18rem;
-}
-.journal-loading {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding-block: 1rem;
-  color: var(--site-muted);
-  font-size: 0.875rem;
 }
 .journal-entry {
   display: grid;

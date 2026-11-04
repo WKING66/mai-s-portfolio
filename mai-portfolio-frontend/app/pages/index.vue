@@ -86,6 +86,7 @@ const assistantContext = computed<AssistantContext>(() => ({
       })),
   ],
 }))
+const displayDate = useBlogDate()
 </script>
 
 <template>
@@ -169,7 +170,7 @@ const assistantContext = computed<AssistantContext>(() => ({
                 <p>{{ article.summary }}</p>
               </div>
               <time v-if="article.publishedAt" :datetime="article.publishedAt">{{
-                article.publishedAt.slice(0, 10)
+                displayDate(article.publishedAt)
               }}</time>
               <span class="home-note-arrow" aria-hidden="true">↗</span>
             </NuxtLink></template
