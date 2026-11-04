@@ -1,6 +1,8 @@
 /* 全站语义 token，由 html 的主题状态统一选择。 */
 :root {
   color-scheme: light;
+  --site-editorial-font:
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', STSong, SimSun, Georgia, serif;
   --site-bg: #f5f2e9;
   --site-surface: #ffffff;
   --site-text: #1f2d2b;

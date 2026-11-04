@@ -6,6 +6,7 @@ import BlogTocTree from './BlogTocTree.vue'
 const props = defineProps<{
   items: TocLink[]
   root?: HTMLElement | null
+  scrollRoot?: HTMLElement | null
   reveal?: (id: string) => Promise<void>
   contentCollapsedIds?: Set<string>
   contentReady?: boolean
@@ -97,6 +98,24 @@ function heading(id: string) {
     ? props.root.querySelector<HTMLElement>('#' + CSS.escape(id))
     : document.getElementById(id)
 }
+// 同一阅读器可位于网页或管理端滚动画布中，位置统一换算到实际滚动容器。
+function scrollOffset() {
+  return props.scrollRoot?.scrollTop ?? window.scrollY
+}
+function viewportTop() {
+  return props.scrollRoot?.getBoundingClientRect().top ?? 0
+}
+function scrollToHeading(element: HTMLElement) {
+  if (props.scrollRoot) {
+    const margin = parseFloat(getComputedStyle(element).scrollMarginTop) || 0
+    props.scrollRoot.scrollTo({
+      top: scrollOffset() + element.getBoundingClientRect().top - viewportTop() - margin,
+      behavior: 'instant',
+    })
+  } else {
+    element.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+  }
+}
 function clearFlash() {
   headingAnimation?.cancel()
   flashedHeading?.removeAttribute('data-heading-flash')
@@ -144,7 +163,7 @@ async function navigate(id: string) {
   }
   // instant 显式覆盖全局或主题的 scroll-behavior，目录不播放长距离滚动。
   // 原生定位按 scroll-margin 留出 Header 空间，仅执行一次。
-  element.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' })
+  scrollToHeading(element)
   highlight(element)
 }
 function request(event: Event) {
@@ -175,18 +194,18 @@ function update() {
     if (arePositionsDirty) {
       arePositionsDirty = false
       const element = heading(activeHeadingId.value),
-        scrollRoot = document.scrollingElement
+        scrollRoot = props.scrollRoot ?? document.scrollingElement
       if (element && scrollRoot && !element.closest('[data-reading-folded="true"]')) {
         const margin = parseFloat(getComputedStyle(element).scrollMarginTop) || 0
         const top = Math.max(
           0,
           Math.min(
-            scrollY + element.getBoundingClientRect().top - margin,
+            scrollOffset() + element.getBoundingClientRect().top - viewportTop() - margin,
             scrollRoot.scrollHeight - scrollRoot.clientHeight,
           ),
         )
-        if (Math.abs(top - scrollY) > 1) {
-          window.scrollTo({ top, behavior: 'instant' })
+        if (Math.abs(top - scrollOffset()) > 1) {
+          ;(props.scrollRoot ?? window).scrollTo({ top, behavior: 'instant' })
         }
       }
     }
@@ -195,7 +214,9 @@ function update() {
   if (arePositionsDirty) {
     // 尺寸变化只使缓存过期；跳过内容/图片会在滚动中多次改变正文高度，
     // 不能因此每次重新测量所有标题。二分定位仅测量本次需要的节点。
-    headerHeight = document.querySelector('.site-header')?.getBoundingClientRect().height || 72
+    headerHeight = props.scrollRoot
+      ? 0
+      : document.querySelector('.site-header')?.getBoundingClientRect().height || 72
     geometryRevision++
     arePositionsDirty = false
   }
@@ -209,12 +230,12 @@ function update() {
   function top(index: number) {
     const position = headingPositions[index]!
     if (position.revision !== geometryRevision) {
-      position.top = position.element.getBoundingClientRect().top + scrollY
+      position.top = position.element.getBoundingClientRect().top - viewportTop() + scrollOffset()
       position.revision = geometryRevision
     }
     return position.top
   }
-  const boundary = scrollY + headerHeight + 36
+  const boundary = scrollOffset() + headerHeight + 36
   let low = 0,
     high = headingPositions.length
   while (low < high) {
@@ -297,7 +318,7 @@ watch(
 onMounted(() => {
   isMounted.value = true
   window.addEventListener('blog:heading-navigation', request)
-  window.addEventListener('scroll', schedule, { passive: true })
+  ;(props.scrollRoot ?? window).addEventListener('scroll', schedule, { passive: true })
   for (const name of ['wheel', 'touchstart', 'pointerdown', 'keydown']) {
     window.addEventListener(name, manual, { passive: true })
   }
@@ -310,7 +331,7 @@ onBeforeUnmount(() => {
   layoutObserver?.disconnect()
   cancelAnimationFrame(updateFrameId)
   window.removeEventListener('blog:heading-navigation', request)
-  window.removeEventListener('scroll', schedule)
+  ;(props.scrollRoot ?? window).removeEventListener('scroll', schedule)
   for (const name of ['wheel', 'touchstart', 'pointerdown', 'keydown']) {
     window.removeEventListener(name, manual)
   }

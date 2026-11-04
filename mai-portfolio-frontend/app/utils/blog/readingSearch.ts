@@ -3,6 +3,7 @@ import type { DocumentSearchAdapter } from '../search/textSearch'
 
 export function createReadingSearch(options: {
   root: () => HTMLElement | null | undefined
+  scrollRoot?: () => HTMLElement | null | undefined
   reveal: (element: Element) => Promise<void>
 }): DocumentSearchAdapter {
   let matches: Range[] = []
@@ -26,7 +27,7 @@ export function createReadingSearch(options: {
       }
       highlight.paint(matches, range)
       if (locate && range) {
-        scrollTextRange(range)
+        scrollTextRange(range, options.scrollRoot?.())
       }
     },
     observe(changed) {
@@ -42,8 +43,13 @@ export function createReadingSearch(options: {
       revision++
       matches = []
       highlight.clear()
-      const view = options.root()?.ownerDocument.defaultView
-      view?.scrollTo({ top: view.scrollY, left: view.scrollX, behavior: 'instant' })
+      const pane = options.scrollRoot?.()
+      if (pane) {
+        pane.scrollTo({ top: pane.scrollTop, left: pane.scrollLeft, behavior: 'instant' })
+      } else {
+        const view = options.root()?.ownerDocument.defaultView
+        view?.scrollTo({ top: view.scrollY, left: view.scrollX, behavior: 'instant' })
+      }
     },
   }
 }

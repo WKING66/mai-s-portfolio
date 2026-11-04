@@ -89,12 +89,11 @@ export function useAdminBlogList() {
     pageSize.value = size
     await load(BLOG_FIRST_PAGE)
   }
-  async function transition(article: BlogCard): Promise<boolean> {
+  async function transition(article: BlogCard, action: 'publish' | 'unpublish'): Promise<boolean> {
     if (pending.value) {
       return false
     }
     pending.value = true
-    const action = article.status === 'PUBLISHED' ? 'unpublish' : 'publish'
     try {
       let session = sessions.get(article.id)
       if (!session) {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const props = withDefaults(defineProps<{ side?: 'left' | 'right' }>(), { side: 'left' })
 const handle = useTemplateRef<HTMLElement>('handle')
 const percentage = ref(30)
 let defaultPercentage = 30
@@ -8,7 +9,8 @@ let observer: ResizeObserver | undefined
 let width = 0
 let frame = 0
 let pointer: number | null = null
-let left = 0
+let pointerX = 0
+let startPercentage = 0
 
 // 1. 只改未被 Vue 绑定的布局变量；拖动不会更新阅读器、AST、目录项或代码块的状态。
 function setWidth(value: number) {
@@ -34,7 +36,8 @@ function start(event: PointerEvent) {
   event.preventDefault()
   // 每次手势只读取一次实际边界，移动过程中不反复强制计算布局。
   const rect = layout.getBoundingClientRect()
-  left = rect.left
+  pointerX = event.clientX
+  startPercentage = percentage.value
   width = rect.width
   pointer = event.pointerId
   handle.value.setPointerCapture(pointer)
@@ -42,13 +45,15 @@ function start(event: PointerEvent) {
 }
 function move(event: PointerEvent) {
   if (event.pointerId === pointer && width > 0) {
-    setWidth(((event.clientX - left) / width) * 100)
+    const direction = props.side === 'right' ? -1 : 1
+    setWidth(startPercentage + ((event.clientX - pointerX) / width) * 100 * direction)
   }
 }
 function keyboard(event: KeyboardEvent) {
   const step = event.shiftKey ? 10 : 2
   if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-    setWidth(percentage.value + (event.key === 'ArrowRight' ? step : -step))
+    const direction = props.side === 'right' ? -1 : 1
+    setWidth(percentage.value + (event.key === 'ArrowRight' ? step : -step) * direction)
   } else if (event.key === 'Home') {
     setWidth(bounds.value.minimum)
   } else if (event.key === 'End') {
@@ -77,11 +82,11 @@ onMounted(() => {
     width = entry.contentRect.width
     const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
     bounds.value = {
-      minimum: Math.min(30, ((16 * rem) / width) * 100),
+      minimum: Math.min(30, (((props.side === 'right' ? 12 : 16) * rem) / width) * 100),
       maximum: Math.max(30, Math.min(50, (1 - (28 * rem) / width) * 100)),
     }
-    // 默认比 16rem 的拖拽下限多留 2rem，恢复宽度时使用同一尺寸。
-    defaultPercentage = ((18 * rem) / width) * 100
+    // 右侧阅读目录更紧凑，恢复宽度时仍使用当前栏位的同一尺寸。
+    defaultPercentage = (((props.side === 'right' ? 14 : 18) * rem) / width) * 100
     setWidth(isInitialSize ? defaultPercentage : percentage.value)
   })
   observer.observe(layout)
