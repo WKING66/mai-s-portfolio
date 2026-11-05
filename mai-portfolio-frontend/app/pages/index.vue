@@ -177,9 +177,6 @@ const displayDate = useBlogDate()
             </NuxtLink></template
           >
           <p v-else>文章尚未发布。</p>
-          <NuxtLink v-if="articles.length" to="/blog" class="home-all-notes"
-            >查看全部文章 <span aria-hidden="true">→</span></NuxtLink
-          >
         </div>
       </section>
       <section id="stack" class="home-section home-about" aria-labelledby="learning-title">
@@ -308,18 +305,6 @@ const displayDate = useBlogDate()
 }
 .home-notes > div > a {
   font-size: 12px;
-}
-.home-notes .home-all-notes {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-block: 1.25rem;
-  color: var(--site-accent);
-  font-size: 0.9375rem;
-}
-.home-all-notes:hover {
-  text-decoration: underline;
-  text-underline-offset: 0.3em;
 }
 .home-note {
   display: grid;
