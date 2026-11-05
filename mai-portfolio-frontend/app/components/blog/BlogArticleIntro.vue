@@ -16,12 +16,7 @@ withDefaults(
 )
 defineEmits<{ share: [] }>()
 const titleId = useId()
-const dateFormatter = new Intl.DateTimeFormat('zh-CN', { dateStyle: 'long', timeZone: 'UTC' })
-function displayDate(value: string) {
-  // 保留接口日期部分，避免带时区的时间戳转换后跨日。
-  const date = new Date(value.slice(0, 10) + 'T00:00:00Z')
-  return Number.isNaN(date.getTime()) ? value.slice(0, 10) : dateFormatter.format(date)
-}
+const displayDate = useBlogDate()
 </script>
 
 <template>

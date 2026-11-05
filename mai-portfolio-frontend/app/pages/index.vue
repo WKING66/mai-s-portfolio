@@ -86,6 +86,7 @@ const assistantContext = computed<AssistantContext>(() => ({
       })),
   ],
 }))
+const displayDate = useBlogDate()
 </script>
 
 <template>
@@ -126,6 +127,7 @@ const assistantContext = computed<AssistantContext>(() => ({
             v-for="project in featuredProjectPage.items"
             :key="project.id"
             :project="project"
+            compact-on-mobile
             motion
           />
         </div>
@@ -147,7 +149,7 @@ const assistantContext = computed<AssistantContext>(() => ({
           <p class="home-description">
             把暂时理解的东西写下来。既是给自己的备忘，也希望能帮到遇见同一个问题的人。
           </p>
-          <NuxtLink to="/blog">去笔记本看看 ↗</NuxtLink>
+          <NuxtLink to="/blog">查看全部文章 ↗</NuxtLink>
         </div>
         <div>
           <UButton
@@ -169,7 +171,7 @@ const assistantContext = computed<AssistantContext>(() => ({
                 <p>{{ article.summary }}</p>
               </div>
               <time v-if="article.publishedAt" :datetime="article.publishedAt">{{
-                article.publishedAt.slice(0, 10)
+                displayDate(article.publishedAt)
               }}</time>
               <span class="home-note-arrow" aria-hidden="true">↗</span>
             </NuxtLink></template
@@ -441,15 +443,19 @@ const assistantContext = computed<AssistantContext>(() => ({
   .home-note-arrow {
     display: none;
   }
-  .home-projects :deep(.project-card) {
-    grid-template-columns: 1fr;
+  .home-projects {
+    gap: 0;
+    border-top: 1px solid var(--site-line);
   }
-  .home-projects :deep(.project-cover) {
-    margin: 20px 20px 0;
-    aspect-ratio: 1.8;
+  .home-projects :deep(.project-card.project-card-compact) {
+    display: block;
   }
-  .home-projects :deep(.project-card h3) {
-    font-size: 23px;
+  .home-projects :deep(.project-card-compact .project-cover) {
+    margin: 0;
+    aspect-ratio: auto;
+  }
+  .home-projects :deep(.project-card-compact h3) {
+    font-size: 17px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
