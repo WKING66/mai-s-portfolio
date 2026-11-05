@@ -4,6 +4,9 @@ import { useSiteTheme } from './composables/useSiteTheme'
 const route = useRoute()
 const { theme, initialize } = useSiteTheme()
 const isAuthPage = computed(() => ['/login', '/register', '/admin/login'].includes(route.path))
+const isAdminManagement = computed(
+  () => route.path.startsWith('/admin/') && !route.meta.immersiveWorkbench && !isAuthPage.value,
+)
 // html 已预留 stable gutter 时不重复补偿；保持 Reka 的滚动锁、焦点陷阱与恢复逻辑。
 const scrollBody = {
   padding:
@@ -18,7 +21,11 @@ useHead(() => {
   const paintedTheme =
     theme.value || (import.meta.client ? document.documentElement.dataset.theme : undefined)
   return {
-    htmlAttrs: { 'data-theme': paintedTheme, class: paintedTheme === 'dark' ? 'dark' : undefined },
+    htmlAttrs: {
+      'data-theme': paintedTheme,
+      'data-site-area': isAdminManagement.value ? 'admin' : 'public',
+      class: paintedTheme === 'dark' ? 'dark' : undefined,
+    },
   }
 })
 onMounted(initialize)

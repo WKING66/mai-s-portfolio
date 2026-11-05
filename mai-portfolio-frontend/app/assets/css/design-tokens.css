@@ -45,6 +45,17 @@
   --site-error: #e5a1a5;
   --site-shadow: 0 4px 16px rgb(0 0 0 / 16%);
 }
+/* 管理界面与 Nuxt UI 白色组件使用同一冷中性色阶，弹窗也从根节点继承。
+   公开站点/沉浸阅读编辑保留暖色底，深色主题继续共用既有配色。 */
+:root[data-site-area='admin']:not([data-theme='dark']) {
+  --site-bg: #f4f7f6;
+  --site-bg-muted: #f0f4f2;
+  --site-bg-elevated: #eaf0ed;
+  --site-bg-accented: #e2eae6;
+  --site-line: #d8e2dd;
+  --site-border-muted: #e1e8e4;
+  --site-border-accented: #adbbb3;
+}
 :root {
   --site-width: 75rem;
   --site-reading-width: 47.5rem;
