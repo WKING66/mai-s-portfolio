@@ -47,7 +47,7 @@ export default defineNuxtConfig({
       htmlAttrs: { lang: 'zh-CN' },
       title: SEO_SITE_NAME,
       script: [
-        // 1. 首屏先恢复用户保存的主题，避免客户端启动前闪白。
+        // 1. 绘制前恢复用户主题；全站样式按该主题提供统一底色。
         { key: 'site-theme-bootstrap', innerHTML: THEME_BOOTSTRAP_SCRIPT, tagPriority: 'critical' },
         // 2. 在 Nuxt 客户端启动前恢复滚动位置，避免刷新先绘制顶部再跳回。
         {

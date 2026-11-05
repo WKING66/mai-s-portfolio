@@ -20,9 +20,6 @@ export function useSiteTheme() {
     document.documentElement.dataset.theme = value
     document.documentElement.classList.toggle('dark', value === 'dark')
     document.documentElement.style.colorScheme = value
-    document.documentElement.style.backgroundColor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--site-bg')
-      .trim()
   }
   function initialize() {
     const paintedTheme = document.documentElement.dataset.theme

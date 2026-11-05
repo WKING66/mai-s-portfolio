@@ -19,6 +19,7 @@
 
 @layer base {
   html {
+    background: var(--site-bg);
     min-height: 100%;
     scroll-behavior: auto;
     scrollbar-gutter: stable;
