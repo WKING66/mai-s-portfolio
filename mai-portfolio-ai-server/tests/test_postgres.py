@@ -8,11 +8,13 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
-from psycopg import AsyncConnection
-from psycopg_pool import AsyncConnectionPool
+from sqlalchemy import update as update_rows
+from sqlmodel import col
+from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.billing import Billing, BillingRejected, Price
+from app.billing import Billing, BillingRejected, ModelAttempt, Price
 from app.config import Settings
+from app.database import Sessions, create_database
 from app.main import create_app
 
 TEST_DATABASE = os.getenv("AI_TEST_DATABASE_URL")
@@ -25,13 +27,11 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
     assert TEST_DATABASE
 
     async def check() -> None:
-        async with AsyncConnectionPool[AsyncConnection](
-            TEST_DATABASE,
-            kwargs={"options": "-c search_path=site_guide_test"},
-            open=False,
-        ) as pool:
+        engine = create_database(TEST_DATABASE, "site_guide_test")
+        sessions = Sessions(engine, class_=AsyncSession)
+        try:
             billing = Billing(
-                pool,
+                sessions,
                 budget=Decimal(1),
                 currency="TEST",
                 time_zone=ZoneInfo("UTC"),
@@ -52,10 +52,11 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
             assert len(rejected) == 1
             winner = second if isinstance(first, BillingRejected) else first
             assert not isinstance(winner, BaseException)
-            async with pool.connection() as connection:
-                await connection.execute(
-                    "UPDATE model_attempt SET billing_day = billing_day - 1 WHERE attempt_id = %s",
-                    (winner.attempt_id,),
+            async with sessions.begin() as session:
+                await session.exec(
+                    update_rows(ModelAttempt)
+                    .where(col(ModelAttempt.attempt_id) == winner.attempt_id)
+                    .values(billing_day=datetime.now(UTC).date() - timedelta(days=1))
                 )
             with pytest.raises(BillingRejected):
                 await billing.reserve(uuid4(), "embedding", price, 100, 0)
@@ -67,6 +68,8 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
                 await billing.settle(next_attempt, 101, 0)
             with pytest.raises(BillingRejected):
                 await billing.reserve(uuid4(), "embedding", price, 1, 0)
+        finally:
+            await engine.dispose()
 
     asyncio.run(
         check(),
@@ -99,6 +102,9 @@ def test_execution_routes_and_settings_revision() -> None:
                 headers={"Authorization": f"Bearer {execution_token}"},
             ) as client,
         ):
+            assert (await client.get("/internal/v1/health/ready")).json() == {
+                "status": "ready"
+            }
             path = "/internal/v1/executions"
             request_id = str(uuid4())
             payload = {
@@ -109,6 +115,7 @@ def test_execution_routes_and_settings_revision() -> None:
             }
             response = await client.post(path, json=payload)
             assert response.status_code == 202, response.text
+            assert set(response.json()) == {"executionId", "status"}
             execution_path = f"{path}/{response.json()['executionId']}"
             response = await client.get(f"{execution_path}/events")
             assert "event: snapshot" in response.text
@@ -120,8 +127,18 @@ def test_execution_routes_and_settings_revision() -> None:
                 path, json={**payload, "question": "Different"}
             )
             assert conflict.status_code == 409
+            lookup = await client.get(path, params={"requestId": request_id})
             stopped = await client.post(f"{execution_path}/stop")
+            assert lookup.json() == stopped.json()
             assert stopped.json()["status"] == "failed"
+            assert set(stopped.json()) == {
+                "requestId",
+                "executionId",
+                "status",
+                "text",
+                "sources",
+                "error",
+            }
             settings_path = "/internal/v1/settings"
             assert (await client.get(settings_path)).status_code == 401
             management = {"Authorization": f"Bearer {management_token}"}
@@ -129,6 +146,12 @@ def test_execution_routes_and_settings_revision() -> None:
                 "revision"
             ]
             update = {"expectedRevision": revision, "persona": "Friendly and direct."}
+            invalid = await client.put(
+                settings_path,
+                json={**update, "persona": " "},
+                headers=management,
+            )
+            assert invalid.status_code == 422
             updated = await client.put(settings_path, json=update, headers=management)
             assert updated.json()["revision"] == revision + 1
             assert "never-sent" not in updated.text

@@ -1,5 +1,5 @@
-from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
+from sqlmodel import SQLModel
 
 
 class ExecutionRejected(Exception):
@@ -9,10 +9,10 @@ class ExecutionRejected(Exception):
         self.message = message
 
 
-class WireModel(BaseModel):
-    model_config = ConfigDict(
-        alias_generator=to_camel,
-        serialize_by_alias=True,
-        validate_by_name=True,
-        extra="forbid",
-    )
+class WireModel(SQLModel):
+    model_config = {
+        "alias_generator": to_camel,
+        "serialize_by_alias": True,
+        "validate_by_name": True,
+        "extra": "forbid",
+    }

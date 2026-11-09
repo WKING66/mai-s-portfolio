@@ -7,13 +7,16 @@ from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
-from psycopg import AsyncConnection, Error
-from psycopg.rows import dict_row
-from psycopg_pool import AsyncConnectionPool, PoolTimeout
-from pydantic import AwareDatetime, Field
+from pydantic import AwareDatetime
+from pydantic import Field as ValidationField
+from sqlalchemy import CheckConstraint, DateTime, Text, func, update
+from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import Field, col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.billing import BillingRejected
 from app.chat_graph import ChatGraph, HistoryEntry
+from app.database import Sessions
 from app.preferences import read_preferences
 from app.wire import ExecutionRejected, WireModel
 
@@ -23,8 +26,8 @@ ACTIVE = ("accepted", "running")
 
 class SubmitExecution(WireModel):
     request_id: UUID
-    question: str = Field(min_length=1, max_length=4000, pattern=r"\S")
-    history: list[HistoryEntry] = Field(max_length=12)
+    question: str = ValidationField(min_length=1, max_length=4000, pattern=r"\S")
+    history: list[HistoryEntry] = ValidationField(max_length=12)
     accept_before: AwareDatetime
 
 
@@ -34,11 +37,39 @@ class ExecutionError(WireModel):
     request_id: UUID | None = None
 
 
-class Snapshot(WireModel):
-    request_id: UUID
-    execution_id: UUID
-    status: Literal["accepted", "running", "completed", "failed", "interrupted"]
-    text: str
+ExecutionStatus = Literal["accepted", "running", "completed", "failed", "interrupted"]
+
+
+class Accepted(WireModel):
+    execution_id: UUID = Field(primary_key=True)
+    status: ExecutionStatus = Field(sa_type=Text)
+
+
+class ExecutionFields(Accepted):
+    request_id: UUID = Field(unique=True)
+    text: str = Field(sa_type=Text, sa_column_kwargs={"server_default": ""})
+
+
+class Execution(ExecutionFields, table=True):
+    __tablename__ = "execution"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('accepted', 'running', 'completed', 'failed', 'interrupted')"
+        ),
+    )
+
+    input_hash: str = Field(sa_type=Text)
+    error_code: str | None = Field(default=None, sa_type=Text)
+    created_at: datetime | None = Field(
+        default=None,
+        nullable=False,
+        sa_type=DateTime(timezone=True),
+        sa_column_kwargs={"server_default": func.now()},
+    )
+    finished_at: datetime | None = Field(default=None, sa_type=DateTime(timezone=True))
+
+
+class Snapshot(ExecutionFields):
     sources: list[str] = Field(default_factory=list)
     error: ExecutionError | None = None
 
@@ -51,13 +82,13 @@ class Delta(WireModel):
 class Executions:
     def __init__(
         self,
-        pool: AsyncConnectionPool,
+        sessions: Sessions,
         graph: ChatGraph | None,
         *,
         concurrency: int,
         queue_limit: int,
     ) -> None:
-        self.pool = pool
+        self.sessions = sessions
         self.graph = graph
         self.capacity = concurrency + queue_limit
         self.workers = asyncio.Semaphore(concurrency)
@@ -66,12 +97,11 @@ class Executions:
 
     # 重启只中断遗留执行并保留部分正文。上次请求可能已收费，不能自动重放。
     async def recover(self) -> None:
-        async with self.pool.connection() as connection:
-            await connection.execute(
-                """
-                UPDATE execution SET status = 'interrupted', finished_at = now()
-                WHERE status IN ('accepted', 'running')
-                """
+        async with self.sessions.begin() as session:
+            await session.exec(
+                update(Execution)
+                .where(col(Execution.status).in_(ACTIVE))
+                .values(status="interrupted", finished_at=func.now())
             )
 
     async def close(self) -> None:
@@ -86,8 +116,8 @@ class Executions:
         payload = request.model_dump_json(exclude={"request_id", "accept_before"})
         input_hash = hashlib.sha256(payload.encode()).hexdigest()
         async with self.submissions:
-            async with self.pool.connection() as connection:
-                previous = await self.find(connection, request_id=request.request_id)
+            async with self.sessions.begin() as session:
+                previous = await self.find(session, request_id=request.request_id)
                 # 先查已受理记录，确保截止后的合法重试仍能找到原执行。
                 if previous is not None:
                     snapshot, saved_hash = previous
@@ -112,18 +142,19 @@ class Executions:
                     raise ExecutionRejected(429, "CAPACITY_EXHAUSTED", "Chat is busy.")
                 execution_id = uuid4()
                 # 3. 固定受理时的 Persona，之后的设置更新只影响新请求。
-                preferences = await read_preferences(connection)
-                await connection.execute(
-                    """
-                    INSERT INTO execution (execution_id, request_id, input_hash, status)
-                    VALUES (%s, %s, %s, 'accepted')
-                    """,
-                    (execution_id, request.request_id, input_hash),
+                persona = (await read_preferences(session)).persona
+                session.add(
+                    Execution(
+                        execution_id=execution_id,
+                        request_id=request.request_id,
+                        input_hash=input_hash,
+                        status="accepted",
+                        text="",
+                    )
                 )
-                await connection.commit()
             # 4. 受理记录提交后才调度。订阅必须始终能读到对应的持久记录。
             task = asyncio.create_task(
-                self.run(execution_id, request, self.graph, preferences.persona)
+                self.run(execution_id, request, self.graph, persona)
             )
             self.tasks[execution_id] = task
             task.add_done_callback(lambda _: self.tasks.pop(execution_id, None))
@@ -136,35 +167,29 @@ class Executions:
 
     async def find(
         self,
-        connection: AsyncConnection,
+        session: AsyncSession,
         *,
         execution_id: UUID | None = None,
         request_id: UUID | None = None,
     ) -> tuple[Snapshot, str] | None:
-        async with connection.cursor(row_factory=dict_row) as cursor:
-            await cursor.execute(
-                "SELECT * FROM execution WHERE execution_id = %s OR request_id = %s",
-                (execution_id, request_id),
-            )
-            row = await cursor.fetchone()
+        condition = col(Execution.execution_id) == execution_id
+        if request_id is not None:
+            condition = col(Execution.request_id) == request_id
+        row = (await session.exec(select(Execution).where(condition))).one_or_none()
         # 缺少记录由查询入口返回 404，查询路径始终不创建执行。
         if row is None:
             return None
         error = None
         # 只返回稳定错误码。供应商异常可能包含密钥或会话正文。
-        if row["error_code"]:
+        if row.error_code:
             error = ExecutionError(
-                code=row["error_code"],
+                code=row.error_code,
                 message="Chat could not finish.",
-                request_id=row["request_id"],
+                request_id=row.request_id,
             )
-        return Snapshot(
-            request_id=row["request_id"],
-            execution_id=row["execution_id"],
-            status=row["status"],
-            text=row["text"],
-            error=error,
-        ), row["input_hash"]
+        return Snapshot.model_validate(
+            row, from_attributes=True, update={"error": error}
+        ), row.input_hash
 
     async def get(
         self,
@@ -172,9 +197,9 @@ class Executions:
         *,
         request_id: UUID | None = None,
     ) -> Snapshot:
-        async with self.pool.connection() as connection:
+        async with self.sessions() as session:
             result = await self.find(
-                connection, execution_id=execution_id, request_id=request_id
+                session, execution_id=execution_id, request_id=request_id
             )
         # 订阅只读取已受理执行，缺少记录时直接拒绝。
         if result is None:
@@ -183,17 +208,19 @@ class Executions:
 
     # 只允许活动执行进入终态。迟到的停止或失败不能覆盖已有结果。
     async def finish(
-        self, execution_id: UUID, status: str, error: str | None = None
+        self, execution_id: UUID, status: ExecutionStatus, error: str | None = None
     ) -> bool:
-        async with self.pool.connection() as connection:
-            cursor = await connection.execute(
-                """
-                UPDATE execution SET status = %s, error_code = %s, finished_at = now()
-                WHERE execution_id = %s AND status IN ('accepted', 'running')
-                """,
-                (status, error, execution_id),
+        async with self.sessions.begin() as session:
+            updated = await session.scalar(
+                update(Execution)
+                .where(
+                    col(Execution.execution_id) == execution_id,
+                    col(Execution.status).in_(ACTIVE),
+                )
+                .values(status=status, error_code=error, finished_at=func.now())
+                .returning(col(Execution.execution_id))
             )
-            return cursor.rowcount == 1
+            return updated is not None
 
     async def stop(self, execution_id: UUID) -> Snapshot:
         # 先提交中断，再尽力取消任务。未赢得终态竞争时返回已有快照。
@@ -214,16 +241,18 @@ class Executions:
         try:
             # 1. 获得执行槽后才从已受理切换到运行中。
             async with self.workers:
-                async with self.pool.connection() as connection:
-                    cursor = await connection.execute(
-                        """
-                        UPDATE execution SET status = 'running'
-                        WHERE execution_id = %s AND status = 'accepted'
-                        """,
-                        (execution_id,),
+                async with self.sessions.begin() as session:
+                    started = await session.scalar(
+                        update(Execution)
+                        .where(
+                            col(Execution.execution_id) == execution_id,
+                            col(Execution.status) == "accepted",
+                        )
+                        .values(status="running")
+                        .returning(col(Execution.execution_id))
                     )
                     # 排队期间已停止时跳过生成，避免中断后开始收费。
-                    if cursor.rowcount != 1:
+                    if started is None:
                         return
                 # 2. 先保存正文增量，订阅者只读取已提交的数据。
                 async with aclosing(
@@ -237,16 +266,18 @@ class Executions:
                     )
                 ) as chunks:
                     async for text in chunks:
-                        async with self.pool.connection() as connection:
-                            saved = await connection.execute(
-                                """
-                                UPDATE execution SET text = text || %s
-                                WHERE execution_id = %s AND status = 'running'
-                                """,
-                                (text, execution_id),
+                        async with self.sessions.begin() as session:
+                            saved = await session.scalar(
+                                update(Execution)
+                                .where(
+                                    col(Execution.execution_id) == execution_id,
+                                    col(Execution.status) == "running",
+                                )
+                                .values(text=col(Execution.text) + text)
+                                .returning(col(Execution.execution_id))
                             )
                             # 终态已被另一操作提交时停止消费，不再向终态正文追加内容。
-                            if saved.rowcount != 1:
+                            if saved is None:
                                 return
                 # 3. 全部正文保存后再发布完成，终态快照因此包含最终正文。
                 await self.finish(execution_id, "completed")
@@ -258,7 +289,7 @@ class Executions:
             )
             try:
                 await self.finish(execution_id, "failed", "EXECUTION_FAILED")
-            except (Error, PoolTimeout):
+            except SQLAlchemyError:
                 logger.error("could not persist execution failure id=%s", execution_id)
 
     async def events(self, initial: Snapshot) -> AsyncIterator[str]:

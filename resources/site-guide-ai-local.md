@@ -23,6 +23,8 @@ uv run --locked --env-file /path/to/protected.env alembic upgrade head
 
 迁移只创建 AI 自有设置、执行快照和费用账。M1 迁移不依赖 pgvector。
 
+运行时由 SQLModel 和 SQLAlchemy 管理异步会话，Psycopg 提供 PostgreSQL 驱动。执行和配置的共有字段在 SQLModel 中定义一次，接口投影只输出约定字段。现有数据库沿用已执行的 Alembic 迁移。
+
 ## 启动与检查
 
 ```text
