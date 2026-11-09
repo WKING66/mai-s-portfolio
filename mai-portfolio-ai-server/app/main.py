@@ -41,6 +41,7 @@ class Accepted(BaseModel):
 def create_app(settings: Settings) -> FastAPI:
     execution_token = settings.ai_execution_token.get_secret_value().encode()
     management_token = settings.ai_management_token.get_secret_value().encode()
+    # 两种凭证必须隔离，避免持有执行权限的调用方同时获得配置权限。
     if compare_digest(execution_token, management_token):
         raise ValueError("Execution and management credentials must differ.")
 
@@ -93,12 +94,13 @@ def create_app(settings: Settings) -> FastAPI:
                 concurrency=settings.execution_concurrency,
                 queue_limit=settings.execution_queue_limit,
             )
-            # Holding a session lock prevents a second worker from interrupting active runs.
+            # 会话锁保证单执行进程，避免第二个进程启动时误把正在运行的问答标为中断。
             async with pool.connection() as connection:
                 cursor = await connection.execute(
                     "SELECT pg_try_advisory_lock(317341, 2)"
                 )
                 lock = await cursor.fetchone()
+                # 已有执行进程时拒绝启动，保证其活动任务状态不被恢复流程覆盖。
                 if lock is None or not lock[0]:
                     raise RuntimeError("An AI execution worker is already active.")
                 await connection.commit()
@@ -118,6 +120,7 @@ def create_app(settings: Settings) -> FastAPI:
     async def require_execution(
         credential: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
     ) -> None:
+        # 只允许持有当前用途服务凭证的后端访问，浏览器通过网站中转。
         if credential is None or not compare_digest(
             credential.credentials.encode(), execution_token
         ):
@@ -128,6 +131,7 @@ def create_app(settings: Settings) -> FastAPI:
     async def require_management(
         credential: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
     ) -> None:
+        # 只允许持有当前用途服务凭证的后端访问，浏览器通过网站中转。
         if credential is None or not compare_digest(
             credential.credentials.encode(), management_token
         ):

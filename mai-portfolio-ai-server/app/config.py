@@ -1,15 +1,21 @@
 from decimal import Decimal
 
-from pydantic import Field, PostgresDsn, SecretStr, field_validator
+from pydantic import AliasChoices, Field, PostgresDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        extra="ignore", hide_input_in_errors=True, env_ignore_empty=True
+        extra="ignore",
+        hide_input_in_errors=True,
+        env_ignore_empty=True,
+        validate_by_name=True,
     )
 
-    ai_database_url: PostgresDsn
+    # 本机 Docker 和部署统一读取 DATABASE_URL，旧部署变量保留兼容。
+    ai_database_url: PostgresDsn = Field(
+        validation_alias=AliasChoices("DATABASE_URL", "AI_DATABASE_URL"),
+    )
     ai_db_schema: str = Field(default="site_guide", pattern=r"^[a-z][a-z0-9_]{0,62}$")
     ai_execution_token: SecretStr
     ai_management_token: SecretStr

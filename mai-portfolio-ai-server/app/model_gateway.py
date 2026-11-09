@@ -24,9 +24,11 @@ class ModelGateway:
         input_limit: int,
         output_limit: int,
     ) -> AsyncGenerator[str]:
+        # 1. 预留提交后才打开上游流，费用或数据库校验失败时不会发起调用。
         reservation = await self.billing.reserve(
             attempt_id, "chat", price, input_limit, output_limit
         )
+        # 2. 只发送访客可见正文，供应商的计费用量用于结算。
         usage = None
         async with aclosing(
             cast(
@@ -43,6 +45,7 @@ class ModelGateway:
                     usage = chunk.usage_metadata
                 if chunk.text:
                     yield chunk.text
+        # 3. 按可信用量结算。上游中断或未报告用量时保留原预留。
         if usage is not None:
             await self.billing.settle(
                 reservation, usage["input_tokens"], usage["output_tokens"]
@@ -57,6 +60,7 @@ class ModelGateway:
     ) -> list[float]:
         input_limit = settings.embedding_billable_input_limit
         dimensions = settings.embedding_dimensions
+        # 缺少受支持的供应商配置时拒绝，避免 SDK 自动选择默认地址。
         if (
             settings.model_provider != "openai-compatible"
             or not settings.embedding_base_url
@@ -65,10 +69,11 @@ class ModelGateway:
             or dimensions <= 0
         ):
             raise ValueError("Embedding deployment settings are incomplete.")
+        # 拒绝空文本和超界输入，单次请求须落在已验证的计费范围内。
         if not text.strip() or len(text.encode("utf-8")) > input_limit:
             raise ValueError("Embedding input exceeds its configured bound.")
-        # The LangChain adapter exposes vectors only. Without authoritative usage,
-        # retain the reservation and disable automatic splitting into extra calls.
+        # LangChain 只返回向量，缺少可信用量时保留预留。
+        # 关闭自动拆分和重试，确保一次预留只对应一次上游调用。
         model = OpenAIEmbeddings(
             model=settings.embedding_model,
             base_url=settings.embedding_base_url,
@@ -86,6 +91,7 @@ class ModelGateway:
             0,
         )
         vector = await model.aembed_query(text)
+        # 不兼容维度不可交给检索索引，避免写入后无法查询。
         if len(vector) != dimensions:
             raise ValueError("Unexpected embedding dimensions.")
         return vector

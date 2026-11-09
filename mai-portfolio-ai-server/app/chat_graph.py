@@ -50,6 +50,7 @@ class ChatGraph:
         )
 
     async def generate(self, state: ChatState) -> None:
+        # 1. 系统消息固定资料边界。历史只能解释追问，不能充当站长事实证据。
         messages: list[BaseMessage] = [
             SystemMessage(
                 "You are the site's AI guide. Use history only to interpret follow-up questions. "
@@ -65,6 +66,7 @@ class ChatGraph:
             )
             messages.append(message)
         messages.append(HumanMessage(state["question"]))
+        # 2. 只有生成节点的访客可见正文进入事件流，编排事件留在图内部。
         writer = get_stream_writer()
         async with aclosing(
             self.gateway.stream_chat(
@@ -87,5 +89,6 @@ class ChatGraph:
             )
         ) as parts:
             async for part in parts:
+                # 跳过图的其他事件，避免把编排信息保存为访客回复。
                 if part["type"] == "custom" and isinstance(part["data"], str):
                     yield part["data"]

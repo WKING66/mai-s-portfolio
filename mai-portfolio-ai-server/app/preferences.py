@@ -34,6 +34,7 @@ async def read_preferences(connection: AsyncConnection) -> ChatPreferences:
             "SELECT revision, persona FROM chat_preferences WHERE singleton"
         )
         row = await cursor.fetchone()
+    # 初始化设置是唯一生效来源，迁移不完整时拒绝使用隐式默认值。
     if row is None:
         raise RuntimeError("AI settings migration is incomplete.")
     return ChatPreferences(row["revision"], row["persona"])
@@ -43,6 +44,7 @@ async def update_preferences(
     connection: AsyncConnection,
     request: UpdatePreferences,
 ) -> ChatPreferences:
+    # 只更新预期修订。两个后台页面并发保存时，由先提交的一方生效。
     cursor = await connection.execute(
         """
         UPDATE chat_preferences SET revision = revision + 1, persona = %s
@@ -50,6 +52,7 @@ async def update_preferences(
         """,
         (request.persona, request.expected_revision),
     )
+    # 旧页面须重新读取设置，避免覆盖站长已保存的修改。
     if cursor.rowcount != 1:
         raise ExecutionRejected(
             409, "REVISION_CONFLICT", "Settings changed. Reload and retry."

@@ -12,7 +12,7 @@ MICRO = Decimal("0.000001")
 
 
 class BillingRejected(Exception):
-    """The upstream call must not start."""
+    """费用条件不成立时，拒绝启动上游调用。"""
 
 
 @dataclass(frozen=True)
@@ -65,6 +65,7 @@ class Billing:
         input_limit: int,
         output_limit: int,
     ) -> Reservation:
+        # 1. 缺少开关、定价或可验证的费用上界时拒绝外呼，否则无法保证预算硬上限。
         if (
             not self.enabled
             or not self.currency
@@ -82,7 +83,7 @@ class Billing:
             raise BillingRejected("Billing is disabled or pricing is incomplete.")
         ceiling = price.cost(input_limit, output_limit)
         async with self.pool.connection() as connection, connection.transaction():
-            # Every paid model shares one lock, including across billing days.
+            # 2. Chat 和 Embedding 共用预算锁，避免并发请求用同一份余额放行。
             await connection.execute("SELECT pg_advisory_xact_lock(317341, 1)")
             day = datetime.now(self.time_zone).date()
             cursor = await connection.execute(
@@ -94,9 +95,11 @@ class Billing:
                 """,
                 (self.currency, day),
             )
+            # 跨日的未知用量继续占用。币种冲突或已发现供应商用量超界时暂停收费。
             totals = await cursor.fetchone()
             if totals is None or totals[1] or totals[0] + ceiling > self.budget:
                 raise BillingRejected("Model budget is unavailable.")
+            # 3. 尝试标识唯一。回包不明也不能重新使用旧标识发起收费。
             inserted = await connection.execute(
                 """
                 INSERT INTO model_attempt
@@ -116,8 +119,10 @@ class Billing:
         input_tokens: int,
         output_tokens: int,
     ) -> None:
+        # 供应商漏报或回报无效时保留原预留，避免把可能已发生的费用当作零。
         if input_tokens < 0 or output_tokens < 0 or input_tokens + output_tokens == 0:
             return
+        # 供应商回报超界说明原计费前提已失效。持久化异常，避免重启后继续放行。
         if (
             input_tokens > reservation.input_limit
             or output_tokens > reservation.output_limit
