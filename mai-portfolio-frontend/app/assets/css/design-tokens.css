@@ -1,20 +1,22 @@
 /* 全站语义 token，由 html 的主题状态统一选择。 */
 :root {
   color-scheme: light;
-  --site-bg: #f5f2e9;
+  --site-editorial-font:
+    'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', STSong, SimSun, Georgia, serif;
+  --site-bg: #f4f7f6;
   --site-surface: #ffffff;
   --site-text: #1f2d2b;
   --site-muted: #596c69;
-  --site-line: #cddad5;
+  --site-line: #d8e2dd;
   --site-accent: #36776d;
   --site-accent-secondary: #36776d;
   --site-primary-hover: #2b6058;
   --site-inverted: #ffffff;
-  --site-bg-muted: #edf2f0;
-  --site-bg-elevated: #e7eeeb;
-  --site-bg-accented: #dce7e2;
-  --site-border-muted: #dce5e1;
-  --site-border-accented: #aebfb7;
+  --site-bg-muted: #f0f4f2;
+  --site-bg-elevated: #eaf0ed;
+  --site-bg-accented: #e2eae6;
+  --site-border-muted: #e1e8e4;
+  --site-border-accented: #adbbb3;
   --site-success: #2f745f;
   --site-info: #3b6ea2;
   --site-warning: #8b621a;

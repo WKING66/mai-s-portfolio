@@ -98,13 +98,18 @@ onMounted(() => load())
               </p>
             </div></template
           >
-          <template #status-cell="{ row }"
-            ><UBadge
-              :color="row.original.status === 'PUBLISHED' ? 'success' : 'neutral'"
-              variant="subtle"
-              >{{ row.original.status === 'PUBLISHED' ? '已发布' : '草稿' }}</UBadge
-            ></template
-          >
+          <template #status-cell="{ row }">
+            <div class="flex flex-wrap gap-1">
+              <UBadge
+                :color="row.original.status === 'PUBLISHED' ? 'success' : 'neutral'"
+                variant="subtle"
+                >{{ row.original.status === 'PUBLISHED' ? '已发布' : '未上架' }}</UBadge
+              >
+              <UBadge v-if="row.original.hasDraft" color="warning" variant="subtle"
+                >有待发布草稿</UBadge
+              >
+            </div>
+          </template>
           <template #revision-cell="{ row }"
             ><span class="text-xs text-muted">v{{ row.original.revision }}</span></template
           >
@@ -135,11 +140,14 @@ onMounted(() => load())
         <UCard v-for="article in blogPage?.items ?? []" :key="article.id" as="article">
           <div class="flex items-start justify-between gap-3">
             <h2 class="font-semibold">{{ article.title || '未命名草稿' }}</h2>
-            <UBadge
-              :color="article.status === 'PUBLISHED' ? 'success' : 'neutral'"
-              variant="subtle"
-              >{{ article.status === 'PUBLISHED' ? '已发布' : '草稿' }}</UBadge
-            >
+            <div class="flex flex-wrap justify-end gap-1">
+              <UBadge
+                :color="article.status === 'PUBLISHED' ? 'success' : 'neutral'"
+                variant="subtle"
+                >{{ article.status === 'PUBLISHED' ? '已发布' : '未上架' }}</UBadge
+              >
+              <UBadge v-if="article.hasDraft" color="warning" variant="subtle">有待发布草稿</UBadge>
+            </div>
           </div>
           <p v-if="article.summary" class="mt-3 line-clamp-2 text-sm text-muted">
             {{ article.summary }}

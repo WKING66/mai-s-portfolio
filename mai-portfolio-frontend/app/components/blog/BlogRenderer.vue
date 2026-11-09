@@ -40,13 +40,25 @@ import type { TocLink } from 'comark/plugins/toc'
 const props = withDefaults(
   defineProps<{
     markdown: string
+    articleTitle?: string
     resources?: DocumentResource[]
     debounce?: number
+    tocSide?: 'left' | 'right'
+    scrollRoot?: HTMLElement | null
     showToc?: boolean
     progressive?: boolean
     cacheKey?: string
   }>(),
-  { debounce: 150, progressive: false, resources: () => [], showToc: false, cacheKey: undefined },
+  {
+    articleTitle: undefined,
+    tocSide: 'left',
+    scrollRoot: undefined,
+    debounce: 150,
+    progressive: false,
+    resources: () => [],
+    showToc: false,
+    cacheKey: undefined,
+  },
 )
 const emit = defineEmits<{ toc: [items: TocLink[]] }>()
 // 1. 使用稳定版本键复用 SSR payload；资源投影单独注入，不写入正文 AST。
@@ -57,6 +69,36 @@ const readerKey = props.cacheKey ?? instanceId
 const initialMarkdown = props.markdown
 provide(BLOG_RESOURCES, toRef(props, 'resources'))
 const bodyRoot = useTemplateRef<HTMLElement>('bodyRoot')
+const bodyVisible = ref(false)
+let visibilityObserver: IntersectionObserver | undefined
+function observeBodyVisibility() {
+  visibilityObserver?.disconnect()
+  if (!bodyRoot.value || !props.showToc) {
+    return
+  }
+  // 正文到达阅读位置才显示入口，首屏底部仅露出正文时仍保持隐藏。
+  const rootHeight = props.scrollRoot?.clientHeight ?? window.innerHeight
+  const headerHeight = props.scrollRoot
+    ? 0
+    : (document.querySelector('.site-header')?.getBoundingClientRect().height ?? 0)
+  const bottomInset = Math.max(0, rootHeight - headerHeight - 48)
+  visibilityObserver = new IntersectionObserver(
+    ([entry]) => {
+      bodyVisible.value = entry?.isIntersecting ?? false
+    },
+    { root: props.scrollRoot ?? null, rootMargin: `0px 0px -${bottomInset}px 0px` },
+  )
+  visibilityObserver.observe(bodyRoot.value)
+}
+onMounted(() => {
+  observeBodyVisibility()
+  window.addEventListener('resize', observeBodyVisibility, { passive: true })
+})
+watch(() => props.scrollRoot, observeBodyVisibility, { flush: 'post' })
+onBeforeUnmount(() => {
+  visibilityObserver?.disconnect()
+  window.removeEventListener('resize', observeBodyVisibility)
+})
 // 所有叶章节共用一个尺寸观察器。使用浏览器已完成的布局结果，不逐帧强制测量。
 let bodyResizeObserver: ResizeObserver | undefined
 const measuredChapterBodies = new Map<
@@ -153,7 +195,9 @@ let mountFrameId = 0,
   resolveContentMount: (() => void) | undefined,
   contentMountPromise = Promise.resolve()
 let isInitialPreparation = true
-const chapters = computed(() => markRaw(buildBlogChapters(parsedDocument.value?.nodes || [])))
+const chapters = computed(() =>
+  markRaw(buildBlogChapters(parsedDocument.value?.nodes || [], props.articleTitle)),
+)
 // 2. 内容版本变化才准备章节；折叠状态独立于章节树，不触发重新解析。
 function prepareContent() {
   cancelAnimationFrameSafe()
@@ -342,7 +386,7 @@ let parseTimer: ReturnType<typeof setTimeout>,
   parseRevision = 0,
   lastParsedMarkdown = initialMarkdown
 watch(
-  parsedDocument,
+  chapters,
   () => {
     contentCollapsedIds.value = new Set()
     prepareContent()
@@ -385,6 +429,7 @@ async function retry() {
 }
 const documentSearch = createReadingSearch({
   root: () => bodyRoot.value,
+  scrollRoot: () => props.scrollRoot,
   reveal: async (element) => {
     await contentMountPromise
     const next = new Set(contentCollapsedIds.value)
@@ -420,6 +465,7 @@ onBeforeUnmount(() => {
     :class="{
       'blog-reader': showToc,
       'blog-reading-layout': showToc && toc.length,
+      'blog-reading-toc-right': tocSide === 'right',
       'blog-reading-with-header': Boolean($slots.header),
     }"
   >
@@ -430,7 +476,12 @@ onBeforeUnmount(() => {
       :data-reading-ready="readingReady"
       :aria-busy="!readingReady"
     >
-      <div v-if="showToc" class="blog-reading-find" data-document-search-ignore>
+      <div
+        v-if="showToc"
+        class="blog-reading-find"
+        :class="{ invisible: !bodyVisible }"
+        data-document-search-ignore
+      >
         <DocumentSearch :adapter="documentSearch" :disabled="!readingReady" />
       </div>
       <p v-if="!readingReady" data-document-search-ignore role="status" class="text-sm text-muted">
@@ -442,10 +493,11 @@ onBeforeUnmount(() => {
       <Markdown v-if="chapterDocument" :value="chapterDocument" :components="components" />
     </div>
     <aside v-if="showToc && toc.length" class="blog-reading-toc">
-      <BlogTocResizeHandle />
+      <BlogTocResizeHandle :side="tocSide" />
       <BlogToc
         :items="toc"
         :root="bodyRoot"
+        :scroll-root="scrollRoot"
         :reveal="reveal"
         :content-collapsed-ids="contentCollapsedIds"
         :content-ready="readingReady"

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { validateBlogProperties } from '../../utils/blog/properties'
 import DocumentSearch from '../blog/DocumentSearch.vue'
+import BlogArticle from '../blog/BlogArticle.vue'
+import BlogArticleIntro from '../blog/BlogArticleIntro.vue'
 import { createCanvasSearch } from '../../utils/editor/interaction/documentSearch'
 import { CanvasSearchHistory } from '../../utils/editor/interaction/canvasSearchHistory'
 import {
@@ -86,6 +88,8 @@ const props = defineProps<{
   stateLabel?: string
   slugLocked?: boolean
   tags?: BlogTag[]
+  publishedAt?: string | null
+  updatedAt?: string | null
 }>()
 const metadata = defineModel<CanvasMetadata>('metadata', { required: true })
 const editorLoading = inject(CANVAS_LOADING, undefined)
@@ -189,6 +193,9 @@ const summary = computed({
   },
 })
 const isEditing = ref(true)
+const preparingReading = ref(false)
+const readingMarkdown = shallowRef('')
+let editingScrollTop = 0
 provide(
   IMMERSIVE_EDITABLE,
   computed(() => isEditing.value && ready.value),
@@ -199,7 +206,7 @@ const tocOpen = ref(false)
 const compact = useMediaQuery('(max-width: 1199px)')
 const canvasPane = useTemplateRef<HTMLElement>('canvasPane')
 const { width: canvasWidth, height: canvasHeight } = useElementSize(canvasPane)
-const desktopTocVisible = computed(() => canvasWidth.value >= 1050)
+const desktopTocVisible = computed(() => !compact.value && canvasWidth.value >= 1050)
 watch(desktopTocVisible, (visible) => {
   if (visible) {
     tocOpen.value = false
@@ -348,12 +355,45 @@ function workbenchKeydown(event: KeyboardEvent) {
     saveDraft()
   }
 }
-function toggleEditing() {
-  if (!ready.value || waitForPaste()) {
+async function toggleEditing() {
+  if (!ready.value || waitForPaste() || preparingReading.value) {
     return
   }
-  isEditing.value = !isEditing.value
-  editor.value?.setEditable(isEditing.value, false)
+  if (isEditing.value) {
+    preparingReading.value = true
+    try {
+      // 只在用户离开编辑时导出当前草稿；不保存服务器，也不销毁编辑器的撤销记录。
+      const currentEditor = editor.value
+      const document = currentEditor?.state.doc
+      const markdown = await canvas.exportMarkdown()
+      if (!currentEditor || currentEditor.isDestroyed || currentEditor !== editor.value) {
+        return
+      }
+      if (currentEditor.state.doc !== document) {
+        throw new Error('准备预览期间正文又有修改，请再次点击完成编辑以预览最新内容。')
+      }
+      readingMarkdown.value = markdown
+      editingScrollTop = canvasPane.value?.scrollTop ?? 0
+      tocOpen.value = false
+      editor.value?.setEditable(false, false)
+      isEditing.value = false
+      await nextTick()
+      canvasPane.value?.scrollTo({ top: 0, behavior: 'instant' })
+    } catch (cause) {
+      toast.add({
+        title: '暂时无法打开阅读预览',
+        description: cause instanceof Error ? cause.message : '当前编辑内容已保留，请重试。',
+        color: 'error',
+      })
+    } finally {
+      preparingReading.value = false
+    }
+  } else {
+    isEditing.value = true
+    editor.value?.setEditable(true, false)
+    await nextTick()
+    canvasPane.value?.scrollTo({ top: editingScrollTop, behavior: 'instant' })
+  }
 }
 function validateMetadata(state: typeof settingsDraft) {
   return validateBlogProperties({ ...state, tagIds: state.tagIds ?? [] }, metadata.value.slug)
@@ -954,6 +994,7 @@ defineExpose({
         :class="{ 'opacity-50': !ready }"
       >
         <DocumentSearch
+          v-if="isEditing"
           :adapter="documentSearch"
           :replaceable="isEditing"
           :disabled="!ready || pastePending"
@@ -1009,6 +1050,7 @@ defineExpose({
         />
         <UButton
           :icon="isEditing ? 'i-lucide-check' : 'i-lucide-pencil'"
+          :loading="preparingReading"
           size="sm"
           @click="toggleEditing"
           >{{ isEditing ? '完成编辑' : '继续编辑' }}</UButton
@@ -1048,18 +1090,34 @@ defineExpose({
           aria-label="沉浸正文画布"
           @pointerup="richPointer"
         >
+          <BlogArticle
+            v-if="!isEditing"
+            :title="title || '未命名草稿'"
+            :summary="summary"
+            :published-at="publishedAt"
+            :updated-at="updatedAt"
+            :markdown="readingMarkdown"
+            :resources="resources"
+            :scroll-root="canvasPane"
+            :shareable="false"
+          />
           <article
+            v-show="isEditing"
             :inert="!ready"
             :aria-busy="loading"
-            class="blog-reading-layout blog-reading-with-header workbench-article"
+            class="blog-reading-layout blog-reading-with-header blog-reading-toc-right blog-reading-article blog-article workbench-article"
             :class="{ 'has-desktop-toc': desktopTocVisible }"
           >
-            <header class="blog-reading-title min-w-0">
-              <h1 class="site-page-title break-words">{{ title || '未命名草稿' }}</h1>
-              <p class="my-6 text-lg leading-8 text-muted">{{ summary }}</p>
-            </header>
+            <BlogArticleIntro
+              class="blog-reading-title min-w-0"
+              :title="title || '未命名草稿'"
+              :summary="summary"
+              :published-at="publishedAt"
+              :updated-at="updatedAt"
+              :shareable="false"
+            />
             <aside v-if="desktopTocVisible" class="blog-reading-toc">
-              <BlogTocResizeHandle />
+              <BlogTocResizeHandle side="right" />
               <h2 class="blog-toc-title">本篇目录</h2>
               <BlogTocTree
                 :links="links"
@@ -1147,7 +1205,7 @@ defineExpose({
           </article>
         </section>
         <UButton
-          v-if="!desktopTocVisible"
+          v-if="isEditing && !desktopTocVisible"
           class="workbench-mobile-toc"
           icon="i-lucide-list-tree"
           color="neutral"
@@ -1418,8 +1476,8 @@ defineExpose({
   font-variant-ligatures: none;
   font-feature-settings: 'liga' 0;
   padding: 0;
-  font-size: 1.0625rem;
-  line-height: 1.85;
+  font-size: inherit;
+  line-height: inherit;
 }
 /* 保留编辑器的基础排版/间隙光标；选区失焦不通过通配选择器改变整篇后代样式。 */
 .workbench-body :deep(.tiptap [contenteditable='false']) {
@@ -1555,34 +1613,44 @@ defineExpose({
 .workbench-article :deep(.blog-toc-scroll) {
   max-height: max(6rem, calc(var(--immersive-canvas-height) - 3rem));
 }
+.workbench-article > .blog-reading-title {
+  max-width: none;
+  padding-inline-end: 0;
+}
 .workbench-article {
   display: block;
 }
 .workbench-article.has-desktop-toc {
   display: grid;
-  grid-template-columns: var(--blog-toc-width, 18rem) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) var(--blog-toc-width, 14rem);
+  column-gap: 4rem;
 }
 .workbench-article.has-desktop-toc > .blog-reading-title {
-  grid-area: 1 / 2;
+  grid-area: 1 / 1 / 2 / -1;
   padding-inline-end: 0;
 }
 .workbench-article.has-desktop-toc > .workbench-body {
-  grid-area: 2 / 2;
+  grid-area: 2 / 1;
+  margin-top: 3rem;
 }
 .workbench-article.has-desktop-toc > .blog-reading-toc {
-  grid-area: 1 / 1 / span 2;
+  grid-area: 2 / 2;
+  margin-top: 3rem;
   justify-self: stretch;
   border: 0;
-  border-inline-end: 1px solid var(--ui-border);
-  padding: 0 0.75rem 0 0;
+  border-inline-start: 1px solid var(--ui-border);
+  padding: 0 0 0 0.75rem;
 }
 
 @media (max-width: 1199px) {
-  .workbench-article > .blog-reading-title {
-    padding-right: 3rem;
+  .workbench-article > .workbench-body {
+    margin-top: 3rem;
   }
 }
 @media (max-width: 599px) {
+  .canvas-pane {
+    padding-inline: 0;
+  }
   .workbench-actions {
     gap: 0.5rem;
   }

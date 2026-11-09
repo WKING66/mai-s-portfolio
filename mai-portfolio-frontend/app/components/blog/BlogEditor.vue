@@ -314,13 +314,15 @@ onBeforeUnmount(() => {
           v-model:metadata="metadata"
           :initial-content="initialContent"
           :resources="previewResources"
+          :published-at="savedPost?.publishedAt"
+          :updated-at="savedPost?.updatedAt"
           :persistence="persistence"
           :unsaved="!savedPost"
           :slug-locked="savedPost?.hasPublished"
           :tags="tags"
           :state-label="
             savedPost?.hasDraft
-              ? '服务器草稿'
+              ? '草稿 · 发布后生效'
               : savedPost?.hasPublished
                 ? '正式正文 · 编辑后保存为草稿'
                 : '新建草稿'

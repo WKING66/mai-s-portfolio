@@ -38,7 +38,6 @@ describe('pre-paint site theme', () => {
   it('restores the previous dark choice before hydration or session lookup', () => {
     const { root, document } = paint('', 'dark')
     expect(root.dataset.theme).toBe('dark')
-    expect(root.style.backgroundColor).toBe('#10191C')
     expect(root.style.colorScheme).toBe('dark')
     expect(root.classList.toggle).toHaveBeenCalledWith('dark', true)
     expect(document.cookie).toContain('portfolio-theme=dark; Path=/;')

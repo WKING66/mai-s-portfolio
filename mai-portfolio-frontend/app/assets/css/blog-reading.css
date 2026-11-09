@@ -470,3 +470,64 @@
 .blog-reading-find > * {
   pointer-events: auto;
 }
+
+/* 紧凑目录与正文查找分两行吸顶；查找在目录下方，无目录和桌面侧栏不受影响。 */
+@media (max-width: 1199px) {
+  .blog-reading-layout > .blog-renderer > .blog-reading-find {
+    top: calc(var(--site-header-height) + 3rem);
+    padding-inline-end: 0;
+  }
+}
+
+@media (min-width: 1200px) {
+  .blog-reading-layout.blog-reading-toc-right {
+    grid-template-columns: minmax(0, 1fr) var(--blog-toc-width, 14rem);
+    column-gap: 4rem;
+  }
+  .blog-reading-toc-right > .blog-renderer,
+  .blog-reading-toc-right > .blog-reading-title {
+    grid-column: 1;
+  }
+  .blog-reading-toc-right > .blog-reading-toc {
+    grid-column: 2;
+    border-right: 0;
+    border-left: 1px solid var(--ui-border);
+    padding: 0 0 0 0.75rem;
+  }
+  .blog-reading-toc-right .blog-toc-resize-handle {
+    inset-inline-end: auto;
+    inset-inline-start: -1rem;
+  }
+}
+
+/* 编辑画布和只读阅读共用同一套文章排版。 */
+
+.blog-article {
+  max-width: 72.5rem;
+  width: 100%;
+  margin-inline: auto;
+}
+.blog-article > :where(.blog-reader) {
+  margin-top: 3rem;
+}
+.blog-article :where(.blog-renderer) {
+  font-size: 1.125rem;
+  line-height: 1.9;
+}
+.blog-article :where(.blog-renderer :is(h1, h2, h3, h4)) {
+  font-family: var(--site-editorial-font);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+@media (max-width: 600px) {
+  .blog-article {
+    --blog-reading-start-gap: 0.25rem;
+  }
+  .blog-article > :where(.blog-reader) {
+    margin-top: 3rem;
+  }
+  .blog-article :where(.blog-renderer) {
+    font-size: 1rem;
+    line-height: 1.85;
+  }
+}

@@ -22,11 +22,10 @@ function bootstrapSiteTheme() {
     (storedPreference === 'light' || storedPreference === 'dark' ? storedPreference : null)
   const theme =
     preference || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-  // 3. 在水合前一次性设置主题、配色和底色，避免首屏闪白。
+  // 3. 在水合前设置主题和浏览器配色；首屏底色由全站 CSS 变量提供。
   document.documentElement.dataset.theme = theme
   document.documentElement.classList.toggle('dark', theme === 'dark')
   document.documentElement.style.colorScheme = theme
-  document.documentElement.style.backgroundColor = theme === 'dark' ? '#10191C' : '#F5F7F6'
   // 将上一版 localStorage 中的明确选择迁移为非敏感 Cookie，后续 SSR 即可匹配。
   if (preference) {
     document.cookie =
