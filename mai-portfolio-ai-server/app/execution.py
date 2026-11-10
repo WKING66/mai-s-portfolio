@@ -340,8 +340,17 @@ class Executions:
         except BillingRejected:
             await self.finish(execution_id, "failed", "MODEL_BUDGET_UNAVAILABLE")
         except Exception as error:  # noqa: BLE001 - 任务边界统一脱敏
+            # 只记录异常类型链，区分 DNS 超时和传输失败，避免输出密钥、请求体或供应商响应。
+            cause = error.__cause__
+            causes: list[str] = []
+            while cause is not None and len(causes) < 4:
+                causes.append(type(cause).__name__)
+                cause = cause.__cause__
             logger.warning(
-                "execution failed id=%s type=%s", execution_id, type(error).__name__
+                "execution failed id=%s type=%s causes=%s",
+                execution_id,
+                type(error).__name__,
+                " -> ".join(causes) or "-",
             )
             try:
                 await self.finish(execution_id, "failed", "EXECUTION_FAILED")

@@ -45,7 +45,14 @@ class ProviderTransport(AsyncHTTPTransport):
         url = request.url
         try:
             hostname = validate_provider_url(str(url)).raw_host.decode("ascii")
-            async with asyncio.timeout(3):
+            # DNS 沿用本次连接时限，最多等待十秒，避免独立的三秒限制提前取消正常解析。
+            connect_timeout = request.extensions.get("timeout", {}).get("connect")
+            dns_timeout = (
+                min(connect_timeout, 10.0)
+                if isinstance(connect_timeout, (int, float))
+                else 10.0
+            )
+            async with asyncio.timeout(dns_timeout):
                 addresses = await asyncio.get_running_loop().getaddrinfo(
                     hostname, 443, family=AF_INET, type=SOCK_STREAM
                 )

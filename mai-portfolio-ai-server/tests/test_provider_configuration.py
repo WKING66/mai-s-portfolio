@@ -73,3 +73,27 @@ def test_transport_uses_checked_ip_and_original_tls_hostname(
                 await transport.handle_async_request(request)
 
     asyncio.run(check())
+
+
+def test_provider_dns_can_use_more_than_three_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def check() -> None:
+        async def resolve(*_args: object, **_kwargs: object) -> list[tuple]:
+            await asyncio.sleep(3.1)
+            return [(2, 1, 6, "", ("8.8.8.8", 443))]
+
+        async def send(_transport: AsyncHTTPTransport, _request: Request) -> Response:
+            return Response(200)
+
+        monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", resolve)
+        monkeypatch.setattr(AsyncHTTPTransport, "handle_async_request", send)
+        async with ProviderTransport() as transport:
+            request = Request(
+                "GET",
+                "https://api.example.com/v1/models",
+                extensions={"timeout": {"connect": 5.0}},
+            )
+            assert (await transport.handle_async_request(request)).status_code == 200
+
+    asyncio.run(check())
