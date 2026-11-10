@@ -4,8 +4,12 @@ server:
 
 spring:
   config:
-    # 开发启动自动读取用户目录中的 Spring 私有配置。生产使用自己的部署配置。
-    import: optional:file:${LOCALAPPDATA:./private}/MaiPortfolio/application-site-guide-local.yml
+    # Java 使用现有开发 .env，不读取 Python 服务的 .env。
+    import:
+      - optional:file:../../.env[.properties]
+      - optional:file:../.env[.properties]
+      - optional:file:./.env[.properties]
+      - optional:file:./mai-portfolio-backend/.env[.properties]
   datasource:
     druid:
       # 开发库固定为独立的 portfolio_dev，凭据只从仓库根目录被忽略的 .env 注入。

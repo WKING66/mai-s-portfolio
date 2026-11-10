@@ -7,9 +7,7 @@ from cryptography.fernet import Fernet
 
 
 def default_secret_path() -> Path:
-    if local_app_data := os.getenv("LOCALAPPDATA"):
-        return Path(local_app_data) / "MaiPortfolio" / "site-guide.env"
-    return Path.home() / ".config" / "mai-portfolio" / "site-guide.env"
+    return Path(__file__).resolve().parents[1] / ".env"
 
 
 def generate_secret_file(path: Path) -> Path:

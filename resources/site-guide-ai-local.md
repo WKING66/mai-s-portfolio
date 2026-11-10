@@ -2,7 +2,7 @@
 
 ## Python AI 服务
 
-本机默认从用户目录读取私有 `site-guide.env`。Windows 路径为 `%LOCALAPPDATA%/MaiPortfolio/site-guide.env`。使用 `python -m app.keygen` 可以为新环境生成两项启动密钥，已有文件会拒绝覆盖。
+Python 默认读取 `mai-portfolio-ai-server/.env`，从任意工作目录启动均使用这份文件。使用 `python -m app.keygen` 可以为新环境生成两项启动密钥，已有文件会拒绝覆盖。
 
 | 配置 | 用途 |
 | --- | --- |
@@ -14,19 +14,19 @@
 
 ## Spring 网站后端
 
-配置入口在 Spring `application.yml` 的 `site-guide` 节点。开发环境自动导入用户目录的私有 `application-site-guide-local.yml`。按项目原有方式启动 Spring 即可加载，Java 不读取 Python 的 `site-guide.env`。
+配置入口在 Spring `application.yml` 的 `site-guide` 节点。开发环境读取已有的 `mai-portfolio-backend/.env`，兼容仓库根目录的 `.env`。从项目根、Java 项目或启动模块目录运行均可。Java 不读取 Python 服务目录的 `.env`。
 
 | 配置 | 用途 |
 | --- | --- |
 | `site-guide.enabled` | 网站是否开放数字人功能，默认关闭。站长可在关闭状态下先完成配置 |
 | `site-guide.ai-base-url` | Spring 访问 Python AI 服务的地址，本地默认 `http://127.0.0.1:9344` |
-| `site-guide.ai-server-token` | 与 Python 的 `AI_SERVER_TOKEN` 相同，只保存在 Spring 私有配置或部署环境 |
+| `site-guide.ai-server-token` | 从 Java 项目 `.env` 的 `SITE_GUIDE_AI_TOKEN` 或部署环境读取，与 Python 的 `AI_SERVER_TOKEN` 相同 |
 
 管理页显示 Spring 功能开关状态。访客正式问答链路尚待接入。
 
 ## 配置中心
 
-使用网站已有站长账号打开「数字人配置」页（`/admin/agent-settings`）。管理接口为 `GET/PUT /api/v1/admin/agent/settings`，使用网站会话、OWNER 权限和写操作 CSRF 校验。
+用各自原有启动方式运行 Nuxt `3000`、Spring `9333` 和 Python `9344`。使用网站已有站长账号打开 `http://127.0.0.1:3000/admin/agent-settings`。管理接口为 `GET/PUT /api/v1/admin/agent/settings`，使用网站会话、OWNER 权限和写操作 CSRF 校验。
 
 | 页面字段 | 用途 |
 | --- | --- |
