@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from pydantic import AliasChoices, Field, PostgresDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.keygen import default_secret_path
 from app.provider_http import validate_provider_url
 
 
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
         extra="ignore",
         hide_input_in_errors=True,
         env_ignore_empty=True,
+        env_file=default_secret_path(),
         validate_by_name=True,
     )
 
@@ -22,11 +24,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("DATABASE_URL", "AI_DATABASE_URL"),
     )
     ai_db_schema: str = Field(default="site_guide", pattern=r"^[a-z][a-z0-9_]{0,62}$")
-    ai_execution_token: SecretStr
-    ai_management_token: SecretStr
+    ai_server_token: SecretStr
     config_encryption_key: SecretStr = SecretStr("")
 
-    model_provider: str = ""
+    model_provider: str = "openai-compatible"
     chat_base_url: str = ""
     chat_api_key: SecretStr = SecretStr("")
     chat_model: str = ""
@@ -39,7 +40,6 @@ class Settings(BaseSettings):
     chat_billable_input_limit: int = Field(default=0, ge=0)
     embedding_billable_input_limit: int = Field(default=0, ge=0)
 
-    ai_paid_calls_enabled: bool = False
     ai_daily_budget: Decimal = Field(default=Decimal(0), ge=0)
     billing_currency: str = ""
     billing_time_zone: str = "Asia/Shanghai"
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     execution_concurrency: int = Field(default=2, gt=0, le=16)
     execution_queue_limit: int = Field(default=8, ge=0, le=128)
 
-    @field_validator("ai_execution_token", "ai_management_token")
+    @field_validator("ai_server_token")
     @classmethod
     def validate_token(cls, value: SecretStr) -> SecretStr:
         if len(value.get_secret_value()) < 32:
@@ -71,7 +71,6 @@ EDITABLE_SETTINGS = frozenset(
         "chat_max_output_tokens",
         "chat_billable_input_limit",
         "embedding_billable_input_limit",
-        "ai_paid_calls_enabled",
         "ai_daily_budget",
         "billing_currency",
         "billing_time_zone",

@@ -74,14 +74,12 @@ class Billing:
         currency: str,
         time_zone: ZoneInfo,
         price_version: str,
-        enabled: bool,
     ) -> None:
         self.sessions = sessions
         self.budget = budget
         self.currency = currency
         self.time_zone = time_zone
         self.price_version = price_version
-        self.enabled = enabled
 
     async def reserve(
         self,
@@ -91,10 +89,9 @@ class Billing:
         input_limit: int,
         output_limit: int,
     ) -> Reservation:
-        # 1. 缺少开关、定价或可验证的费用上界时拒绝外呼，否则无法保证预算硬上限。
+        # 1. 缺少正数预算、定价或可验证的费用上界时拒绝外呼，否则无法保证预算硬上限。
         if (
-            not self.enabled
-            or not self.currency
+            not self.currency
             or not self.price_version
             or not self.budget.is_finite()
             or self.budget <= 0
@@ -106,7 +103,7 @@ class Billing:
             or price.output_per_million < 0
             or (kind == "chat" and (output_limit == 0 or price.output_per_million == 0))
         ):
-            raise BillingRejected("Billing is disabled or pricing is incomplete.")
+            raise BillingRejected("Model budget or pricing is unavailable.")
         ceiling = price.cost(input_limit, output_limit)
         async with self.sessions.begin() as session:
             # 2. Chat 和 Embedding 共用预算锁，避免并发请求用同一份余额放行。

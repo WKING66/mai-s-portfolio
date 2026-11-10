@@ -7,6 +7,7 @@ export type AgentRuntime = Record<string, string | number | boolean>
 
 interface AgentSettings {
   revision: number
+  featureEnabled: boolean
   persona: string
   modelProvider: string
   chatKeyConfigured: boolean

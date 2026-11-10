@@ -95,7 +95,6 @@ def create_chat_graph(
         currency=settings.billing_currency,
         time_zone=ZoneInfo(settings.billing_time_zone),
         price_version=settings.price_version,
-        enabled=settings.ai_paid_calls_enabled,
     )
     return ChatGraph(
         ModelGateway(billing),
@@ -118,11 +117,7 @@ def create_chat_graph(
 
 
 def create_app(settings: Settings) -> FastAPI:
-    execution_token = settings.ai_execution_token.get_secret_value().encode()
-    management_token = settings.ai_management_token.get_secret_value().encode()
-    # 两种凭证必须隔离，避免持有执行权限的调用方同时获得配置权限。
-    if compare_digest(execution_token, management_token):
-        raise ValueError("Execution and management credentials must differ.")
+    server_token = settings.ai_server_token.get_secret_value().encode()
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -183,26 +178,15 @@ def create_app(settings: Settings) -> FastAPI:
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
-    async def require_execution(
+    async def require_server(
         credential: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
     ) -> None:
-        # 只允许持有当前用途服务凭证的后端访问，浏览器通过网站中转。
+        # 网站统一管理访客与 OWNER 权限，内部服务只校验同一份站间凭证。
         if credential is None or not compare_digest(
-            credential.credentials.encode(), execution_token
+            credential.credentials.encode(), server_token
         ):
             raise ExecutionRejected(
-                401, "UNAUTHORIZED", "Invalid execution credential."
-            )
-
-    async def require_management(
-        credential: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)],
-    ) -> None:
-        # 只允许持有当前用途服务凭证的后端访问，浏览器通过网站中转。
-        if credential is None or not compare_digest(
-            credential.credentials.encode(), management_token
-        ):
-            raise ExecutionRejected(
-                401, "UNAUTHORIZED", "Invalid management credential."
+                401, "UNAUTHORIZED", "Invalid AI server credential."
             )
 
     def settings_view(preferences: ChatPreferences) -> SettingsView:
@@ -222,13 +206,13 @@ def create_app(settings: Settings) -> FastAPI:
             runtime=effective.model_dump(mode="json", include=set(EDITABLE_SETTINGS)),
         )
 
-    @app.get("/internal/v1/settings", dependencies=[Depends(require_management)])
+    @app.get("/internal/v1/settings", dependencies=[Depends(require_server)])
     async def get_settings(request: Request) -> SettingsView:
         sessions: Sessions = request.app.state.sessions
         async with sessions() as session:
             return settings_view(await read_preferences(session))
 
-    @app.put("/internal/v1/settings", dependencies=[Depends(require_management)])
+    @app.put("/internal/v1/settings", dependencies=[Depends(require_server)])
     async def put_settings(request: Request, body: UpdatePreferences) -> SettingsView:
         sessions: Sessions = request.app.state.sessions
         executions = execution_service(request)
@@ -270,13 +254,10 @@ def create_app(settings: Settings) -> FastAPI:
                         if not 1 <= len(key.get_secret_value().strip()) <= 2048:
                             raise ValueError("Invalid provider key length.")
                         runtime[field] = encrypt_provider_key(settings, key)
-                effective = effective_settings(settings, runtime)
-                if endpoint_changed and effective.ai_paid_calls_enabled:
-                    raise ExecutionRejected(
-                        422,
-                        "PAUSE_PAID_CALLS",
-                        "Disable paid calls before changing providers.",
-                    )
+                if endpoint_changed:
+                    # 换址时旧定价不再可信，先归零预算，待站长复核后单独保存新预算。
+                    runtime["ai_daily_budget"] = "0"
+                effective_settings(settings, runtime)
             except ValueError as error:
                 raise ExecutionRejected(
                     422, "INVALID_SETTINGS", "Invalid runtime settings."
@@ -334,7 +315,7 @@ def create_app(settings: Settings) -> FastAPI:
     @app.post(
         "/internal/v1/executions",
         status_code=202,
-        dependencies=[Depends(require_execution)],
+        dependencies=[Depends(require_server)],
     )
     async def submit(
         request: Request,
@@ -343,20 +324,20 @@ def create_app(settings: Settings) -> FastAPI:
         snapshot = await execution_service(request).submit(body)
         return Accepted.model_validate(snapshot, from_attributes=True)
 
-    @app.get("/internal/v1/executions", dependencies=[Depends(require_execution)])
+    @app.get("/internal/v1/executions", dependencies=[Depends(require_server)])
     async def find(request: Request, requestId: UUID) -> Snapshot:
         return await execution_service(request).get(request_id=requestId)
 
     @app.get(
         "/internal/v1/executions/{execution_id}",
-        dependencies=[Depends(require_execution)],
+        dependencies=[Depends(require_server)],
     )
     async def get(request: Request, execution_id: UUID) -> Snapshot:
         return await execution_service(request).get(execution_id)
 
     @app.get(
         "/internal/v1/executions/{execution_id}/events",
-        dependencies=[Depends(require_execution)],
+        dependencies=[Depends(require_server)],
     )
     async def events(request: Request, execution_id: UUID) -> StreamingResponse:
         service = execution_service(request)
@@ -369,7 +350,7 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.post(
         "/internal/v1/executions/{execution_id}/stop",
-        dependencies=[Depends(require_execution)],
+        dependencies=[Depends(require_server)],
     )
     async def stop(request: Request, execution_id: UUID) -> Snapshot:
         return await execution_service(request).stop(execution_id)

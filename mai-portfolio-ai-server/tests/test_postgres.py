@@ -40,7 +40,6 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
                 currency="TEST",
                 time_zone=ZoneInfo("UTC"),
                 price_version="fixture",
-                enabled=True,
             )
             price = Price(Decimal(6000))
             first, second = await asyncio.gather(
@@ -142,13 +141,11 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
 
 def test_execution_routes_and_settings_revision() -> None:
     assert TEST_DATABASE
-    execution_token = "e" * 32
-    management_token = "m" * 32
+    server_token = "e" * 32
     settings = Settings(
         ai_database_url=TEST_DATABASE,
         ai_db_schema="site_guide_test",
-        ai_execution_token=execution_token,
-        ai_management_token=management_token,
+        ai_server_token=server_token,
         model_provider="openai-compatible",
         chat_base_url="https://example.invalid/v1",
         chat_api_key="never-sent",
@@ -163,7 +160,7 @@ def test_execution_routes_and_settings_revision() -> None:
             httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app),
                 base_url="http://test",
-                headers={"Authorization": f"Bearer {execution_token}"},
+                headers={"Authorization": f"Bearer {server_token}"},
             ) as client,
         ):
             assert (await client.get("/internal/v1/health/ready")).json() == {
@@ -204,8 +201,10 @@ def test_execution_routes_and_settings_revision() -> None:
                 "error",
             }
             settings_path = "/internal/v1/settings"
-            assert (await client.get(settings_path)).status_code == 401
-            management = {"Authorization": f"Bearer {management_token}"}
+            assert (
+                await client.get(settings_path, headers={"Authorization": ""})
+            ).status_code == 401
+            management = {"Authorization": f"Bearer {server_token}"}
             revision = (await client.get(settings_path, headers=management)).json()[
                 "revision"
             ]
@@ -230,13 +229,9 @@ def test_execution_routes_and_settings_revision() -> None:
                 settings_path, json=without_key, headers=management
             )
             assert rejected.json()["code"] == "PROVIDER_KEY_REQUIRED"
-            paid = {
-                **update,
-                "runtime": {**update["runtime"], "ai_paid_calls_enabled": True},
-            }
-            rejected = await client.put(settings_path, json=paid, headers=management)
-            assert rejected.json()["code"] == "PAUSE_PAID_CALLS"
+            update["runtime"]["ai_daily_budget"] = "1"
             updated = await client.put(settings_path, json=update, headers=management)
+            assert updated.json()["runtime"]["ai_daily_budget"] == "0"
             assert updated.json()["revision"] == revision + 1
             assert updated.json()["chatModel"] == model_name
             assert updated.json()["runtime"]["chat_max_output_tokens"] == 512
@@ -251,7 +246,7 @@ def test_execution_routes_and_settings_revision() -> None:
                 json={
                     **update,
                     "expectedRevision": revision + 1,
-                    "runtime": {"ai_management_token": "overwrite"},
+                    "runtime": {"ai_server_token": "overwrite"},
                 },
                 headers=management,
             )

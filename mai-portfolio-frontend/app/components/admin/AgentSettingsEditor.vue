@@ -4,6 +4,7 @@ import type { AgentRuntime } from '../../api/agentSettings'
 
 const api = useAgentSettingsApi()
 const revision = ref<number | null>(null)
+const featureEnabled = ref(false)
 const persona = ref('')
 const chatKey = ref('')
 const embeddingKey = ref('')
@@ -68,6 +69,7 @@ async function update(save = false) {
       throw new Error('配置中心没有返回有效结果。')
     }
     revision.value = result.revision
+    featureEnabled.value = result.featureEnabled
     persona.value = result.persona
     chatKeyConfigured.value = result.chatKeyConfigured
     embeddingKeyConfigured.value = result.embeddingKeyConfigured
@@ -92,7 +94,9 @@ onMounted(() => update())
     <p v-if="saved" role="status">配置已保存并生效。</p>
     <p v-if="revision === null && pending" role="status">正在读取配置…</p>
     <fieldset v-if="revision !== null" :disabled="pending" class="space-y-6">
-      <p class="text-sm text-muted">当前修订 {{ revision }}</p>
+      <p class="text-sm text-muted">
+        网站 AI 功能{{ featureEnabled ? '已开启' : '已关闭' }} · 当前修订 {{ revision }}
+      </p>
       <UFormField label="回答风格">
         <UTextarea v-model="persona" class="w-full" :maxlength="2000" required />
       </UFormField>
@@ -109,7 +113,8 @@ onMounted(() => update())
         </div>
       </section>
       <p class="text-sm text-muted">
-        填写供应商的 HTTPS API 基础地址。更换地址时请关闭收费，并填写新供应商的密钥。
+        填写供应商的 HTTPS API
+        基础地址。更换地址时请填写新供应商密钥。保存后预算归零，核价后再设置。
       </p>
       <section class="grid gap-4 sm:grid-cols-2">
         <UFormField
@@ -130,11 +135,7 @@ onMounted(() => update())
           />
         </UFormField>
       </section>
-      <label class="flex items-center gap-2">
-        <input v-model="runtime.ai_paid_calls_enabled" type="checkbox" />
-        开启真实模型收费调用
-      </label>
-      <p class="text-sm text-muted">开启前须核对供应商计价、单次费用上界和批准预算。</p>
+      <p class="text-sm text-muted">每日预算为 0 时，AI 服务拒绝外呼。</p>
     </fieldset>
     <div class="flex gap-3">
       <UButton type="submit" :disabled="revision === null || pending" :loading="pending"

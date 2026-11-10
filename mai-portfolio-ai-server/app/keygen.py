@@ -16,20 +16,14 @@ def generate_secret_file(path: Path) -> Path:
     """生成数字人启动凭证；已存在的密钥文件由原部署继续使用。"""
     path = path.expanduser().absolute()
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-    execution_token = token_urlsafe(48)
-    management_token = token_urlsafe(48)
+    server_token = token_urlsafe(48)
     encryption_key = Fernet.generate_key().decode()
     content = (
         "# 填写独立 AI 数据库连接串后再启动服务。\n"
         "# DATABASE_URL=postgresql://<账号>:<密码>@127.0.0.1:5433/mai_portfolio_ai\n"
         "DATABASE_URL=\n"
-        "AI_DB_SCHEMA=site_guide\n"
-        f"AI_EXECUTION_TOKEN={execution_token}\n"
-        f"AI_MANAGEMENT_TOKEN={management_token}\n"
+        f"AI_SERVER_TOKEN={server_token}\n"
         f"CONFIG_ENCRYPTION_KEY={encryption_key}\n"
-        "SITE_GUIDE_AI_BASE_URL=http://127.0.0.1:9344\n"
-        "MODEL_PROVIDER=openai-compatible\n"
-        "AI_PAID_CALLS_ENABLED=false\n"
     )
     # 独占创建防止覆盖旧主密钥，否则数据库已有的供应商密钥无法解密。
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)

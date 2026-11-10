@@ -17,10 +17,9 @@ def test_secret_file_is_valid_and_cannot_be_overwritten(tmp_path: Path) -> None:
         for line in original.splitlines()
         if line and not line.startswith("#")
     )
-    assert entries["AI_EXECUTION_TOKEN"] != entries["AI_MANAGEMENT_TOKEN"]
-    assert len(entries["AI_EXECUTION_TOKEN"]) >= 32
+    assert set(entries) == {"DATABASE_URL", "AI_SERVER_TOKEN", "CONFIG_ENCRYPTION_KEY"}
+    assert len(entries["AI_SERVER_TOKEN"]) >= 32
     Fernet(entries["CONFIG_ENCRYPTION_KEY"])
-    assert entries["AI_PAID_CALLS_ENABLED"] == "false"
     with pytest.raises(FileExistsError):
         generate_secret_file(path)
     assert path.read_text(encoding="utf-8") == original

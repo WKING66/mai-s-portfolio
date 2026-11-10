@@ -5,6 +5,7 @@ import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.api.AuthConstants;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,13 +36,17 @@ public class AgentSettingsController {
 
     private final boolean configured;
 
+    private final boolean featureEnabled;
+
     public AgentSettingsController(
-            @Value("${site-guide.ai-base-url:http://127.0.0.1:9344}") String baseUrl,
-            @Value("${site-guide.ai-management-token:${AI_MANAGEMENT_TOKEN:}}") String token) {
+            @Value("${site-guide.ai-base-url}") String baseUrl,
+            @Value("${site-guide.ai-server-token:}") String token,
+            @Value("${site-guide.enabled:false}") boolean featureEnabled) {
         var httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
         var requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(5));
         this.configured = !token.isBlank();
+        this.featureEnabled = featureEnabled;
         this.aiSettingsClient = RestClient.builder()
                 .baseUrl(baseUrl)
                 .requestFactory(requestFactory)
@@ -69,11 +74,17 @@ public class AgentSettingsController {
         }
         try {
             var result = request.retrieve().body(SETTINGS_TYPE);
-            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(R.success(result));
+            if (result == null) {
+                return failure(503, "AI_SETTINGS_UNAVAILABLE", "数字人配置中心暂不可用。");
+            }
+            // 功能开关归网站。即使关闭，OWNER 仍可进入设置并完成供应商配置。
+            var settings = new LinkedHashMap<>(result);
+            settings.put("featureEnabled", featureEnabled);
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(R.success(settings));
         } catch (RestClientResponseException error) {
             return switch (error.getStatusCode().value()) {
                 case 409 -> failure(409, "AI_SETTINGS_CONFLICT", "配置已更新或仍有问答运行，请重新读取后再试。");
-                case 422 -> failure(422, "AI_SETTINGS_INVALID", "配置值不合法。更换供应商地址时，请关闭收费并填写新密钥。");
+                case 422 -> failure(422, "AI_SETTINGS_INVALID", "配置值不合法。更换供应商地址时，请同时填写新供应商密钥。");
                 default -> failure(503, "AI_SETTINGS_UNAVAILABLE", "数字人配置中心暂不可用。");
             };
         } catch (RestClientException error) {
