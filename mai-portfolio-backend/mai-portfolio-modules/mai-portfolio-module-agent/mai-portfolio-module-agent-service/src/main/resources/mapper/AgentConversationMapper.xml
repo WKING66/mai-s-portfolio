@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.agent.mapper.AgentConversationMapper">
+    <sql id="turnFields">request_id, conversation_id, execution_id, question, answer, status, error_code, accept_before</sql>
+    <select id="insertConversation" resultType="java.util.UUID" affectData="true" flushCache="true">
+        INSERT INTO agent_conversation (id, owner_key, anonymous, import_id)
+        VALUES (#{id}, #{owner}, #{anonymous}, #{importId})
+        ON CONFLICT DO NOTHING RETURNING id
+    </select>
+    <select id="findAnonymous" resultType="java.util.UUID">
+        SELECT id FROM agent_conversation WHERE owner_key = #{owner} AND anonymous
+    </select>
+    <select id="findImport" resultType="java.util.UUID">
+        SELECT id FROM agent_conversation WHERE owner_key = #{owner} AND import_id = #{importId}
+    </select>
+    <select id="findConversation" resultType="dev.amai.portfolio.agent.entity.AgentConversation">
+        SELECT id, owner_key, anonymous, updated_at FROM agent_conversation
+        WHERE id = #{id} AND owner_key = #{owner}
+    </select>
+    <select id="lockConversation" resultType="java.util.UUID">
+        SELECT id FROM agent_conversation WHERE id = #{id} AND owner_key = #{owner} FOR UPDATE
+    </select>
+    <select id="list" resultType="dev.amai.portfolio.agent.entity.AgentConversation">
+        SELECT id, owner_key, anonymous, updated_at FROM agent_conversation
+        WHERE owner_key = #{owner} AND NOT anonymous
+        <if test="cursor != null">
+            AND (updated_at, id) &lt; (
+                SELECT updated_at, id FROM agent_conversation WHERE id = #{cursor} AND owner_key = #{owner}
+            )
+        </if>
+        ORDER BY updated_at DESC, id DESC LIMIT #{limit}
+    </select>
+    <select id="turns" resultType="dev.amai.portfolio.agent.entity.AgentTurn">
+        SELECT <include refid="turnFields"/> FROM agent_turn
+        WHERE conversation_id = #{id} ORDER BY ordinal DESC LIMIT #{limit}
+    </select>
+    <select id="recentCompleted" resultType="dev.amai.portfolio.agent.entity.AgentTurn">
+        SELECT <include refid="turnFields"/> FROM agent_turn
+        WHERE conversation_id = #{id} AND status = 3
+        ORDER BY ordinal DESC LIMIT 6
+    </select>
+    <select id="byRequest" resultType="dev.amai.portfolio.agent.entity.AgentTurn">
+        SELECT <include refid="turnFields"/> FROM agent_turn WHERE request_id = #{id}
+    </select>
+    <select id="byExecution" resultType="dev.amai.portfolio.agent.entity.AgentTurn">
+        SELECT <include refid="turnFields"/> FROM agent_turn
+        WHERE execution_id = #{id} AND conversation_id IN (
+            SELECT id FROM agent_conversation WHERE owner_key = #{owner}
+        )
+    </select>
+    <select id="active" resultType="boolean">
+        SELECT EXISTS(SELECT 1 FROM agent_turn WHERE conversation_id = #{id} AND status &lt; 3)
+    </select>
+    <insert id="insertTurn">
+        INSERT INTO agent_turn (request_id, conversation_id, question, answer, status, accept_before)
+        VALUES (#{id}, #{conversation}, #{question}, #{answer}, #{status}, #{deadline})
+        ON CONFLICT (request_id) DO NOTHING
+    </insert>
+    <update id="attach">
+        UPDATE agent_turn SET execution_id = #{execution}, status = 1
+        WHERE request_id = #{request} AND execution_id IS NULL AND status = 0
+    </update>
+    <update id="saveTerminal">
+        UPDATE agent_turn SET answer = #{answer}, status = #{status}, error_code = #{error}
+        WHERE request_id = #{request} AND status &lt; 3
+    </update>
+    <update id="touch">
+        UPDATE agent_conversation SET updated_at = now() WHERE id = #{id}
+    </update>
+    <select id="unfinished" resultType="dev.amai.portfolio.agent.entity.AgentTurn">
+        SELECT <include refid="turnFields"/> FROM agent_turn WHERE status &lt; 3
+        ORDER BY ordinal LIMIT #{limit}
+    </select>
+</mapper>

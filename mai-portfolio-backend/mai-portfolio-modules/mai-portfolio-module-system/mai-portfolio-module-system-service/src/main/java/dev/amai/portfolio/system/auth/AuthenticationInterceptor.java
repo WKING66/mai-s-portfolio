@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.security.context.AccountContext;
+import dev.amai.portfolio.system.api.AnonymousConversation;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.system.config.SecurityProperties;
@@ -39,7 +40,7 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(this)
-                .addPathPatterns(AuthConstants.API_PATH_PATTERN)
+                .addPathPatterns(AuthConstants.API_PATH_PATTERN, "/api/agent/v1/**")
                 .order(AUTHENTICATION_INTERCEPTOR_ORDER);
     }
 
@@ -56,7 +57,9 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
                         || AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method);
         // 角色/页面路径不再决定领域分类；接口注解及写操作决定是否进入认证边界。
         boolean ownerView = isOwnerView(request, handler);
-        boolean protectedEndpoint = !SAFE_METHODS.contains(method) || requiresSession(handler) || ownerView;
+        boolean anonymousConversation = handler instanceof HandlerMethod mapped
+                && AnnotatedElementUtils.hasAnnotation(mapped.getMethod(), AnonymousConversation.class);
+        boolean protectedEndpoint = anonymousConversation || !SAFE_METHODS.contains(method) || requiresSession(handler) || ownerView;
         if (!credentialsEndpoint && !protectedEndpoint) {
             return true;
         }
@@ -71,6 +74,13 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         }
         if (sessionEndpoint && ("GET".equals(method) || "POST".equals(method))) {
             // GET 在服务中读取匿名/Redis 身份状态，POST 通过凭据建立登录态。
+            return true;
+        }
+        // 匿名聊天仅允许同源写入，登录用户仍继续执行原登录和 CSRF 检查。
+        if (anonymousConversation && !StpUtil.isLogin()) {
+            if (!SAFE_METHODS.contains(method) && !"same-origin".equals(request.getHeader("Sec-Fetch-Site"))) {
+                throw new ApiException(ApiErrorCode.CSRF_INVALID, SystemMessageConstants.CSRF_INVALID);
+            }
             return true;
         }
         // 3. 注销只需有效登录；其他受保护入口直接读取 Redis 身份上下文。

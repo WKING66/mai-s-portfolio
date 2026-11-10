@@ -31,5 +31,9 @@
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-spring-boot-starter-security</artifactId>
         </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-spring-boot-starter-mybatis</artifactId>
+        </dependency>
     </dependencies>
 </project>
