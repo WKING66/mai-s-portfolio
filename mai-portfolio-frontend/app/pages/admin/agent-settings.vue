@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AgentSettingsEditor from '../../components/admin/AgentSettingsEditor.vue'
 import { AUTH_ACCESS } from '../../constants/auth'
 
 definePageMeta({ auth: AUTH_ACCESS.OWNER })
