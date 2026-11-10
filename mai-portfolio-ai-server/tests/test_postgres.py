@@ -14,11 +14,11 @@ from sqlalchemy import update as update_rows
 from sqlmodel import col
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.billing import Billing, BillingRejected, ModelAttempt, Price
 from app.config import Settings
-from app.database import Sessions, create_database
-from app.execution import Execution, Executions, lock_submission
 from app.main import create_app
+from app.service.billing import Billing, BillingRejected, ModelAttempt, Price
+from app.service.execution import Execution, Executions, lock_submission
+from app.storage.database import Sessions, create_database
 
 TEST_DATABASE = os.getenv("AI_TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(

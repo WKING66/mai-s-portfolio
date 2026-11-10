@@ -6,7 +6,7 @@ from cryptography.fernet import Fernet
 from httpx import AsyncHTTPTransport, ConnectError, Request, Response
 
 from app.keygen import generate_secret_file
-from app.provider_http import ProviderTransport, validate_provider_url
+from app.provider.provider_http import ProviderTransport, validate_provider_url
 
 
 def test_secret_file_is_valid_and_cannot_be_overwritten(tmp_path: Path) -> None:

@@ -9,8 +9,8 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.billing import Price
-from app.model_gateway import ModelGateway
+from app.provider.model_gateway import ModelGateway
+from app.service.billing import Price
 
 
 class HistoryEntry(BaseModel):

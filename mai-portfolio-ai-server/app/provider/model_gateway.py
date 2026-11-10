@@ -7,9 +7,9 @@ from uuid import UUID
 from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from app.billing import Billing, BillingRejected, Price
 from app.config import Settings
-from app.provider_http import provider_http_client
+from app.provider.provider_http import provider_http_client
+from app.service.billing import Billing, BillingRejected, Price
 
 
 class ModelGateway:

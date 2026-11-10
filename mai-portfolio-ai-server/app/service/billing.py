@@ -9,7 +9,7 @@ from sqlalchemy import CheckConstraint, Numeric, Text, false, func, or_, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import Field, SQLModel, col, select
 
-from app.database import Sessions
+from app.storage.database import Sessions
 
 ModelKind = Literal["chat", "embedding"]
 MICRO = Decimal("0.000001")

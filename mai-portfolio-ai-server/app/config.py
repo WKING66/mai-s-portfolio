@@ -7,7 +7,7 @@ from pydantic import AliasChoices, Field, PostgresDsn, SecretStr, field_validato
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.keygen import default_secret_path
-from app.provider_http import validate_provider_url
+from app.provider.provider_http import validate_provider_url
 
 
 class Settings(BaseSettings):

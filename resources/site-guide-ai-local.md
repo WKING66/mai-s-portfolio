@@ -41,3 +41,10 @@ Python 默认读取 `mai-portfolio-ai-server/.env`，从任意工作目录启动
 已保存的设置优先，未保存的运行字段才使用文件或代码默认值。供应商地址只接受公网 IPv4 可达的 HTTPS 域名。真实模型验收需有效供应商配置和获准测试预算。
 
 AI 每小时清理已终结超过 24 小时的执行正文，保留请求标识用于防重。问答接口见 [聊天接口契约](site-guide-chat-contract.md)。
+
+## Python 代码分层
+
+- `app/main.py` 装配服务和数据库连接，管理执行恢复与定时清理的生命周期。
+- `app/api` 处理内部 HTTP、鉴权、请求响应和 SSE。公共协议类型放在 `app/contracts`。
+- `app/service` 处理执行状态、费用预占与结算，以及配置中心保存规则。配置和执行沿用各自的 SQLModel 字段定义。
+- `app/workflow` 编排对话生成，`app/provider` 负责调用供应商及 HTTPS 传输，`app/storage` 管理数据库会话。

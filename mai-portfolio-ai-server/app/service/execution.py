@@ -14,11 +14,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.billing import BillingRejected
-from app.chat_graph import ChatGraph, HistoryEntry
-from app.database import Sessions
-from app.preferences import ChatPreferences, read_preferences
-from app.wire import ExecutionRejected, WireModel
+from app.contracts.wire import ExecutionRejected, WireModel
+from app.service.billing import BillingRejected
+from app.service.preferences import ChatPreferences, read_preferences
+from app.storage.database import Sessions
+from app.workflow.chat_graph import ChatGraph, HistoryEntry
 
 logger = logging.getLogger(__name__)
 ACTIVE = ("accepted", "running")
@@ -122,15 +122,28 @@ class Executions:
 
     async def expire_answers(self) -> None:
         # AI 只保存短期可恢复正文。请求标识和账本独立保留，避免清理后重复收费。
-        async with self.sessions.begin() as session:
-            await session.exec(
-                update(Execution)
-                .where(
-                    col(Execution.finished_at) < datetime.now(UTC) - timedelta(days=1),
-                    col(Execution.text) != "",
+        cutoff = datetime.now(UTC) - timedelta(days=1)
+        batch_size = 500
+        for _ in range(20):
+            async with self.sessions.begin() as session:
+                ids = (
+                    select(col(Execution.execution_id))
+                    .where(
+                        col(Execution.finished_at) < cutoff, col(Execution.text) != ""
+                    )
+                    .order_by(col(Execution.finished_at), col(Execution.execution_id))
+                    .limit(batch_size)
+                    .with_for_update(skip_locked=True)
                 )
-                .values(text="")
-            )
+                cleared = await session.exec(
+                    update(Execution)
+                    .where(col(Execution.execution_id).in_(ids))
+                    .values(text="")
+                    .returning(col(Execution.execution_id))
+                )
+                count = len(cleared.scalars().all())
+            if count < batch_size:
+                return
 
     def require_worker(self) -> None:
         if not self.worker_available:
