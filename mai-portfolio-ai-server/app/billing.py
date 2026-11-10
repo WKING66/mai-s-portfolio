@@ -74,12 +74,14 @@ class Billing:
         currency: str,
         time_zone: ZoneInfo,
         price_version: str,
+        unlimited: bool = False,
     ) -> None:
         self.sessions = sessions
         self.budget = budget
         self.currency = currency
         self.time_zone = time_zone
         self.price_version = price_version
+        self.unlimited = unlimited
 
     async def reserve(
         self,
@@ -89,12 +91,12 @@ class Billing:
         input_limit: int,
         output_limit: int,
     ) -> Reservation:
-        # 1. 缺少正数预算、定价或可验证的费用上界时拒绝外呼，否则无法保证预算硬上限。
+        # 1. 限额模式下预算必须为正；两种模式都要求定价和可验证的费用上界，否则无法保证预算硬上限。
         if (
             not self.currency
             or not self.price_version
             or not self.budget.is_finite()
-            or self.budget <= 0
+            or (not self.unlimited and self.budget <= 0)
             or input_limit <= 0
             or output_limit < 0
             or not price.input_per_million.is_finite()
@@ -135,7 +137,8 @@ class Billing:
             )
             # 跨日的未知用量继续占用。币种冲突或已发现供应商用量超界时暂停收费。
             occupied, blocked = totals.one()
-            if blocked or occupied + ceiling > self.budget:
+            # 不限额只跳过每日总额比较，异常账本和重复尝试仍然拦截。
+            if blocked or (not self.unlimited and occupied + ceiling > self.budget):
                 raise BillingRejected("Model budget is unavailable.")
             # 3. 尝试标识唯一。回包不明也不能重新使用旧标识发起收费。
             inserted = await session.scalar(

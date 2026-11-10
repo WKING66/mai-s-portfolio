@@ -32,7 +32,7 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
     async def check() -> None:
         engine = create_database(TEST_DATABASE, "site_guide_test")
         sessions = Sessions(engine, class_=AsyncSession)
-        attempt_ids = [uuid4(), uuid4(), uuid4()]
+        attempt_ids = [uuid4(), uuid4(), uuid4(), uuid4()]
         try:
             billing = Billing(
                 sessions,
@@ -66,6 +66,21 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
             await billing.settle(winner, 10, 0)
             with pytest.raises(BillingRejected):
                 await billing.reserve(winner.attempt_id, "embedding", price, 100, 0)
+            unlimited = Billing(
+                sessions,
+                budget=Decimal(0),
+                currency="TEST",
+                time_zone=ZoneInfo("UTC"),
+                price_version="fixture",
+                unlimited=True,
+            )
+            open_attempt = await unlimited.reserve(
+                attempt_ids[3], "embedding", price, 100, 0
+            )
+            async with sessions() as session:
+                saved = await session.get(ModelAttempt, open_attempt.attempt_id)
+                assert saved is not None and saved.ceiling == open_attempt.ceiling
+            await unlimited.settle(open_attempt, 10, 0)
             next_attempt = await billing.reserve(
                 attempt_ids[2], "embedding", price, 100, 0
             )
@@ -73,6 +88,8 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
                 await billing.settle(next_attempt, 101, 0)
             with pytest.raises(BillingRejected):
                 await billing.reserve(uuid4(), "embedding", price, 1, 0)
+            with pytest.raises(BillingRejected):
+                await unlimited.reserve(uuid4(), "embedding", price, 1, 0)
         finally:
             async with sessions.begin() as session:
                 await session.exec(

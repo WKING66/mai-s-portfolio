@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     embedding_billable_input_limit: int = Field(default=0, ge=0)
 
     ai_daily_budget: Decimal = Field(default=Decimal(0), ge=0)
+    ai_daily_budget_unlimited: bool = False
     billing_currency: str = ""
     billing_time_zone: str = "Asia/Shanghai"
     price_version: str = ""
@@ -72,6 +73,7 @@ EDITABLE_SETTINGS = frozenset(
         "chat_billable_input_limit",
         "embedding_billable_input_limit",
         "ai_daily_budget",
+        "ai_daily_budget_unlimited",
         "billing_currency",
         "billing_time_zone",
         "price_version",

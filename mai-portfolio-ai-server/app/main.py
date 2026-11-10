@@ -92,6 +92,7 @@ def create_chat_graph(
     billing = Billing(
         sessions,
         budget=settings.ai_daily_budget,
+        unlimited=settings.ai_daily_budget_unlimited,
         currency=settings.billing_currency,
         time_zone=ZoneInfo(settings.billing_time_zone),
         price_version=settings.price_version,
@@ -257,6 +258,7 @@ def create_app(settings: Settings) -> FastAPI:
                 if endpoint_changed:
                     # 换址时旧定价不再可信，先归零预算，待站长复核后单独保存新预算。
                     runtime["ai_daily_budget"] = "0"
+                    runtime["ai_daily_budget_unlimited"] = False
                 effective_settings(settings, runtime)
             except ValueError as error:
                 raise ExecutionRejected(
