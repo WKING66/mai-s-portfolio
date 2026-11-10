@@ -1,5 +1,8 @@
 from decimal import Decimal
+from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from cryptography.fernet import Fernet, InvalidToken
 from pydantic import AliasChoices, Field, PostgresDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,6 +22,7 @@ class Settings(BaseSettings):
     ai_db_schema: str = Field(default="site_guide", pattern=r"^[a-z][a-z0-9_]{0,62}$")
     ai_execution_token: SecretStr
     ai_management_token: SecretStr
+    config_encryption_key: SecretStr = SecretStr("")
 
     model_provider: str = ""
     chat_base_url: str = ""
@@ -51,3 +55,57 @@ class Settings(BaseSettings):
         if len(value.get_secret_value()) < 32:
             raise ValueError("Service credentials must contain at least 32 characters.")
         return value
+
+
+# 配置中心只接受运行参数。数据库、服务令牌、已批准的供应商地址和密钥属于启动信任边界。
+EDITABLE_SETTINGS = frozenset(
+    {
+        "chat_model",
+        "embedding_model",
+        "embedding_dimensions",
+        "model_timeout_seconds",
+        "chat_max_output_tokens",
+        "chat_billable_input_limit",
+        "embedding_billable_input_limit",
+        "ai_paid_calls_enabled",
+        "ai_daily_budget",
+        "billing_currency",
+        "billing_time_zone",
+        "price_version",
+        "chat_input_price_per_million",
+        "chat_output_price_per_million",
+        "embedding_input_price_per_million",
+    }
+)
+
+
+STORED_SECRET_FIELDS = ("chat_api_key", "embedding_api_key")
+
+
+def encrypt_provider_key(bootstrap: Settings, value: SecretStr) -> str:
+    # 使用部署密钥加密，数据库和响应都不保存明文供应商密钥。
+    return (
+        Fernet(bootstrap.config_encryption_key.get_secret_value())
+        .encrypt(value.get_secret_value().encode())
+        .decode()
+    )
+
+
+def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> Settings:
+    """应用数据库覆盖值，缺少覆盖值时保留启动设置。"""
+    if overrides.keys() - EDITABLE_SETTINGS - set(STORED_SECRET_FIELDS):
+        raise ValueError("Unsupported runtime setting.")
+    values = bootstrap.model_dump() | overrides
+    try:
+        for field in STORED_SECRET_FIELDS:
+            if field in overrides:
+                cipher = Fernet(bootstrap.config_encryption_key.get_secret_value())
+                values[field] = cipher.decrypt(overrides[field]).decode()
+    except (ValueError, InvalidToken) as error:
+        raise ValueError("Stored model credentials cannot be decrypted.") from error
+    effective = Settings.model_validate(values)
+    try:
+        ZoneInfo(effective.billing_time_zone)
+    except (ValueError, ZoneInfoNotFoundError) as error:
+        raise ValueError("Invalid billing time zone.") from error
+    return effective

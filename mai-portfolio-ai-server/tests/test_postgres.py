@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+from base64 import urlsafe_b64encode
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -8,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
+from sqlalchemy import delete
 from sqlalchemy import update as update_rows
 from sqlmodel import col
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -15,6 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.billing import Billing, BillingRejected, ModelAttempt, Price
 from app.config import Settings
 from app.database import Sessions, create_database
+from app.execution import Execution, Executions, lock_submission
 from app.main import create_app
 
 TEST_DATABASE = os.getenv("AI_TEST_DATABASE_URL")
@@ -29,6 +32,7 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
     async def check() -> None:
         engine = create_database(TEST_DATABASE, "site_guide_test")
         sessions = Sessions(engine, class_=AsyncSession)
+        attempt_ids = [uuid4(), uuid4(), uuid4()]
         try:
             billing = Billing(
                 sessions,
@@ -40,8 +44,8 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
             )
             price = Price(Decimal(6000))
             first, second = await asyncio.gather(
-                billing.reserve(uuid4(), "embedding", price, 100, 0),
-                billing.reserve(uuid4(), "embedding", price, 100, 0),
+                billing.reserve(attempt_ids[0], "embedding", price, 100, 0),
+                billing.reserve(attempt_ids[1], "embedding", price, 100, 0),
                 return_exceptions=True,
             )
             rejected = [
@@ -63,12 +67,71 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
             await billing.settle(winner, 10, 0)
             with pytest.raises(BillingRejected):
                 await billing.reserve(winner.attempt_id, "embedding", price, 100, 0)
-            next_attempt = await billing.reserve(uuid4(), "embedding", price, 100, 0)
+            next_attempt = await billing.reserve(
+                attempt_ids[2], "embedding", price, 100, 0
+            )
             with pytest.raises(BillingRejected):
                 await billing.settle(next_attempt, 101, 0)
             with pytest.raises(BillingRejected):
                 await billing.reserve(uuid4(), "embedding", price, 1, 0)
         finally:
+            async with sessions.begin() as session:
+                await session.exec(
+                    delete(ModelAttempt).where(
+                        col(ModelAttempt.attempt_id).in_(attempt_ids)
+                    )
+                )
+            await engine.dispose()
+
+    asyncio.run(
+        check(),
+        loop_factory=asyncio.SelectorEventLoop if sys.platform == "win32" else None,
+    )
+
+
+def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
+    assert TEST_DATABASE
+
+    async def check() -> None:
+        engine = create_database(TEST_DATABASE, "site_guide_test")
+        sessions = Sessions(engine, class_=AsyncSession)
+        service = Executions(sessions, lambda _: None, concurrency=1, queue_limit=0)
+        request_id, execution_id = uuid4(), uuid4()
+        try:
+            async with sessions.begin() as session:
+                await lock_submission(session, request_id)
+                lookup = asyncio.create_task(service.get(request_id=request_id))
+                # 并发负查必须等受理事务结束，不能在未提交时报告不存在。
+                done, _ = await asyncio.wait({lookup}, timeout=0.1)
+                assert not done
+                session.add(
+                    Execution(
+                        request_id=request_id,
+                        execution_id=execution_id,
+                        status="running",
+                        text="partial answer",
+                        input_hash="fixture",
+                    )
+                )
+            snapshot = await asyncio.wait_for(lookup, timeout=3)
+            assert snapshot.execution_id == execution_id
+            assert snapshot.status == "interrupted"
+            assert snapshot.text == "partial answer"
+            async with sessions.begin() as session:
+                await session.exec(
+                    update_rows(Execution)
+                    .where(col(Execution.execution_id) == execution_id)
+                    .values(finished_at=datetime.now(UTC) - timedelta(days=2))
+                )
+            await service.expire_answers()
+            expired = await service.get(request_id=request_id)
+            assert expired.execution_id == execution_id
+            assert expired.text == ""
+        finally:
+            async with sessions.begin() as session:
+                await session.exec(
+                    delete(Execution).where(col(Execution.execution_id) == execution_id)
+                )
             await engine.dispose()
 
     asyncio.run(
@@ -89,6 +152,7 @@ def test_execution_routes_and_settings_revision() -> None:
         model_provider="openai-compatible",
         chat_base_url="https://example.invalid/v1",
         chat_api_key="never-sent",
+        config_encryption_key=urlsafe_b64encode(bytes(32)).decode(),
         chat_model="fixture",
     )
     app = create_app(settings)
@@ -145,7 +209,13 @@ def test_execution_routes_and_settings_revision() -> None:
             revision = (await client.get(settings_path, headers=management)).json()[
                 "revision"
             ]
-            update = {"expectedRevision": revision, "persona": "Friendly and direct."}
+            model_name = f"configured-{uuid4()}"
+            update = {
+                "expectedRevision": revision,
+                "persona": "Friendly and direct.",
+                "runtime": {"chat_model": model_name},
+                "chatApiKey": "test-key-written-once",
+            }
             invalid = await client.put(
                 settings_path,
                 json={**update, "persona": " "},
@@ -154,7 +224,23 @@ def test_execution_routes_and_settings_revision() -> None:
             assert invalid.status_code == 422
             updated = await client.put(settings_path, json=update, headers=management)
             assert updated.json()["revision"] == revision + 1
+            assert updated.json()["chatModel"] == model_name
+            assert updated.json()["runtime"]["chat_max_output_tokens"] == 512
+            assert updated.json()["chatKeyConfigured"] is True
             assert "never-sent" not in updated.text
+            assert "test-key-written-once" not in updated.text
+            stored = await client.get(settings_path, headers=management)
+            assert stored.json()["chatModel"] == model_name
+            forbidden = await client.put(
+                settings_path,
+                json={
+                    **update,
+                    "expectedRevision": revision + 1,
+                    "runtime": {"ai_management_token": "overwrite"},
+                },
+                headers=management,
+            )
+            assert forbidden.status_code == 422
             stale = await client.put(settings_path, json=update, headers=management)
             assert stale.status_code == 409
 

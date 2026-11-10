@@ -19,5 +19,17 @@
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-blog-provider</artifactId>
         </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-module-system-provider</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-spring-boot-starter-security</artifactId>
+        </dependency>
     </dependencies>
 </project>

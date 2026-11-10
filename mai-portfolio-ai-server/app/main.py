@@ -1,6 +1,9 @@
+import asyncio
 import logging
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from functools import lru_cache
+from json import dumps, loads
 from secrets import compare_digest
 from typing import Annotated
 from uuid import UUID
@@ -13,12 +16,18 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_openai import ChatOpenAI
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.billing import Billing, ModelAttempt, Price
 from app.chat_graph import ChatGraph
-from app.config import Settings
+from app.config import (
+    EDITABLE_SETTINGS,
+    Settings,
+    effective_settings,
+    encrypt_provider_key,
+)
 from app.database import Sessions, create_database
 from app.execution import (
     Accepted,
@@ -31,6 +40,7 @@ from app.execution import (
 from app.model_gateway import ModelGateway
 from app.preferences import (
     ChatPreferences,
+    RuntimeValue,
     SettingsView,
     UpdatePreferences,
     read_preferences,
@@ -40,6 +50,64 @@ from app.wire import ExecutionRejected
 
 logger = logging.getLogger(__name__)
 bearer = HTTPBearer(auto_error=False)
+
+
+async def monitor_worker(connection: AsyncConnection, executions: Executions) -> None:
+    next_cleanup = 0.0
+    while True:
+        try:
+            # 锁和探活使用同一连接。失去会话后停止受理，不能用新连接假装仍持锁。
+            async with asyncio.timeout(3):
+                await connection.scalar(select(1))
+                await connection.commit()
+        except (SQLAlchemyError, TimeoutError):
+            executions.worker_available = False
+            await executions.close()
+            logger.error("AI worker lost its database session; restart required.")
+            return
+        now = asyncio.get_running_loop().time()
+        if now >= next_cleanup:
+            try:
+                await executions.expire_answers()
+                next_cleanup = now + 3600
+            except SQLAlchemyError:
+                logger.warning("AI answer cleanup deferred.")
+        await asyncio.sleep(1)
+
+
+def create_chat_graph(sessions: Sessions, settings: Settings) -> ChatGraph | None:
+    if (
+        settings.model_provider != "openai-compatible"
+        or not settings.chat_base_url
+        or not settings.chat_model
+        or not settings.chat_api_key.get_secret_value()
+    ):
+        return None
+    billing = Billing(
+        sessions,
+        budget=settings.ai_daily_budget,
+        currency=settings.billing_currency,
+        time_zone=ZoneInfo(settings.billing_time_zone),
+        price_version=settings.price_version,
+        enabled=settings.ai_paid_calls_enabled,
+    )
+    return ChatGraph(
+        ModelGateway(billing),
+        ChatOpenAI(
+            model=settings.chat_model,
+            base_url=settings.chat_base_url,
+            api_key=settings.chat_api_key,
+            max_retries=0,
+            timeout=settings.model_timeout_seconds,
+            use_responses_api=False,
+        ),
+        price=Price(
+            settings.chat_input_price_per_million,
+            settings.chat_output_price_per_million,
+        ),
+        input_limit=settings.chat_billable_input_limit,
+        output_limit=settings.chat_max_output_tokens,
+    )
 
 
 def create_app(settings: Settings) -> FastAPI:
@@ -54,41 +122,18 @@ def create_app(settings: Settings) -> FastAPI:
         engine = create_database(str(settings.ai_database_url), settings.ai_db_schema)
         sessions = Sessions(engine, class_=AsyncSession)
         try:
-            billing = Billing(
-                sessions,
-                budget=settings.ai_daily_budget,
-                currency=settings.billing_currency,
-                time_zone=ZoneInfo(settings.billing_time_zone),
-                price_version=settings.price_version,
-                enabled=settings.ai_paid_calls_enabled,
-            )
-            graph = None
-            if (
-                settings.model_provider == "openai-compatible"
-                and settings.chat_base_url
-                and settings.chat_model
-                and settings.chat_api_key.get_secret_value()
-            ):
-                graph = ChatGraph(
-                    ModelGateway(billing),
-                    ChatOpenAI(
-                        model=settings.chat_model,
-                        base_url=settings.chat_base_url,
-                        api_key=settings.chat_api_key,
-                        max_retries=0,
-                        timeout=settings.model_timeout_seconds,
-                        use_responses_api=False,
-                    ),
-                    price=Price(
-                        settings.chat_input_price_per_million,
-                        settings.chat_output_price_per_million,
-                    ),
-                    input_limit=settings.chat_billable_input_limit,
-                    output_limit=settings.chat_max_output_tokens,
+
+            @lru_cache(maxsize=1)
+            def build_graph(encoded: str) -> ChatGraph | None:
+                return create_chat_graph(
+                    sessions, effective_settings(settings, loads(encoded))
                 )
+
             executions = Executions(
                 sessions,
-                graph,
+                lambda preferences: build_graph(
+                    dumps(preferences.runtime, sort_keys=True)
+                ),
                 concurrency=settings.execution_concurrency,
                 queue_limit=settings.execution_queue_limit,
             )
@@ -105,12 +150,21 @@ def create_app(settings: Settings) -> FastAPI:
                     await executions.recover()
                     app.state.executions = executions
                     app.state.sessions = sessions
+                    monitor = asyncio.create_task(
+                        monitor_worker(connection, executions)
+                    )
                     try:
                         yield
                     finally:
+                        monitor.cancel()
+                        with suppress(asyncio.CancelledError):
+                            await monitor
                         await executions.close()
                 finally:
-                    await connection.scalar(select(func.pg_advisory_unlock(317341, 2)))
+                    if executions.worker_available and not connection.invalidated:
+                        await connection.scalar(
+                            select(func.pg_advisory_unlock(317341, 2))
+                        )
         finally:
             await engine.dispose()
 
@@ -139,14 +193,20 @@ def create_app(settings: Settings) -> FastAPI:
             )
 
     def settings_view(preferences: ChatPreferences) -> SettingsView:
+        effective = effective_settings(settings, preferences.runtime)
         return SettingsView(
             revision=preferences.revision,
             persona=preferences.persona,
-            model_provider=settings.model_provider,
-            chat_model=settings.chat_model,
-            chat_max_output_tokens=settings.chat_max_output_tokens,
-            embedding_model=settings.embedding_model,
-            embedding_dimensions=settings.embedding_dimensions,
+            model_provider=effective.model_provider,
+            chat_model=effective.chat_model,
+            chat_max_output_tokens=effective.chat_max_output_tokens,
+            embedding_model=effective.embedding_model,
+            embedding_dimensions=effective.embedding_dimensions,
+            chat_key_configured=bool(effective.chat_api_key.get_secret_value()),
+            embedding_key_configured=bool(
+                effective.embedding_api_key.get_secret_value()
+            ),
+            runtime=effective.model_dump(mode="json", include=set(EDITABLE_SETTINGS)),
         )
 
     @app.get("/internal/v1/settings", dependencies=[Depends(require_management)])
@@ -158,8 +218,34 @@ def create_app(settings: Settings) -> FastAPI:
     @app.put("/internal/v1/settings", dependencies=[Depends(require_management)])
     async def put_settings(request: Request, body: UpdatePreferences) -> SettingsView:
         sessions: Sessions = request.app.state.sessions
-        async with sessions.begin() as session:
-            return settings_view(await update_preferences(session, body))
+        executions = execution_service(request)
+        executions.require_worker()
+        async with executions.submissions, sessions.begin() as session:
+            current = await read_preferences(session)
+            supplied = body.runtime or {}
+            if supplied.keys() - EDITABLE_SETTINGS:
+                raise ExecutionRejected(
+                    422, "INVALID_SETTINGS", "Unknown runtime setting."
+                )
+            runtime: dict[str, RuntimeValue] = current.runtime | supplied
+            try:
+                for field in ("chat_api_key", "embedding_api_key"):
+                    key = getattr(body, field)
+                    if key is not None:
+                        if not 1 <= len(key.get_secret_value().strip()) <= 2048:
+                            raise ValueError("Invalid provider key length.")
+                        runtime[field] = encrypt_provider_key(settings, key)
+                effective_settings(settings, runtime)
+            except ValueError as error:
+                raise ExecutionRejected(
+                    422, "INVALID_SETTINGS", "Invalid runtime settings."
+                ) from error
+            # 避免降低预算后，旧队列仍按旧配置开始收费。Persona 单独更新不影响已有请求。
+            if runtime != current.runtime and executions.tasks:
+                raise ExecutionRejected(
+                    409, "EXECUTIONS_ACTIVE", "Wait for current executions to finish."
+                )
+            return settings_view(await update_preferences(session, body, runtime))
 
     def execution_service(request: Request) -> Executions:
         service: Executions = request.app.state.executions
@@ -190,11 +276,18 @@ def create_app(settings: Settings) -> FastAPI:
 
     @app.get("/internal/v1/health/ready")
     async def ready(request: Request) -> dict[str, str]:
+        execution_service(request).require_worker()
         sessions: Sessions = request.app.state.sessions
         async with sessions() as session:
             await session.exec(select(col(Execution.execution_id)).limit(1))
             await session.exec(select(col(ModelAttempt.attempt_id)).limit(1))
-            await read_preferences(session)
+            preferences = await read_preferences(session)
+            try:
+                effective_settings(settings, preferences.runtime)
+            except ValueError as error:
+                raise ExecutionRejected(
+                    503, "INVALID_STORED_SETTINGS", "Stored settings are unavailable."
+                ) from error
         return {"status": "ready"}
 
     @app.post(

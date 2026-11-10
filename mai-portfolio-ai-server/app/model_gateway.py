@@ -1,12 +1,13 @@
 from collections.abc import AsyncGenerator, Sequence
 from contextlib import aclosing
+from json import dumps
 from typing import cast
 from uuid import UUID
 
 from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from app.billing import Billing, Price
+from app.billing import Billing, BillingRejected, Price
 from app.config import Settings
 
 
@@ -25,6 +26,19 @@ class ModelGateway:
         output_limit: int,
     ) -> AsyncGenerator[str]:
         # 1. 预留提交后才打开上游流，费用或数据库校验失败时不会发起调用。
+        # 按完整消息（含角色、系统提示和历史）做保守的输入预检。
+        # 兼容供应商仍须确认实际封装与计费上界，事后结算无法防止首笔超支。
+        message_bytes = sum(
+            len(
+                dumps(
+                    {"role": message.type, "content": message.content},
+                    ensure_ascii=True,
+                ).encode()
+            )
+            for message in messages
+        )
+        if message_bytes + 32 * (len(messages) + 1) > input_limit:
+            raise BillingRejected("Chat input exceeds its verified billing bound.")
         reservation = await self.billing.reserve(
             attempt_id, "chat", price, input_limit, output_limit
         )

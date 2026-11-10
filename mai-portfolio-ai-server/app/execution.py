@@ -1,9 +1,9 @@
 import asyncio
 import hashlib
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import aclosing
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -17,11 +17,18 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.billing import BillingRejected
 from app.chat_graph import ChatGraph, HistoryEntry
 from app.database import Sessions
-from app.preferences import read_preferences
+from app.preferences import ChatPreferences, read_preferences
 from app.wire import ExecutionRejected, WireModel
 
 logger = logging.getLogger(__name__)
 ACTIVE = ("accepted", "running")
+
+
+async def lock_submission(session: AsyncSession, request_id: UUID) -> None:
+    # 截止后查无记录会触发网站释放个人额度，负查必须等待原受理事务提交或回滚。
+    await session.exec(
+        select(func.pg_advisory_xact_lock(317342, func.hashtext(str(request_id))))
+    )
 
 
 class SubmitExecution(WireModel):
@@ -83,13 +90,14 @@ class Executions:
     def __init__(
         self,
         sessions: Sessions,
-        graph: ChatGraph | None,
+        build_graph: Callable[[ChatPreferences], ChatGraph | None],
         *,
         concurrency: int,
         queue_limit: int,
     ) -> None:
         self.sessions = sessions
-        self.graph = graph
+        self.worker_available = True
+        self.build_graph = build_graph
         self.capacity = concurrency + queue_limit
         self.workers = asyncio.Semaphore(concurrency)
         self.submissions = asyncio.Lock()
@@ -109,14 +117,35 @@ class Executions:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
-        await self.recover()
+        if self.worker_available:
+            await self.recover()
+
+    async def expire_answers(self) -> None:
+        # AI 只保存短期可恢复正文。请求标识和账本独立保留，避免清理后重复收费。
+        async with self.sessions.begin() as session:
+            await session.exec(
+                update(Execution)
+                .where(
+                    col(Execution.finished_at) < datetime.now(UTC) - timedelta(days=1),
+                    col(Execution.text) != "",
+                )
+                .values(text="")
+            )
+
+    def require_worker(self) -> None:
+        if not self.worker_available:
+            raise ExecutionRejected(
+                503, "WORKER_UNAVAILABLE", "Chat worker is unavailable."
+            )
 
     async def submit(self, request: SubmitExecution) -> Snapshot:
         # 1. 去重比较问题和历史。截止时间可随重试更新，业务输入不能变。
         payload = request.model_dump_json(exclude={"request_id", "accept_before"})
         input_hash = hashlib.sha256(payload.encode()).hexdigest()
         async with self.submissions:
+            self.require_worker()
             async with self.sessions.begin() as session:
+                await lock_submission(session, request.request_id)
                 previous = await self.find(session, request_id=request.request_id)
                 # 先查已受理记录，确保截止后的合法重试仍能找到原执行。
                 if previous is not None:
@@ -132,8 +161,10 @@ class Executions:
                     raise ExecutionRejected(
                         409, "ACCEPTANCE_EXPIRED", "Submission expired."
                     )
+                preferences = await read_preferences(session)
+                graph = self.build_graph(preferences)
                 # 模型未配置时拒绝受理，避免给网站留下无法运行的队列记录。
-                if self.graph is None:
+                if graph is None:
                     raise ExecutionRejected(
                         503, "MODEL_UNAVAILABLE", "Chat is unavailable."
                     )
@@ -142,7 +173,7 @@ class Executions:
                     raise ExecutionRejected(429, "CAPACITY_EXHAUSTED", "Chat is busy.")
                 execution_id = uuid4()
                 # 3. 固定受理时的 Persona，之后的设置更新只影响新请求。
-                persona = (await read_preferences(session)).persona
+                persona = preferences.persona
                 session.add(
                     Execution(
                         execution_id=execution_id,
@@ -153,9 +184,7 @@ class Executions:
                     )
                 )
             # 4. 受理记录提交后才调度。订阅必须始终能读到对应的持久记录。
-            task = asyncio.create_task(
-                self.run(execution_id, request, self.graph, persona)
-            )
+            task = asyncio.create_task(self.run(execution_id, request, graph, persona))
             self.tasks[execution_id] = task
             task.add_done_callback(lambda _: self.tasks.pop(execution_id, None))
         return Snapshot(
@@ -197,10 +226,36 @@ class Executions:
         *,
         request_id: UUID | None = None,
     ) -> Snapshot:
-        async with self.sessions() as session:
+        self.require_worker()
+        async with self.submissions, self.sessions.begin() as session:
+            self.require_worker()
+            if request_id is not None:
+                await lock_submission(session, request_id)
             result = await self.find(
                 session, execution_id=execution_id, request_id=request_id
             )
+            # 短暂断库可能让终态保存失败。任务退出后，重连可原子恢复这条记录。
+            if result is not None:
+                snapshot, _ = result
+                if (
+                    snapshot.status in ACTIVE
+                    and snapshot.execution_id not in self.tasks
+                ):
+                    recovered = await session.scalar(
+                        update(Execution)
+                        .where(
+                            col(Execution.execution_id) == snapshot.execution_id,
+                            col(Execution.status).in_(ACTIVE),
+                        )
+                        .values(status="interrupted", finished_at=func.now())
+                        .returning(col(Execution.execution_id))
+                    )
+                    if recovered is not None:
+                        snapshot.status = "interrupted"
+                    else:
+                        result = await self.find(
+                            session, execution_id=snapshot.execution_id
+                        )
         # 订阅只读取已受理执行，缺少记录时直接拒绝。
         if result is None:
             raise ExecutionRejected(404, "EXECUTION_NOT_FOUND", "Execution not found.")
@@ -223,6 +278,7 @@ class Executions:
             return updated is not None
 
     async def stop(self, execution_id: UUID) -> Snapshot:
+        self.require_worker()
         # 先提交中断，再尽力取消任务。未赢得终态竞争时返回已有快照。
         if await self.finish(execution_id, "interrupted"):
             task = self.tasks.get(execution_id)
