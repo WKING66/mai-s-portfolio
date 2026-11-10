@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from httpx import AsyncClient
 from langchain_openai import ChatOpenAI
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
@@ -46,6 +47,7 @@ from app.preferences import (
     read_preferences,
     update_preferences,
 )
+from app.provider_http import provider_http_client
 from app.wire import ExecutionRejected
 
 logger = logging.getLogger(__name__)
@@ -75,7 +77,11 @@ async def monitor_worker(connection: AsyncConnection, executions: Executions) ->
         await asyncio.sleep(1)
 
 
-def create_chat_graph(sessions: Sessions, settings: Settings) -> ChatGraph | None:
+def create_chat_graph(
+    sessions: Sessions,
+    settings: Settings,
+    provider_client: AsyncClient,
+) -> ChatGraph | None:
     if (
         settings.model_provider != "openai-compatible"
         or not settings.chat_base_url
@@ -100,6 +106,7 @@ def create_chat_graph(sessions: Sessions, settings: Settings) -> ChatGraph | Non
             max_retries=0,
             timeout=settings.model_timeout_seconds,
             use_responses_api=False,
+            http_async_client=provider_client,
         ),
         price=Price(
             settings.chat_input_price_per_million,
@@ -121,12 +128,15 @@ def create_app(settings: Settings) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_database(str(settings.ai_database_url), settings.ai_db_schema)
         sessions = Sessions(engine, class_=AsyncSession)
+        provider_client = provider_http_client()
         try:
 
             @lru_cache(maxsize=1)
             def build_graph(encoded: str) -> ChatGraph | None:
                 return create_chat_graph(
-                    sessions, effective_settings(settings, loads(encoded))
+                    sessions,
+                    effective_settings(settings, loads(encoded)),
+                    provider_client,
                 )
 
             executions = Executions(
@@ -166,7 +176,10 @@ def create_app(settings: Settings) -> FastAPI:
                             select(func.pg_advisory_unlock(317341, 2))
                         )
         finally:
-            await engine.dispose()
+            try:
+                await provider_client.aclose()
+            finally:
+                await engine.dispose()
 
     app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -229,13 +242,41 @@ def create_app(settings: Settings) -> FastAPI:
                 )
             runtime: dict[str, RuntimeValue] = current.runtime | supplied
             try:
+                previous = effective_settings(settings, current.runtime)
+                endpoint_changed = False
+                # 地址与密钥必须成组切换，避免把旧供应商密钥发给新地址。
+                for address, secret in (
+                    ("chat_base_url", "chat_api_key"),
+                    ("embedding_base_url", "embedding_api_key"),
+                ):
+                    if address not in supplied or supplied[address] == getattr(
+                        previous, address
+                    ):
+                        continue
+                    endpoint_changed = True
+                    if (
+                        supplied[address]
+                        and getattr(previous, secret).get_secret_value()
+                        and getattr(body, secret) is None
+                    ):
+                        raise ExecutionRejected(
+                            422,
+                            "PROVIDER_KEY_REQUIRED",
+                            "Changing a provider URL requires a new key.",
+                        )
                 for field in ("chat_api_key", "embedding_api_key"):
                     key = getattr(body, field)
                     if key is not None:
                         if not 1 <= len(key.get_secret_value().strip()) <= 2048:
                             raise ValueError("Invalid provider key length.")
                         runtime[field] = encrypt_provider_key(settings, key)
-                effective_settings(settings, runtime)
+                effective = effective_settings(settings, runtime)
+                if endpoint_changed and effective.ai_paid_calls_enabled:
+                    raise ExecutionRejected(
+                        422,
+                        "PAUSE_PAID_CALLS",
+                        "Disable paid calls before changing providers.",
+                    )
             except ValueError as error:
                 raise ExecutionRejected(
                     422, "INVALID_SETTINGS", "Invalid runtime settings."

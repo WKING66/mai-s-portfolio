@@ -6,6 +6,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from pydantic import AliasChoices, Field, PostgresDsn, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.provider_http import validate_provider_url
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -57,10 +59,12 @@ class Settings(BaseSettings):
         return value
 
 
-# 配置中心只接受运行参数。数据库、服务令牌、已批准的供应商地址和密钥属于启动信任边界。
+# 数据库、服务令牌和加密主密钥用于启动信任边界，供应商参数由配置中心维护。
 EDITABLE_SETTINGS = frozenset(
     {
+        "chat_base_url",
         "chat_model",
+        "embedding_base_url",
         "embedding_model",
         "embedding_dimensions",
         "model_timeout_seconds",
@@ -104,6 +108,9 @@ def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> Settin
     except (ValueError, InvalidToken) as error:
         raise ValueError("Stored model credentials cannot be decrypted.") from error
     effective = Settings.model_validate(values)
+    for address in (effective.chat_base_url, effective.embedding_base_url):
+        if address:
+            validate_provider_url(address)
     try:
         ZoneInfo(effective.billing_time_zone)
     except (ValueError, ZoneInfoNotFoundError) as error:

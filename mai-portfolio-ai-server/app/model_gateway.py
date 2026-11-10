@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from app.billing import Billing, BillingRejected, Price
 from app.config import Settings
+from app.provider_http import provider_http_client
 
 
 class ModelGateway:
@@ -88,23 +89,25 @@ class ModelGateway:
             raise ValueError("Embedding input exceeds its configured bound.")
         # LangChain 只返回向量，缺少可信用量时保留预留。
         # 关闭自动拆分和重试，确保一次预留只对应一次上游调用。
-        model = OpenAIEmbeddings(
-            model=settings.embedding_model,
-            base_url=settings.embedding_base_url,
-            api_key=settings.embedding_api_key,
-            dimensions=dimensions,
-            timeout=settings.model_timeout_seconds,
-            max_retries=0,
-            check_embedding_ctx_length=False,
-        )
-        await self.billing.reserve(
-            attempt_id,
-            "embedding",
-            Price(settings.embedding_input_price_per_million),
-            input_limit,
-            0,
-        )
-        vector = await model.aembed_query(text)
+        async with provider_http_client() as provider_client:
+            model = OpenAIEmbeddings(
+                model=settings.embedding_model,
+                base_url=settings.embedding_base_url,
+                api_key=settings.embedding_api_key,
+                dimensions=dimensions,
+                timeout=settings.model_timeout_seconds,
+                max_retries=0,
+                check_embedding_ctx_length=False,
+                http_async_client=provider_client,
+            )
+            await self.billing.reserve(
+                attempt_id,
+                "embedding",
+                Price(settings.embedding_input_price_per_million),
+                input_limit,
+                0,
+            )
+            vector = await model.aembed_query(text)
         # 不兼容维度不可交给检索索引，避免写入后无法查询。
         if len(vector) != dimensions:
             raise ValueError("Unexpected embedding dimensions.")

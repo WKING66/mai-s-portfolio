@@ -19,7 +19,9 @@ const groups = [
   {
     title: '模型参数',
     fields: {
+      chat_base_url: 'Chat API Base URL',
       chat_model: '对话模型',
+      embedding_base_url: 'Embedding API Base URL',
       embedding_model: '向量模型',
       embedding_dimensions: '向量维度',
       model_timeout_seconds: '请求超时（秒）',
@@ -106,6 +108,9 @@ onMounted(() => update())
           </UFormField>
         </div>
       </section>
+      <p class="text-sm text-muted">
+        填写供应商的 HTTPS API 基础地址。更换地址时请关闭收费，并填写新供应商的密钥。
+      </p>
       <section class="grid gap-4 sm:grid-cols-2">
         <UFormField
           label="对话 API 密钥"

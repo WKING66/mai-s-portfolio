@@ -210,10 +210,11 @@ def test_execution_routes_and_settings_revision() -> None:
                 "revision"
             ]
             model_name = f"configured-{uuid4()}"
+            provider_url = f"https://chat-{uuid4()}.example.invalid/v1"
             update = {
                 "expectedRevision": revision,
                 "persona": "Friendly and direct.",
-                "runtime": {"chat_model": model_name},
+                "runtime": {"chat_model": model_name, "chat_base_url": provider_url},
                 "chatApiKey": "test-key-written-once",
             }
             invalid = await client.put(
@@ -222,6 +223,19 @@ def test_execution_routes_and_settings_revision() -> None:
                 headers=management,
             )
             assert invalid.status_code == 422
+            without_key = {
+                name: value for name, value in update.items() if name != "chatApiKey"
+            }
+            rejected = await client.put(
+                settings_path, json=without_key, headers=management
+            )
+            assert rejected.json()["code"] == "PROVIDER_KEY_REQUIRED"
+            paid = {
+                **update,
+                "runtime": {**update["runtime"], "ai_paid_calls_enabled": True},
+            }
+            rejected = await client.put(settings_path, json=paid, headers=management)
+            assert rejected.json()["code"] == "PAUSE_PAID_CALLS"
             updated = await client.put(settings_path, json=update, headers=management)
             assert updated.json()["revision"] == revision + 1
             assert updated.json()["chatModel"] == model_name
@@ -231,6 +245,7 @@ def test_execution_routes_and_settings_revision() -> None:
             assert "test-key-written-once" not in updated.text
             stored = await client.get(settings_path, headers=management)
             assert stored.json()["chatModel"] == model_name
+            assert stored.json()["runtime"]["chat_base_url"] == provider_url
             forbidden = await client.put(
                 settings_path,
                 json={
