@@ -1,0 +1,134 @@
+name: PR gate
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+permissions:
+  contents: read
+concurrency:
+  group: pr-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      java: ${{ steps.diff.outputs.java }}
+      python: ${{ steps.diff.outputs.python }}
+      frontend: ${{ steps.diff.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          git diff --check "$BASE_SHA" HEAD
+          git diff --name-only "$BASE_SHA" HEAD > "$RUNNER_TEMP/pr-paths"
+          for entry in java:mai-portfolio-backend python:mai-portfolio-ai-server frontend:mai-portfolio-frontend; do
+            key=${entry%%:*}
+            path=${entry#*:}
+            if grep -q "^$path/" "$RUNNER_TEMP/pr-paths"; then
+              echo "$key=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$key=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+  java:
+    needs: changes
+    if: needs.changes.outputs.java == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: mai-portfolio-backend/**/pom.xml
+      - run: mvn -B -q -pl mai-portfolio-launch -am -DskipTests compile
+      - run: |
+          mvn -B -q -pl :mai-portfolio-module-system-service -am -Dtest=AuthenticationInterceptorTest,RequestAuthorizationTest,AuthServiceSessionTest,AccountProfileServiceImplTest -Dsurefire.failIfNoSpecifiedTests=false test
+          mvn -B -q -pl :mai-portfolio-module-agent-service -am -Dtest=AgentConversationRecoveryTest -Dsurefire.failIfNoSpecifiedTests=false test
+  python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-ai-server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: agent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d agent_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:test-only@127.0.0.1:5432/agent_test
+      AI_TEST_DATABASE_URL: postgresql://postgres:test-only@127.0.0.1:5432/agent_test
+      AI_DB_SCHEMA: site_guide_test
+      AI_SERVER_TOKEN: ci-test-only-aaaaaaaaaaaaaaaaaaaaaaaa
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - run: |
+          uv run --locked ruff check .
+          uv run --locked pyright app
+          if test -f migrations/env.py; then uv run --locked alembic upgrade head; fi
+          if test -d tests; then uv run --locked python -m pytest -q tests; fi
+  frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: mai-portfolio-frontend/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: mai-portfolio-frontend/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- . |
+            sed -nE 's#^mai-portfolio-frontend/(.*\.(ts|js|vue))$#\1#p')
+          if (( ${#files[@]} )); then pnpm exec eslint --max-warnings=0 "${files[@]}"; fi
+          if test -f tests/unit/site/agentChat.test.ts; then pnpm test tests/unit/site/agentChat.test.ts; fi
+  result:
+    name: pr-gate
+    needs: [changes, java, python, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      CHANGES: ${{ needs.changes.result }}
+      JAVA: ${{ needs.java.result }}
+      PYTHON: ${{ needs.python.result }}
+      FRONTEND: ${{ needs.frontend.result }}
+    steps:
+      - run: |
+          test "$CHANGES" = success
+          for result in "$JAVA" "$PYTHON" "$FRONTEND"; do
+            case "$result" in success|skipped) ;; *) exit 1 ;; esac
+          done
