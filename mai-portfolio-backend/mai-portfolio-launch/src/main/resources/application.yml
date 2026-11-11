@@ -61,6 +61,13 @@ springdoc:
   api-docs:
     enabled: true
 
+site-guide:
+  # 网站控制数字人功能是否开放。OWNER 配置中心在关闭时也可访问。
+  enabled: ${SITE_GUIDE_ENABLED:false}
+  ai-base-url: ${SITE_GUIDE_AI_BASE_URL:http://127.0.0.1:9344}
+  # 通过 Spring 私有配置或部署环境注入，值与 Python 的 AI_SERVER_TOKEN 一致。
+  ai-server-token: ${SITE_GUIDE_AI_TOKEN:}
+
 portfolio:
   media:
     # 私有 Bucket 的签名直连地址有效期；浏览器到期前重新查询业务 API。
