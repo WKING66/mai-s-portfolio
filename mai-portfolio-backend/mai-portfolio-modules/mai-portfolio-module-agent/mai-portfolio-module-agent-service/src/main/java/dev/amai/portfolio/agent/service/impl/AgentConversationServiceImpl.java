@@ -18,7 +18,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientException;
-import org.springframework.web.client.RestClientResponseException;
 
 @Service
 public class AgentConversationServiceImpl implements AgentConversationService {
@@ -27,6 +26,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
     private static final short COMPLETED = 3;
     private static final short FAILED = 4;
     private static final short INTERRUPTED = 5;
+    private static final String EXPIRED_TEXT = "EXECUTION_TEXT_EXPIRED";
     private static final String UNAVAILABLE = "模型服务暂不可用。";
 
     private final AgentConversationMapper agentConversationMapper;
@@ -125,15 +125,20 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         }
         // 2. 先按编号查回已受理执行。只在原截止时间内，以同一输入尝试首次受理。
         try {
-            if (!submission.firstAttempt()) {
+            // 截止前的负查不能证明其他请求永远不会受理。只有先确认过期再查，才可以落失败终态。
+            boolean expired = acceptanceExpired(turn);
+            if (expired || !submission.firstAttempt()) {
                 var prior = agentAiClient.byRequest(requestId);
                 if (prior != null) {
                     return attach(turn, prior.executionId());
                 }
-            }
-            if (!OffsetDateTime.now(ZoneOffset.UTC).isBefore(turn.acceptBefore())) {
-                reject(turn, "ACCEPTANCE_EXPIRED");
-                throw new ApiException(ApiErrorCode.DATA_CONFLICT, "发送已超时，请重新发送。");
+                if (expired) {
+                    var current = rejectUnbound(turn);
+                    if (current.executionId() != null) {
+                        return current;
+                    }
+                    throw new ApiException(ApiErrorCode.DATA_CONFLICT, "发送已超时，请重新发送。");
+                }
             }
             var history = new ArrayList<AgentAiClient.History>();
             for (var item : agentConversationMapper.recentCompleted(conversation).reversed()) {
@@ -145,18 +150,8 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             var accepted = agentAiClient.submit(new AgentAiClient.Submission(
                     requestId, question, history, turn.acceptBefore()));
             return attach(turn, accepted.executionId());
-        } catch (RestClientResponseException error) {
-            // 只有明确拒绝才结束待确认状态；断网和 5xx 仍可能已经受理。
-            if (error.getStatusCode().value() == 429) {
-                reject(turn, "AI_CAPACITY");
-                throw new ApiException(ApiErrorCode.RATE_LIMITED, UNAVAILABLE);
-            }
-            if (error.getStatusCode().value() == 422) {
-                reject(turn, "AI_INPUT_INVALID");
-                throw new ApiException(ApiErrorCode.VALIDATION_FAILED, UNAVAILABLE);
-            }
-            throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认发送结果，请重试原请求。");
         } catch (RestClientException error) {
+            // 上游拒绝也可能和同编号的受理并发，保留原编号供继续查询。
             throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认发送结果，请重试原请求。");
         }
     }
@@ -218,14 +213,15 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         for (var turn : agentConversationMapper.unfinished(12)) {
             try {
                 if (turn.executionId() != null) {
-                    reconcile(turn, agentAiClient.get(turn.executionId()));
+                    recoverBound(turn);
                     continue;
                 }
+                boolean expired = acceptanceExpired(turn);
                 var found = agentAiClient.byRequest(turn.requestId());
                 if (found != null) {
                     reconcile(attach(turn, found.executionId()), found);
-                } else if (!OffsetDateTime.now(ZoneOffset.UTC).isBefore(turn.acceptBefore())) {
-                    reject(turn, "ACCEPTANCE_EXPIRED");
+                } else if (expired) {
+                    rejectUnbound(turn);
                 }
             } catch (RestClientException error) {
                 // 依赖暂不可用时保留原状态，下轮用同一编号查证。
@@ -234,22 +230,40 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         }
     }
 
+    private void recoverBound(AgentTurn turn) {
+        var found = agentAiClient.findExecution(turn.executionId());
+        if (found == null) {
+            // 上游明确确认执行不存在，只结束当前一轮，后续记录仍可恢复。
+            found = new AgentExecutionSnapshot(turn.requestId(), turn.executionId(),
+                    "failed", "", List.of(), new AgentExecutionSnapshot.ExecutionError(
+                            "EXECUTION_NOT_FOUND", UNAVAILABLE, turn.requestId()));
+        }
+        reconcile(turn, found);
+    }
+
+    private static boolean acceptanceExpired(AgentTurn turn) {
+        return !OffsetDateTime.now(ZoneOffset.UTC).isBefore(turn.acceptBefore());
+    }
+
     private AgentTurn attach(AgentTurn turn, UUID execution) {
         agentConversationMapper.attach(turn.requestId(), execution);
         return agentConversationMapper.byRequest(turn.requestId());
     }
 
-    private void reject(AgentTurn turn, String code) {
-        transactionTemplate.executeWithoutResult(transaction -> {
-            if (agentConversationMapper.saveTerminal(turn.requestId(), "", FAILED, code) == 1) {
+    private AgentTurn rejectUnbound(AgentTurn turn) {
+        return transactionTemplate.execute(transaction -> {
+            if (agentConversationMapper.failUnbound(turn.requestId(), FAILED, "ACCEPTANCE_EXPIRED") == 1) {
                 agentConversationMapper.touch(turn.conversationId());
             }
+            return agentConversationMapper.byRequest(turn.requestId());
         });
     }
 
     private AgentExecutionSnapshot reconcile(AgentTurn turn, AgentExecutionSnapshot snapshot) {
+        String code = snapshot.error() == null ? null : snapshot.error().code();
+        // 上游已经清理正文时，网站不能保存一条成功的空答复。
         short terminal = switch (snapshot.status()) {
-            case "completed" -> COMPLETED;
+            case "completed" -> EXPIRED_TEXT.equals(code) ? FAILED : COMPLETED;
             case "failed" -> FAILED;
             case "interrupted" -> INTERRUPTED;
             default -> ACCEPTED;
@@ -258,8 +272,8 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             return snapshot;
         }
         return transactionTemplate.execute(transaction -> {
-            String code = snapshot.error() == null ? null : snapshot.error().code();
-            if (agentConversationMapper.saveTerminal(turn.requestId(), snapshot.text(), terminal, code) == 1) {
+            if (agentConversationMapper.saveTerminal(
+                    turn.requestId(), snapshot.executionId(), snapshot.text(), terminal, code) == 1) {
                 agentConversationMapper.touch(turn.conversationId());
             }
             return persisted(agentConversationMapper.byRequest(turn.requestId()));

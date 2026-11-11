@@ -137,12 +137,15 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
                 await session.exec(
                     update_rows(Execution)
                     .where(col(Execution.execution_id) == execution_id)
-                    .values(finished_at=datetime.now(UTC) - timedelta(days=2))
+                    .values(status="completed", finished_at=datetime.now(UTC) - timedelta(days=2))
                 )
             await service.expire_answers()
             expired = await service.get(request_id=request_id)
             assert expired.execution_id == execution_id
             assert expired.text == ""
+            assert expired.status == "completed"
+            assert expired.error is not None
+            assert expired.error.code == "EXECUTION_TEXT_EXPIRED"
         finally:
             async with sessions.begin() as session:
                 await session.exec(
@@ -254,6 +257,14 @@ def test_execution_routes_and_settings_revision() -> None:
             assert invalid_key.status_code == 422
             assert invalid_key.json()["code"] == "INVALID_SETTINGS"
             assert "chatApiKey" not in invalid_key.text
+            malformed_key = await client.put(
+                settings_path,
+                json={**update, "chatApiKey": "fake-token\nsecond-line"},
+                headers=management,
+            )
+            assert malformed_key.status_code == 422
+            assert malformed_key.json()["code"] == "INVALID_SETTINGS"
+            assert "fake-token" not in malformed_key.text
             without_key = {
                 name: value for name, value in update.items() if name != "chatApiKey"
             }

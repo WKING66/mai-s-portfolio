@@ -2,6 +2,9 @@ package dev.amai.portfolio.agent.service;
 
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
@@ -64,7 +67,11 @@ public interface AgentConversationService {
             String status) {}
 
     record ImportedTurn(
+            @NotBlank
+            @Size(max = 4000)
             String question,
 
+            @NotNull
+            @Size(max = 4000)
             String answer) {}
 }

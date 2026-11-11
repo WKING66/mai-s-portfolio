@@ -1,3 +1,6 @@
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
+
 from pydantic import SecretStr, field_validator
 from pydantic_core import PydanticCustomError
 from sqlalchemy import BigInteger, CheckConstraint, Text, true, update
@@ -12,6 +15,7 @@ from app.config import (
     encrypt_provider_key,
 )
 from app.contracts.wire import ExecutionRejected, WireModel
+from app.storage.database import Sessions
 
 
 class PersonaFields(WireModel):
@@ -56,10 +60,13 @@ class UpdatePreferences(PersonaFields):
     @field_validator("chat_api_key", "embedding_api_key")
     @classmethod
     def validate_provider_key(cls, value: SecretStr | None) -> SecretStr | None:
-        if value is not None and not 1 <= len(value.get_secret_value().strip()) <= 2048:
-            raise PydanticCustomError(
-                "invalid_provider_key", "供应商密钥长度必须在 1 到 2048 之间。"
-            )
+        if value is not None:
+            key = value.get_secret_value()
+            # Bearer 请求头直接使用存储值，保存时拒绝会使 HTTP 请求失败的字符。
+            if not 1 <= len(key) <= 2048 or not all("!" <= char <= "~" for char in key):
+                raise PydanticCustomError(
+                    "invalid_provider_key", "密钥须为 1 到 2048 个可见 ASCII 字符。"
+                )
         return value
 
 
@@ -121,6 +128,24 @@ def settings_view(settings: Settings, preferences: ChatPreferences) -> SettingsV
         embedding_key_configured=bool(effective.embedding_api_key.get_secret_value()),
         runtime=effective.model_dump(mode="json", include=set(EDITABLE_SETTINGS)),
     )
+
+
+async def read_settings(settings: Settings, sessions: Sessions) -> SettingsView:
+    async with sessions() as session:
+        return settings_view(settings, await read_preferences(session))
+
+
+async def write_settings(
+    settings: Settings,
+    sessions: Sessions,
+    body: UpdatePreferences,
+    admission: AbstractAsyncContextManager[Callable[[], bool]],
+) -> SettingsView:
+    async with admission as has_active_executions, sessions.begin() as session:
+        current = await read_preferences(session)
+        return await save_settings(
+            settings, session, body, current, has_active_executions()
+        )
 
 
 async def save_settings(

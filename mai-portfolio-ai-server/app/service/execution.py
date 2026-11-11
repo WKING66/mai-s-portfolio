@@ -2,28 +2,21 @@ import asyncio
 import hashlib
 import logging
 from collections.abc import AsyncIterator, Callable
-from contextlib import aclosing
+from contextlib import aclosing, asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import AwareDatetime
 from pydantic import Field as ValidationField
-from sqlalchemy import CheckConstraint, DateTime, Text, func, update
+from sqlalchemy import CheckConstraint, DateTime, Text, case, func, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.config import Settings
 from app.contracts.wire import ExecutionRejected, WireModel
 from app.service.billing import BillingRejected
-from app.service.preferences import (
-    ChatPreferences,
-    SettingsView,
-    UpdatePreferences,
-    read_preferences,
-    save_settings,
-)
+from app.service.preferences import ChatPreferences, read_preferences
 from app.storage.database import Sessions
 from app.workflow.chat_graph import ChatGraph, HistoryEntry
 
@@ -145,7 +138,13 @@ class Executions:
                 cleared = await session.exec(
                     update(Execution)
                     .where(col(Execution.execution_id).in_(ids))
-                    .values(text="")
+                    .values(
+                        text="",
+                        error_code=case(
+                            (col(Execution.status) == "completed", "EXECUTION_TEXT_EXPIRED"),
+                            else_=col(Execution.error_code),
+                        ),
+                    )
                     .returning(col(Execution.execution_id))
                 )
                 count = len(cleared.scalars().all())
@@ -158,16 +157,16 @@ class Executions:
                 503, "WORKER_UNAVAILABLE", "Chat worker is unavailable."
             )
 
-    async def update_settings(
-        self, settings: Settings, body: UpdatePreferences
-    ) -> SettingsView:
+    @asynccontextmanager
+    async def settings_write(self) -> AsyncIterator[Callable[[], bool]]:
+        # 配置写入与受理共用锁。等待期间可能失去执行权，取得锁后再检查。
+        async with self.submissions:
+            self.require_worker()
+            yield self.has_active_executions
+
+    def has_active_executions(self) -> bool:
         self.require_worker()
-        # 保存与受理共用锁，避免预算变更时旧配置又接受新的执行。
-        async with self.submissions, self.sessions.begin() as session:
-            current = await read_preferences(session)
-            return await save_settings(
-                settings, session, body, current, bool(self.tasks)
-            )
+        return bool(self.tasks)
 
     async def submit(self, request: SubmitExecution) -> Snapshot:
         # 1. 去重比较问题和历史。截止时间可随重试更新，业务输入不能变。

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.dependencies import BootstrapSettings, ExecutionService
+from app.api.dependencies import BootstrapSettings, DatabaseSessions, ExecutionService
 from app.service.health import check_readiness
 
 router = APIRouter(prefix="/health")
@@ -13,7 +13,8 @@ async def live() -> dict[str, str]:
 
 @router.get("/ready")
 async def ready(
-    settings: BootstrapSettings, executions: ExecutionService
+    settings: BootstrapSettings, sessions: DatabaseSessions, executions: ExecutionService
 ) -> dict[str, str]:
-    await check_readiness(settings, executions)
+    executions.require_worker()
+    await check_readiness(settings, sessions)
     return {"status": "ready"}

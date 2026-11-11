@@ -5,7 +5,10 @@ import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
 import dev.amai.portfolio.agent.service.AgentConversationService;
+import dev.amai.portfolio.agent.service.AgentConversationService.ImportedTurn;
 import dev.amai.portfolio.common.R;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
+import dev.amai.portfolio.security.SecurityMessageConstants;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.AnonymousConversation;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
@@ -13,6 +16,10 @@ import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -39,14 +46,20 @@ import tools.jackson.databind.json.JsonMapper;
 @RequestMapping("/api/agent/v1")
 public class AgentConversationController {
     private static final String VISITOR_COOKIE = "portfolio_agent_visitor";
+    private static final String VISITOR_SEND_RATE_KEY = "agent:visitor:send";
+    private static final int VISITOR_SENDS_PER_MINUTE = 12;
 
     private final AgentConversationService agentConversationService;
 
     private final JsonMapper jsonMapper;
 
-    public AgentConversationController(AgentConversationService agentConversationService, JsonMapper jsonMapper) {
+    private final RedisRateLimiter redisRateLimiter;
+
+    public AgentConversationController(AgentConversationService agentConversationService,
+            JsonMapper jsonMapper, RedisRateLimiter redisRateLimiter) {
         this.agentConversationService = agentConversationService;
         this.jsonMapper = jsonMapper;
+        this.redisRateLimiter = redisRateLimiter;
     }
 
     @GetMapping("/status")
@@ -75,27 +88,22 @@ public class AgentConversationController {
 
     @PostMapping("/conversations/import")
     @SaCheckLogin
-    public R<ConversationId> importConversation(@RequestBody ImportRequest input) {
-        if (input.importId() == null || input.turns() == null || input.turns().isEmpty() || input.turns().size() > 20) {
-            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "导入请求不合法。");
-        }
-        for (var turn : input.turns()) {
-            if (turn == null || invalidQuestion(turn.question()) || turn.answer() == null || turn.answer().length() > 4000) {
-                throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "导入问答超出允许范围。");
-            }
-        }
+    public R<ConversationId> importConversation(@Valid @RequestBody ImportRequest input) {
         return R.success(new ConversationId(agentConversationService.importConversation(
                 accountOwner(), input.importId(), input.turns())));
     }
 
     @PostMapping(value = "/conversations/{id}/turns", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @AnonymousConversation
-    public ResponseEntity<StreamingResponseBody> submit(@PathVariable UUID id, @RequestBody SubmitRequest input,
-            HttpServletRequest request) {
-        if (input.requestId() == null || invalidQuestion(input.question())) {
-            throw new ApiException(ApiErrorCode.VALIDATION_FAILED, "请输入有效的问题。");
+    public ResponseEntity<StreamingResponseBody> submit(@PathVariable UUID id,
+            @Valid @RequestBody SubmitRequest input, HttpServletRequest request) {
+        var owner = owner(request, null);
+        // 匿名发送按容器识别的来源计数。切换会话不会重置额度，避免挤占公共模型容量。
+        if (owner.anonymous() && !redisRateLimiter.fixedWindow(
+                VISITOR_SEND_RATE_KEY, request.getRemoteAddr(), VISITOR_SENDS_PER_MINUTE, 60)) {
+            throw new ApiException(ApiErrorCode.RATE_LIMITED, SecurityMessageConstants.RATE_LIMITED);
         }
-        var turn = agentConversationService.submit(id, owner(request, null).key(), input.requestId(), input.question());
+        var turn = agentConversationService.submit(id, owner.key(), input.requestId(), input.question());
         return stream(turn, true);
     }
 
@@ -166,10 +174,6 @@ public class AgentConversationController {
         return "account:" + AccountContext.currentAccount().id();
     }
 
-    private static boolean invalidQuestion(String question) {
-        return question == null || question.isBlank() || question.length() > 4000;
-    }
-
     private record Owner(
             String key,
 
@@ -178,14 +182,20 @@ public class AgentConversationController {
     public record ConversationId(UUID conversationId) {}
 
     public record SubmitRequest(
+            @NotNull
             UUID requestId,
 
+            @NotBlank
+            @Size(max = 4000)
             String question) {}
 
     public record ImportRequest(
+            @NotNull
             UUID importId,
 
-            List<AgentConversationService.ImportedTurn> turns) {}
+            @NotNull
+            @Size(min = 1, max = 20)
+            List<@NotNull @Valid ImportedTurn> turns) {}
 
     private static final class AgentEventWriter {
         private final OutputStream output;
@@ -202,7 +212,7 @@ public class AgentConversationController {
             }
             try {
                 output.write(("event: " + event + "\n").getBytes(StandardCharsets.UTF_8));
-                for (String line : json.split("\\R", -1)) {
+                for (String line : json.split("\\r\\n|\\r|\\n", -1)) {
                     output.write(("data: " + line + "\n").getBytes(StandardCharsets.UTF_8));
                 }
                 output.write('\n');

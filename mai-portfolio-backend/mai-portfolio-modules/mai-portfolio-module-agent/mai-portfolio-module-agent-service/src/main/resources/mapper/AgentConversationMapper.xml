@@ -60,9 +60,13 @@
         UPDATE agent_turn SET execution_id = #{execution}, status = 1
         WHERE request_id = #{request} AND execution_id IS NULL AND status = 0
     </update>
+    <update id="failUnbound">
+        UPDATE agent_turn SET status = #{status}, error_code = #{error}
+        WHERE request_id = #{request} AND execution_id IS NULL AND status = 0
+    </update>
     <update id="saveTerminal">
         UPDATE agent_turn SET answer = #{answer}, status = #{status}, error_code = #{error}
-        WHERE request_id = #{request} AND status &lt; 3
+        WHERE request_id = #{request} AND execution_id = #{execution} AND status &lt; 3
     </update>
     <update id="touch">
         UPDATE agent_conversation SET updated_at = now() WHERE id = #{id}

@@ -40,8 +40,12 @@ public interface AgentConversationMapper {
 
     int attach(@Param("request") UUID requestId, @Param("execution") UUID executionId);
 
-    int saveTerminal(@Param("request") UUID requestId, @Param("answer") String answer,
-            @Param("status") short status, @Param("error") String error);
+    int failUnbound(@Param("request") UUID requestId, @Param("status") short status,
+            @Param("error") String error);
+
+    int saveTerminal(@Param("request") UUID requestId, @Param("execution") UUID executionId,
+            @Param("answer") String answer, @Param("status") short status,
+            @Param("error") String error);
 
     void touch(@Param("id") UUID conversationId);
 

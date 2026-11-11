@@ -9,8 +9,8 @@ from app.api.dependencies import (
 from app.service.preferences import (
     SettingsView,
     UpdatePreferences,
-    read_preferences,
-    settings_view,
+    read_settings,
+    write_settings,
 )
 
 router = APIRouter(prefix="/settings", dependencies=[Depends(require_server)])
@@ -20,14 +20,14 @@ router = APIRouter(prefix="/settings", dependencies=[Depends(require_server)])
 async def get_settings(
     settings: BootstrapSettings, sessions: DatabaseSessions
 ) -> SettingsView:
-    async with sessions() as session:
-        return settings_view(settings, await read_preferences(session))
+    return await read_settings(settings, sessions)
 
 
 @router.put("")
 async def put_settings(
     settings: BootstrapSettings,
     body: UpdatePreferences,
+    sessions: DatabaseSessions,
     executions: ExecutionService,
 ) -> SettingsView:
-    return await executions.update_settings(settings, body)
+    return await write_settings(settings, sessions, body, executions.settings_write())
