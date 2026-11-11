@@ -17,8 +17,8 @@ Agent 专注开发，dev 负责集成，main 负责稳定发布；日常最小�
 - 开始任务检查 Git 状态、当前分支和基线 SHA，保留已有修改、stash 和未合并成果；未知 WIP 不切换、覆盖或清理，正在使用的 Worktree 不删除。
 - dev 缺失时由指定集成负责人从最新 origin/main 初始化并推送；这是首次建立基线，不是允许日常直接向 dev 提交功能。
 - backend/frontend 是长期分支，合并后不删除；每个长期工作分支通常只保留一个待合并 PR。待审核期间修订当前 PR，不把下一项未完成任务混入它。
-- 默认只保留 main、dev、backend、frontend 四个长期分支。确需并行且不能混入未完成代码时，可从自己的长期分支建立短期任务分支，例如 feat/backend/<task>、fix/backend/<task>、refactor/backend/<task>、chore/<task>，前端对应使用 frontend scope。核对 PR 完整变更范围，目标仍为 dev；集成并同步长期分支后删除无用短期分支的本地与远程引用。
-- 不默认建立多级父分支。大型功能确需多 PR 集成时，临时 epic 父分支须先获维护者批准，完成后删除。
+- 默认只保留 main、dev、backend、frontend 四个长期分支。确需并行且不能混入未完成代码时，可从自己的长期分支建立短期任务分支，例如 feat/backend/<task>、fix/backend/<task>、refactor/backend/<task>、chore/<task>，前端对应使用 frontend scope。核对 PR 完整变更范围，最终目标为 dev；集成并同步长期分支后删除无用短期分支的本地与远程引用。
+- 独立任务 PR 指向 dev。存在明确依赖时，可让依赖 PR 先以 Draft 指向前置任务分支，并在正文列出前置 PR 和验证顺序。
 - 工作流迁移先保留现有分支与 WIP；已有 PR 检查范围后可改目标为 dev，尚无 PR 的成果由所属 Agent 安全迁移或以短期分支提交。不得为切换流程 reset、擅自 rebase、丢弃代码或强制推送。
 - 若 backend/frontend 名称被旧的同名前缀分支占用，先核对独有成果与归属；有效工作完成迁移后删除已废弃引用，不把旧分支改名当作长期保留理由，也不清理仍在使用的工作区。
 - 未经授权，不直接向 dev/main 提交或推送功能，不自行合并 PR，不删除或强制改写公共长期分支。
@@ -30,7 +30,27 @@ Agent 专注开发，dev 负责集成，main 负责稳定发布；日常最小�
 3. 精确暂存本任务文件，使用 Conventional Commits，例如 feat(backend-document): support version export、fix(backend-auth): correct session validation、refactor(frontend-toc): simplify scroll tracking。
 4. 提交并正常推送自己的分支，创建指向 dev 的 PR。一个 Commit 有明确职责；不无检查地 git add .，不混入无关格式化、重构、他人 WIP、凭据、本地配置或测试产物。
 5. PR 简述本次功能、修改范围、验证等级及结果、接口/Schema 变化和已知风险。开发 Agent 自查；独立 Review Agent 可补充审查；CI 承担客观门禁；由获授权的维护者审核合并。
-6. 审核修订留在当前分支，复验受影响范围。不得为美化历史反复重写公开提交。未授权自动合并，也不通过保护设置绕过审核。
+6. 创建 PR 后冻结任务范围。审核意见优先在同一分支追加原子 Commit，复验后回复本轮评论。新任务另开分支和 PR。
+
+### 拆分与草稿
+
+- 一个 PR 交付一项可验证的改动。超过约 300 行手写增删或跨多个业务模块时先拆分。生成的锁文件单列规模并保留完整内容。V0 的同类跨模块清理可作为一个任务，说明涉及范围。
+- 一个 Commit 只做一件事，快照能编译且通过适用的测试。Conventional Commits 采用 `feat`、`fix`、`refactor`、`test`、`chore` 或 `docs`，使用准确 scope。
+- 提交 PR 前在本地跑受影响的测试和仓库已有的 lint。V0 用 Diff、内容和格式检查。缺少可用 lint 或检查受阻时如实说明。
+- 需要人工确认视觉或业务流程时，开 Draft PR，标题加 `[WIP]`。每轮修订后回复评论。人工确认通过后，Agent 移除标记、设为 Ready for review，再进入正式审核。
+- 前置 PR 合入 dev 后，依赖分支同步最新 dev。前置使用 squash 时，用普通合并更新依赖分支，按已合入的实现解决重叠。核对只剩本任务差异并复验后，将 Draft 目标转为 dev。前置尚未合入时保持 Draft。
+
+### 审核回合
+
+每轮审查修订都在对应 PR 评论逐项回复。提交编号使用实际 SHA，记录未采纳的理由和本任务内顺手修复的问题。
+
+```text
+【第N轮修改】
+1. ✅ 意见1 → commit abc1234，改动说明
+2. ✅ 意见2 → commit abc1235，改动说明
+3. ❌ 意见3 → 不同意，理由：xxx
+4. 🆕 顺带发现并修复：xxx
+```
 
 ### PR 交付说明（强制）
 
@@ -43,7 +63,7 @@ Agent 专注开发，dev 负责集成，main 负责稳定发布；日常最小�
 
 说明保持聚焦，用于直接审核当前 PR，不另建重复的开发、审计或测试报告。
 
-长期分支之间统一使用 **Merge Commit**：backend → dev、frontend → dev、dev → main 均禁止 Squash and Merge，也不使用 Rebase and Merge。此方式保留祖先关系，使开发分支可直接快进到集成结果，避免反复出现已经合并的代码。
+短期任务 PR 合入 dev 时使用 **Squash and Merge**，在 GitHub 合并时压成一条任务提交。backend → dev、frontend → dev、dev → main 使用 **Merge Commit**，保留长期分支祖先关系。审核期间保留已推送的提交历史。
 
 每次新任务开始前，以及确认本轮 PR 提交已进入 dev 后，对应 Agent 必须在自己的干净工作区执行以下同步。纯同步属于 V0，不触发 Maven、Nuxt 或端到端测试。后端示例：
 
@@ -96,7 +116,7 @@ git push origin backend
 
 本地侧重快速反馈，CI 承担已启用的统一门禁。非关键任务不自行重复耗时检查；尚无 CI 覆盖的必要验证不能声称已由 CI 完成。
 
-前端现有命令为 npm run typecheck、npm test（Vitest）、npm run build；定向单测可用 npm run test -- app/test/<关联文件>.test.ts。后端选择关联 Maven 模块、测试及必要编译，不固定运行全量 verify。它们不是每项任务的必跑清单；当前没有项目 lint 脚本或 Playwright 依赖，不写成已启用门禁。
+按受影响模块的实际配置选择命令。Nuxt 使用 package.json 中的类型、测试和 lint 脚本。Python 使用项目配置中的 Ruff、Pyright 和 pytest。Java 运行关联 Maven 模块测试及必要编译，缺少独立 lint 时按编码规范自检并说明。
 
 以下为后续 CI 配置方案，本轮不新增工作流或测试框架，不能将建议检查称为已启用：
 
