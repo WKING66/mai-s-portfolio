@@ -38,7 +38,9 @@ Agent 专注开发，dev 负责集成，main 负责稳定发布；日常最小�
 - 一个 Commit 只做一件事，快照能编译且通过适用的测试。Conventional Commits 采用 `feat`、`fix`、`refactor`、`test`、`chore` 或 `docs`，使用准确 scope。
 - 提交 PR 前在本地跑受影响的测试和仓库已有的 lint。V0 用 Diff、内容和格式检查。缺少可用 lint 或检查受阻时如实说明。
 - 需要人工确认视觉或业务流程时，开 Draft PR，标题加 `[WIP]`。每轮修订后回复评论。人工确认通过后，Agent 移除标记、设为 Ready for review，再进入正式审核。
-- 前置 PR 合入 dev 后，依赖分支同步最新 dev。前置使用 squash 时，用普通合并更新依赖分支，按已合入的实现解决重叠。核对只剩本任务差异并复验后，将 Draft 目标转为 dev。前置尚未合入时保持 Draft。
+- 每个依赖 PR 的 CI 必须验证它与当前前置分支的集成结果。校验通过后按依赖顺序验收。前置尚未合入时保持 Draft。
+- 前置 PR 以 squash 合入 dev 后，获取最新 dev。以原前置分支的提交为切点，仅将本任务提交 rebase 到 dev。核对差异只含本任务，再把 PR base 改回 dev，并等待该基线上的 CI 重新通过。
+- 更新已推送的依赖分支前核对远程 SHA，使用带预期 SHA 的 `--force-with-lease` 更新该短期分支。只在这个换基线场景重写该任务分支，长期分支始终保留公共历史。
 
 ### 审核回合
 

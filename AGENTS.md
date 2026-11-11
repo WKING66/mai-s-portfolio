@@ -28,7 +28,7 @@
 
 - 每个 PR 只包含一项逻辑改动。超过约 300 行手写变更或跨业务模块时先拆分。创建 PR 后冻结范围，只追加同任务的审核修订。
 - 每个 Commit 只做一件事，使用 Conventional Commits。提交前在本地跑受影响的测试与已有 lint，纯文档和 Git 操作按 V0 验证。
-- 有前置 PR 或需人工确认视觉、业务流程时，开带 `[WIP]` 的 Draft PR。人工确认后由 Agent 移除标记并设为 Ready for review。
+- 有前置 PR 或需人工确认视觉、业务流程时，开带 `[WIP]` 的 Draft PR。依赖 PR 必须基于前置分支跑绿 CI。前置 squash 合入后，将本任务提交 rebase 到最新 dev，把 base 改回 dev 并重跑 CI。人工确认后由 Agent 移除标记并设为 Ready for review。
 - 每轮审核修订后在 PR 评论逐项回复，使用 [审核回合模板](docs/development/git-workflow.md#审核回合)。准备提交或合并时查阅完整 Git 工作流。
 
 ## 前端编码规范
