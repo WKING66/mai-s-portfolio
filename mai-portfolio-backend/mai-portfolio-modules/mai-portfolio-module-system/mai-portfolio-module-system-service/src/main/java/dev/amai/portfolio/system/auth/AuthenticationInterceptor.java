@@ -85,7 +85,7 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         }
         // 4. 写操作采用恒定时间比较核对 CSRF。
         if (!SAFE_METHODS.contains(method)) {
-            String expected = (String) StpUtil.getSession().get(AuthConstants.CSRF_SESSION_KEY);
+            String expected = CsrfToken.current();
             String supplied = request.getHeader(AuthConstants.CSRF_HEADER_NAME);
             if (expected == null
                     || supplied == null

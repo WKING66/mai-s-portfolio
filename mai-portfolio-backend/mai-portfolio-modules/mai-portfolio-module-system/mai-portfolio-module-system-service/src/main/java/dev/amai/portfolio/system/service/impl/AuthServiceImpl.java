@@ -5,6 +5,7 @@ import cn.dev33.satoken.stp.parameter.SaLoginParameter;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.AuthConstants;
+import dev.amai.portfolio.system.auth.CsrfToken;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.convert.AccountConvert;
 import dev.amai.portfolio.system.entity.domain.UserAccountDO;
@@ -57,7 +58,7 @@ public class AuthServiceImpl implements AuthService {
             return new SessionVo(false, null, null, List.of());
         }
         return AccountConvert.MAPPER.to(AccountContext.currentAccount(), true,
-                (String) StpUtil.getSession().get(AuthConstants.CSRF_SESSION_KEY));
+                CsrfToken.current());
     }
 
     @Override
@@ -103,7 +104,7 @@ public class AuthServiceImpl implements AuthService {
         byte[] bytes = new byte[CSRF_BYTES];
         secureRandom.nextBytes(bytes);
         String csrf = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        StpUtil.getSession().set(AuthConstants.CSRF_SESSION_KEY, csrf);
+        StpUtil.getTokenSession().set(AuthConstants.CSRF_SESSION_KEY, csrf);
         return AccountConvert.MAPPER.to(identity, true, csrf);
     }
 

@@ -97,6 +97,22 @@ class AuthServiceSessionTest {
     }
 
     @Test
+    void concurrentLoginKeepsCsrfScopedToEachToken() {
+        var first = service.login(ORIGIN, new LoginRequest("owner", "cipher"));
+        String firstToken = StpUtil.getTokenValue();
+        request(null);
+        var second = service.login(ORIGIN, new LoginRequest("owner", "cipher"));
+        String secondToken = StpUtil.getTokenValue();
+
+        assertThat(secondToken).isNotEqualTo(firstToken);
+        assertThat(second.csrfToken()).isNotEqualTo(first.csrfToken());
+        request(firstToken);
+        assertThat(service.current().csrfToken()).isEqualTo(first.csrfToken());
+        request(secondToken);
+        assertThat(service.current().csrfToken()).isEqualTo(second.csrfToken());
+    }
+
+    @Test
     void normalAccountDoesNotAcquireOwnerRole() {
         account.setType(AccountType.NORMAL.code());
         var login = service.login(ORIGIN, new LoginRequest("owner", "cipher"));
