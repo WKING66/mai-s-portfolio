@@ -99,8 +99,12 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: mai-portfolio-frontend/package.json
-      # 未获批准的依赖构建脚本仍保持禁用。锁文件必须与项目一致。
-      - run: pnpm install --frozen-lockfile --config.strict-dep-builds=false
+      - run: |
+          # 仓库尚未声明依赖构建策略时，明确跳过已知无需运行的安装脚本。
+          if ! test -f pnpm-workspace.yaml; then
+            pnpm config set --location=project --json allowBuilds '{"esbuild":false,"unrs-resolver":false,"vue-demi":false}'
+          fi
+          pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - env:
           BASE_SHA: ${{ needs.changes.outputs.base_sha }}
