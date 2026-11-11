@@ -24,6 +24,7 @@ public enum ApiErrorCode {
     DOCUMENT_REVISION_CONFLICT(HttpStatus.CONFLICT),
     REQUEST_ID_CONFLICT(HttpStatus.CONFLICT),
     RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),
+    AGENT_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE),
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final HttpStatus status;
