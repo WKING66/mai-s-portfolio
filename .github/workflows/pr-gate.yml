@@ -91,23 +91,43 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-        with:
-          package_json_file: mai-portfolio-frontend/package.json
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: pnpm
-          cache-dependency-path: mai-portfolio-frontend/pnpm-lock.yaml
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: mai-portfolio-frontend/package.json
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          mapfile -t files < <(git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- . |
-            sed -nE 's#^mai-portfolio-frontend/(.*\.(ts|js|vue))$#\1#p')
-          if (( ${#files[@]} )); then pnpm exec eslint --max-warnings=0 "${files[@]}"; fi
-          if test -f tests/unit/site/agentChat.test.ts; then pnpm test tests/unit/site/agentChat.test.ts; fi
+          changed="$RUNNER_TEMP/frontend-paths"
+          git diff --name-only --relative -z "$BASE_SHA" HEAD -- . > "$changed"
+          mapfile -d '' -t paths < "$changed"
+          files=()
+          run_unit_suite=false
+          for path in "${paths[@]}"; do
+            case "$path" in
+              *.md|*.rst|*.adoc) ;;
+              nuxt.config.*|vitest.config.*|app/app.config.*|eslint.config.*|package.json|pnpm-lock.yaml|tsconfig*.json)
+                run_unit_suite=true ;;
+              *.ts|*.js|*.vue|*.mjs|*.cjs)
+                if test -f "$path"; then files+=("$path"); else run_unit_suite=true; fi ;;
+              *) run_unit_suite=true ;;
+            esac
+          done
+          if (( ${#files[@]} )); then pnpm exec eslint --max-warnings=0 -- "${files[@]}"; fi
+          if ! "$run_unit_suite" && (( ${#files[@]} )); then
+            report="$RUNNER_TEMP/frontend-related.json"
+            pnpm exec vitest related --run --passWithNoTests --reporter=default --reporter=json \
+              --outputFile "$report" "${files[@]}"
+            if node -e 'process.exit(require(process.argv[1]).numTotalTests > 0 ? 0 : 1)' "$report"; then
+              exit 0
+            fi
+            echo "未找到关联用例，改跑现有前端单元测试。"
+          fi
+          pnpm test tests/unit
   result:
     name: pr-gate
     needs: [changes, java, python, frontend]
