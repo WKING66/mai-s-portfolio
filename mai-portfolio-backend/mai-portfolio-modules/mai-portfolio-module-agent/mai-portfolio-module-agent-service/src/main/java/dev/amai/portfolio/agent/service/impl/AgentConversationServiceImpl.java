@@ -1,6 +1,7 @@
 package dev.amai.portfolio.agent.service.impl;
 
 import dev.amai.portfolio.agent.client.AgentAiClient;
+import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
 import dev.amai.portfolio.agent.mapper.AgentConversationMapper;
 import dev.amai.portfolio.agent.service.AgentConversationService;
@@ -11,7 +12,9 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.client.RestClientException;
@@ -157,6 +160,87 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         return new Receipt(turn.requestId(), turn.executionId(), status(turn.status()));
     }
 
+    public AgentTurn ownedExecution(UUID execution, String owner) {
+        return requireFound(agentConversationMapper.byExecution(execution, owner));
+    }
+
+    public AgentExecutionSnapshot snapshot(AgentTurn turn) {
+        if (turn.status() >= COMPLETED) {
+            return persisted(turn);
+        }
+        try {
+            return reconcile(turn, agentAiClient.get(turn.executionId()));
+        } catch (RestClientException error) {
+            throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, UNAVAILABLE);
+        }
+    }
+
+    public AgentExecutionSnapshot stop(AgentTurn turn) {
+        if (turn.status() >= COMPLETED) {
+            return persisted(turn);
+        }
+        try {
+            return reconcile(turn, agentAiClient.stop(turn.executionId()));
+        } catch (RestClientException error) {
+            throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认停止结果，请读取原执行。");
+        }
+    }
+
+    public void events(AgentTurn turn, BiConsumer<String, String> output) {
+        if (turn.status() >= COMPLETED) {
+            String value = agentAiClient.json(persisted(turn));
+            output.accept("snapshot", value);
+            output.accept("terminal", value);
+            return;
+        }
+        agentAiClient.events(turn.executionId(), (event, data) -> {
+            if ("terminal".equals(event)) {
+                // 先提交网站正式结果。持久化失败时关闭流，浏览器按原执行编号恢复。
+                var saved = reconcile(turn, agentAiClient.snapshot(data));
+                output.accept(event, agentAiClient.json(saved));
+            } else if ("snapshot".equals(event) || "delta".equals(event) || "sources".equals(event)) {
+                output.accept(event, data);
+            }
+        });
+    }
+
+    @Scheduled(fixedDelayString = "10000")
+    void recoverUnfinished() {
+        if (!enabled) {
+            return;
+        }
+        // 页面可能在收到受理事件前关闭。后台按持久编号查回，避免已完成结果依赖浏览器。
+        for (var turn : agentConversationMapper.unfinished(12)) {
+            try {
+                if (turn.executionId() != null) {
+                    recoverBound(turn);
+                    continue;
+                }
+                boolean expired = acceptanceExpired(turn);
+                var found = agentAiClient.byRequest(turn.requestId());
+                if (found != null) {
+                    reconcile(attach(turn, found.executionId()), found);
+                } else if (expired) {
+                    rejectUnbound(turn);
+                }
+            } catch (RestClientException error) {
+                // 依赖暂不可用时保留原状态，下轮用同一编号查证。
+                return;
+            }
+        }
+    }
+
+    private void recoverBound(AgentTurn turn) {
+        var found = agentAiClient.findExecution(turn.executionId());
+        if (found == null) {
+            // 上游明确确认执行不存在，只结束当前一轮，后续记录仍可恢复。
+            found = new AgentExecutionSnapshot(turn.requestId(), turn.executionId(),
+                    "failed", "", List.of(), new AgentExecutionSnapshot.ExecutionError(
+                            "EXECUTION_NOT_FOUND", UNAVAILABLE, turn.requestId()));
+        }
+        reconcile(turn, found);
+    }
+
     private static boolean acceptanceExpired(AgentTurn turn) {
         return !OffsetDateTime.now(ZoneOffset.UTC).isBefore(turn.acceptBefore());
     }
@@ -173,6 +257,34 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             }
             return agentConversationMapper.byRequest(turn.requestId());
         });
+    }
+
+    private AgentExecutionSnapshot reconcile(AgentTurn turn, AgentExecutionSnapshot snapshot) {
+        String code = snapshot.error() == null ? null : snapshot.error().code();
+        // 上游已经清理正文时，网站不能保存一条成功的空答复。
+        short terminal = switch (snapshot.status()) {
+            case "completed" -> EXPIRED_TEXT.equals(code) ? FAILED : COMPLETED;
+            case "failed" -> FAILED;
+            case "interrupted" -> INTERRUPTED;
+            default -> ACCEPTED;
+        };
+        if (terminal < COMPLETED) {
+            return snapshot;
+        }
+        return transactionTemplate.execute(transaction -> {
+            if (agentConversationMapper.saveTerminal(
+                    turn.requestId(), snapshot.executionId(), snapshot.text(), terminal, code) == 1) {
+                agentConversationMapper.touch(turn.conversationId());
+            }
+            return persisted(agentConversationMapper.byRequest(turn.requestId()));
+        });
+    }
+
+    private AgentExecutionSnapshot persisted(AgentTurn turn) {
+        var error = turn.errorCode() == null ? null
+                : new AgentExecutionSnapshot.ExecutionError(turn.errorCode(), UNAVAILABLE, turn.requestId());
+        return new AgentExecutionSnapshot(turn.requestId(), turn.executionId(),
+                status(turn.status()), turn.answer(), List.of(), error);
     }
 
     private static String status(short status) {
