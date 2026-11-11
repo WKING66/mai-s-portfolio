@@ -1,6 +1,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { AgentChatError, createAgentChatApi } from '../api/agentChat'
-import type { ChatSnapshot, SavedTurn } from '../api/agentChat'
+import type { ChatSnapshot, ConversationSummary, SavedTurn } from '../api/agentChat'
 import { useAuthState } from './useAuthState'
 
 const visitorKey = 'portfolio-agent:visitor'
@@ -22,6 +22,8 @@ export function useSiteAssistant() {
   const generating = ref(false)
   const error = ref('')
   const conversationId = ref<string>()
+  const histories = ref<ConversationSummary[]>([])
+  const nextCursor = ref<string | null>(null)
   const loggedIn = computed(() => auth.state.value.loggedIn)
   const key = computed(() =>
     loggedIn.value ? `portfolio-agent:account:${auth.state.value.username}` : visitorKey,
@@ -164,6 +166,19 @@ export function useSiteAssistant() {
     }
   }
 
+  async function loadHistory(more = false) {
+    if (!loggedIn.value) {
+      return
+    }
+    const owner = key.value
+    const page = await api.list(more ? (nextCursor.value ?? undefined) : undefined)
+    if (owner !== key.value) {
+      return
+    }
+    histories.value = more ? [...histories.value, ...page.items] : page.items
+    nextCursor.value = page.nextCursor
+  }
+
   async function send(question: string, quote = '') {
     if (generating.value || turns.value.some((turn) => active(turn.status)) || !question.trim()) {
       return
@@ -225,6 +240,37 @@ export function useSiteAssistant() {
     }
   }
 
+  async function clear() {
+    if (!loggedIn.value || generating.value) {
+      return
+    }
+    const owner = key.value
+    const created = await api.create()
+    if (owner !== key.value) {
+      return
+    }
+    conversationId.value = created.conversationId
+    turns.value = []
+    remember()
+    await loadHistory()
+  }
+
+  async function importAnonymous() {
+    const saved = stored(visitorKey)
+    if (!loggedIn.value || !saved?.importId || !saved.turns?.length) {
+      return
+    }
+    const owner = key.value
+    const result = await api.import(saved.importId, saved.turns)
+    if (owner !== key.value) {
+      return
+    }
+    localStorage.removeItem(visitorKey)
+    hasAnonymousHistory.value = false
+    await open(result.conversationId)
+    await loadHistory()
+  }
+
   async function initialize() {
     try {
       hasAnonymousHistory.value = Boolean(stored(visitorKey)?.turns?.length)
@@ -259,6 +305,8 @@ export function useSiteAssistant() {
     generating.value = false
     conversationId.value = undefined
     turns.value = []
+    histories.value = []
+    nextCursor.value = null
     error.value = ''
     void initialize()
   })
@@ -270,6 +318,8 @@ export function useSiteAssistant() {
     generating,
     error,
     conversationId,
+    histories,
+    nextCursor,
     loggedIn,
     hasAnonymousHistory,
     latest: computed(() => turns.value.at(-1)),
@@ -277,7 +327,10 @@ export function useSiteAssistant() {
     canStop: computed(() => turns.value.some((turn) => active(turn.status) && turn.executionId)),
     send,
     stop,
+    clear,
     resume,
     open,
+    loadHistory,
+    importAnonymous,
   }
 }
