@@ -24,16 +24,8 @@ jobs:
         shell: bash
         run: |
           git diff --check "$BASE_SHA" HEAD
-          git diff --name-only "$BASE_SHA" HEAD > "$RUNNER_TEMP/pr-paths"
-          for entry in java:mai-portfolio-backend python:mai-portfolio-ai-server frontend:mai-portfolio-frontend; do
-            key=${entry%%:*}
-            path=${entry#*:}
-            if grep -q "^$path/" "$RUNNER_TEMP/pr-paths"; then
-              echo "$key=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "$key=false" >> "$GITHUB_OUTPUT"
-            fi
-          done
+          python3 -m unittest discover -s .github/scripts
+          python3 .github/scripts/classify_pr.py "$BASE_SHA" HEAD >> "$GITHUB_OUTPUT"
   java:
     needs: changes
     if: needs.changes.outputs.java == 'true'
