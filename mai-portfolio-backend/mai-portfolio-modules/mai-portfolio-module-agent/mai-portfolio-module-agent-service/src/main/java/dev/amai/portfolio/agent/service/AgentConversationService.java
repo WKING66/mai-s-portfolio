@@ -1,5 +1,6 @@
 package dev.amai.portfolio.agent.service;
 
+import dev.amai.portfolio.agent.entity.AgentTurn;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -17,6 +18,10 @@ public interface AgentConversationService {
     ConversationDetails details(UUID id, String owner);
 
     UUID importConversation(String owner, UUID importId, List<ImportedTurn> turns);
+
+    AgentTurn submit(UUID conversation, String owner, UUID requestId, String question);
+
+    Receipt receipt(AgentTurn turn);
 
     record Receipt(
             UUID requestId,
