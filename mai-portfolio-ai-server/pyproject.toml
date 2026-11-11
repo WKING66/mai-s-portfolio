@@ -1,0 +1,30 @@
+[project]
+name = "mai-portfolio-ai-server"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.15,<2",
+    "cryptography>=44,<50",
+    "fastapi>=0.162.2,<1",
+    "httpx>=0.28,<1",
+    "langchain-core>=1,<2",
+    "langchain-openai>=1,<2",
+    "langgraph>=1.1,<2",
+    "psycopg[binary]>=3.2,<4",
+    "pydantic>=2.11,<3",
+    "pydantic-settings>=2.8,<3",
+    "sqlalchemy[asyncio]>=2,<3",
+    "sqlmodel>=0.0.27,<1",
+    "tzdata; sys_platform == 'win32'",
+    "uvicorn>=0.34,<1",
+]
+
+[dependency-groups]
+dev = ["pyright>=1.1,<2", "pytest>=8,<10", "ruff>=0.11,<1"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+reportUnusedCallResult = "none"
+
+[tool.ruff]
+target-version = "py312"
