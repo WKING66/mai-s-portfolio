@@ -184,6 +184,12 @@ def test_execution_routes_and_settings_revision() -> None:
                 "status": "ready"
             }
             path = "/internal/v1/executions"
+            assert (await client.get(path, params={"requestId": "bad-id"})).json()[
+                "code"
+            ] == "INVALID_INPUT"
+            missing = await client.get(f"{path}/{uuid4()}/events")
+            assert missing.status_code == 404
+            assert missing.headers["content-type"] == "application/json"
             request_id = str(uuid4())
             payload = {
                 "requestId": request_id,
@@ -196,6 +202,8 @@ def test_execution_routes_and_settings_revision() -> None:
             assert set(response.json()) == {"executionId", "status"}
             execution_path = f"{path}/{response.json()['executionId']}"
             response = await client.get(f"{execution_path}/events")
+            assert response.headers["content-type"].startswith("text/event-stream")
+            assert "no-store" in response.headers["cache-control"]
             assert "event: snapshot" in response.text
             assert "event: terminal" in response.text
             assert "MODEL_BUDGET_UNAVAILABLE" in response.text
@@ -239,6 +247,13 @@ def test_execution_routes_and_settings_revision() -> None:
                 headers=management,
             )
             assert invalid.status_code == 422
+            assert invalid.json()["code"] == "INVALID_INPUT"
+            invalid_key = await client.put(
+                settings_path, json={**update, "chatApiKey": " "}, headers=management
+            )
+            assert invalid_key.status_code == 422
+            assert invalid_key.json()["code"] == "INVALID_SETTINGS"
+            assert "chatApiKey" not in invalid_key.text
             without_key = {
                 name: value for name, value in update.items() if name != "chatApiKey"
             }
@@ -268,6 +283,8 @@ def test_execution_routes_and_settings_revision() -> None:
                 headers=management,
             )
             assert forbidden.status_code == 422
+            assert forbidden.json()["code"] == "INVALID_SETTINGS"
+            assert "overwrite" not in forbidden.text
             stale = await client.put(settings_path, json=update, headers=management)
             assert stale.status_code == 409
 

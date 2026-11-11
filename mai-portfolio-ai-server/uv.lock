@@ -525,7 +525,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.15,<2" },
     { name = "cryptography", specifier = ">=44,<50" },
-    { name = "fastapi", specifier = ">=0.115,<1" },
+    { name = "fastapi", specifier = ">=0.162.2,<1" },
     { name = "httpx", specifier = ">=0.28,<1" },
     { name = "langchain-core", specifier = ">=1,<2" },
     { name = "langchain-openai", specifier = ">=1,<2" },

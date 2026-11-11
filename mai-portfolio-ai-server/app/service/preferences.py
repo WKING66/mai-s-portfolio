@@ -1,4 +1,5 @@
-from pydantic import SecretStr
+from pydantic import SecretStr, field_validator
+from pydantic_core import PydanticCustomError
 from sqlalchemy import BigInteger, CheckConstraint, Text, true, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, col
@@ -42,6 +43,24 @@ class UpdatePreferences(PersonaFields):
     runtime: dict[str, RuntimeValue] | None = None
     chat_api_key: SecretStr | None = None
     embedding_api_key: SecretStr | None = None
+
+    @field_validator("runtime")
+    @classmethod
+    def validate_runtime(
+        cls, value: dict[str, RuntimeValue] | None
+    ) -> dict[str, RuntimeValue] | None:
+        if value is not None and value.keys() - EDITABLE_SETTINGS:
+            raise PydanticCustomError("unknown_runtime_setting", "包含不可编辑的配置项。")
+        return value
+
+    @field_validator("chat_api_key", "embedding_api_key")
+    @classmethod
+    def validate_provider_key(cls, value: SecretStr | None) -> SecretStr | None:
+        if value is not None and not 1 <= len(value.get_secret_value().strip()) <= 2048:
+            raise PydanticCustomError(
+                "invalid_provider_key", "供应商密钥长度必须在 1 到 2048 之间。"
+            )
+        return value
 
 
 class SettingsView(PreferenceFields):
@@ -112,8 +131,6 @@ async def save_settings(
     has_active_executions: bool,
 ) -> SettingsView:
     supplied = body.runtime or {}
-    if supplied.keys() - EDITABLE_SETTINGS:
-        raise ExecutionRejected(422, "INVALID_SETTINGS", "Unknown runtime setting.")
     runtime: dict[str, RuntimeValue] = current.runtime | supplied
     try:
         previous = effective_settings(settings, current.runtime)
@@ -141,8 +158,6 @@ async def save_settings(
         for field in ("chat_api_key", "embedding_api_key"):
             key = getattr(body, field)
             if key is not None:
-                if not 1 <= len(key.get_secret_value().strip()) <= 2048:
-                    raise ValueError("Invalid provider key length.")
                 runtime[field] = encrypt_provider_key(settings, key)
         if endpoint_changed:
             # 换址时旧定价不再可信，先归零预算，待站长复核后单独保存新预算。

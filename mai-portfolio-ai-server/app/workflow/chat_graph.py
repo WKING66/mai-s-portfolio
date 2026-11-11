@@ -53,9 +53,9 @@ class ChatGraph:
         # 1. 系统消息固定资料边界。历史只能解释追问，不能充当站长事实证据。
         messages: list[BaseMessage] = [
             SystemMessage(
-                "You are the site's AI guide. Use history only to interpret follow-up questions. "
-                "Do not present unverified claims as facts about the site owner. "
-                "Say when you lack evidence. Style: " + state["persona"]
+                "你是本站的 AI 导览助手。对话历史仅用于理解访客的追问。"
+                "不得将未经核实的内容当作站长的事实陈述。"
+                "如果缺少依据，请明确说明。\n回答风格：" + state["persona"]
             )
         ]
         for entry in state["history"]:

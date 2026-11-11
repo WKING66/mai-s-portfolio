@@ -14,9 +14,16 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.config import Settings
 from app.contracts.wire import ExecutionRejected, WireModel
 from app.service.billing import BillingRejected
-from app.service.preferences import ChatPreferences, read_preferences
+from app.service.preferences import (
+    ChatPreferences,
+    SettingsView,
+    UpdatePreferences,
+    read_preferences,
+    save_settings,
+)
 from app.storage.database import Sessions
 from app.workflow.chat_graph import ChatGraph, HistoryEntry
 
@@ -149,6 +156,17 @@ class Executions:
         if not self.worker_available:
             raise ExecutionRejected(
                 503, "WORKER_UNAVAILABLE", "Chat worker is unavailable."
+            )
+
+    async def update_settings(
+        self, settings: Settings, body: UpdatePreferences
+    ) -> SettingsView:
+        self.require_worker()
+        # 保存与受理共用锁，避免预算变更时旧配置又接受新的执行。
+        async with self.submissions, self.sessions.begin() as session:
+            current = await read_preferences(session)
+            return await save_settings(
+                settings, session, body, current, bool(self.tasks)
             )
 
     async def submit(self, request: SubmitExecution) -> Snapshot:
@@ -370,12 +388,13 @@ class Executions:
             except SQLAlchemyError:
                 logger.error("could not persist execution failure id=%s", execution_id)
 
-    async def events(self, initial: Snapshot) -> AsyncIterator[str]:
-        yield f"event: snapshot\ndata: {initial.model_dump_json()}\n\n"
+    async def events(
+        self, initial: Snapshot
+    ) -> AsyncIterator[tuple[Literal["snapshot", "delta", "terminal"], Snapshot | Delta]]:
+        yield "snapshot", initial
         # 重连用持久快照对齐正文，之后只发送新增长度，不调度模型。
         previous = initial.text
         snapshot = initial
-        idle_polls = 0
         while snapshot.status in ACTIVE:
             await asyncio.sleep(0.25)
             snapshot = await self.get(initial.execution_id)
@@ -385,12 +404,6 @@ class Executions:
                     offset=len(previous.encode("utf-16-le")) // 2,
                     text=snapshot.text[len(previous) :],
                 )
-                yield f"event: delta\ndata: {delta.model_dump_json()}\n\n"
+                yield "delta", delta
                 previous = snapshot.text
-                idle_polls = 0
-            idle_polls += 1
-            # 长时间无新正文时发送心跳，避免代理提前关闭订阅。
-            if idle_polls >= 40:
-                yield ": keep-alive\n\n"
-                idle_polls = 0
-        yield f"event: terminal\ndata: {snapshot.model_dump_json()}\n\n"
+        yield "terminal", snapshot

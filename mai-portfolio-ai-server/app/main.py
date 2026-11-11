@@ -15,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.routes import register_routes
+from app.api.errors import EXCEPTION_HANDLERS
+from app.api.routes import router
 from app.config import (
     Settings,
     effective_settings,
@@ -23,9 +24,7 @@ from app.config import (
 from app.provider.model_gateway import ModelGateway
 from app.provider.provider_http import provider_http_client
 from app.service.billing import Billing, Price
-from app.service.execution import (
-    Executions,
-)
+from app.service.execution import Executions
 from app.storage.database import Sessions, create_database
 from app.workflow.chat_graph import ChatGraph
 
@@ -158,9 +157,15 @@ def create_app(settings: Settings) -> FastAPI:
             finally:
                 await engine.dispose()
 
-    app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-
-    register_routes(app, settings)
+    app = FastAPI(
+        lifespan=lifespan,
+        exception_handlers=EXCEPTION_HANDLERS,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
+    app.state.settings = settings
+    app.include_router(router)
     return app
 
 
