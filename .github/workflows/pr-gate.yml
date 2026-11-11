@@ -11,6 +11,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
+      base_sha: ${{ steps.diff.outputs.base_sha }}
       java: ${{ steps.diff.outputs.java }}
       python: ${{ steps.diff.outputs.python }}
       frontend: ${{ steps.diff.outputs.frontend }}
@@ -19,13 +20,14 @@ jobs:
         with:
           fetch-depth: 0
       - id: diff
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
         shell: bash
         run: |
-          git diff --check "$BASE_SHA" HEAD
+          # PR 的合并候选可能已经使用更新的目标分支，第一父提交才是实际基线。
+          base_sha=$(git rev-parse HEAD^1)
+          echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
+          git diff --check "$base_sha" HEAD
           python3 -m unittest discover -s .github/scripts
-          python3 .github/scripts/classify_pr.py "$BASE_SHA" HEAD >> "$GITHUB_OUTPUT"
+          python3 .github/scripts/classify_pr.py "$base_sha" HEAD >> "$GITHUB_OUTPUT"
   java:
     needs: changes
     if: needs.changes.outputs.java == 'true'
@@ -97,10 +99,15 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           package_json_file: mai-portfolio-frontend/package.json
-      - run: pnpm install --frozen-lockfile
+      - run: |
+          # 仓库尚未声明依赖构建策略时，明确跳过已知无需运行的安装脚本。
+          if ! test -f pnpm-workspace.yaml; then
+            pnpm config set --location=project --json allowBuilds '{"esbuild":false,"unrs-resolver":false,"vue-demi":false}'
+          fi
+          pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          BASE_SHA: ${{ needs.changes.outputs.base_sha }}
         run: |
           changed="$RUNNER_TEMP/frontend-paths"
           git diff --name-only --relative -z "$BASE_SHA" HEAD -- . > "$changed"
