@@ -24,6 +24,7 @@ dev = ["pyright>=1.1,<2", "pytest>=8,<10", "ruff>=0.11,<1"]
 
 [tool.pyright]
 pythonVersion = "3.12"
+reportUnusedCallResult = "none"
 
 [tool.ruff]
 target-version = "py312"
