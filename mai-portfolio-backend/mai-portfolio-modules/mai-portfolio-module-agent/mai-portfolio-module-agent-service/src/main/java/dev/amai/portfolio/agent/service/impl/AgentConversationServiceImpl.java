@@ -1,17 +1,38 @@
 package dev.amai.portfolio.agent.service.impl;
 
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.ACCEPTANCE_EXPIRED;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.ACCEPTANCE_WINDOW_SECONDS;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.CONVERSATION_PAGE_SIZE;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.CONVERSATION_TURN_LIMIT;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EVENT_DELTA;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EVENT_SNAPSHOT;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EVENT_SOURCES;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EVENT_TERMINAL;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EXECUTION_NOT_FOUND;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EXECUTION_TEXT_EXPIRED;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.HISTORY_TURN_LIMIT;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.MESSAGE_LENGTH_LIMIT;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.RECOVERY_BATCH_SIZE;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.RECOVERY_DELAY_MILLIS;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.ROLE_ASSISTANT;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.ROLE_USER;
+
+import cn.hutool.core.util.IdUtil;
 import dev.amai.portfolio.agent.client.AgentAiClient;
+import dev.amai.portfolio.agent.entity.AgentConversation;
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
+import dev.amai.portfolio.agent.enums.AgentTurnState;
 import dev.amai.portfolio.agent.mapper.AgentConversationMapper;
+import dev.amai.portfolio.agent.mapper.AgentTurnMapper;
 import dev.amai.portfolio.agent.service.AgentConversationService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.BiConsumer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,15 +42,11 @@ import org.springframework.web.client.RestClientException;
 
 @Service
 public class AgentConversationServiceImpl implements AgentConversationService {
-    private static final short PENDING = 0;
-    private static final short ACCEPTED = 1;
-    private static final short COMPLETED = 3;
-    private static final short FAILED = 4;
-    private static final short INTERRUPTED = 5;
-    private static final String EXPIRED_TEXT = "EXECUTION_TEXT_EXPIRED";
     private static final String UNAVAILABLE = "模型服务暂不可用。";
 
     private final AgentConversationMapper agentConversationMapper;
+
+    private final AgentTurnMapper agentTurnMapper;
 
     private final AgentAiClient agentAiClient;
 
@@ -38,9 +55,10 @@ public class AgentConversationServiceImpl implements AgentConversationService {
     private final boolean enabled;
 
     public AgentConversationServiceImpl(AgentConversationMapper agentConversationMapper,
-            AgentAiClient agentAiClient, TransactionTemplate transactionTemplate,
+            AgentTurnMapper agentTurnMapper, AgentAiClient agentAiClient, TransactionTemplate transactionTemplate,
             @Value("${site-guide.enabled:false}") boolean enabled) {
         this.agentConversationMapper = agentConversationMapper;
+        this.agentTurnMapper = agentTurnMapper;
         this.agentAiClient = agentAiClient;
         this.transactionTemplate = transactionTemplate;
         this.enabled = enabled;
@@ -50,77 +68,94 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         return enabled;
     }
 
-    public UUID create(String owner, boolean anonymous) {
-        UUID inserted = agentConversationMapper.insertConversation(UUID.randomUUID(), owner, anonymous, null);
-        // 匿名身份在并发初始化时共享数据库唯一键；回包丢失也会查到原会话。
-        if (inserted == null && anonymous) {
-            return agentConversationMapper.findAnonymous(owner);
+    public String create(String owner, boolean anonymous) {
+        String id = IdUtil.randomUUID();
+        // 登录用户可以创建多个会话，普通插入失败应直接返回错误。
+        if (!anonymous) {
+            var conversation = new AgentConversation();
+            conversation.setId(id);
+            conversation.setOwnerKey(owner);
+            agentConversationMapper.insert(conversation);
+            return id;
         }
-        return inserted;
+        // 同一匿名访客只允许一个会话。并发初始化或回包丢失时复用数据库已有的会话。
+        String inserted = agentConversationMapper.insertConversation(id, owner, true, null);
+        return inserted == null ? agentConversationMapper.findAnonymous(owner) : inserted;
     }
 
-    public ConversationPage list(String owner, UUID cursor) {
-        var rows = agentConversationMapper.list(owner, cursor, 21);
+    public ConversationPage list(String owner, String cursor) {
+        var rows = agentConversationMapper.list(owner, cursor, CONVERSATION_PAGE_SIZE + 1);
         var items = rows.stream()
-                .limit(20)
-                .map(row -> new ConversationSummary(row.id(), row.updatedAt()))
+                .limit(CONVERSATION_PAGE_SIZE)
+                .map(row -> new ConversationSummary(row.getId(), row.getUpdatedAt()))
                 .toList();
-        UUID nextCursor = rows.size() > 20 ? items.getLast().conversationId() : null;
+        String nextCursor = rows.size() > CONVERSATION_PAGE_SIZE ? items.getLast().conversationId() : null;
         return new ConversationPage(items, nextCursor);
     }
 
-    public ConversationDetails details(UUID id, String owner) {
-        requireFound(agentConversationMapper.findConversation(id, owner));
-        var rows = agentConversationMapper.turns(id, 100);
+    public ConversationDetails details(String id, String owner) {
+        // 会话详情只对当前所有者开放，未知编号与他人会话统一返回不存在。
+        if (!agentConversationMapper.existsOwned(id, owner)) {
+            throw new ApiException(ApiErrorCode.NOT_FOUND, "会话或执行不存在。");
+        }
+        var rows = agentTurnMapper.turns(id, CONVERSATION_TURN_LIMIT);
         var turns = rows.reversed().stream()
-                .map(turn -> new TurnView(turn.requestId(), turn.executionId(), turn.question(), turn.answer(),
-                        status(turn.status())))
+                .map(turn -> new TurnView(turn.getRequestId(), turn.getExecutionId(), turn.getQuestion(), turn.getAnswer(),
+                        turn.getStatus().getApiValue()))
                 .toList();
         return new ConversationDetails(id, turns);
     }
 
-    public UUID importConversation(String owner, UUID importId, List<ImportedTurn> turns) {
+    public String importConversation(String owner, String importId, List<ImportedTurn> turns) {
         return transactionTemplate.execute(transaction -> {
-            UUID id = agentConversationMapper.insertConversation(UUID.randomUUID(), owner, false, importId);
+            String id = agentConversationMapper.insertConversation(IdUtil.randomUUID(), owner, false, importId);
             if (id == null) {
                 return agentConversationMapper.findImport(owner, importId);
             }
             OffsetDateTime timestamp = OffsetDateTime.now(ZoneOffset.UTC);
-            for (var turn : turns) {
-                agentConversationMapper.insertTurn(UUID.randomUUID(), id,
-                        turn.question(), turn.answer(), COMPLETED, timestamp);
-            }
+            var imported = turns.stream()
+                    .map(turn -> new AgentTurn(IdUtil.randomUUID(), id, null,
+                            turn.question(), turn.answer(), AgentTurnState.COMPLETED, null, timestamp))
+                    .toList();
+            agentTurnMapper.insert(imported);
             return id;
         });
     }
 
-    public AgentTurn submit(UUID conversation, String owner, UUID requestId, String question) {
+    public AgentTurn submit(String conversation, String owner, String requestId, String question) {
         if (!enabled) {
             throw new ApiException(ApiErrorCode.FORBIDDEN, "网站 AI 功能未开启。");
         }
         // 1. 先写网站请求与固定截止时间。事务结束后才请求 Python，网络等待期间不持有会话锁。
         StoredSubmission submission = transactionTemplate.execute(transaction -> {
             requireFound(agentConversationMapper.lockConversation(conversation, owner));
-            var existing = agentConversationMapper.byRequest(requestId);
+            var existing = agentTurnMapper.selectById(requestId);
+            // 回包丢失时用原请求号、原会话和原问题恢复。换问题必须用新编号，否则会串到旧答复。
             if (existing != null) {
                 return new StoredSubmission(matching(existing, conversation, question), false);
             }
-            if (agentConversationMapper.active(conversation)) {
+            // 每个会话同时只生成一轮。新问题等当前轮结束再发送，避免两轮使用同一份历史。
+            if (agentTurnMapper.active(conversation)) {
                 throw new ApiException(ApiErrorCode.DATA_CONFLICT, "当前会话已有一轮正在生成。");
             }
-            int inserted = agentConversationMapper.insertTurn(requestId, conversation, question, "", PENDING,
-                    OffsetDateTime.now(ZoneOffset.UTC).plusSeconds(45));
+            var pending = new AgentTurn(requestId, conversation, null, question, "",
+                    AgentTurnState.PENDING, null,
+                    OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS)
+                            .plusSeconds(ACCEPTANCE_WINDOW_SECONDS));
+            // 不同会话仍可能并发提交同一编号。发生冲突时读取胜出的行，按同一输入规则处理。
+            int inserted = agentTurnMapper.insertPending(pending);
             if (inserted == 1) {
                 agentConversationMapper.touch(conversation);
+                return new StoredSubmission(pending, true);
             }
-            var stored = agentConversationMapper.byRequest(requestId);
-            return new StoredSubmission(matching(stored, conversation, question), inserted == 1);
+            var stored = agentTurnMapper.selectById(requestId);
+            return new StoredSubmission(matching(stored, conversation, question), false);
         });
         AgentTurn turn = submission.turn();
-        if (turn.executionId() != null) {
+        if (turn.getExecutionId() != null) {
             return turn;
         }
-        if (turn.status() >= COMPLETED) {
+        if (turn.getStatus().isTerminal()) {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, "这次发送未受理，请重新发送。");
         }
         // 2. 先按编号查回已受理执行。只在原截止时间内，以同一输入尝试首次受理。
@@ -134,21 +169,21 @@ public class AgentConversationServiceImpl implements AgentConversationService {
                 }
                 if (expired) {
                     var current = rejectUnbound(turn);
-                    if (current.executionId() != null) {
+                    if (current.getExecutionId() != null) {
                         return current;
                     }
                     throw new ApiException(ApiErrorCode.DATA_CONFLICT, "发送已超时，请重新发送。");
                 }
             }
             var history = new ArrayList<AgentAiClient.History>();
-            for (var item : agentConversationMapper.recentCompleted(conversation).reversed()) {
-                history.add(new AgentAiClient.History("user", item.question()));
-                if (!item.answer().isBlank()) {
-                    history.add(new AgentAiClient.History("assistant", boundedHistory(item.answer())));
+            for (var item : agentTurnMapper.recentCompleted(conversation, HISTORY_TURN_LIMIT).reversed()) {
+                history.add(new AgentAiClient.History(ROLE_USER, item.getQuestion()));
+                if (!item.getAnswer().isBlank()) {
+                    history.add(new AgentAiClient.History(ROLE_ASSISTANT, boundedHistory(item.getAnswer())));
                 }
             }
             var accepted = agentAiClient.submit(new AgentAiClient.Submission(
-                    requestId, question, history, turn.acceptBefore()));
+                    requestId, question, history, turn.getAcceptBefore()));
             return attach(turn, accepted.executionId());
         } catch (RestClientException error) {
             // 上游拒绝也可能和同编号的受理并发，保留原编号供继续查询。
@@ -157,67 +192,67 @@ public class AgentConversationServiceImpl implements AgentConversationService {
     }
 
     public Receipt receipt(AgentTurn turn) {
-        return new Receipt(turn.requestId(), turn.executionId(), status(turn.status()));
+        return new Receipt(turn.getRequestId(), turn.getExecutionId(), turn.getStatus().getApiValue());
     }
 
-    public AgentTurn ownedExecution(UUID execution, String owner) {
-        return requireFound(agentConversationMapper.byExecution(execution, owner));
+    public AgentTurn ownedExecution(String execution, String owner) {
+        return requireFound(agentTurnMapper.byExecution(execution, owner));
     }
 
     public AgentExecutionSnapshot snapshot(AgentTurn turn) {
-        if (turn.status() >= COMPLETED) {
+        if (turn.getStatus().isTerminal()) {
             return persisted(turn);
         }
         try {
-            return reconcile(turn, agentAiClient.get(turn.executionId()));
+            return reconcile(turn, agentAiClient.get(turn.getExecutionId()));
         } catch (RestClientException error) {
             throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, UNAVAILABLE);
         }
     }
 
     public AgentExecutionSnapshot stop(AgentTurn turn) {
-        if (turn.status() >= COMPLETED) {
+        if (turn.getStatus().isTerminal()) {
             return persisted(turn);
         }
         try {
-            return reconcile(turn, agentAiClient.stop(turn.executionId()));
+            return reconcile(turn, agentAiClient.stop(turn.getExecutionId()));
         } catch (RestClientException error) {
             throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认停止结果，请读取原执行。");
         }
     }
 
     public void events(AgentTurn turn, BiConsumer<String, String> output) {
-        if (turn.status() >= COMPLETED) {
+        if (turn.getStatus().isTerminal()) {
             String value = agentAiClient.json(persisted(turn));
-            output.accept("snapshot", value);
-            output.accept("terminal", value);
+            output.accept(EVENT_SNAPSHOT, value);
+            output.accept(EVENT_TERMINAL, value);
             return;
         }
-        agentAiClient.events(turn.executionId(), (event, data) -> {
-            if ("terminal".equals(event)) {
+        agentAiClient.events(turn.getExecutionId(), (event, data) -> {
+            if (EVENT_TERMINAL.equals(event)) {
                 // 先提交网站正式结果。持久化失败时关闭流，浏览器按原执行编号恢复。
                 var saved = reconcile(turn, agentAiClient.snapshot(data));
                 output.accept(event, agentAiClient.json(saved));
-            } else if ("snapshot".equals(event) || "delta".equals(event) || "sources".equals(event)) {
+            } else if (EVENT_SNAPSHOT.equals(event) || EVENT_DELTA.equals(event) || EVENT_SOURCES.equals(event)) {
                 output.accept(event, data);
             }
         });
     }
 
-    @Scheduled(fixedDelayString = "10000")
+    @Scheduled(fixedDelay = RECOVERY_DELAY_MILLIS)
     void recoverUnfinished() {
         if (!enabled) {
             return;
         }
         // 页面可能在收到受理事件前关闭。后台按持久编号查回，避免已完成结果依赖浏览器。
-        for (var turn : agentConversationMapper.unfinished(12)) {
+        for (var turn : agentTurnMapper.unfinished(RECOVERY_BATCH_SIZE)) {
             try {
-                if (turn.executionId() != null) {
+                if (turn.getExecutionId() != null) {
                     recoverBound(turn);
                     continue;
                 }
                 boolean expired = acceptanceExpired(turn);
-                var found = agentAiClient.byRequest(turn.requestId());
+                var found = agentAiClient.byRequest(turn.getRequestId());
                 if (found != null) {
                     reconcile(attach(turn, found.executionId()), found);
                 } else if (expired) {
@@ -231,74 +266,64 @@ public class AgentConversationServiceImpl implements AgentConversationService {
     }
 
     private void recoverBound(AgentTurn turn) {
-        var found = agentAiClient.findExecution(turn.executionId());
+        var found = agentAiClient.findExecution(turn.getExecutionId());
         if (found == null) {
             // 上游明确确认执行不存在，只结束当前一轮，后续记录仍可恢复。
-            found = new AgentExecutionSnapshot(turn.requestId(), turn.executionId(),
-                    "failed", "", List.of(), new AgentExecutionSnapshot.ExecutionError(
-                            "EXECUTION_NOT_FOUND", UNAVAILABLE, turn.requestId()));
+            found = new AgentExecutionSnapshot(turn.getRequestId(), turn.getExecutionId(),
+                    AgentTurnState.FAILED.getApiValue(), "", List.of(), new AgentExecutionSnapshot.ExecutionError(
+                            EXECUTION_NOT_FOUND, UNAVAILABLE, turn.getRequestId()));
         }
         reconcile(turn, found);
     }
 
     private static boolean acceptanceExpired(AgentTurn turn) {
-        return !OffsetDateTime.now(ZoneOffset.UTC).isBefore(turn.acceptBefore());
+        return !OffsetDateTime.now(ZoneOffset.UTC).isBefore(turn.getAcceptBefore());
     }
 
-    private AgentTurn attach(AgentTurn turn, UUID execution) {
-        agentConversationMapper.attach(turn.requestId(), execution);
-        return agentConversationMapper.byRequest(turn.requestId());
+    private AgentTurn attach(AgentTurn turn, String execution) {
+        agentTurnMapper.attach(turn.getRequestId(), execution);
+        return agentTurnMapper.selectById(turn.getRequestId());
     }
 
     private AgentTurn rejectUnbound(AgentTurn turn) {
         return transactionTemplate.execute(transaction -> {
-            if (agentConversationMapper.failUnbound(turn.requestId(), FAILED, "ACCEPTANCE_EXPIRED") == 1) {
-                agentConversationMapper.touch(turn.conversationId());
+            if (agentTurnMapper.failUnbound(turn.getRequestId(), ACCEPTANCE_EXPIRED) == 1) {
+                agentConversationMapper.touch(turn.getConversationId());
             }
-            return agentConversationMapper.byRequest(turn.requestId());
+            return agentTurnMapper.selectById(turn.getRequestId());
         });
     }
 
     private AgentExecutionSnapshot reconcile(AgentTurn turn, AgentExecutionSnapshot snapshot) {
         String code = snapshot.error() == null ? null : snapshot.error().code();
         // 上游已经清理正文时，网站不能保存一条成功的空答复。
-        short terminal = switch (snapshot.status()) {
-            case "completed" -> EXPIRED_TEXT.equals(code) ? FAILED : COMPLETED;
-            case "failed" -> FAILED;
-            case "interrupted" -> INTERRUPTED;
-            default -> ACCEPTED;
+        AgentTurnState terminal = switch (snapshot.status()) {
+            case "completed" -> EXECUTION_TEXT_EXPIRED.equals(code) ? AgentTurnState.FAILED : AgentTurnState.COMPLETED;
+            case "failed" -> AgentTurnState.FAILED;
+            case "interrupted" -> AgentTurnState.INTERRUPTED;
+            default -> null;
         };
-        if (terminal < COMPLETED) {
+        if (terminal == null) {
             return snapshot;
         }
         return transactionTemplate.execute(transaction -> {
-            if (agentConversationMapper.saveTerminal(
-                    turn.requestId(), snapshot.executionId(), snapshot.text(), terminal, code) == 1) {
-                agentConversationMapper.touch(turn.conversationId());
+            if (agentTurnMapper.saveTerminal(
+                    turn.getRequestId(), snapshot.executionId(), snapshot.text(), terminal, code) == 1) {
+                agentConversationMapper.touch(turn.getConversationId());
             }
-            return persisted(agentConversationMapper.byRequest(turn.requestId()));
+            return persisted(agentTurnMapper.selectById(turn.getRequestId()));
         });
     }
 
     private AgentExecutionSnapshot persisted(AgentTurn turn) {
-        var error = turn.errorCode() == null ? null
-                : new AgentExecutionSnapshot.ExecutionError(turn.errorCode(), UNAVAILABLE, turn.requestId());
-        return new AgentExecutionSnapshot(turn.requestId(), turn.executionId(),
-                status(turn.status()), turn.answer(), List.of(), error);
+        var error = turn.getErrorCode() == null ? null
+                : new AgentExecutionSnapshot.ExecutionError(turn.getErrorCode(), UNAVAILABLE, turn.getRequestId());
+        return new AgentExecutionSnapshot(turn.getRequestId(), turn.getExecutionId(),
+                turn.getStatus().getApiValue(), turn.getAnswer(), List.of(), error);
     }
 
-    private static String status(short status) {
-        return switch (status) {
-            case COMPLETED -> "completed";
-            case FAILED -> "failed";
-            case INTERRUPTED -> "interrupted";
-            case ACCEPTED -> "accepted";
-            default -> "pending";
-        };
-    }
-
-    private static AgentTurn matching(AgentTurn turn, UUID conversation, String question) {
-        if (turn == null || !turn.conversationId().equals(conversation) || !turn.question().equals(question)) {
+    private static AgentTurn matching(AgentTurn turn, String conversation, String question) {
+        if (turn == null || !turn.getConversationId().equals(conversation) || !turn.getQuestion().equals(question)) {
             throw new ApiException(ApiErrorCode.REQUEST_ID_CONFLICT, "请求编号已被使用。");
         }
         return turn;
@@ -317,10 +342,11 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             boolean firstAttempt) {}
 
     private static String boundedHistory(String text) {
-        if (text.length() <= 4000) {
+        if (text.length() <= MESSAGE_LENGTH_LIMIT) {
             return text;
         }
-        int end = Character.isHighSurrogate(text.charAt(3999)) ? 3999 : 4000;
+        int lastIndex = MESSAGE_LENGTH_LIMIT - 1;
+        int end = Character.isHighSurrogate(text.charAt(lastIndex)) ? lastIndex : MESSAGE_LENGTH_LIMIT;
         return text.substring(0, end);
     }
 }

@@ -1,5 +1,7 @@
 package dev.amai.portfolio.agent.service;
 
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.MESSAGE_LENGTH_LIMIT;
+
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
 import jakarta.validation.constraints.NotBlank;
@@ -7,25 +9,24 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.UUID;
 import java.util.function.BiConsumer;
 
 public interface AgentConversationService {
     boolean enabled();
 
-    UUID create(String owner, boolean anonymous);
+    String create(String owner, boolean anonymous);
 
-    ConversationPage list(String owner, UUID cursor);
+    ConversationPage list(String owner, String cursor);
 
-    ConversationDetails details(UUID id, String owner);
+    ConversationDetails details(String id, String owner);
 
-    UUID importConversation(String owner, UUID importId, List<ImportedTurn> turns);
+    String importConversation(String owner, String importId, List<ImportedTurn> turns);
 
-    AgentTurn submit(UUID conversation, String owner, UUID requestId, String question);
+    AgentTurn submit(String conversation, String owner, String requestId, String question);
 
     Receipt receipt(AgentTurn turn);
 
-    AgentTurn ownedExecution(UUID execution, String owner);
+    AgentTurn ownedExecution(String execution, String owner);
 
     AgentExecutionSnapshot snapshot(AgentTurn turn);
 
@@ -34,31 +35,31 @@ public interface AgentConversationService {
     void events(AgentTurn turn, BiConsumer<String, String> output);
 
     record Receipt(
-            UUID requestId,
+            String requestId,
 
-            UUID executionId,
+            String executionId,
 
             String status) {}
 
     record ConversationSummary(
-            UUID conversationId,
+            String conversationId,
 
             OffsetDateTime updatedAt) {}
 
     record ConversationPage(
             List<ConversationSummary> items,
 
-            UUID nextCursor) {}
+            String nextCursor) {}
 
     record ConversationDetails(
-            UUID conversationId,
+            String conversationId,
 
             List<TurnView> turns) {}
 
     record TurnView(
-            UUID requestId,
+            String requestId,
 
-            UUID executionId,
+            String executionId,
 
             String question,
 
@@ -68,10 +69,10 @@ public interface AgentConversationService {
 
     record ImportedTurn(
             @NotBlank
-            @Size(max = 4000)
+            @Size(max = MESSAGE_LENGTH_LIMIT)
             String question,
 
             @NotNull
-            @Size(max = 4000)
+            @Size(max = MESSAGE_LENGTH_LIMIT)
             String answer) {}
 }

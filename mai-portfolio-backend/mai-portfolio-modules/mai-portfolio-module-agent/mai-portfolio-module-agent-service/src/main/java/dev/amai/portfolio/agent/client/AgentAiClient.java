@@ -1,5 +1,9 @@
 package dev.amai.portfolio.agent.client;
 
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EXECUTION_NOT_FOUND;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.SSE_DATA_PREFIX;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.SSE_EVENT_PREFIX;
+
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -9,20 +13,23 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.function.BiConsumer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import tools.jackson.databind.json.JsonMapper;
 
 @Component
 public class AgentAiClient {
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration EXECUTION_READ_TIMEOUT = Duration.ofSeconds(60);
+    private static final Duration SETTINGS_READ_TIMEOUT = Duration.ofSeconds(5);
+
     private static final String PATH = "/internal/v1/executions";
     private static final String SETTINGS_PATH = "/internal/v1/settings";
     private static final ParameterizedTypeReference<Map<String, Object>> SETTINGS_TYPE =
@@ -36,9 +43,9 @@ public class AgentAiClient {
 
     public AgentAiClient(@Value("${site-guide.ai-base-url}") String baseUrl,
             @Value("${site-guide.ai-server-token:}") String token, JsonMapper jsonMapper) {
-        var http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build();
-        this.client = createClient(baseUrl, token, http, Duration.ofSeconds(60));
-        this.settingsClient = createClient(baseUrl, token, http, Duration.ofSeconds(5));
+        var http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
+        this.client = createClient(baseUrl, token, http, EXECUTION_READ_TIMEOUT);
+        this.settingsClient = createClient(baseUrl, token, http, SETTINGS_READ_TIMEOUT);
         this.configured = !token.isBlank();
         this.jsonMapper = jsonMapper;
     }
@@ -76,15 +83,15 @@ public class AgentAiClient {
                 .retrieve().body(Accepted.class);
     }
 
-    public AgentExecutionSnapshot byRequest(UUID requestId) {
+    public AgentExecutionSnapshot byRequest(String requestId) {
         return lookup(PATH + "?requestId={id}", requestId);
     }
 
-    public AgentExecutionSnapshot findExecution(UUID executionId) {
+    public AgentExecutionSnapshot findExecution(String executionId) {
         return lookup(PATH + "/{id}", executionId);
     }
 
-    private AgentExecutionSnapshot lookup(String uri, UUID id) {
+    private AgentExecutionSnapshot lookup(String uri, String id) {
         try {
             var snapshot = client.get().uri(uri, id).retrieve().body(AgentExecutionSnapshot.class);
             if (snapshot == null) {
@@ -94,24 +101,24 @@ public class AgentAiClient {
         } catch (HttpClientErrorException.NotFound error) {
             // 代理或地址错配也可能返回 404。只有 Python 确认执行不存在才允许写失败终态。
             var rejection = error.getResponseBodyAs(AgentExecutionSnapshot.ExecutionError.class);
-            if (rejection != null && "EXECUTION_NOT_FOUND".equals(rejection.code())) {
+            if (rejection != null && EXECUTION_NOT_FOUND.equals(rejection.code())) {
                 return null;
             }
             throw error;
         }
     }
 
-    public AgentExecutionSnapshot get(UUID executionId) {
+    public AgentExecutionSnapshot get(String executionId) {
         return client.get().uri(PATH + "/{id}", executionId)
                 .retrieve().body(AgentExecutionSnapshot.class);
     }
 
-    public AgentExecutionSnapshot stop(UUID executionId) {
+    public AgentExecutionSnapshot stop(String executionId) {
         return client.post().uri(PATH + "/{id}/stop", executionId)
                 .retrieve().body(AgentExecutionSnapshot.class);
     }
 
-    public void events(UUID executionId, BiConsumer<String, String> receive) {
+    public void events(String executionId, BiConsumer<String, String> receive) {
         client.get().uri(PATH + "/{id}/events", executionId)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .exchange((request, response) -> {
@@ -131,13 +138,13 @@ public class AgentAiClient {
                                 }
                                 event = null;
                                 data.setLength(0);
-                            } else if (line.startsWith("event: ")) {
-                                event = line.substring(7);
-                            } else if (line.startsWith("data: ")) {
+                            } else if (line.startsWith(SSE_EVENT_PREFIX)) {
+                                event = line.substring(SSE_EVENT_PREFIX.length());
+                            } else if (line.startsWith(SSE_DATA_PREFIX)) {
                                 if (!data.isEmpty()) {
                                     data.append('\n');
                                 }
-                                data.append(line.substring(6));
+                                data.append(line.substring(SSE_DATA_PREFIX.length()));
                             }
                         }
                     }
@@ -154,7 +161,7 @@ public class AgentAiClient {
     }
 
     public record Accepted(
-            UUID executionId,
+            String executionId,
 
             String status) {}
 
@@ -164,7 +171,7 @@ public class AgentAiClient {
             String text) {}
 
     public record Submission(
-            UUID requestId,
+            String requestId,
 
             String question,
 

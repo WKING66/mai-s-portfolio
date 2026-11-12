@@ -1,5 +1,8 @@
 package dev.amai.portfolio.agent.component;
 
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.SSE_DATA_PREFIX;
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.SSE_EVENT_PREFIX;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -19,9 +22,9 @@ public final class AgentEventWriter {
             return;
         }
         try {
-            output.write(("event: " + event + "\n").getBytes(StandardCharsets.UTF_8));
+            output.write((SSE_EVENT_PREFIX + event + "\n").getBytes(StandardCharsets.UTF_8));
             for (String line : json.split("\\r\\n|\\r|\\n", -1)) {
-                output.write(("data: " + line + "\n").getBytes(StandardCharsets.UTF_8));
+                output.write((SSE_DATA_PREFIX + line + "\n").getBytes(StandardCharsets.UTF_8));
             }
             output.write('\n');
             output.flush();
