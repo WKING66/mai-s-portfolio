@@ -14,13 +14,13 @@ Python 默认读取 `mai-portfolio-ai-server/.env`，从任意工作目录启动
 
 ## Spring 网站后端
 
-配置入口在 Spring `application.yml` 的 `site-guide` 节点。开发环境读取已有的 `mai-portfolio-backend/.env`，兼容仓库根目录的 `.env`。从项目根、Java 项目或启动模块目录运行均可。Java 不读取 Python 服务目录的 `.env`。
+在 Spring `application.yml` 的 `site-guide` 节点配置，或通过启动环境注入对应的环境变量。
 
 | 配置 | 用途 |
 | --- | --- |
 | `site-guide.enabled` | 网站是否开放数字人功能，默认关闭。站长可在关闭状态下先完成配置 |
 | `site-guide.ai-base-url` | Spring 访问 Python AI 服务的地址，本地默认 `http://127.0.0.1:9344` |
-| `site-guide.ai-server-token` | 从 Java 项目 `.env` 的 `SITE_GUIDE_AI_TOKEN` 或部署环境读取，与 Python 的 `AI_SERVER_TOKEN` 相同 |
+| `site-guide.ai-server-token` | 通过 Spring 配置或环境变量 `SITE_GUIDE_AI_TOKEN` 指定，与 Python 的 `AI_SERVER_TOKEN` 相同 |
 
 管理页显示 Spring 功能开关状态。访客正式问答链路尚待接入。
 
