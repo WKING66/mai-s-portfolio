@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import cn.dev33.satoken.session.SaSession;
 import cn.dev33.satoken.stp.StpUtil;
+import dev.amai.portfolio.system.api.AnonymousConversation;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.config.SecurityProperties;
 import dev.amai.portfolio.security.context.AccountContext;
@@ -24,6 +25,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.method.HandlerMethod;
 
 class AuthenticationInterceptorTest {
     private MockedStatic<AccountContext> identity;
@@ -129,6 +131,46 @@ class AuthenticationInterceptorTest {
             request.addHeader(AuthConstants.CSRF_HEADER_NAME, "test-csrf");
             assertThat(interceptor(false).preHandle(request, new MockHttpServletResponse(), new Object())).isTrue();
         }
+    }
+
+    @Test
+    void anonymousConversationWriteRequiresSameOrigin() throws Exception {
+        var endpoint = new HandlerMethod(new VisitorEndpoint(), VisitorEndpoint.class.getMethod("write"));
+        var request = new MockHttpServletRequest("POST", "/api/agent/v1/conversations");
+        var response = new MockHttpServletResponse();
+        try (var stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::isLogin).thenReturn(false);
+            assertThatThrownBy(() -> interceptor(false).preHandle(request, response, endpoint))
+                    .isInstanceOfSatisfying(ApiException.class,
+                            error -> assertThat(error.code()).isEqualTo(ApiErrorCode.CSRF_INVALID));
+            request.addHeader("Sec-Fetch-Site", "same-origin");
+            assertThat(interceptor(false).preHandle(request, response, endpoint)).isTrue();
+            identity.verifyNoInteractions();
+        }
+    }
+
+    @Test
+    void loggedInConversationWriteStillRequiresCsrf() throws Exception {
+        var endpoint = new HandlerMethod(new VisitorEndpoint(), VisitorEndpoint.class.getMethod("write"));
+        var request = new MockHttpServletRequest("POST", "/api/agent/v1/conversations");
+        request.addHeader("Sec-Fetch-Site", "same-origin");
+        var response = new MockHttpServletResponse();
+        try (var stp = mockStatic(StpUtil.class)) {
+            stp.when(StpUtil::isLogin).thenReturn(true);
+            var session = new SaSession("visitor-test");
+            session.set(AuthConstants.CSRF_SESSION_KEY, "test-csrf");
+            stp.when(StpUtil::getSession).thenReturn(session);
+            assertThatThrownBy(() -> interceptor(false).preHandle(request, response, endpoint))
+                    .isInstanceOfSatisfying(ApiException.class,
+                            error -> assertThat(error.code()).isEqualTo(ApiErrorCode.CSRF_INVALID));
+            request.addHeader(AuthConstants.CSRF_HEADER_NAME, "test-csrf");
+            assertThat(interceptor(false).preHandle(request, response, endpoint)).isTrue();
+        }
+    }
+
+    static class VisitorEndpoint {
+        @AnonymousConversation
+        public void write() {}
     }
 
     @Test
