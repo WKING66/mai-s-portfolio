@@ -1,53 +1,49 @@
 package dev.amai.portfolio.agent.mapper;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.agent.entity.AgentConversation;
-import dev.amai.portfolio.agent.entity.AgentTurn;
-import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.UUID;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 @Mapper
-public interface AgentConversationMapper {
-    UUID insertConversation(@Param("id") UUID id, @Param("owner") String owner,
-            @Param("anonymous") boolean anonymous, @Param("importId") UUID importId);
+public interface AgentConversationMapper extends BaseMapper<AgentConversation> {
+    String insertConversation(@Param("id") String id, @Param("owner") String owner,
+            @Param("anonymous") boolean anonymous, @Param("importId") String importId);
 
-    UUID findAnonymous(@Param("owner") String owner);
+    String lockConversation(@Param("id") String id, @Param("owner") String owner);
 
-    UUID findImport(@Param("owner") String owner, @Param("importId") UUID importId);
-
-    AgentConversation findConversation(@Param("id") UUID id, @Param("owner") String owner);
-
-    UUID lockConversation(@Param("id") UUID id, @Param("owner") String owner);
-
-    List<AgentConversation> list(@Param("owner") String owner, @Param("cursor") UUID cursor,
+    List<AgentConversation> list(@Param("owner") String owner, @Param("cursor") String cursor,
             @Param("limit") int limit);
 
-    List<AgentTurn> turns(@Param("id") UUID conversationId, @Param("limit") int limit);
+    default String findAnonymous(String owner) {
+        return findId(owner, true, null);
+    }
 
-    List<AgentTurn> recentCompleted(@Param("id") UUID conversationId);
+    default String findImport(String owner, String importId) {
+        return findId(owner, false, importId);
+    }
 
-    AgentTurn byRequest(@Param("id") UUID requestId);
+    private String findId(String owner, boolean anonymous, String importId) {
+        // 匿名身份和导入编号各有唯一约束，冲突后的查询最多返回原会话编号。
+        List<String> ids = selectObjs(Wrappers.lambdaQuery(AgentConversation.class)
+                .select(AgentConversation::getId)
+                .eq(AgentConversation::getOwnerKey, owner)
+                .eq(AgentConversation::isAnonymous, anonymous)
+                .eq(importId != null, AgentConversation::getImportId, importId));
+        return ids.isEmpty() ? null : ids.getFirst();
+    }
 
-    AgentTurn byExecution(@Param("id") UUID executionId, @Param("owner") String owner);
+    default boolean existsOwned(String id, String owner) {
+        return exists(Wrappers.lambdaQuery(AgentConversation.class)
+                .eq(AgentConversation::getId, id)
+                .eq(AgentConversation::getOwnerKey, owner));
+    }
 
-    boolean active(@Param("id") UUID conversationId);
-
-    int insertTurn(@Param("id") UUID requestId, @Param("conversation") UUID conversationId,
-            @Param("question") String question, @Param("answer") String answer,
-            @Param("status") short status, @Param("deadline") OffsetDateTime deadline);
-
-    int attach(@Param("request") UUID requestId, @Param("execution") UUID executionId);
-
-    int failUnbound(@Param("request") UUID requestId, @Param("status") short status,
-            @Param("error") String error);
-
-    int saveTerminal(@Param("request") UUID requestId, @Param("execution") UUID executionId,
-            @Param("answer") String answer, @Param("status") short status,
-            @Param("error") String error);
-
-    void touch(@Param("id") UUID conversationId);
-
-    List<AgentTurn> unfinished(@Param("limit") int limit);
+    default void touch(String id) {
+        update(Wrappers.lambdaUpdate(AgentConversation.class)
+                .setSql("updated_at = CURRENT_TIMESTAMP")
+                .eq(AgentConversation::getId, id));
+    }
 }

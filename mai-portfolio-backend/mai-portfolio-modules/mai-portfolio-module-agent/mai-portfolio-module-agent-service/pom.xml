@@ -12,6 +12,10 @@
     <name>mai-portfolio-module-agent-service</name>
     <dependencies>
         <dependency>
+            <groupId>cn.hutool</groupId>
+            <artifactId>hutool-core</artifactId>
+        </dependency>
+        <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-agent-provider</artifactId>
         </dependency>
@@ -34,6 +38,11 @@
         <dependency>
             <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-spring-boot-starter-mybatis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

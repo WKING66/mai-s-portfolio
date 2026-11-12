@@ -1,13 +1,24 @@
 package dev.amai.portfolio.agent.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.OffsetDateTime;
-import java.util.UUID;
+import lombok.Getter;
+import lombok.Setter;
 
-public record AgentConversation(
-        UUID id,
+@Getter
+@Setter
+@TableName("agent_conversation")
+public class AgentConversation {
+    @TableId(type = IdType.INPUT)
+    private String id;
 
-        String ownerKey,
+    private String ownerKey;
 
-        boolean anonymous,
+    private boolean anonymous;
 
-        OffsetDateTime updatedAt) {}
+    private String importId;
+
+    private OffsetDateTime updatedAt;
+}

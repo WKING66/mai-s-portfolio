@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.agent.mapper.AgentTurnMapper">
+    <select id="byExecution" resultType="dev.amai.portfolio.agent.entity.AgentTurn">
+        SELECT turn.request_id, turn.conversation_id, turn.execution_id, turn.question,
+               turn.answer, turn.status, turn.error_code, turn.accept_before
+        FROM agent_turn turn
+        JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
+        WHERE turn.execution_id = #{id} AND conversation.owner_key = #{owner}
+    </select>
+    <insert id="insertPending">
+        INSERT INTO agent_turn (request_id, conversation_id, question, answer, status, accept_before)
+        VALUES (#{turn.requestId}, #{turn.conversationId}, #{turn.question},
+                #{turn.answer}, #{turn.status.code}, #{turn.acceptBefore})
+        ON CONFLICT (request_id) DO NOTHING
+    </insert>
+</mapper>

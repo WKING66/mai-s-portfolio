@@ -1,12 +1,11 @@
 package dev.amai.portfolio.agent.entity;
 
 import java.util.List;
-import java.util.UUID;
 
 public record AgentExecutionSnapshot(
-        UUID requestId,
+        String requestId,
 
-        UUID executionId,
+        String executionId,
 
         String status,
 
@@ -21,5 +20,5 @@ public record AgentExecutionSnapshot(
 
             String message,
 
-            UUID requestId) {}
+            String requestId) {}
 }
