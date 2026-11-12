@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckRole;
 import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.security.context.AccountContext;
+import dev.amai.portfolio.system.api.AnonymousConversation;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import dev.amai.portfolio.system.config.SecurityProperties;
@@ -39,7 +40,7 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(this)
-                .addPathPatterns(AuthConstants.API_PATH_PATTERN)
+                .addPathPatterns(AuthConstants.API_PATH_PATTERN, "/api/agent/v1/**")
                 .order(AUTHENTICATION_INTERCEPTOR_ORDER);
     }
 
@@ -51,12 +52,16 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         String path = request.getRequestURI().substring(request.getContextPath().length());
         boolean sessionEndpoint = AuthConstants.AUTH_SESSION_PATH.equals(path);
         String method = request.getMethod();
+        boolean safeMethod = SAFE_METHODS.contains(method);
         boolean credentialsEndpoint =
                 sessionEndpoint && ("GET".equals(method) || "POST".equals(method))
                         || AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method);
         // 角色/页面路径不再决定领域分类；接口注解及写操作决定是否进入认证边界。
-        boolean ownerView = isOwnerView(request, handler);
-        boolean protectedEndpoint = !SAFE_METHODS.contains(method) || requiresSession(handler) || ownerView;
+        HandlerMethod endpoint = handler instanceof HandlerMethod mapped ? mapped : null;
+        boolean ownerView = isOwnerView(request, endpoint);
+        boolean anonymousConversation = endpoint != null
+                && AnnotatedElementUtils.hasAnnotation(endpoint.getMethod(), AnonymousConversation.class);
+        boolean protectedEndpoint = anonymousConversation || !safeMethod || requiresSession(endpoint) || ownerView;
         if (!credentialsEndpoint && !protectedEndpoint) {
             return true;
         }
@@ -65,12 +70,15 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         if (securityProperties.requireHttps() && !request.isSecure()) {
             throw new ApiException(ApiErrorCode.HTTPS_REQUIRED, SystemMessageConstants.LOGIN_HTTPS_REQUIRED);
         }
-        if (AuthConstants.AUTH_REGISTER_PATH.equals(path) && "POST".equals(method)) {
-            // 只豁免精确注册路由的登录/CSRF；HTTPS 已校验，来源与额度由服务层核对。
+        // 会话查询、登录和注册在传输校验后交给对应入口处理。
+        if (credentialsEndpoint) {
             return true;
         }
-        if (sessionEndpoint && ("GET".equals(method) || "POST".equals(method))) {
-            // GET 在服务中读取匿名/Redis 身份状态，POST 通过凭据建立登录态。
+        // 匿名访客只能从站内发起会话写入，已登录用户继续按正常流程校验 CSRF。
+        if (anonymousConversation && !StpUtil.isLogin()) {
+            if (!safeMethod && !"same-origin".equals(request.getHeader("Sec-Fetch-Site"))) {
+                throw new ApiException(ApiErrorCode.CSRF_INVALID, SystemMessageConstants.CSRF_INVALID);
+            }
             return true;
         }
         // 3. 注销只需有效登录；其他受保护入口直接读取 Redis 身份上下文。
@@ -84,7 +92,7 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
             StpUtil.checkRole(AuthConstants.OWNER_ROLE);
         }
         // 4. 写操作采用恒定时间比较核对 CSRF。
-        if (!SAFE_METHODS.contains(method)) {
+        if (!safeMethod) {
             String expected = CsrfToken.current();
             String supplied = request.getHeader(AuthConstants.CSRF_HEADER_NAME);
             if (expected == null
@@ -101,8 +109,8 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         return true;
     }
 
-    private boolean isOwnerView(HttpServletRequest request, Object handler) {
-        if (!(handler instanceof HandlerMethod method)
+    private boolean isOwnerView(HttpServletRequest request, HandlerMethod method) {
+        if (method == null
                 || !AnnotatedElementUtils.hasAnnotation(method.getMethod(), OwnerView.class)) {
             return false;
         }
@@ -114,8 +122,8 @@ public class AuthenticationInterceptor implements HandlerInterceptor, WebMvcConf
         return Arrays.asList(views).contains("MANAGE");
     }
 
-    private boolean requiresSession(Object handler) {
-        if (!(handler instanceof HandlerMethod method)) {
+    private boolean requiresSession(HandlerMethod method) {
+        if (method == null) {
             return false;
         }
         return AnnotatedElementUtils.hasAnnotation(method.getMethod(), SaCheckLogin.class)
