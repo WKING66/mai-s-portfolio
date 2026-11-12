@@ -29,7 +29,7 @@ Agent 专注开发，dev 负责集成，main 负责稳定发布；日常最小�
 2. 实现已授权功能，执行与风险相称的最小充分验证，并检查实际 Diff。
 3. 精确暂存本任务文件，使用 Conventional Commits，例如 feat(backend-document): support version export、fix(backend-auth): correct session validation、refactor(frontend-toc): simplify scroll tracking。
 4. 提交并正常推送自己的分支，创建指向 dev 的 PR。一个 Commit 有明确职责；不无检查地 git add .，不混入无关格式化、重构、他人 WIP、凭据、本地配置或测试产物。
-5. PR 简述本次功能、修改范围、验证等级及结果、接口/Schema 变化和已知风险。开发 Agent 自查；独立 Review Agent 可补充审查；CI 承担客观门禁；由获授权的维护者审核合并。
+5. PR 简述本次功能、修改范围、验证等级及结果、接口/Schema 变化和已知风险。开发 Agent 在创建 PR 或推送审核修订前，按根目录 AGENTS.md 的要求完成自审。独立 Review Agent 可补充审查，GitHub CI 承担客观门禁，由获授权的维护者审核合并。
 6. 创建 PR 后冻结任务范围。审核意见优先在同一分支追加原子 Commit，复验后回复本轮评论。新任务另开分支和 PR。
 
 ### 拆分与草稿
