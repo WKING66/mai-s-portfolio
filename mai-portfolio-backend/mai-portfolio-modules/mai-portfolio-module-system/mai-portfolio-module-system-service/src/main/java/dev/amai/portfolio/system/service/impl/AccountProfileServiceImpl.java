@@ -9,6 +9,7 @@ import dev.amai.portfolio.asset.api.AssetUsage;
 import dev.amai.portfolio.security.SecurityMessageConstants;
 import dev.amai.portfolio.security.context.AccountContext.Account;
 import dev.amai.portfolio.security.context.AccountContext;
+import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.constant.AccountMessageConstants;
 import dev.amai.portfolio.system.constant.SystemMessageConstants;
 import dev.amai.portfolio.system.convert.AccountConvert;
@@ -20,6 +21,7 @@ import dev.amai.portfolio.system.entity.request.AccountPasswordRequest;
 import dev.amai.portfolio.system.entity.request.AccountProfileRequest;
 import dev.amai.portfolio.system.entity.vo.AccountProfileVo;
 import dev.amai.portfolio.system.enums.AccountStatus;
+import dev.amai.portfolio.system.enums.AccountType;
 import dev.amai.portfolio.system.manager.CredentialManager;
 import dev.amai.portfolio.system.mapper.UserAccountMapper;
 import dev.amai.portfolio.system.mapper.UserProfileMapper;
@@ -146,7 +148,7 @@ public class AccountProfileServiceImpl implements AccountProfileService {
         }
         // 4. 只有数据库提交成功后才注销 Redis 会话；回滚不影响原登录。
         TransactionSynchronizationManager.registerSynchronization(
-                new LogoutAfterCommit(account.getId()));
+                new LogoutAfterCommit(account.getId(), null));
     }
 
     /**
@@ -176,7 +178,10 @@ public class AccountProfileServiceImpl implements AccountProfileService {
         // 3. 数据库成功提交后注销全部登录；失败回滚不能把仍有权限的用户意外踢下线。
         // 对已停用账号再次执行停用也注销，确保这次明确的停用操作清掉可能残留的旧会话。
         if (typeChanged || request.status() == AccountStatus.DISABLED) {
-            TransactionSynchronizationManager.registerSynchronization(new LogoutAfterCommit(accountId));
+            TransactionSynchronizationManager.registerSynchronization(new LogoutAfterCommit(accountId, null));
+        } else if (request.type() != null) {
+            // 数据库可能已提交，而前一轮的 Redis 注销失败。同值重试要核对残留的会话角色。
+            TransactionSynchronizationManager.registerSynchronization(new LogoutAfterCommit(accountId, request.type()));
         }
     }
 
@@ -195,11 +200,20 @@ public class AccountProfileServiceImpl implements AccountProfileService {
 
     /** 只服务本类的简单 Spring 提交回调；回滚不会调用 afterCommit。 */
     private record LogoutAfterCommit(
-            long accountId) implements TransactionSynchronization {
+            long accountId,
+
+            AccountType expectedType) implements TransactionSynchronization {
 
         @Override
         public void afterCommit() {
-            StpUtil.logout(accountId);
+            if (expectedType == null) {
+                StpUtil.logout(accountId);
+                return;
+            }
+            boolean sessionIsOwner = AccountContext.roles(accountId).contains(AuthConstants.OWNER_ROLE);
+            if (sessionIsOwner != (expectedType == AccountType.OWNER)) {
+                StpUtil.logout(accountId);
+            }
         }
     }
 

@@ -4,12 +4,14 @@ export const ADMIN_PATHS = {
   projects: '/admin/projects',
   newProject: '/admin/projects/new',
   profile: '/admin/profile',
+  agentSettings: '/admin/agent-settings',
 } as const
 
 export const ADMIN_NAVIGATION = [
   { to: ADMIN_PATHS.blogs, label: '博客管理', icon: 'i-lucide-notebook-pen' },
   { to: ADMIN_PATHS.projects, label: '项目管理', icon: 'i-lucide-folder-kanban' },
   { to: ADMIN_PATHS.profile, label: '站长公开资料', icon: 'i-lucide-contact' },
+  { to: ADMIN_PATHS.agentSettings, label: '数字人配置', icon: 'i-lucide-sliders-horizontal' },
 ] as const
 
 export const ADMIN_PROJECT_STATUS = { DRAFT: 'DRAFT', PUBLISHED: 'PUBLISHED' } as const
