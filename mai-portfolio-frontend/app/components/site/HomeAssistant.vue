@@ -1,9 +1,37 @@
 <script setup lang="ts">
-import type { AssistantContext } from '../../utils/site/mockAssistant'
-import { useMockSiteAssistant } from '../../composables/useMockSiteAssistant'
+import { useSiteAssistant } from '../../composables/useSiteAssistant'
 
-const props = defineProps<{ context: AssistantContext }>()
-const { turns, generating, latest, send, stop, clear } = useMockSiteAssistant(() => props.context)
+defineProps<{ name: string }>()
+const {
+  enabled,
+  turns,
+  generating,
+  latest,
+  error,
+  recoverable,
+  canStop,
+  histories,
+  nextCursor,
+  loggedIn,
+  hasAnonymousHistory,
+  send,
+  stop,
+  clear,
+  resume,
+  open: openConversation,
+  loadHistory,
+  importAnonymous,
+} = useSiteAssistant()
+const showHistory = ref(false)
+const actionError = ref('')
+async function manage(action: () => Promise<unknown>) {
+  actionError.value = ''
+  try {
+    await action()
+  } catch (failure) {
+    actionError.value = failure instanceof Error ? failure.message : '会话操作失败。'
+  }
+}
 const dialog = useTemplateRef<HTMLDialogElement>('drawer')
 const log = useTemplateRef<HTMLElement>('log')
 const input = useTemplateRef<HTMLInputElement>('input')
@@ -17,13 +45,8 @@ function dismissInvitation() {
 const quote = ref('')
 const selectedText = ref('')
 const tools = ref<{ x: number; y: number } | null>(null)
-const pipelineOpen = ref(false)
-const selectedTurn = ref<number | null>(null)
 const drawerWidth = ref(940)
 const follow = ref(true)
-const current = computed(
-  () => turns.value.find((turn) => turn.id === selectedTurn.value) ?? latest.value,
-)
 let previousOverflow = ''
 let opener: HTMLElement | null = null
 let selectionFrame = 0
@@ -42,7 +65,6 @@ function close() {
   dialog.value?.close()
 }
 function afterClose() {
-  stop()
   document.body.style.overflow = previousOverflow
   tools.value = null
   opener?.focus({ preventScroll: true })
@@ -67,11 +89,10 @@ async function submit(question = draft.value) {
   homeQuestion.value = ''
   quote.value = ''
   follow.value = true
-  selectedTurn.value = null
   await send(question, contextQuote)
 }
 watch(
-  () => latest.value?.content,
+  () => latest.value?.text,
   async () => {
     await nextTick()
     if (follow.value) {
@@ -80,9 +101,8 @@ watch(
   },
 )
 function clearConversation() {
-  clear()
+  void manage(clear)
   quote.value = ''
-  selectedTurn.value = null
 }
 function setWidth(value: number) {
   drawerWidth.value = Math.min(window.innerWidth, Math.max(420, value))
@@ -157,7 +177,6 @@ function onResize() {
   hideTools()
 }
 onMounted(() => {
-  pipelineOpen.value = innerWidth > 1000
   // 浮动入口短暂邀请一次，交互后停止；不循环提醒。
   inviting.value = !matchMedia('(prefers-reduced-motion: reduce)').matches
   document.addEventListener('pointerup', onPointerUp)
@@ -177,13 +196,14 @@ onBeforeUnmount(() => {
 
 <template>
   <section
+    v-if="enabled"
     class="home-ask"
     aria-labelledby="home-ask-title"
     @focusin="dismissInvitation"
     @pointerdown="dismissInvitation"
   >
     <div>
-      <p class="assistant-kicker">● AMAI / AI GUIDE · MOCK</p>
+      <p class="assistant-kicker">● AMAI / AI GUIDE</p>
       <h2 id="home-ask-title">从一个问题开始，认识我。</h2>
       <p class="text-muted text-sm">关于我的项目、笔记和学习路线，问问站内向导。</p>
     </div>
@@ -210,6 +230,7 @@ onBeforeUnmount(() => {
     </div>
   </section>
   <button
+    v-if="enabled"
     class="assistant-launch"
     :class="{ 'is-inviting': inviting }"
     @click="open"
@@ -221,7 +242,7 @@ onBeforeUnmount(() => {
     <span class="assistant-launch-icon" aria-hidden="true"><UIcon name="i-lucide-sparkles" /></span>
     <span>问问 AI</span><span aria-hidden="true">↗</span>
   </button>
-  <Teleport to="body">
+  <Teleport v-if="enabled" to="body">
     <div
       v-if="tools && !dialog?.open"
       class="selection-tools"
@@ -241,7 +262,7 @@ onBeforeUnmount(() => {
     <dialog
       ref="drawer"
       class="assistant-drawer"
-      :class="{ 'with-pipeline': pipelineOpen, 'narrow-drawer': drawerWidth < 800 }"
+      :class="{ 'narrow-drawer': drawerWidth < 800 }"
       :style="{ width: drawerWidth + 'px' }"
       aria-labelledby="assistant-title"
       @close="afterClose"
@@ -263,53 +284,60 @@ onBeforeUnmount(() => {
       <div class="assistant-chat">
         <header class="assistant-head">
           <div>
-            <strong id="assistant-title">{{ context.name }}的 AI 向导</strong
-            ><small>公开资料 · Mock 演示</small>
+            <strong id="assistant-title">{{ name }}的 AI 向导</strong><small>站长数字人</small>
           </div>
           <div class="assistant-head-actions">
-            <button :aria-expanded="pipelineOpen" @click="pipelineOpen = !pipelineOpen">
-              {{ pipelineOpen ? '收起管线' : '展开管线' }}</button
-            ><button @click="clearConversation">清空</button
+            <button
+              v-if="loggedIn"
+              :aria-expanded="showHistory"
+              @click="
+                showHistory = !showHistory
+                if (showHistory) manage(() => loadHistory())
+              "
+            >
+              历史
+            </button>
+            <button v-if="loggedIn" :disabled="generating" @click="clearConversation">新建</button
             ><button aria-label="关闭 AI 向导" @click="close">×</button>
           </div>
         </header>
+        <div v-if="loggedIn && showHistory" class="assistant-history">
+          <button v-if="hasAnonymousHistory" @click="manage(importAnonymous)">导入匿名问答</button>
+          <button
+            v-for="item in histories"
+            :key="item.conversationId"
+            :disabled="generating"
+            @click="manage(() => openConversation(item.conversationId))"
+          >
+            {{ new Date(item.updatedAt).toLocaleString() }}
+          </button>
+          <button v-if="nextCursor" @click="manage(() => loadHistory(true))">加载更多</button>
+        </div>
         <div ref="log" class="assistant-log" role="log" aria-label="AI 对话" @scroll="trackScroll">
           <div class="assistant-welcome">
             <span>✳</span>
             <h2>你好，想了解什么？</h2>
-            <p>回答依据当前公开项目、文章摘要和个人介绍，点击来源可以继续阅读。</p>
+            <p>你可以继续追问。资料不足时，回答会说明限制。</p>
           </div>
-          <article v-for="turn in turns" :key="turn.id" class="assistant-turn">
+          <article v-for="turn in turns" :key="turn.requestId" class="assistant-turn">
             <div class="assistant-question">
-              <blockquote v-if="turn.quote">{{ turn.quote }}</blockquote>
               {{ turn.question }}
             </div>
             <div class="assistant-answer">
               <small>✳ AI 向导</small>
               <p class="stream-content">
-                {{ turn.content
+                {{ turn.text
                 }}<span
-                  v-if="turn.status === 'generating'"
+                  v-if="turn.status === 'running' || turn.status === 'accepted'"
                   class="stream-caret"
                   aria-hidden="true"
                 />
               </p>
-              <p v-if="turn.status === 'stopped'" class="assistant-status">
+              <p v-if="turn.status === 'interrupted'" class="assistant-status">
                 已停止生成，已输出内容保留。
               </p>
-              <p v-if="turn.status === 'error'" class="assistant-status">回复未完成，请重试。</p>
-              <template v-if="turn.status === 'complete'"
-                ><a
-                  v-for="source in turn.sources"
-                  :key="source.url"
-                  :href="source.url"
-                  class="assistant-source"
-                  :target="source.url.startsWith('http') ? '_blank' : undefined"
-                  rel="noopener noreferrer"
-                  @click="!source.url.startsWith('http') && close()"
-                  >{{ source.title }} ↗</a
-                ></template
-              >
+              <p v-if="turn.status === 'pending'" class="assistant-status">正在发送或确认受理。</p>
+              <p v-if="turn.status === 'failed'" class="assistant-status">模型服务暂不可用。</p>
             </div>
           </article>
         </div>
@@ -319,7 +347,13 @@ onBeforeUnmount(() => {
             <span>{{ quote }}</span
             ><button aria-label="移除引用" @click="quote = ''">×</button>
           </div>
-          <button v-if="generating" class="stop-button" @click="stop">■ 停止生成</button>
+          <p v-if="error || actionError" role="alert" class="assistant-status">
+            {{ error || actionError }}
+          </p>
+          <button v-if="canStop" class="stop-button" @click="stop">■ 停止生成</button>
+          <button v-if="recoverable && !generating" type="button" @click="resume">
+            继续读取本轮
+          </button>
           <form class="assistant-form" @submit.prevent="submit()">
             <input
               ref="input"
@@ -328,60 +362,16 @@ onBeforeUnmount(() => {
               :placeholder="quote ? '关于所选内容，你想了解什么？' : '问问项目、文章或学习路线…'"
               maxlength="300"
               required
-            /><button aria-label="发送对话问题" :disabled="generating || !draft.trim()">↑</button>
+            /><button
+              aria-label="发送对话问题"
+              :disabled="generating || recoverable || !draft.trim()"
+            >
+              ↑
+            </button>
           </form>
-          <p>本地 Mock 流式输出 · 未连接模型 · 不保存对话</p>
+          <p>{{ loggedIn ? '登录会话可在历史中恢复' : '匿名模式保留当前会话' }}</p>
         </div>
       </div>
-      <aside v-if="pipelineOpen" class="assistant-pipeline">
-        <div class="pipeline-title">
-          <h2>检索管线</h2>
-          <button aria-label="收起检索管线" @click="pipelineOpen = false">收起 ›</button>
-        </div>
-        <p class="assistant-status">模拟资料匹配过程，不是实际模型指标</p>
-        <label for="assistant-turn">问题</label
-        ><select id="assistant-turn" v-model="selectedTurn">
-          <option :value="null">最新问题</option>
-          <option v-for="turn in turns" :key="turn.id" :value="turn.id">{{ turn.question }}</option>
-        </select>
-        <p v-if="!current" class="assistant-status">提问后，这里会显示该轮使用的公开资料。</p>
-        <template v-else
-          ><section>
-            <small>01</small>
-            <h3>理解问题</h3>
-            <p>{{ current.question }}</p>
-            <p v-if="current.quote">附带选中原文</p>
-          </section>
-          <section>
-            <small>02</small>
-            <h3>匹配公开资料</h3>
-            <a
-              v-for="source in current.sources"
-              :key="source.url"
-              :href="source.url"
-              class="assistant-source"
-              @click="close"
-              >{{ source.title }} ↗</a
-            >
-            <p v-if="!current.sources.length">没有匹配到足够资料</p>
-          </section>
-          <section>
-            <small>03</small>
-            <h3>组织回答</h3>
-            <p>
-              {{
-                current.status === 'generating'
-                  ? '正在流式输出…'
-                  : current.status === 'complete'
-                    ? '✓ 完成'
-                    : current.status === 'stopped'
-                      ? '已停止'
-                      : '未完成'
-              }}
-            </p>
-          </section></template
-        >
-      </aside>
       <div
         v-if="tools"
         class="selection-tools"
@@ -755,57 +745,16 @@ onBeforeUnmount(() => {
   border-radius: 3px;
   background: var(--site-muted);
 }
-.assistant-pipeline {
-  width: 300px;
-  flex-shrink: 0;
-  padding: 26px 22px;
-  overflow: auto;
-  background: var(--site-surface);
-  border-left: 1px solid var(--site-line);
-  overscroll-behavior: contain;
-}
-.pipeline-title {
+.assistant-history {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-.pipeline-title h2 {
-  font-size: 25px;
-}
-.pipeline-title button {
-  font-size: 11px;
-  color: var(--site-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 24px;
 }
 .assistant-status {
   font-size: 11px;
   color: var(--site-muted);
   margin: 14px 0;
-}
-.assistant-pipeline label {
-  font-size: 11px;
-}
-.assistant-pipeline select {
-  width: 100%;
-  background: var(--site-bg);
-  border: 1px solid var(--site-line);
-  padding: 9px;
-  font-size: 12px;
-  border-radius: 6px;
-  margin-top: 8px;
-}
-.assistant-pipeline section {
-  border-bottom: 1px solid var(--site-line);
-  padding: 22px 0;
-}
-.assistant-pipeline h3 {
-  font-size: 14px;
-  margin: 6px 0;
-}
-.assistant-pipeline section small,
-.assistant-pipeline section p {
-  font-size: 11px;
-  color: var(--site-muted);
 }
 .selection-tools {
   position: fixed;
@@ -824,12 +773,6 @@ onBeforeUnmount(() => {
 }
 .selection-tools button:hover {
   background: var(--site-bg-muted);
-}
-.narrow-drawer .assistant-pipeline {
-  position: absolute;
-  inset: 82px 0 130px auto;
-  max-width: 90%;
-  box-shadow: var(--site-shadow);
 }
 @keyframes drawer-in {
   from {
@@ -851,12 +794,6 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
     gap: 18px;
     padding: 22px;
-  }
-  .assistant-pipeline {
-    position: absolute;
-    inset: 82px 0 130px auto;
-    max-width: 90%;
-    box-shadow: var(--site-shadow);
   }
 }
 @media (max-width: 600px) {
