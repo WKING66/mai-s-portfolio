@@ -22,7 +22,7 @@ public interface AgentConversationService {
 
     String importConversation(String owner, String importId, List<ImportedTurn> turns);
 
-    AgentTurn submit(String conversation, String owner, String requestId, String question);
+    AgentTurn submit(String conversation, String owner, boolean anonymous, String requestId, String question);
 
     Receipt receipt(AgentTurn turn);
 

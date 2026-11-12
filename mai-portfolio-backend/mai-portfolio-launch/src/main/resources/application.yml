@@ -67,6 +67,13 @@ site-guide:
   ai-base-url: ${SITE_GUIDE_AI_BASE_URL:http://127.0.0.1:9344}
   # 由部署方通过 Spring 配置或环境变量指定，值与 Python 的 AI_SERVER_TOKEN 一致。
   ai-server-token: ${SITE_GUIDE_AI_TOKEN:}
+  quota:
+    # 全站共用滚动窗口。访问量达到上限后，等窗口内最早的受理记录过期。
+    global-window-hours: 1
+    global-request-limit: 60
+    # 个人额度按滚动 24 小时计算，匿名按访客、登录按账号。
+    visitor-daily-turn-limit: 5
+    account-daily-turn-limit: 20
 
 portfolio:
   media:

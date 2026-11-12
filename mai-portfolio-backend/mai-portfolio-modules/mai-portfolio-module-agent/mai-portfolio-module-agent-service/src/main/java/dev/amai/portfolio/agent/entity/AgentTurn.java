@@ -33,6 +33,8 @@ public class AgentTurn {
 
     private OffsetDateTime acceptBefore;
 
+    private OffsetDateTime quotaAt;
+
     @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
     private Long ordinal;
 

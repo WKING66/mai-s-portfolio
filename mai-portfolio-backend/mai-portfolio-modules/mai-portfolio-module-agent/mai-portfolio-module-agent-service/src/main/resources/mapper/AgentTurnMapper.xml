@@ -8,10 +8,16 @@
         JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
         WHERE turn.execution_id = #{id} AND conversation.owner_key = #{owner}
     </select>
+    <select id="countOwnerQuotaSince" resultType="long">
+        SELECT count(*)
+        FROM agent_turn turn
+        JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
+        WHERE conversation.owner_key = #{owner} AND turn.quota_at &gt; #{cutoff}
+    </select>
     <insert id="insertPending">
-        INSERT INTO agent_turn (request_id, conversation_id, question, answer, status, accept_before)
+        INSERT INTO agent_turn (request_id, conversation_id, question, answer, status, accept_before, quota_at)
         VALUES (#{turn.requestId}, #{turn.conversationId}, #{turn.question},
-                #{turn.answer}, #{turn.status.code}, #{turn.acceptBefore})
+                #{turn.answer}, #{turn.status.code}, #{turn.acceptBefore}, #{turn.quotaAt})
         ON CONFLICT (request_id) DO NOTHING
     </insert>
 </mapper>
