@@ -19,6 +19,7 @@ import static dev.amai.portfolio.agent.constant.AgentConversationConstants.ROLE_
 
 import cn.hutool.core.util.IdUtil;
 import dev.amai.portfolio.agent.client.AgentAiClient;
+import dev.amai.portfolio.agent.config.AgentQuotaProperties;
 import dev.amai.portfolio.agent.entity.AgentConversation;
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
@@ -30,7 +31,6 @@ import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -42,6 +42,8 @@ import org.springframework.web.client.RestClientException;
 
 @Service
 public class AgentConversationServiceImpl implements AgentConversationService {
+    private static final long GLOBAL_QUOTA_LOCK = 7137426010004L;
+    private static final int PERSONAL_QUOTA_WINDOW_HOURS = 24;
     private static final String UNAVAILABLE = "模型服务暂不可用。";
 
     private final AgentConversationMapper agentConversationMapper;
@@ -52,15 +54,18 @@ public class AgentConversationServiceImpl implements AgentConversationService {
 
     private final TransactionTemplate transactionTemplate;
 
+    private final AgentQuotaProperties agentQuotaProperties;
+
     private final boolean enabled;
 
     public AgentConversationServiceImpl(AgentConversationMapper agentConversationMapper,
             AgentTurnMapper agentTurnMapper, AgentAiClient agentAiClient, TransactionTemplate transactionTemplate,
-            @Value("${site-guide.enabled:false}") boolean enabled) {
+            AgentQuotaProperties agentQuotaProperties, @Value("${site-guide.enabled:false}") boolean enabled) {
         this.agentConversationMapper = agentConversationMapper;
         this.agentTurnMapper = agentTurnMapper;
         this.agentAiClient = agentAiClient;
         this.transactionTemplate = transactionTemplate;
+        this.agentQuotaProperties = agentQuotaProperties;
         this.enabled = enabled;
     }
 
@@ -122,7 +127,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         });
     }
 
-    public AgentTurn submit(String conversation, String owner, String requestId, String question) {
+    public AgentTurn submit(String conversation, String owner, boolean anonymous, String requestId, String question) {
         if (!enabled) {
             throw new ApiException(ApiErrorCode.FORBIDDEN, "网站 AI 功能未开启。");
         }
@@ -138,10 +143,11 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             if (agentTurnMapper.active(conversation)) {
                 throw new ApiException(ApiErrorCode.DATA_CONFLICT, "当前会话已有一轮正在生成。");
             }
+            // 全站和个人额度的判断与新轮次写入共用事务。锁只覆盖受理，调用 Python 前会释放。
+            OffsetDateTime quotaAt = checkNewTurnQuota(owner, anonymous);
             var pending = new AgentTurn(requestId, conversation, null, question, "",
-                    AgentTurnState.PENDING, null,
-                    OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS)
-                            .plusSeconds(ACCEPTANCE_WINDOW_SECONDS));
+                    AgentTurnState.PENDING, null, quotaAt.plusSeconds(ACCEPTANCE_WINDOW_SECONDS));
+            pending.setQuotaAt(quotaAt);
             // 不同会话仍可能并发提交同一编号。发生冲突时读取胜出的行，按同一输入规则处理。
             int inserted = agentTurnMapper.insertPending(pending);
             if (inserted == 1) {
@@ -189,6 +195,33 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             // 上游拒绝也可能和同编号的受理并发，保留原编号供继续查询。
             throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认发送结果，请重试原请求。");
         }
+    }
+
+    private OffsetDateTime checkNewTurnQuota(String owner, boolean anonymous) {
+        int windowHours = agentQuotaProperties.globalWindowHours();
+        int globalLimit = agentQuotaProperties.globalRequestLimit();
+        // 全站额度耗尽时直接拒绝，避免大量被拒请求排队等待全站锁。
+        if (agentTurnMapper.globalQuotaReached(windowHours, globalLimit)) {
+            throw globalQuotaExceeded();
+        }
+        // 预检通过后各实例仍须在同一个锁内复核，避免两个会话同时取得最后一个名额。
+        OffsetDateTime now = agentTurnMapper.lockQuota(GLOBAL_QUOTA_LOCK);
+        if (agentTurnMapper.countQuotaSince(now.minusHours(windowHours)) >= globalLimit) {
+            throw globalQuotaExceeded();
+        }
+        int personalLimit = anonymous
+                ? agentQuotaProperties.visitorDailyTurnLimit()
+                : agentQuotaProperties.accountDailyTurnLimit();
+        OffsetDateTime personalCutoff = now.minusHours(PERSONAL_QUOTA_WINDOW_HOURS);
+        // 只累加当前访客或账号的轮次，同一网络下的其他访客和其他账号各自使用自己的额度。
+        if (agentTurnMapper.countOwnerQuotaSince(owner, personalCutoff) >= personalLimit) {
+            throw new ApiException(ApiErrorCode.RATE_LIMITED, "你的对话额度暂已用完，请稍后再试。");
+        }
+        return now;
+    }
+
+    private static ApiException globalQuotaExceeded() {
+        return new ApiException(ApiErrorCode.RATE_LIMITED, "站点对话额度暂已用完，请稍后再试。");
     }
 
     public Receipt receipt(AgentTurn turn) {

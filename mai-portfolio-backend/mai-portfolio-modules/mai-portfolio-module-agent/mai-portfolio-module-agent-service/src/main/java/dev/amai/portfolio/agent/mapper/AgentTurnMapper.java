@@ -5,15 +5,29 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import dev.amai.portfolio.agent.entity.AgentTurn;
 import dev.amai.portfolio.agent.enums.AgentTurnState;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface AgentTurnMapper extends BaseMapper<AgentTurn> {
     AgentTurn byExecution(@Param("id") String executionId, @Param("owner") String owner);
 
     int insertPending(@Param("turn") AgentTurn turn);
+
+    boolean globalQuotaReached(@Param("hours") int windowHours, @Param("limit") int limit);
+
+    @Select("SELECT clock_timestamp() FROM pg_advisory_xact_lock(#{key})")
+    OffsetDateTime lockQuota(@Param("key") long key);
+
+    default long countQuotaSince(OffsetDateTime cutoff) {
+        return selectCount(Wrappers.lambdaQuery(AgentTurn.class)
+                .gt(AgentTurn::getQuotaAt, cutoff));
+    }
+
+    long countOwnerQuotaSince(@Param("owner") String owner, @Param("cutoff") OffsetDateTime cutoff);
 
     default List<AgentTurn> turns(String conversationId, int limit) {
         return selectList(new Page<>(1, limit, false), Wrappers.lambdaQuery(AgentTurn.class)

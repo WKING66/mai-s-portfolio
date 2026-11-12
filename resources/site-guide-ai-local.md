@@ -22,6 +22,8 @@ Python 默认读取 `mai-portfolio-ai-server/.env`，从任意工作目录启动
 | `site-guide.ai-base-url` | Spring 访问 Python AI 服务的地址，本地默认 `http://127.0.0.1:9344` |
 | `site-guide.ai-server-token` | 通过 Spring 配置或环境变量 `SITE_GUIDE_AI_TOKEN` 指定，与 Python 的 `AI_SERVER_TOKEN` 相同 |
 
+`site-guide.quota` 管理全站与个人的问答受理额度。全站窗口长度由 `global-window-hours` 设置，窗口内共享上限由 `global-request-limit` 设置，匿名与登录共用。个人额度由 `visitor-daily-turn-limit` 和 `account-daily-turn-limit` 分别设置，按访客 Cookie 或登录账号统计过去 24 小时的受理轮次。额度按每轮时间滚动恢复。同一请求号重试、历史导入、刷新、查询与停止不增加轮次。
+
 管理页显示 Spring 功能开关状态。访客正式问答链路尚待接入。
 
 ## 配置中心

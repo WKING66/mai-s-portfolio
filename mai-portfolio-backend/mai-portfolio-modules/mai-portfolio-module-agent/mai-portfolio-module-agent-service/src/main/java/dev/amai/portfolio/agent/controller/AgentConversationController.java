@@ -14,11 +14,7 @@ import dev.amai.portfolio.agent.entity.request.SubmitRequest;
 import dev.amai.portfolio.agent.entity.vo.ConversationId;
 import dev.amai.portfolio.agent.service.AgentConversationService;
 import dev.amai.portfolio.common.R;
-import dev.amai.portfolio.redis.rate.RedisRateLimiter;
-import dev.amai.portfolio.security.SecurityMessageConstants;
 import dev.amai.portfolio.system.api.AnonymousConversation;
-import dev.amai.portfolio.web.exception.ApiErrorCode;
-import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -41,25 +37,17 @@ import tools.jackson.databind.json.JsonMapper;
 @RestController
 @RequestMapping(API_PATH)
 public class AgentConversationController {
-    private static final String VISITOR_SEND_RATE_KEY = "agent:visitor:send";
-    private static final int VISITOR_SENDS_PER_MINUTE = 12;
-    private static final int VISITOR_RATE_WINDOW_SECONDS = 60;
-
     private final AgentConversationService agentConversationService;
 
     private final AgentConversationOwnerResolver agentConversationOwnerResolver;
 
     private final JsonMapper jsonMapper;
 
-    private final RedisRateLimiter redisRateLimiter;
-
     public AgentConversationController(AgentConversationService agentConversationService,
-            AgentConversationOwnerResolver agentConversationOwnerResolver, JsonMapper jsonMapper,
-            RedisRateLimiter redisRateLimiter) {
+            AgentConversationOwnerResolver agentConversationOwnerResolver, JsonMapper jsonMapper) {
         this.agentConversationService = agentConversationService;
         this.agentConversationOwnerResolver = agentConversationOwnerResolver;
         this.jsonMapper = jsonMapper;
-        this.redisRateLimiter = redisRateLimiter;
     }
 
     @GetMapping("/status")
@@ -100,12 +88,8 @@ public class AgentConversationController {
     public ResponseEntity<StreamingResponseBody> submit(@PathVariable @Pattern(regexp = IDENTIFIER_PATTERN) String id,
             @Valid @RequestBody SubmitRequest input, HttpServletRequest request) {
         var owner = agentConversationOwnerResolver.resolve(request, null);
-        // 匿名发送按容器识别的来源计数。切换会话不会重置额度，避免挤占公共模型容量。
-        if (owner.anonymous() && !redisRateLimiter.fixedWindow(
-                VISITOR_SEND_RATE_KEY, request.getRemoteAddr(), VISITOR_SENDS_PER_MINUTE, VISITOR_RATE_WINDOW_SECONDS)) {
-            throw new ApiException(ApiErrorCode.RATE_LIMITED, SecurityMessageConstants.RATE_LIMITED);
-        }
-        var turn = agentConversationService.submit(canonicalId(id), owner.key(), canonicalId(input.requestId()), input.question());
+        var turn = agentConversationService.submit(
+                canonicalId(id), owner.key(), owner.anonymous(), canonicalId(input.requestId()), input.question());
         return stream(turn, true);
     }
 
