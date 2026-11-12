@@ -9,6 +9,7 @@ Python 默认读取 `mai-portfolio-ai-server/.env`，从任意工作目录启动
 | `DATABASE_URL` | AI 独立 PostgreSQL 数据库。Windows 本机 Docker 使用 `127.0.0.1:5433/mai_portfolio_ai`，需要填入数据库账号和密码 |
 | `AI_SERVER_TOKEN` | Python 校验站间请求的唯一 Bearer 令牌。Spring 的 `site-guide.ai-server-token` 使用同一个值 |
 | `CONFIG_ENCRYPTION_KEY` | 加密数据库里的供应商密钥。升级时保留原值，否则已有供应商密钥无法解密 |
+| `JAVA_MODEL_BUDGET_URL` | Java 内部预算接口地址，供 Python 在外呼前申请预占和上报用量 |
 
 迁移和服务都自动读取上述文件。常规开发启动先执行项目的 Alembic 迁移，再运行 FastAPI 的 `app.main:app_factory`。Windows 下 Uvicorn 使用 `asyncio:SelectorEventLoop`。默认本地监听 `127.0.0.1:9344`，就绪接口为 `/internal/v1/health/ready`。
 
@@ -26,6 +27,14 @@ Python 默认读取 `mai-portfolio-ai-server/.env`，从任意工作目录启动
 
 管理页显示 Spring 功能开关状态。访客正式问答链路尚待接入。
 
+Spring `site-guide.model-budget` 管理金额策略。使用 `daily-limit` 指定每日上限，默认 0 会暂停供应商外呼。`unlimited` 设为 true 时仍保留预占和结算。`currency` 默认 CNY，应与模型报价币种一致。按上海时区归集支出。
+
+切换前先停用 Spring 的 AI 功能，等待旧 Python 执行结束并停止旧进程，确保旧账本停止写入。运行 Java 与 Python 数据库迁移，将原预算值填入 Java 的 `daily-limit` 和 `unlimited`，再启动新版 Java 和 Python。Python 项目的 `.env` 中回调地址本机为 `http://127.0.0.1:9333/internal/v1/site-guide/budget`。确认两端连通后重新启用 AI。Java 会继续计入旧 Python 账本的未结算预占和切换窗口内的支出。旧账本只记录计费日期，保守计入上海日期及其前后一天，避免旧计费时区不同导致漏算。
+
+Python 只暂存待补报的供应商用量和确定未外呼的预占撤销。Java 暂时不可用时，恢复后按原尝试编号补报；在 Java 确认前，预占仍计入预算。
+
+回滚前先停用 Spring 的 AI 功能并停止新版 Python。旧版 Python 只读自己的账本，回滚期间保持停用。若需要在旧版恢复收费，先核对 Python 待补报记录，以及 Java 账本当天的已结算支出和所有未结算预占，再恢复旧版预算和入口。旧 Python 的数据库覆盖值优先于 `.env`，单改 `.env` 无法覆盖先前保存的不限额或正数预算。
+
 ## 配置中心
 
 用各自原有启动方式运行 Nuxt `3000`、Spring `9333` 和 Python `9344`。使用网站已有站长账号打开 `http://127.0.0.1:3000/admin/agent-settings`。管理接口为 `GET/PUT /api/v1/admin/agent/settings`，使用网站会话、OWNER 权限和写操作 CSRF 校验。
@@ -36,8 +45,7 @@ Python 默认读取 `mai-portfolio-ai-server/.env`，从任意工作目录启动
 | API 密钥 | 填入对应供应商发放的密钥。页面只显示是否已配置。已有密钥时换地址需要新密钥 |
 | 对话模型、向量模型、向量维度 | 供应商要求的模型 ID 和 Embedding 输出维度 |
 | 请求超时、输出 Token 上限、计费输入上限 | 控制单次请求边界并计算最大费用预留 |
-| 每百万 Token 单价、价格版本、币种、计费时区 | 定义费用预留与结算口径 |
-| 每日预算 | 默认 0，阻止模型外呼。显式勾选不限每日成本时仍保留单次预占和记账，只跳过每日总额比较。换地址时取消不限并将预算归零 |
+| 每百万 Token 单价、价格版本、币种 | 定义费用预留与结算口径 |
 | 回答风格 | 新受理问答使用的风格提示，建议用中文填写。升级时保留已经保存的回答风格 |
 
 已保存的设置优先，未保存的运行字段才使用文件或代码默认值。供应商地址只接受公网 IPv4 可达的 HTTPS 域名。真实模型验收需有效供应商配置和获准测试预算。

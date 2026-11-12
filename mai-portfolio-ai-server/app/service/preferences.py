@@ -159,19 +159,24 @@ async def save_settings(
     runtime: dict[str, RuntimeValue] = current.runtime | supplied
     try:
         previous = effective_settings(settings, current.runtime)
-        endpoint_changed = False
+        currency_changed = (
+            "billing_currency" in supplied
+            and supplied["billing_currency"] != previous.billing_currency
+        )
         # 地址与密钥必须成组切换，避免把旧供应商密钥发给新地址。
-        for address, secret in (
-            ("chat_base_url", "chat_api_key"),
-            ("embedding_base_url", "embedding_api_key"),
+        for address, secret, model, prices in (
+            ("chat_base_url", "chat_api_key", "chat_model", (
+                "chat_input_price_per_million", "chat_output_price_per_million",
+            )),
+            ("embedding_base_url", "embedding_api_key", "embedding_model", (
+                "embedding_input_price_per_million",
+            )),
         ):
-            if address not in supplied or supplied[address] == getattr(
-                previous, address
-            ):
-                continue
-            endpoint_changed = True
+            address_changed = address in supplied and supplied[address] != getattr(previous, address)
+            model_changed = model in supplied and supplied[model] != getattr(previous, model)
             if (
-                supplied[address]
+                address_changed
+                and supplied[address]
                 and getattr(previous, secret).get_secret_value()
                 and getattr(body, secret) is None
             ):
@@ -180,20 +185,21 @@ async def save_settings(
                     "PROVIDER_KEY_REQUIRED",
                     "Changing a provider URL requires a new key.",
                 )
+            if address_changed or model_changed or currency_changed:
+                # 供应商、模型或币种变更后须复核报价，Java 会拒绝缺少报价的调用。
+                for price in prices:
+                    if price not in supplied:
+                        runtime[price] = "0"
         for field in ("chat_api_key", "embedding_api_key"):
             key = getattr(body, field)
             if key is not None:
                 runtime[field] = encrypt_provider_key(settings, key)
-        if endpoint_changed:
-            # 换址时旧定价不再可信，先归零预算，待站长复核后单独保存新预算。
-            runtime["ai_daily_budget"] = "0"
-            runtime["ai_daily_budget_unlimited"] = False
         effective_settings(settings, runtime)
     except ValueError as error:
         raise ExecutionRejected(
             422, "INVALID_SETTINGS", "Invalid runtime settings."
         ) from error
-    # 避免降低预算后，旧队列仍按旧配置开始收费。Persona 单独更新不影响已有请求。
+    # 队列固定受理时的供应商配置。Persona 单独更新不影响已有请求。
     if runtime != current.runtime and has_active_executions:
         raise ExecutionRejected(
             409, "EXECUTIONS_ACTIVE", "Wait for current executions to finish."

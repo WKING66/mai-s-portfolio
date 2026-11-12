@@ -4,7 +4,6 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from json import dumps, loads
-from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from httpx import AsyncClient
@@ -12,7 +11,7 @@ from langchain_openai import ChatOpenAI
 from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncConnection
-from sqlmodel import select
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.errors import EXCEPTION_HANDLERS
@@ -21,9 +20,10 @@ from app.config import (
     Settings,
     effective_settings,
 )
+from app.provider.java_budget import JavaBudget, Price
 from app.provider.model_gateway import ModelGateway
 from app.provider.provider_http import provider_http_client
-from app.service.billing import Billing, Price
+from app.service.billing import PendingBudgetReport
 from app.service.execution import Executions
 from app.storage.database import Sessions, create_database
 from app.workflow.chat_graph import ChatGraph
@@ -58,8 +58,17 @@ async def clean_expired_answers(executions: Executions) -> None:
             await asyncio.sleep(3600)
 
 
+async def retry_budget_reports(budget: JavaBudget, executions: Executions) -> None:
+    while executions.worker_available:
+        try:
+            await budget.retry_pending_reports()
+        except SQLAlchemyError:
+            logger.warning("Pending budget reporting deferred.")
+        await asyncio.sleep(15)
+
+
 def create_chat_graph(
-    sessions: Sessions,
+    budget: JavaBudget,
     settings: Settings,
     provider_client: AsyncClient,
 ) -> ChatGraph | None:
@@ -70,16 +79,8 @@ def create_chat_graph(
         or not settings.chat_api_key.get_secret_value()
     ):
         return None
-    billing = Billing(
-        sessions,
-        budget=settings.ai_daily_budget,
-        unlimited=settings.ai_daily_budget_unlimited,
-        currency=settings.billing_currency,
-        time_zone=ZoneInfo(settings.billing_time_zone),
-        price_version=settings.price_version,
-    )
     return ChatGraph(
-        ModelGateway(billing),
+        ModelGateway(budget),
         ChatOpenAI(
             model=settings.chat_model,
             base_url=settings.chat_base_url,
@@ -93,6 +94,8 @@ def create_chat_graph(
             settings.chat_input_price_per_million,
             settings.chat_output_price_per_million,
         ),
+        currency=settings.billing_currency,
+        price_version=settings.price_version,
         input_limit=settings.chat_billable_input_limit,
         output_limit=settings.chat_max_output_tokens,
     )
@@ -104,12 +107,19 @@ def create_app(settings: Settings) -> FastAPI:
         engine = create_database(str(settings.ai_database_url), settings.ai_db_schema)
         sessions = Sessions(engine, class_=AsyncSession)
         provider_client = provider_http_client()
+        budget_http = AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False)
+        budget = JavaBudget(
+            sessions,
+            budget_http,
+            str(settings.java_model_budget_url) if settings.java_model_budget_url else "",
+            settings.ai_server_token.get_secret_value(),
+        )
         try:
 
             @lru_cache(maxsize=1)
             def build_graph(encoded: str) -> ChatGraph | None:
                 return create_chat_graph(
-                    sessions,
+                    budget,
                     effective_settings(settings, loads(encoded)),
                     provider_client,
                 )
@@ -124,6 +134,8 @@ def create_app(settings: Settings) -> FastAPI:
             )
             # 会话锁保证单执行进程，避免第二个进程启动时误把正在运行的问答标为中断。
             async with engine.connect() as connection:
+                # 缺少待补报表时无法保证计费可恢复，必须先迁移再受理模型执行。
+                await connection.execute(select(col(PendingBudgetReport.attempt_id)).limit(1))
                 lock = await connection.scalar(
                     select(func.pg_try_advisory_lock(317341, 2))
                 )
@@ -139,12 +151,13 @@ def create_app(settings: Settings) -> FastAPI:
                         monitor_worker(connection, executions)
                     )
                     cleanup = asyncio.create_task(clean_expired_answers(executions))
+                    usage_reports = asyncio.create_task(retry_budget_reports(budget, executions))
                     try:
                         yield
                     finally:
-                        for task in (monitor, cleanup):
+                        for task in (monitor, cleanup, usage_reports):
                             task.cancel()
-                        await asyncio.gather(monitor, cleanup, return_exceptions=True)
+                        await asyncio.gather(monitor, cleanup, usage_reports, return_exceptions=True)
                         await executions.close()
                 finally:
                     if executions.worker_available and not connection.invalidated:
@@ -153,7 +166,10 @@ def create_app(settings: Settings) -> FastAPI:
                         )
         finally:
             try:
-                await provider_client.aclose()
+                try:
+                    await provider_client.aclose()
+                finally:
+                    await budget_http.aclose()
             finally:
                 await engine.dispose()
 

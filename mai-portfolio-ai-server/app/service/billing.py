@@ -1,46 +1,16 @@
-from dataclasses import dataclass
-from datetime import date, datetime
-from decimal import ROUND_CEILING, Decimal
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import CheckConstraint, Numeric, Text, false, func, or_, update
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import CheckConstraint, DateTime, Numeric, Text, false, func, or_
 from sqlmodel import Field, SQLModel, col, select
 
 from app.storage.database import Sessions
 
 ModelKind = Literal["chat", "embedding"]
-MICRO = Decimal("0.000001")
-
-
-class BillingRejected(Exception):
-    """费用条件不成立时，拒绝启动上游调用。"""
-
-
-@dataclass(frozen=True)
-class Price:
-    input_per_million: Decimal
-    output_per_million: Decimal = Decimal(0)
-
-    def cost(self, input_tokens: int, output_tokens: int) -> Decimal:
-        return (
-            (
-                self.input_per_million * input_tokens
-                + self.output_per_million * output_tokens
-            )
-            / 1_000_000
-        ).quantize(MICRO, rounding=ROUND_CEILING)
-
-
-@dataclass(frozen=True)
-class Reservation:
-    attempt_id: UUID
-    ceiling: Decimal
-    input_limit: int
-    output_limit: int
-    price: Price
+BILLING_ZONE = ZoneInfo("Asia/Shanghai")
 
 
 class ModelAttempt(SQLModel, table=True):
@@ -65,130 +35,42 @@ class ModelAttempt(SQLModel, table=True):
     output_tokens: int | None = None
 
 
-class Billing:
-    def __init__(
-        self,
-        sessions: Sessions,
-        *,
-        budget: Decimal,
-        currency: str,
-        time_zone: ZoneInfo,
-        price_version: str,
-        unlimited: bool = False,
-    ) -> None:
-        self.sessions = sessions
-        self.budget = budget
-        self.currency = currency
-        self.time_zone = time_zone
-        self.price_version = price_version
-        self.unlimited = unlimited
+class PendingBudgetReport(SQLModel, table=True):
+    __tablename__ = "pending_budget_report"  # pyright: ignore[reportAssignmentType]
 
-    async def reserve(
-        self,
-        attempt_id: UUID,
-        kind: ModelKind,
-        price: Price,
-        input_limit: int,
-        output_limit: int,
-    ) -> Reservation:
-        # 1. 限额模式下预算必须为正；两种模式都要求定价和可验证的费用上界，否则无法保证预算硬上限。
-        if (
-            not self.currency
-            or not self.price_version
-            or not self.budget.is_finite()
-            or (not self.unlimited and self.budget <= 0)
-            or input_limit <= 0
-            or output_limit < 0
-            or not price.input_per_million.is_finite()
-            or price.input_per_million <= 0
-            or not price.output_per_million.is_finite()
-            or price.output_per_million < 0
-            or (kind == "chat" and (output_limit == 0 or price.output_per_million == 0))
-        ):
-            raise BillingRejected("Model budget or pricing is unavailable.")
-        ceiling = price.cost(input_limit, output_limit)
-        async with self.sessions.begin() as session:
-            # 2. Chat 和 Embedding 共用预算锁，避免并发请求用同一份余额放行。
-            await session.exec(select(func.pg_advisory_xact_lock(317341, 1)))
-            day = datetime.now(self.time_zone).date()
-            totals = await session.exec(
-                select(
-                    func.coalesce(
-                        func.sum(
-                            func.coalesce(ModelAttempt.actual, ModelAttempt.ceiling)
-                        ),
-                        0,
+    attempt_id: UUID = Field(primary_key=True)
+    # 两个用量都为空表示未外呼，需撤销预占。有用量时按原尝试编号补报。
+    input_tokens: int | None
+    output_tokens: int | None
+    retry_at: datetime = Field(sa_type=DateTime(timezone=True))
+
+
+async def legacy_usage(sessions: Sessions, currency: str) -> dict[str, object]:
+    """只读上报切换前的旧账本占用，Java 合并两份记录后作额度判断。"""
+    day = datetime.now(BILLING_ZONE).date()
+    # 旧账本只记日期，旧时区的当日费用可能落在上海日期的前后一天。切换时保守计入。
+    adjacent_day = timedelta(days=1)
+    async with sessions() as session:
+        totals = await session.exec(
+            select(
+                func.coalesce(
+                    func.sum(func.coalesce(ModelAttempt.actual, ModelAttempt.ceiling)), 0
+                ),
+                func.coalesce(
+                    func.bool_or(
+                        or_(
+                            col(ModelAttempt.currency) != currency,
+                            col(ModelAttempt.bounds_exceeded),
+                        )
                     ),
-                    func.coalesce(
-                        func.bool_or(
-                            or_(
-                                col(ModelAttempt.currency) != self.currency,
-                                col(ModelAttempt.bounds_exceeded),
-                            )
-                        ),
-                        false(),
-                    ),
-                ).where(
-                    or_(
-                        col(ModelAttempt.actual).is_(None),
-                        col(ModelAttempt.billing_day) == day,
-                    )
+                    false(),
+                ),
+            ).where(
+                or_(
+                    col(ModelAttempt.actual).is_(None),
+                    col(ModelAttempt.billing_day).between(day - adjacent_day, day + adjacent_day),
                 )
             )
-            # 跨日的未知用量继续占用。币种冲突或已发现供应商用量超界时暂停收费。
-            occupied, blocked = totals.one()
-            # 不限额只跳过每日总额比较，异常账本和重复尝试仍然拦截。
-            if blocked or (not self.unlimited and occupied + ceiling > self.budget):
-                raise BillingRejected("Model budget is unavailable.")
-            # 3. 尝试标识唯一。回包不明也不能重新使用旧标识发起收费。
-            inserted = await session.scalar(
-                insert(ModelAttempt)
-                .values(
-                    attempt_id=attempt_id,
-                    kind=kind,
-                    billing_day=day,
-                    currency=self.currency,
-                    price_version=self.price_version,
-                    ceiling=ceiling,
-                )
-                .on_conflict_do_nothing(index_elements=[col(ModelAttempt.attempt_id)])
-                .returning(col(ModelAttempt.attempt_id))
-            )
-            if inserted is None:
-                raise BillingRejected("This paid attempt already exists.")
-        return Reservation(attempt_id, ceiling, input_limit, output_limit, price)
-
-    async def settle(
-        self,
-        reservation: Reservation,
-        input_tokens: int,
-        output_tokens: int,
-    ) -> None:
-        # 供应商漏报或回报无效时保留原预留，避免把可能已发生的费用当作零。
-        if input_tokens < 0 or output_tokens < 0 or input_tokens + output_tokens == 0:
-            return
-        pending = (
-            update(ModelAttempt)
-            .where(
-                col(ModelAttempt.attempt_id) == reservation.attempt_id,
-                col(ModelAttempt.actual).is_(None),
-            )
-            .values(input_tokens=input_tokens, output_tokens=output_tokens)
         )
-        # 供应商回报超界说明原计费前提已失效。持久化异常，避免重启后继续放行。
-        if (
-            input_tokens > reservation.input_limit
-            or output_tokens > reservation.output_limit
-        ):
-            async with self.sessions.begin() as session:
-                await session.exec(pending.values(bounds_exceeded=True))
-            raise BillingRejected(
-                "Provider usage exceeded the verified billing bounds."
-            )
-
-        async with self.sessions.begin() as session:
-            await session.exec(
-                pending.where(col(ModelAttempt.bounds_exceeded).is_(False)).values(
-                    actual=reservation.price.cost(input_tokens, output_tokens)
-                )
-            )
+        occupied, blocked = totals.one()
+        return {"billingDay": day.isoformat(), "occupied": str(occupied), "blocked": blocked}

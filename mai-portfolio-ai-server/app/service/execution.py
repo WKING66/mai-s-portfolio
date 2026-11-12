@@ -15,7 +15,7 @@ from sqlmodel import Field, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.contracts.wire import ExecutionRejected, WireModel
-from app.service.billing import BillingRejected
+from app.provider.java_budget import BillingRejected
 from app.service.preferences import ChatPreferences, read_preferences
 from app.storage.database import Sessions
 from app.workflow.chat_graph import ChatGraph, HistoryEntry

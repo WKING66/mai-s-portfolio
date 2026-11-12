@@ -67,6 +67,11 @@ site-guide:
   ai-base-url: ${SITE_GUIDE_AI_BASE_URL:http://127.0.0.1:9344}
   # 由部署方通过 Spring 配置或环境变量指定，值与 Python 的 AI_SERVER_TOKEN 一致。
   ai-server-token: ${SITE_GUIDE_AI_TOKEN:}
+  model-budget:
+    # 0 暂停收费调用，显式启用 unlimited 后仍预占并记录用量。
+    daily-limit: 0
+    unlimited: false
+    currency: CNY
   quota:
     # 全站共用滚动窗口。访问量达到上限后，等窗口内最早的受理记录过期。
     global-window-hours: 1

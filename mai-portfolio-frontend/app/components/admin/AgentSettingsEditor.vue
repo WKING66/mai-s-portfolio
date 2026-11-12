@@ -14,10 +14,6 @@ const chatKeyConfigured = ref(false)
 const embeddingKeyConfigured = ref(false)
 const runtime = ref<AgentRuntime>({})
 const original = ref<AgentRuntime>({})
-const supportsUnlimited = computed(
-  () => typeof original.value.ai_daily_budget_unlimited === 'boolean',
-)
-const unlimited = computed(() => runtime.value.ai_daily_budget_unlimited === true)
 const pending = ref(false)
 const error = ref('')
 
@@ -132,7 +128,7 @@ onMounted(() => update())
       </section>
       <p class="text-sm text-muted">
         填写供应商的 HTTPS API
-        基础地址。更换地址时请填写新供应商密钥。保存后预算归零，核价后再设置。
+        基础地址。更换地址时请填写新供应商密钥并核对模型单价。金额预算由 Spring 配置。
       </p>
       <section class="grid gap-4 sm:grid-cols-2">
         <UFormField
@@ -153,22 +149,6 @@ onMounted(() => update())
           />
         </UFormField>
       </section>
-      <label v-if="supportsUnlimited" class="flex items-center gap-2">
-        <input v-model="runtime.ai_daily_budget_unlimited" type="checkbox" />
-        不限每日成本
-      </label>
-      <p v-if="unlimited" class="text-sm text-muted">继续记录每次调用费用，本站不限制每日总额。</p>
-      <UFormField
-        v-else
-        :label="`每日预算（${runtime.billing_currency || 'CNY'}）`"
-        description="填 0 暂停模型调用。正数是本站每日费用硬上限。"
-      >
-        <UInput
-          :model-value="String(runtime.ai_daily_budget ?? '0')"
-          class="w-full sm:max-w-xs"
-          @update:model-value="runtime.ai_daily_budget = String($event)"
-        />
-      </UFormField>
       <details class="space-y-3 rounded border border-default p-4">
         <summary class="cursor-pointer font-medium">高级设置 · 请求限制与计价</summary>
         <p class="text-sm text-muted">

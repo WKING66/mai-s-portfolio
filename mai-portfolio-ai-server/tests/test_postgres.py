@@ -4,11 +4,12 @@ import sys
 from base64 import urlsafe_b64encode
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from json import loads
 from uuid import uuid4
-from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
+from pydantic import PostgresDsn, SecretStr
 from sqlalchemy import delete
 from sqlalchemy import update as update_rows
 from sqlmodel import col
@@ -16,7 +17,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.config import Settings
 from app.main import create_app
-from app.service.billing import Billing, BillingRejected, ModelAttempt, Price
+from app.provider.java_budget import BillingRejected, JavaBudget, Price
+from app.service.billing import (
+    BILLING_ZONE,
+    ModelAttempt,
+    PendingBudgetReport,
+    legacy_usage,
+)
 from app.service.execution import Execution, Executions, lock_submission
 from app.storage.database import Sessions, create_database
 
@@ -26,75 +33,109 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
-    assert TEST_DATABASE
+def test_legacy_billing_reports_today_and_unknown_usage() -> None:
+    database_url = TEST_DATABASE
+    assert database_url
 
     async def check() -> None:
-        engine = create_database(TEST_DATABASE, "site_guide_test")
+        engine = create_database(database_url, "site_guide_test")
         sessions = Sessions(engine, class_=AsyncSession)
-        attempt_ids = [uuid4(), uuid4(), uuid4(), uuid4()]
+        ids = [uuid4(), uuid4(), uuid4(), uuid4()]
+        today = datetime.now(BILLING_ZONE).date()
         try:
-            billing = Billing(
-                sessions,
-                budget=Decimal(1),
-                currency="TEST",
-                time_zone=ZoneInfo("UTC"),
-                price_version="fixture",
-            )
-            price = Price(Decimal(6000))
-            first, second = await asyncio.gather(
-                billing.reserve(attempt_ids[0], "embedding", price, 100, 0),
-                billing.reserve(attempt_ids[1], "embedding", price, 100, 0),
-                return_exceptions=True,
-            )
-            rejected = [
-                result
-                for result in (first, second)
-                if isinstance(result, BillingRejected)
-            ]
-            assert len(rejected) == 1
-            winner = second if isinstance(first, BillingRejected) else first
-            assert not isinstance(winner, BaseException)
             async with sessions.begin() as session:
-                await session.exec(
-                    update_rows(ModelAttempt)
-                    .where(col(ModelAttempt.attempt_id) == winner.attempt_id)
-                    .values(billing_day=datetime.now(UTC).date() - timedelta(days=1))
-                )
-            with pytest.raises(BillingRejected):
-                await billing.reserve(uuid4(), "embedding", price, 100, 0)
-            await billing.settle(winner, 10, 0)
-            with pytest.raises(BillingRejected):
-                await billing.reserve(winner.attempt_id, "embedding", price, 100, 0)
-            unlimited = Billing(
-                sessions,
-                budget=Decimal(0),
-                currency="TEST",
-                time_zone=ZoneInfo("UTC"),
-                price_version="fixture",
-                unlimited=True,
-            )
-            open_attempt = await unlimited.reserve(
-                attempt_ids[3], "embedding", price, 100, 0
-            )
-            async with sessions() as session:
-                saved = await session.get(ModelAttempt, open_attempt.attempt_id)
-                assert saved is not None and saved.ceiling == open_attempt.ceiling
-            await unlimited.settle(open_attempt, 10, 0)
-            next_attempt = await billing.reserve(
-                attempt_ids[2], "embedding", price, 100, 0
-            )
-            with pytest.raises(BillingRejected):
-                await billing.settle(next_attempt, 101, 0)
-            with pytest.raises(BillingRejected):
-                await billing.reserve(uuid4(), "embedding", price, 1, 0)
-            with pytest.raises(BillingRejected):
-                await unlimited.reserve(uuid4(), "embedding", price, 1, 0)
+                for attempt_id, day, actual in (
+                    (ids[0], today, Decimal("0.1")),
+                    (ids[1], today - timedelta(days=1), None),
+                    (ids[2], today - timedelta(days=1), Decimal("0.1")),
+                    (ids[3], today - timedelta(days=2), Decimal("0.4")),
+                ):
+                    session.add(
+                        ModelAttempt(
+                            attempt_id=attempt_id,
+                            kind="chat",
+                            billing_day=day,
+                            currency="CNY",
+                            price_version="fixture",
+                            ceiling=Decimal("0.5"),
+                            actual=actual,
+                        )
+                    )
+            usage = await legacy_usage(sessions, "CNY")
+            assert Decimal(str(usage["occupied"])) == Decimal("0.7")
+            assert usage["blocked"] is False
+            assert (await legacy_usage(sessions, "USD"))["blocked"] is True
         finally:
             async with sessions.begin() as session:
                 await session.exec(
-                    delete(ModelAttempt).where(
-                        col(ModelAttempt.attempt_id).in_(attempt_ids)
+                    delete(ModelAttempt).where(col(ModelAttempt.attempt_id).in_(ids))
+                )
+            await engine.dispose()
+
+    asyncio.run(
+        check(),
+        loop_factory=asyncio.SelectorEventLoop if sys.platform == "win32" else None,
+    )
+
+
+def test_budget_callback_replays_known_usage_and_unconfirmed_reservations() -> None:
+    database_url = TEST_DATABASE
+    assert database_url
+
+    async def check() -> None:
+        engine = create_database(database_url, "site_guide_test")
+        sessions = Sessions(engine, class_=AsyncSession)
+        settled_id, released_id = uuid4(), uuid4()
+        received: list[tuple[str, str]] = []
+        available = False
+
+        def respond(request: httpx.Request) -> httpx.Response:
+            received.append((request.method, request.url.path))
+            if request.method == "POST" and request.url.path.endswith("/reservations"):
+                raise httpx.ReadTimeout("response lost", request=request)
+            if request.url.path.endswith("/settlements"):
+                assert loads(request.content) == {
+                    "attemptId": str(settled_id),
+                    "inputTokens": 4,
+                    "outputTokens": 2,
+                }
+            return httpx.Response(204 if available else 503)
+
+        try:
+            async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+                budget = JavaBudget(sessions, http, "http://localhost/budget", "fixture")
+                await budget.settle(settled_id, 4, 2)
+                with pytest.raises(BillingRejected):
+                    await budget.reserve(
+                        released_id,
+                        price=Price(Decimal(1)),
+                        input_limit=100,
+                        output_limit=0,
+                        currency="CNY",
+                        price_version="fixture",
+                    )
+                async with sessions.begin() as session:
+                    settlement = await session.get(PendingBudgetReport, settled_id)
+                    release = await session.get(PendingBudgetReport, released_id)
+                    assert settlement is not None and settlement.input_tokens == 4
+                    assert release is not None and release.input_tokens is None
+                    due = datetime.now(UTC) - timedelta(seconds=1)
+                    settlement.retry_at = due
+                    release.retry_at = due
+                available = True
+                # 新适配器从 PostgreSQL 重读待补报记录，模拟工作进程重启。
+                recovered = JavaBudget(sessions, http, "http://localhost/budget", "fixture")
+                await recovered.retry_pending_reports()
+                async with sessions() as session:
+                    assert await session.get(PendingBudgetReport, settled_id) is None
+                    assert await session.get(PendingBudgetReport, released_id) is None
+                assert received.count(("POST", "/budget/settlements")) == 2
+                assert received.count(("DELETE", f"/budget/reservations/{released_id}")) == 1
+        finally:
+            async with sessions.begin() as session:
+                await session.exec(
+                    delete(PendingBudgetReport).where(
+                        col(PendingBudgetReport.attempt_id).in_([settled_id, released_id])
                     )
                 )
             await engine.dispose()
@@ -106,10 +147,11 @@ def test_billing_serializes_reservations_and_retains_unknown_usage() -> None:
 
 
 def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
-    assert TEST_DATABASE
+    database_url = TEST_DATABASE
+    assert database_url
 
     async def check() -> None:
-        engine = create_database(TEST_DATABASE, "site_guide_test")
+        engine = create_database(database_url, "site_guide_test")
         sessions = Sessions(engine, class_=AsyncSession)
         service = Executions(sessions, lambda _: None, concurrency=1, queue_limit=0)
         request_id, execution_id = uuid4(), uuid4()
@@ -163,13 +205,13 @@ def test_execution_routes_and_settings_revision() -> None:
     assert TEST_DATABASE
     server_token = "e" * 32
     settings = Settings(
-        ai_database_url=TEST_DATABASE,
+        ai_database_url=PostgresDsn(TEST_DATABASE),
         ai_db_schema="site_guide_test",
-        ai_server_token=server_token,
+        ai_server_token=SecretStr(server_token),
         model_provider="openai-compatible",
         chat_base_url="https://example.invalid/v1",
-        chat_api_key="never-sent",
-        config_encryption_key=urlsafe_b64encode(bytes(32)).decode(),
+        chat_api_key=SecretStr("never-sent"),
+        config_encryption_key=SecretStr(urlsafe_b64encode(bytes(32)).decode()),
         chat_model="fixture",
     )
     app = create_app(settings)
@@ -272,9 +314,15 @@ def test_execution_routes_and_settings_revision() -> None:
                 settings_path, json=without_key, headers=management
             )
             assert rejected.json()["code"] == "PROVIDER_KEY_REQUIRED"
-            update["runtime"]["ai_daily_budget"] = "1"
+            budget_policy = await client.put(
+                settings_path,
+                json={**update, "runtime": {**update["runtime"], "ai_daily_budget": "1"}},
+                headers=management,
+            )
+            assert budget_policy.status_code == 422
             updated = await client.put(settings_path, json=update, headers=management)
-            assert updated.json()["runtime"]["ai_daily_budget"] == "0"
+            assert "ai_daily_budget" not in updated.json()["runtime"]
+            assert updated.json()["runtime"]["chat_input_price_per_million"] == "0"
             assert updated.json()["revision"] == revision + 1
             assert updated.json()["chatModel"] == model_name
             assert updated.json()["runtime"]["chat_max_output_tokens"] == 512
