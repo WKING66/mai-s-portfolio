@@ -17,6 +17,8 @@ public interface AgentTurnMapper extends BaseMapper<AgentTurn> {
 
     int insertPending(@Param("turn") AgentTurn turn);
 
+    boolean globalQuotaReached(@Param("hours") int windowHours, @Param("limit") int limit);
+
     @Select("SELECT clock_timestamp() FROM pg_advisory_xact_lock(#{key})")
     OffsetDateTime lockQuota(@Param("key") long key);
 

@@ -198,11 +198,16 @@ public class AgentConversationServiceImpl implements AgentConversationService {
     }
 
     private OffsetDateTime checkNewTurnQuota(String owner, boolean anonymous) {
-        // 所有 Spring 实例共用数据库锁和数据库时钟，避免多个会话同时把剩余全站额度用超。
+        int windowHours = agentQuotaProperties.globalWindowHours();
+        int globalLimit = agentQuotaProperties.globalRequestLimit();
+        // 全站额度耗尽时直接拒绝，避免大量被拒请求排队等待全站锁。
+        if (agentTurnMapper.globalQuotaReached(windowHours, globalLimit)) {
+            throw globalQuotaExceeded();
+        }
+        // 预检通过后各实例仍须在同一个锁内复核，避免两个会话同时取得最后一个名额。
         OffsetDateTime now = agentTurnMapper.lockQuota(GLOBAL_QUOTA_LOCK);
-        OffsetDateTime globalCutoff = now.minusHours(agentQuotaProperties.globalWindowHours());
-        if (agentTurnMapper.countQuotaSince(globalCutoff) >= agentQuotaProperties.globalRequestLimit()) {
-            throw new ApiException(ApiErrorCode.RATE_LIMITED, "站点对话额度暂已用完，请稍后再试。");
+        if (agentTurnMapper.countQuotaSince(now.minusHours(windowHours)) >= globalLimit) {
+            throw globalQuotaExceeded();
         }
         int personalLimit = anonymous
                 ? agentQuotaProperties.visitorDailyTurnLimit()
@@ -213,6 +218,10 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             throw new ApiException(ApiErrorCode.RATE_LIMITED, "你的对话额度暂已用完，请稍后再试。");
         }
         return now;
+    }
+
+    private static ApiException globalQuotaExceeded() {
+        return new ApiException(ApiErrorCode.RATE_LIMITED, "站点对话额度暂已用完，请稍后再试。");
     }
 
     public Receipt receipt(AgentTurn turn) {

@@ -105,6 +105,20 @@ class AgentConversationRecoveryTest {
     }
 
     @Test
+    void exhaustedGlobalQuotaRejectsBeforeWaitingForTheGlobalLock() {
+        String owner = "visitor:7";
+        when(agentConversationMapper.lockConversation("conversation", owner)).thenReturn("conversation");
+        when(agentTurnMapper.globalQuotaReached(2, 3)).thenReturn(true);
+
+        var error = assertThrows(ApiException.class, () -> agentConversationService.submit(
+                "conversation", owner, true, "request", "问题"));
+
+        assertEquals("站点对话额度暂已用完，请稍后再试。", error.getMessage());
+        verify(agentTurnMapper, never()).lockQuota(anyLong());
+        verify(agentTurnMapper, never()).insertPending(any());
+    }
+
+    @Test
     void globalQuotaRejectsBothGuestAndAccountBeforePersonalQuota() {
         var now = OffsetDateTime.parse("2026-11-12T16:01:00Z");
         when(agentTurnMapper.lockQuota(anyLong())).thenReturn(now);

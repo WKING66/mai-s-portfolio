@@ -8,6 +8,14 @@
         JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
         WHERE turn.execution_id = #{id} AND conversation.owner_key = #{owner}
     </select>
+    <select id="globalQuotaReached" resultType="boolean">
+        SELECT count(*) = #{limit}
+        FROM (
+            SELECT 1 FROM agent_turn
+            WHERE quota_at &gt; statement_timestamp() - make_interval(hours =&gt; #{hours})
+            LIMIT #{limit}
+        ) occupied
+    </select>
     <select id="countOwnerQuotaSince" resultType="long">
         SELECT count(*)
         FROM agent_turn turn
