@@ -337,6 +337,22 @@ class AccountProfileServiceImplTest {
     }
 
     @Test
+    void repeatedRoleChangeRevokesStaleOwnerSession() {
+        try (var stp = mockStatic(StpUtil.class)) {
+            var staleSession = new cn.dev33.satoken.session.SaSession("stale-owner");
+            staleSession.set("identity", new dev.amai.portfolio.security.context.AccountContext.Account(
+                    7L, "owner", List.of("OWNER")));
+            stp.when(() -> StpUtil.getSessionByLoginId(7L, false)).thenReturn(staleSession);
+
+            transaction.executeWithoutResult(status -> service.updateAccess(
+                    7L, new AccountAccessRequest(null, AccountType.NORMAL)));
+
+            stp.verify(() -> StpUtil.logout(7L));
+        }
+        verify(accounts, never()).update(isNull(), any());
+    }
+
+    @Test
     void repeatedDisableStillRevokesExistingSessionsWithoutChangingProfile() {
         account.setStatus(AccountStatus.DISABLED.code());
         try (var stp = mockStatic(StpUtil.class)) {

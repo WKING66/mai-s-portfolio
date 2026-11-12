@@ -1,12 +1,14 @@
 package dev.amai.portfolio.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.dao.SaTokenDao;
 import cn.dev33.satoken.dao.SaTokenDaoDefaultImpl;
 import cn.dev33.satoken.stp.StpUtil;
 import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureAutoConfiguration;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -88,6 +90,12 @@ class SaTokenAsyncDispatchIntegrationTest {
         @Bean
         SaTokenDao saTokenDao() {
             return new SaTokenDaoDefaultImpl();
+        }
+
+        @Bean
+        RedisRateLimiter redisRateLimiter() {
+            // 本测试只验证异步派发和登录上下文，隔离部署层的 Redis 限流设施。
+            return mock(RedisRateLimiter.class);
         }
     }
 
