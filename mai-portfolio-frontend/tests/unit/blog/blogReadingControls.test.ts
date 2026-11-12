@@ -42,6 +42,9 @@ function resizeHandle() {
     {
       ref,
       shallowRef,
+      // VM 直接执行 script setup，因此这里提供 Vue 编译期宏的默认参数行为。
+      defineProps: () => ({}),
+      withDefaults: (props: object, defaults: object) => ({ ...defaults, ...props }),
       useTemplateRef: () => ({ value: handle }),
       onMounted: (callback: () => void) => {
         mounted = callback
@@ -88,7 +91,7 @@ describe('reading TOC width controls', () => {
   it('starts at 18rem, coalesces pointer updates and keeps the width within bounds', () => {
     const view = resizeHandle()
     expect(view.api.percentage.value).toBe(24)
-    view.api.start({ button: 0, pointerId: 1, preventDefault() {} })
+    view.api.start({ button: 0, pointerId: 1, clientX: 388, preventDefault() {} })
     view.api.move({ pointerId: 2, clientX: 700 })
     expect(view.api.percentage.value).toBe(24)
     view.api.move({ pointerId: 1, clientX: 550 })
