@@ -26,7 +26,7 @@ class Price:
     output_per_million: Decimal = Decimal(0)
 
 
-class JavaBudget:
+class ModelBudgetClient:
     """把模型报价和可信用量交给 Java，预占成功后才允许外呼。"""
 
     def __init__(

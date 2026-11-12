@@ -9,7 +9,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.provider.java_budget import Price
+from app.provider.model_budget_client import Price
 from app.provider.model_gateway import ModelGateway
 
 

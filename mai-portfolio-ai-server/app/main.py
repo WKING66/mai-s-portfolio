@@ -20,7 +20,7 @@ from app.config import (
     Settings,
     effective_settings,
 )
-from app.provider.java_budget import JavaBudget, Price
+from app.provider.model_budget_client import ModelBudgetClient, Price
 from app.provider.model_gateway import ModelGateway
 from app.provider.provider_http import provider_http_client
 from app.service.billing import PendingBudgetReport
@@ -58,7 +58,7 @@ async def clean_expired_answers(executions: Executions) -> None:
             await asyncio.sleep(3600)
 
 
-async def retry_budget_reports(budget: JavaBudget, executions: Executions) -> None:
+async def retry_budget_reports(budget: ModelBudgetClient, executions: Executions) -> None:
     while executions.worker_available:
         try:
             await budget.retry_pending_reports()
@@ -68,7 +68,7 @@ async def retry_budget_reports(budget: JavaBudget, executions: Executions) -> No
 
 
 def create_chat_graph(
-    budget: JavaBudget,
+    budget: ModelBudgetClient,
     settings: Settings,
     provider_client: AsyncClient,
 ) -> ChatGraph | None:
@@ -108,7 +108,7 @@ def create_app(settings: Settings) -> FastAPI:
         sessions = Sessions(engine, class_=AsyncSession)
         provider_client = provider_http_client()
         budget_http = AsyncClient(timeout=5.0, follow_redirects=False, trust_env=False)
-        budget = JavaBudget(
+        budget = ModelBudgetClient(
             sessions,
             budget_http,
             str(settings.java_model_budget_url) if settings.java_model_budget_url else "",

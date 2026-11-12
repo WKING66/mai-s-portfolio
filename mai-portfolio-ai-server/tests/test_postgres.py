@@ -17,7 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.config import Settings
 from app.main import create_app
-from app.provider.java_budget import BillingRejected, JavaBudget, Price
+from app.provider.model_budget_client import BillingRejected, ModelBudgetClient, Price
 from app.service.billing import (
     BILLING_ZONE,
     ModelAttempt,
@@ -103,7 +103,7 @@ def test_budget_callback_replays_known_usage_and_unconfirmed_reservations() -> N
 
         try:
             async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
-                budget = JavaBudget(sessions, http, "http://localhost/budget", "fixture")
+                budget = ModelBudgetClient(sessions, http, "http://localhost/budget", "fixture")
                 await budget.settle(settled_id, 4, 2)
                 with pytest.raises(BillingRejected):
                     await budget.reserve(
@@ -124,7 +124,7 @@ def test_budget_callback_replays_known_usage_and_unconfirmed_reservations() -> N
                     release.retry_at = due
                 available = True
                 # 新适配器从 PostgreSQL 重读待补报记录，模拟工作进程重启。
-                recovered = JavaBudget(sessions, http, "http://localhost/budget", "fixture")
+                recovered = ModelBudgetClient(sessions, http, "http://localhost/budget", "fixture")
                 await recovered.retry_pending_reports()
                 async with sessions() as session:
                     assert await session.get(PendingBudgetReport, settled_id) is None

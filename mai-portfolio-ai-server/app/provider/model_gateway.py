@@ -8,12 +8,12 @@ from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from app.config import Settings
-from app.provider.java_budget import BillingRejected, JavaBudget, Price
+from app.provider.model_budget_client import BillingRejected, ModelBudgetClient, Price
 from app.provider.provider_http import provider_http_client
 
 
 class ModelGateway:
-    def __init__(self, budget: JavaBudget) -> None:
+    def __init__(self, budget: ModelBudgetClient) -> None:
         self.budget = budget
 
     async def stream_chat(
