@@ -4,7 +4,6 @@ import { HOME_INTRO, HOME_ABOUT } from '../constants/home'
 import { BLOG_PATH, type BlogPage } from '../api/blogs'
 import { BLOG_HOME_ARTICLE_COUNT, BLOG_PUBLIC_CACHE_PREFIX, BLOG_VIEW } from '../constants/blogs'
 import type { ApiResponse } from '../api/types'
-import type { AssistantContext } from '../utils/site/mockAssistant'
 import { useSiteProfile } from '../api/profile'
 import { SITE_MESSAGES } from '../constants/messages'
 import { usePublicProjects } from '../api/projects'
@@ -61,31 +60,6 @@ useHead(() => {
 
 const articles = computed(() => articlesRequest.data.value?.data?.items ?? [])
 useReadErrorFeedback(() => articlesRequest.error.value, '文章读取失败，请重试。')
-const assistantContext = computed<AssistantContext>(() => ({
-  name: siteProfile.value?.displayName ?? '阿霾',
-  sources: [
-    {
-      title: '关于' + (siteProfile.value?.displayName ?? '阿霾'),
-      summary: HOME_INTRO + HOME_ABOUT,
-      url: '/#about',
-      kind: 'profile',
-    },
-    ...(featuredProjectPage.value?.items ?? []).map((project) => ({
-      title: project.title,
-      summary: project.summary,
-      url: project.links[0]?.url ?? '/projects',
-      kind: 'project' as const,
-    })),
-    ...articles.value
-      .filter((article) => article.slug)
-      .map((article) => ({
-        title: article.title,
-        summary: article.summary,
-        url: '/blog/' + encodeURIComponent(article.slug!),
-        kind: 'article' as const,
-      })),
-  ],
-}))
 const displayDate = useBlogDate()
 </script>
 
@@ -101,7 +75,7 @@ const displayDate = useBlogDate()
     >
     <template v-else-if="siteProfile">
       <ProfileHero :profile="siteProfile" />
-      <SiteHomeAssistant :context="assistantContext" />
+      <SiteHomeAssistant :name="siteProfile.displayName" />
       <aside class="home-now">
         <strong>● 最近在折腾</strong><span>完善这个个人站的博客与文档体验</span
         ><span>学习 Agent 的工具调用与对话流程</span>

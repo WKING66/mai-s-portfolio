@@ -33,6 +33,9 @@ export default defineNuxtConfig({
     public: { authRsaPublicKey: '', siteUrl: '' },
   },
   routeRules: {
+    '/api/agent/v1/**': {
+      proxy: `${process.env.NUXT_BACKEND_URL || 'http://127.0.0.1:9333'}/api/agent/v1/**`,
+    },
     '/api/v1/**': {
       proxy: `${process.env.NUXT_BACKEND_URL || 'http://127.0.0.1:9333'}/api/v1/**`,
     },
