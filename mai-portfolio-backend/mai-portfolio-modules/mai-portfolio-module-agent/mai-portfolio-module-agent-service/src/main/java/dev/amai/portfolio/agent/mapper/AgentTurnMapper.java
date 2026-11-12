@@ -15,6 +15,9 @@ import org.apache.ibatis.annotations.Select;
 public interface AgentTurnMapper extends BaseMapper<AgentTurn> {
     AgentTurn byExecution(@Param("id") String executionId, @Param("owner") String owner);
 
+    boolean isOwnedReplay(@Param("requestId") String requestId, @Param("conversationId") String conversationId,
+            @Param("owner") String owner, @Param("question") String question);
+
     int insertPending(@Param("turn") AgentTurn turn);
 
     boolean globalQuotaReached(@Param("hours") int windowHours, @Param("limit") int limit);
