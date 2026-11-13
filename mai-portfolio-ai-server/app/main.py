@@ -17,6 +17,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.errors import EXCEPTION_HANDLERS
 from app.api.routes import router
 from app.config import (
+    ModelSettings,
     Settings,
     effective_settings,
 )
@@ -69,7 +70,7 @@ async def retry_budget_reports(budget: ModelBudgetClient, executions: Executions
 
 def create_chat_graph(
     budget: ModelBudgetClient,
-    settings: Settings,
+    settings: ModelSettings,
     provider_client: AsyncClient,
 ) -> ChatGraph | None:
     if (

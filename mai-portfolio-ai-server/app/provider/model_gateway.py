@@ -7,7 +7,7 @@ from uuid import UUID
 from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from app.config import Settings
+from app.config import ModelSettings
 from app.provider.model_budget_client import BillingRejected, ModelBudgetClient, Price
 from app.provider.provider_http import provider_http_client
 
@@ -80,7 +80,7 @@ class ModelGateway:
         attempt_id: UUID,
         text: str,
         *,
-        settings: Settings,
+        settings: ModelSettings,
     ) -> list[float]:
         input_limit = settings.embedding_billable_input_limit
         dimensions = settings.embedding_dimensions

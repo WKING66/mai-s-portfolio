@@ -5,6 +5,8 @@ from cryptography.fernet import Fernet, InvalidToken
 from pydantic import (
     AliasChoices,
     AnyHttpUrl,
+    BaseModel,
+    ConfigDict,
     Field,
     PostgresDsn,
     SecretStr,
@@ -34,6 +36,22 @@ class Settings(BaseSettings):
     config_encryption_key: SecretStr = SecretStr("")
     java_model_budget_url: AnyHttpUrl | None = None
 
+    execution_concurrency: int = Field(default=2, gt=0, le=16)
+    execution_queue_limit: int = Field(default=8, ge=0, le=128)
+
+    @field_validator("ai_server_token")
+    @classmethod
+    def validate_token(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value()) < 32:
+            raise ValueError("Service credentials must contain at least 32 characters.")
+        return value
+
+
+class ModelSettings(BaseModel):
+    """模型配置只从数据库读取，字段默认值用于展示尚未配置的状态。"""
+
+    model_config = ConfigDict(hide_input_in_errors=True)
+
     model_provider: str = "openai-compatible"
     chat_base_url: str = ""
     chat_api_key: SecretStr = SecretStr("")
@@ -52,16 +70,6 @@ class Settings(BaseSettings):
     chat_input_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
     chat_output_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
     embedding_input_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
-
-    execution_concurrency: int = Field(default=2, gt=0, le=16)
-    execution_queue_limit: int = Field(default=8, ge=0, le=128)
-
-    @field_validator("ai_server_token")
-    @classmethod
-    def validate_token(cls, value: SecretStr) -> SecretStr:
-        if len(value.get_secret_value()) < 32:
-            raise ValueError("Service credentials must contain at least 32 characters.")
-        return value
 
 
 # 数据库、服务令牌和加密主密钥用于启动信任边界，供应商参数由配置中心维护。
@@ -97,8 +105,8 @@ def encrypt_provider_key(bootstrap: Settings, value: SecretStr) -> str:
     )
 
 
-def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> Settings:
-    """应用数据库覆盖值，缺少覆盖值时保留启动设置。"""
+def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> ModelSettings:
+    """校验数据库中的模型配置，仅用启动密钥解密供应商凭证。"""
     # 保留旧版本保存的预算数据供回滚使用，当前版本的运行配置只读取模型设置。
     overrides = {
         key: value
@@ -107,7 +115,7 @@ def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> Settin
     }
     if overrides.keys() - EDITABLE_SETTINGS - set(STORED_SECRET_FIELDS):
         raise ValueError("Unsupported runtime setting.")
-    values = bootstrap.model_dump() | overrides
+    values = dict(overrides)
     try:
         for field in STORED_SECRET_FIELDS:
             if field in overrides:
@@ -115,7 +123,7 @@ def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> Settin
                 values[field] = cipher.decrypt(overrides[field]).decode()
     except (ValueError, InvalidToken) as error:
         raise ValueError("Stored model credentials cannot be decrypted.") from error
-    effective = Settings.model_validate(values)
+    effective = ModelSettings.model_validate(values)
     for address in (effective.chat_base_url, effective.embedding_base_url):
         if address:
             validate_provider_url(address)

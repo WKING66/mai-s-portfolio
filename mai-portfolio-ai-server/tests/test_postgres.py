@@ -15,7 +15,7 @@ from sqlalchemy import update as update_rows
 from sqlmodel import col
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.config import Settings
+from app.config import Settings, encrypt_provider_key
 from app.main import create_app
 from app.provider.model_budget_client import BillingRejected, ModelBudgetClient, Price
 from app.service.billing import (
@@ -25,6 +25,7 @@ from app.service.billing import (
     legacy_usage,
 )
 from app.service.execution import Execution, Executions, lock_submission
+from app.service.preferences import ChatPreferences
 from app.storage.database import Sessions, create_database
 
 TEST_DATABASE = os.getenv("AI_TEST_DATABASE_URL")
@@ -215,18 +216,17 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
     )
 
 
-def test_execution_routes_and_settings_revision() -> None:
+def test_execution_routes_and_settings_revision(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CHAT_MODEL", "ignored-environment-model")
+    monkeypatch.setenv("CHAT_BASE_URL", "https://ignored.example.invalid/v1")
+    monkeypatch.setenv("CHAT_API_KEY", "ignored-environment-key")
     assert TEST_DATABASE
     server_token = "e" * 32
     settings = Settings(
         ai_database_url=PostgresDsn(TEST_DATABASE),
         ai_db_schema="site_guide_test",
         ai_server_token=SecretStr(server_token),
-        model_provider="openai-compatible",
-        chat_base_url="https://example.invalid/v1",
-        chat_api_key=SecretStr("never-sent"),
         config_encryption_key=SecretStr(urlsafe_b64encode(bytes(32)).decode()),
-        chat_model="fixture",
     )
     app = create_app(settings)
 
@@ -242,6 +242,20 @@ def test_execution_routes_and_settings_revision() -> None:
             assert (await client.get("/internal/v1/health/ready")).json() == {
                 "status": "ready"
             }
+            settings_path = "/internal/v1/settings"
+            empty = (await client.get(settings_path)).json()
+            assert empty["chatModel"] == ""
+            assert empty["chatKeyConfigured"] is False
+
+            # 使用数据库中的加密配置作为执行测试数据。
+            async with app.state.sessions.begin() as session:
+                row = await session.get(ChatPreferences, True)
+                assert row is not None
+                row.runtime = {
+                    "chat_base_url": "https://example.invalid/v1",
+                    "chat_model": "fixture",
+                    "chat_api_key": encrypt_provider_key(settings, SecretStr("never-sent")),
+                }
             path = "/internal/v1/executions"
             assert (await client.get(path, params={"requestId": "bad-id"})).json()[
                 "code"
@@ -284,7 +298,6 @@ def test_execution_routes_and_settings_revision() -> None:
                 "sources",
                 "error",
             }
-            settings_path = "/internal/v1/settings"
             assert (
                 await client.get(settings_path, headers={"Authorization": ""})
             ).status_code == 401
