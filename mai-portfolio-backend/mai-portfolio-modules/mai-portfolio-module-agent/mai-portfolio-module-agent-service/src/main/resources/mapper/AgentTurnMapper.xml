@@ -8,6 +8,17 @@
         JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
         WHERE turn.execution_id = #{id} AND conversation.owner_key = #{owner}
     </select>
+    <select id="isOwnedReplay" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM agent_turn turn
+            JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
+            WHERE turn.request_id = #{requestId}
+              AND turn.conversation_id = #{conversationId}
+              AND turn.question = #{question}
+              AND conversation.owner_key = #{owner}
+        )
+    </select>
     <select id="globalQuotaReached" resultType="boolean">
         SELECT count(*) = #{limit}
         FROM (

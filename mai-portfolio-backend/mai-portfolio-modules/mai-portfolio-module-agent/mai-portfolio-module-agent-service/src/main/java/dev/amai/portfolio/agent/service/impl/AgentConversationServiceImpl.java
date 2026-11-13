@@ -27,6 +27,7 @@ import dev.amai.portfolio.agent.enums.AgentTurnState;
 import dev.amai.portfolio.agent.mapper.AgentConversationMapper;
 import dev.amai.portfolio.agent.mapper.AgentTurnMapper;
 import dev.amai.portfolio.agent.service.AgentConversationService;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.OffsetDateTime;
@@ -34,6 +35,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.BiConsumer;
+import org.redisson.client.RedisException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -44,6 +46,8 @@ import org.springframework.web.client.RestClientException;
 public class AgentConversationServiceImpl implements AgentConversationService {
     private static final long GLOBAL_QUOTA_LOCK = 7137426010004L;
     private static final int PERSONAL_QUOTA_WINDOW_HOURS = 24;
+    private static final String CHAT_BURST_ENDPOINT = "site-guide:chat";
+    private static final String SITE_WIDE_BUCKET = "site";
     private static final String UNAVAILABLE = "模型服务暂不可用。";
 
     private final AgentConversationMapper agentConversationMapper;
@@ -56,16 +60,20 @@ public class AgentConversationServiceImpl implements AgentConversationService {
 
     private final AgentQuotaProperties agentQuotaProperties;
 
+    private final RedisRateLimiter redisRateLimiter;
+
     private final boolean enabled;
 
     public AgentConversationServiceImpl(AgentConversationMapper agentConversationMapper,
             AgentTurnMapper agentTurnMapper, AgentAiClient agentAiClient, TransactionTemplate transactionTemplate,
-            AgentQuotaProperties agentQuotaProperties, @Value("${site-guide.enabled:false}") boolean enabled) {
+            AgentQuotaProperties agentQuotaProperties, RedisRateLimiter redisRateLimiter,
+            @Value("${site-guide.enabled:false}") boolean enabled) {
         this.agentConversationMapper = agentConversationMapper;
         this.agentTurnMapper = agentTurnMapper;
         this.agentAiClient = agentAiClient;
         this.transactionTemplate = transactionTemplate;
         this.agentQuotaProperties = agentQuotaProperties;
+        this.redisRateLimiter = redisRateLimiter;
         this.enabled = enabled;
     }
 
@@ -131,7 +139,11 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         if (!enabled) {
             throw new ApiException(ApiErrorCode.FORBIDDEN, "网站 AI 功能未开启。");
         }
-        // 1. 先写网站请求与固定截止时间。事务结束后才请求 Python，网络等待期间不持有会话锁。
+        // 1. 已受理的原请求直接走恢复，新请求先通过全站突发限流，避免洪峰占满数据库锁队列。
+        if (!agentTurnMapper.isOwnedReplay(requestId, conversation, owner, question)) {
+            requireChatBurstPermit();
+        }
+        // 2. 写入网站请求和固定截止时间。事务结束后才请求 Python，网络等待期间不持有会话锁。
         StoredSubmission submission = transactionTemplate.execute(transaction -> {
             requireFound(agentConversationMapper.lockConversation(conversation, owner));
             var existing = agentTurnMapper.selectById(requestId);
@@ -164,7 +176,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         if (turn.getStatus().isTerminal()) {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, "这次发送未受理，请重新发送。");
         }
-        // 2. 先按编号查回已受理执行。只在原截止时间内，以同一输入尝试首次受理。
+        // 3. 先按编号查回已受理执行。只在原截止时间内，以同一输入尝试首次受理。
         try {
             // 截止前的负查不能证明其他请求永远不会受理。只有先确认过期再查，才可以落失败终态。
             boolean expired = acceptanceExpired(turn);
@@ -194,6 +206,19 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         } catch (RestClientException error) {
             // 上游拒绝也可能和同编号的受理并发，保留原编号供继续查询。
             throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认发送结果，请重试原请求。");
+        }
+    }
+
+    private void requireChatBurstPermit() {
+        try {
+            // 登录用户和访客共用同一全站桶。拦截只影响入口容量，业务轮次仍在受理事务中扣减。
+            if (!redisRateLimiter.tokenBucket(CHAT_BURST_ENDPOINT, SITE_WIDE_BUCKET,
+                    agentQuotaProperties.chatBurstCapacity(), agentQuotaProperties.chatRefillPerSecond())) {
+                throw new ApiException(ApiErrorCode.RATE_LIMITED, "对话请求过于集中，请稍后重试。");
+            }
+        } catch (RedisException error) {
+            // 限流依赖不可用时暂停新请求，避免故障流量直接进入数据库。已有轮次仍可恢复。
+            throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "模型服务暂不可用，请稍后重试。");
         }
     }
 

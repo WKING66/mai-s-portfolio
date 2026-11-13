@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -19,12 +21,15 @@ import dev.amai.portfolio.agent.entity.AgentTurn;
 import dev.amai.portfolio.agent.enums.AgentTurnState;
 import dev.amai.portfolio.agent.mapper.AgentConversationMapper;
 import dev.amai.portfolio.agent.mapper.AgentTurnMapper;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter;
+import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.redisson.client.RedisException;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -34,11 +39,15 @@ class AgentConversationRecoveryTest {
     private final AgentTurnMapper agentTurnMapper = mock(AgentTurnMapper.class);
     private final AgentAiClient agentAiClient = mock(AgentAiClient.class);
     private final TransactionTemplate transactionTemplate = mock(TransactionTemplate.class);
+    private final RedisRateLimiter redisRateLimiter = mock(RedisRateLimiter.class);
+
     private final AgentConversationServiceImpl agentConversationService = new AgentConversationServiceImpl(
-            agentConversationMapper, agentTurnMapper, agentAiClient, transactionTemplate, new AgentQuotaProperties(2, 3, 1, 2), true);
+            agentConversationMapper, agentTurnMapper, agentAiClient, transactionTemplate,
+            new AgentQuotaProperties(2, 3, 1, 2, 8, 4), redisRateLimiter, true);
 
     @BeforeEach
     void executeTransactions() {
+        when(redisRateLimiter.tokenBucket("site-guide:chat", "site", 8, 4)).thenReturn(true);
         when(transactionTemplate.execute(any())).thenAnswer(invocation ->
                 invocation.<TransactionCallback<Object>>getArgument(0)
                         .doInTransaction(new SimpleTransactionStatus()));
@@ -96,12 +105,43 @@ class AgentConversationRecoveryTest {
         when(agentConversationMapper.lockConversation(stored.getConversationId(), owner))
                 .thenReturn(stored.getConversationId());
         when(agentTurnMapper.selectById(stored.getRequestId())).thenReturn(stored);
+        when(agentTurnMapper.isOwnedReplay(stored.getRequestId(), stored.getConversationId(), owner,
+                stored.getQuestion())).thenReturn(true);
 
         assertSame(stored, agentConversationService.submit(
                 stored.getConversationId(), owner, false, stored.getRequestId(), stored.getQuestion()));
 
+        verify(redisRateLimiter, never()).tokenBucket(anyString(), anyString(),
+                anyInt(), anyDouble());
         verify(agentTurnMapper, never()).lockQuota(anyLong());
         verify(agentTurnMapper, never()).insertPending(any());
+    }
+
+    @Test
+    void chatBurstRejectionDoesNotOpenAnAdmissionTransaction() {
+        when(redisRateLimiter.tokenBucket("site-guide:chat", "site", 8, 4)).thenReturn(false);
+
+        for (String owner : List.of("visitor:7", "account:7")) {
+            var error = assertThrows(ApiException.class, () -> agentConversationService.submit(
+                    "conversation", owner, owner.startsWith("visitor:"), "request", "问题"));
+            assertEquals(ApiErrorCode.RATE_LIMITED, error.code());
+        }
+
+        verify(transactionTemplate, never()).execute(any());
+        verify(agentTurnMapper, never()).lockQuota(anyLong());
+        verify(agentAiClient, never()).submit(any());
+    }
+
+    @Test
+    void unavailableRedisStopsNewTurnBeforeDatabaseLocks() {
+        when(redisRateLimiter.tokenBucket("site-guide:chat", "site", 8, 4))
+                .thenThrow(new RedisException("offline"));
+
+        var error = assertThrows(ApiException.class, () -> agentConversationService.submit(
+                "conversation", "account:7", false, "request", "问题"));
+
+        assertEquals(ApiErrorCode.AGENT_UNAVAILABLE, error.code());
+        verify(transactionTemplate, never()).execute(any());
     }
 
     @Test
