@@ -16,6 +16,7 @@ const runtime = ref<AgentRuntime>({})
 const original = ref<AgentRuntime>({})
 const pending = ref(false)
 const error = ref('')
+const pricesConfirmed = ref(false)
 
 const groups = [
   {
@@ -35,6 +36,35 @@ const prices = {
   chat_output_price_per_million: '对话输出最高单价',
   embedding_input_price_per_million: '向量输入最高单价',
 }
+
+const priceGroups = [
+  {
+    address: 'chat_base_url',
+    model: 'chat_model',
+    fields: ['chat_input_price_per_million', 'chat_output_price_per_million'],
+  },
+  {
+    address: 'embedding_base_url',
+    model: 'embedding_model',
+    fields: ['embedding_input_price_per_million'],
+  },
+] as const
+
+const affectedPrices = computed(() => {
+  const differs = (key: string) => String(runtime.value[key]) !== String(original.value[key])
+  return priceGroups
+    .filter(
+      ({ address, model }) =>
+        runtime.value[address] &&
+        runtime.value[model] &&
+        (differs(address) || differs(model) || differs('billing_currency')),
+    )
+    .flatMap(({ fields }) => fields)
+})
+
+watch(runtime, () => {
+  pricesConfirmed.value = false
+}, { deep: true, flush: 'sync' })
 
 const advanced = {
   billing_currency: '计价币种',
@@ -57,7 +87,16 @@ async function update(save = false) {
         ([key, value]) => String(value) !== String(original.value[key]),
       ),
     )
-    // 价格版本由修改价格的操作产生。保留旧版本，避免普通保存改写费用来源。
+    // 切换模型时需要完整报价，即使用户确认的金额和上一套相同。
+    if (save && affectedPrices.value.length) {
+      if (!pricesConfirmed.value) {
+        throw new Error('请确认受影响模型的单价后再保存。')
+      }
+      for (const key of affectedPrices.value) {
+        changed[key] = runtime.value[key] ?? ''
+      }
+    }
+    // 报价被修改或重新确认时生成新版本，普通保存保留原版本。
     if (
       save &&
       (Object.keys(prices).some((key) => key in changed) || !original.value.price_version)
@@ -83,7 +122,6 @@ async function update(save = false) {
     embeddingKey.value = ''
     runtime.value = {
       ...result.runtime,
-      billing_currency: result.runtime.billing_currency || 'CNY',
     }
     original.value = result.runtime
     if (save) {
@@ -128,7 +166,7 @@ onMounted(() => update())
       </section>
       <p class="text-sm text-muted">
         填写供应商的 HTTPS API
-        基础地址。更换地址时请填写新供应商密钥并核对模型单价。金额预算由 Spring 配置。
+        基础地址。更换地址来源时请重新填写对应密钥。金额预算由 Spring 配置。
       </p>
       <section class="grid gap-4 sm:grid-cols-2">
         <UFormField
@@ -149,6 +187,15 @@ onMounted(() => update())
           />
         </UFormField>
       </section>
+      <div v-if="affectedPrices.length" class="space-y-2">
+        <p class="text-sm">请核对以下每百万 Token 单价（{{ runtime.billing_currency || '币种未填写' }}）。如需修改，可在下方计价设置中填写。</p>
+        <ul class="list-disc ps-5 text-sm">
+          <li v-for="key in affectedPrices" :key="key">
+            {{ prices[key] }} {{ runtime[key] || '未填写' }}
+          </li>
+        </ul>
+        <UCheckbox v-model="pricesConfirmed" label="确认使用上述单价（相同价格可直接沿用）" />
+      </div>
       <details class="space-y-3 rounded border border-default p-4">
         <summary class="cursor-pointer font-medium">高级设置 · 请求限制与计价</summary>
         <p class="text-sm text-muted">

@@ -102,8 +102,12 @@ def test_budget_callback_replays_known_usage_and_unconfirmed_reservations() -> N
             return httpx.Response(204 if available else 503)
 
         try:
-            async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
-                budget = ModelBudgetClient(sessions, http, "http://localhost/budget", "fixture")
+            async with httpx.AsyncClient(
+                transport=httpx.MockTransport(respond)
+            ) as http:
+                budget = ModelBudgetClient(
+                    sessions, http, "http://localhost/budget", "fixture"
+                )
                 await budget.settle(settled_id, 4, 2)
                 with pytest.raises(BillingRejected):
                     await budget.reserve(
@@ -124,18 +128,25 @@ def test_budget_callback_replays_known_usage_and_unconfirmed_reservations() -> N
                     release.retry_at = due
                 available = True
                 # 新适配器从 PostgreSQL 重读待补报记录，模拟工作进程重启。
-                recovered = ModelBudgetClient(sessions, http, "http://localhost/budget", "fixture")
+                recovered = ModelBudgetClient(
+                    sessions, http, "http://localhost/budget", "fixture"
+                )
                 await recovered.retry_pending_reports()
                 async with sessions() as session:
                     assert await session.get(PendingBudgetReport, settled_id) is None
                     assert await session.get(PendingBudgetReport, released_id) is None
                 assert received.count(("POST", "/budget/settlements")) == 2
-                assert received.count(("DELETE", f"/budget/reservations/{released_id}")) == 1
+                assert (
+                    received.count(("DELETE", f"/budget/reservations/{released_id}"))
+                    == 1
+                )
         finally:
             async with sessions.begin() as session:
                 await session.exec(
                     delete(PendingBudgetReport).where(
-                        col(PendingBudgetReport.attempt_id).in_([settled_id, released_id])
+                        col(PendingBudgetReport.attempt_id).in_(
+                            [settled_id, released_id]
+                        )
                     )
                 )
             await engine.dispose()
@@ -179,7 +190,10 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
                 await session.exec(
                     update_rows(Execution)
                     .where(col(Execution.execution_id) == execution_id)
-                    .values(status="completed", finished_at=datetime.now(UTC) - timedelta(days=2))
+                    .values(
+                        status="completed",
+                        finished_at=datetime.now(UTC) - timedelta(days=2),
+                    )
                 )
             await service.expire_answers()
             expired = await service.get(request_id=request_id)
@@ -283,7 +297,11 @@ def test_execution_routes_and_settings_revision() -> None:
             update = {
                 "expectedRevision": revision,
                 "persona": "Friendly and direct.",
-                "runtime": {"chat_model": model_name, "chat_base_url": provider_url},
+                "runtime": {
+                    "chat_model": model_name,
+                    "chat_base_url": provider_url,
+                    "billing_currency": "CNY",
+                },
                 "chatApiKey": "test-key-written-once",
             }
             invalid = await client.put(
@@ -316,13 +334,30 @@ def test_execution_routes_and_settings_revision() -> None:
             assert rejected.json()["code"] == "PROVIDER_KEY_REQUIRED"
             budget_policy = await client.put(
                 settings_path,
-                json={**update, "runtime": {**update["runtime"], "ai_daily_budget": "1"}},
+                json={
+                    **update,
+                    "runtime": {**update["runtime"], "ai_daily_budget": "1"},
+                },
                 headers=management,
             )
             assert budget_policy.status_code == 422
+            missing_prices = await client.put(
+                settings_path, json=update, headers=management
+            )
+            assert missing_prices.status_code == 422
+            assert missing_prices.json()["code"] == "MODEL_PRICE_REQUIRED"
+            unchanged = await client.get(settings_path, headers=management)
+            assert unchanged.json()["revision"] == revision
+
+            prices = {
+                "chat_input_price_per_million": "2",
+                "chat_output_price_per_million": "4",
+            }
+            update["runtime"].update(prices)
             updated = await client.put(settings_path, json=update, headers=management)
+            assert updated.status_code == 200
             assert "ai_daily_budget" not in updated.json()["runtime"]
-            assert updated.json()["runtime"]["chat_input_price_per_million"] == "0"
+            assert updated.json()["runtime"]["chat_input_price_per_million"] == "2"
             assert updated.json()["revision"] == revision + 1
             assert updated.json()["chatModel"] == model_name
             assert updated.json()["runtime"]["chat_max_output_tokens"] == 512
@@ -346,6 +381,62 @@ def test_execution_routes_and_settings_revision() -> None:
             assert "overwrite" not in forbidden.text
             stale = await client.put(settings_path, json=update, headers=management)
             assert stale.status_code == 409
+
+            replacement = {
+                "expectedRevision": revision + 1,
+                "persona": update["persona"],
+                "runtime": {
+                    "chat_model": "same-price",
+                    "chat_base_url": provider_url.removesuffix("/v1") + "/v2",
+                },
+            }
+            missing_prices = await client.put(
+                settings_path, json=replacement, headers=management
+            )
+            assert missing_prices.json()["code"] == "MODEL_PRICE_REQUIRED"
+            unchanged = await client.get(settings_path, headers=management)
+            assert unchanged.json()["chatModel"] == model_name
+            assert unchanged.json()["runtime"]["chat_input_price_per_million"] == "2"
+
+            replacement["runtime"].update(prices)
+            switched = await client.put(
+                settings_path, json=replacement, headers=management
+            )
+            assert switched.status_code == 200
+            assert switched.json()["chatModel"] == "same-price"
+            assert switched.json()["chatKeyConfigured"] is True
+            assert switched.json()["runtime"]["chat_output_price_per_million"] == "4"
+
+            replacement["expectedRevision"] = revision + 2
+            first_embedding = await client.put(
+                settings_path,
+                json={
+                    **replacement,
+                    "runtime": {
+                        "embedding_base_url": "https://embedding.example.invalid/v1",
+                        "embedding_model": "fixture",
+                        "embedding_input_price_per_million": "1",
+                    },
+                },
+                headers=management,
+            )
+            assert first_embedding.status_code == 422
+            assert first_embedding.json()["code"] == "PROVIDER_KEY_REQUIRED"
+
+            replacement["runtime"] = {
+                "billing_currency": "USD",
+                "chat_input_price_per_million": "2",
+            }
+            incomplete_currency = await client.put(
+                settings_path, json=replacement, headers=management
+            )
+            assert incomplete_currency.json()["code"] == "MODEL_PRICE_REQUIRED"
+            replacement["runtime"].update(prices)
+            switched_currency = await client.put(
+                settings_path, json=replacement, headers=management
+            )
+            assert switched_currency.status_code == 200
+            assert switched_currency.json()["runtime"]["billing_currency"] == "USD"
 
     asyncio.run(
         check(),

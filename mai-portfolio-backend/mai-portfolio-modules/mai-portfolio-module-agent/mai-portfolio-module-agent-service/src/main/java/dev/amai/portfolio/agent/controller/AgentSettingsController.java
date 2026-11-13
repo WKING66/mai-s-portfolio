@@ -61,7 +61,7 @@ public class AgentSettingsController {
         } catch (RestClientResponseException error) {
             return switch (error.getStatusCode().value()) {
                 case 409 -> failure(409, "AI_SETTINGS_CONFLICT", "配置已更新或仍有问答运行，请重新读取后再试。");
-                case 422 -> failure(422, "AI_SETTINGS_INVALID", "配置值不合法。更换供应商地址时，请同时填写新供应商密钥。");
+                case 422 -> failure(422, "AI_SETTINGS_INVALID", "请检查配置值，确认模型单价，并在更换供应商地址来源时重新填写对应密钥。");
                 default -> failure(503, "AI_SETTINGS_UNAVAILABLE", "数字人配置中心暂不可用。");
             };
         } catch (RestClientException error) {

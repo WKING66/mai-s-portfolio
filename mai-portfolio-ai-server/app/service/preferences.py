@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
+from datetime import UTC, datetime
 
 from pydantic import SecretStr, field_validator
 from pydantic_core import PydanticCustomError
@@ -15,6 +16,7 @@ from app.config import (
     encrypt_provider_key,
 )
 from app.contracts.wire import ExecutionRejected, WireModel
+from app.provider.provider_http import validate_provider_url
 from app.storage.database import Sessions
 
 
@@ -148,6 +150,13 @@ async def write_settings(
         )
 
 
+def _provider_origin(address: str) -> tuple[str, str, int] | None:
+    if not address:
+        return None
+    url = validate_provider_url(address)
+    return url.scheme, url.host, url.port or 443
+
+
 async def save_settings(
     settings: Settings,
     session: AsyncSession,
@@ -159,42 +168,69 @@ async def save_settings(
     runtime: dict[str, RuntimeValue] = current.runtime | supplied
     try:
         previous = effective_settings(settings, current.runtime)
-        currency_changed = (
-            "billing_currency" in supplied
-            and supplied["billing_currency"] != previous.billing_currency
-        )
-        # 地址与密钥必须成组切换，避免把旧供应商密钥发给新地址。
+        effective = effective_settings(settings, runtime)
+        currency_changed = effective.billing_currency != previous.billing_currency
+        price_version = f"manual-{datetime.now(UTC).isoformat()}"
+        # 密钥只可沿用在同一来源，换路径时仍发给原主机，换主机则需要站长重新授权。
         for address, secret, model, prices in (
-            ("chat_base_url", "chat_api_key", "chat_model", (
-                "chat_input_price_per_million", "chat_output_price_per_million",
-            )),
-            ("embedding_base_url", "embedding_api_key", "embedding_model", (
-                "embedding_input_price_per_million",
-            )),
+            (
+                "chat_base_url",
+                "chat_api_key",
+                "chat_model",
+                (
+                    "chat_input_price_per_million",
+                    "chat_output_price_per_million",
+                ),
+            ),
+            (
+                "embedding_base_url",
+                "embedding_api_key",
+                "embedding_model",
+                ("embedding_input_price_per_million",),
+            ),
         ):
-            address_changed = address in supplied and supplied[address] != getattr(previous, address)
-            model_changed = model in supplied and supplied[model] != getattr(previous, model)
+            next_address = getattr(effective, address)
+            old_address = getattr(previous, address)
+            address_changed = next_address != old_address
+            model_changed = getattr(effective, model) != getattr(previous, model)
             if (
                 address_changed
-                and supplied[address]
-                and getattr(previous, secret).get_secret_value()
+                and next_address
                 and getattr(body, secret) is None
+                and _provider_origin(next_address) != _provider_origin(old_address)
             ):
                 raise ExecutionRejected(
                     422,
                     "PROVIDER_KEY_REQUIRED",
-                    "Changing a provider URL requires a new key.",
+                    "更换供应商地址来源时，请重新填写对应的 API 密钥。",
                 )
-            if address_changed or model_changed or currency_changed:
-                # 供应商、模型或币种变更后须复核报价，Java 会拒绝缺少报价的调用。
-                for price in prices:
-                    if price not in supplied:
-                        runtime[price] = "0"
+            # 完整提交报价即确认本次价格。缺项或零价时整次拒绝，避免切换后才发现无法预占。
+            if (
+                next_address
+                and getattr(effective, model)
+                and (address_changed or model_changed or currency_changed)
+            ):
+                if (
+                    len(effective.billing_currency) != 3
+                    or not effective.billing_currency.isascii()
+                    or not effective.billing_currency.isalpha()
+                    or not effective.billing_currency.isupper()
+                    or any(
+                        price not in supplied or getattr(effective, price) <= 0
+                        for price in prices
+                    )
+                ):
+                    raise ExecutionRejected(
+                        422,
+                        "MODEL_PRICE_REQUIRED",
+                        "请确认计价币种及受影响模型的完整正数单价。",
+                    )
+                if not supplied.get("price_version"):
+                    runtime["price_version"] = price_version
         for field in ("chat_api_key", "embedding_api_key"):
             key = getattr(body, field)
             if key is not None:
                 runtime[field] = encrypt_provider_key(settings, key)
-        effective_settings(settings, runtime)
     except ValueError as error:
         raise ExecutionRejected(
             422, "INVALID_SETTINGS", "Invalid runtime settings."
