@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.agent.mapper.AgentModelBudgetMapper">
+    <select id="totals" resultType="dev.amai.portfolio.agent.mapper.AgentModelBudgetMapper$BudgetTotals">
+        SELECT COALESCE(sum(COALESCE(actual, ceiling)), 0) AS occupied,
+               COALESCE(bool_or(currency != #{currency} OR bounds_exceeded), false) AS blocked
+        FROM agent_model_attempt
+        WHERE actual IS NULL OR billing_day = #{day}
+    </select>
+</mapper>

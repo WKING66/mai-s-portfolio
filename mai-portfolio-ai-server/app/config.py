@@ -1,9 +1,17 @@
 from decimal import Decimal
 from typing import Any
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from cryptography.fernet import Fernet, InvalidToken
-from pydantic import AliasChoices, Field, PostgresDsn, SecretStr, field_validator
+from pydantic import (
+    AliasChoices,
+    AnyHttpUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    PostgresDsn,
+    SecretStr,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.keygen import default_secret_path
@@ -26,6 +34,23 @@ class Settings(BaseSettings):
     ai_db_schema: str = Field(default="site_guide", pattern=r"^[a-z][a-z0-9_]{0,62}$")
     ai_server_token: SecretStr
     config_encryption_key: SecretStr = SecretStr("")
+    java_model_budget_url: AnyHttpUrl | None = None
+
+    execution_concurrency: int = Field(default=2, gt=0, le=16)
+    execution_queue_limit: int = Field(default=8, ge=0, le=128)
+
+    @field_validator("ai_server_token")
+    @classmethod
+    def validate_token(cls, value: SecretStr) -> SecretStr:
+        if len(value.get_secret_value()) < 32:
+            raise ValueError("Service credentials must contain at least 32 characters.")
+        return value
+
+
+class ModelSettings(BaseModel):
+    """模型配置只从数据库读取，字段默认值用于展示尚未配置的状态。"""
+
+    model_config = ConfigDict(hide_input_in_errors=True)
 
     model_provider: str = "openai-compatible"
     chat_base_url: str = ""
@@ -40,24 +65,11 @@ class Settings(BaseSettings):
     chat_billable_input_limit: int = Field(default=0, ge=0)
     embedding_billable_input_limit: int = Field(default=0, ge=0)
 
-    ai_daily_budget: Decimal = Field(default=Decimal(0), ge=0)
-    ai_daily_budget_unlimited: bool = False
     billing_currency: str = ""
-    billing_time_zone: str = "Asia/Shanghai"
     price_version: str = ""
     chat_input_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
     chat_output_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
     embedding_input_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
-
-    execution_concurrency: int = Field(default=2, gt=0, le=16)
-    execution_queue_limit: int = Field(default=8, ge=0, le=128)
-
-    @field_validator("ai_server_token")
-    @classmethod
-    def validate_token(cls, value: SecretStr) -> SecretStr:
-        if len(value.get_secret_value()) < 32:
-            raise ValueError("Service credentials must contain at least 32 characters.")
-        return value
 
 
 # 数据库、服务令牌和加密主密钥用于启动信任边界，供应商参数由配置中心维护。
@@ -72,10 +84,7 @@ EDITABLE_SETTINGS = frozenset(
         "chat_max_output_tokens",
         "chat_billable_input_limit",
         "embedding_billable_input_limit",
-        "ai_daily_budget",
-        "ai_daily_budget_unlimited",
         "billing_currency",
-        "billing_time_zone",
         "price_version",
         "chat_input_price_per_million",
         "chat_output_price_per_million",
@@ -96,11 +105,17 @@ def encrypt_provider_key(bootstrap: Settings, value: SecretStr) -> str:
     )
 
 
-def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> Settings:
-    """应用数据库覆盖值，缺少覆盖值时保留启动设置。"""
+def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> ModelSettings:
+    """校验数据库中的模型配置，仅用启动密钥解密供应商凭证。"""
+    # 保留旧版本保存的预算数据供回滚使用，当前版本的运行配置只读取模型设置。
+    overrides = {
+        key: value
+        for key, value in overrides.items()
+        if key not in {"ai_daily_budget", "ai_daily_budget_unlimited", "billing_time_zone"}
+    }
     if overrides.keys() - EDITABLE_SETTINGS - set(STORED_SECRET_FIELDS):
         raise ValueError("Unsupported runtime setting.")
-    values = bootstrap.model_dump() | overrides
+    values = dict(overrides)
     try:
         for field in STORED_SECRET_FIELDS:
             if field in overrides:
@@ -108,12 +123,8 @@ def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> Settin
                 values[field] = cipher.decrypt(overrides[field]).decode()
     except (ValueError, InvalidToken) as error:
         raise ValueError("Stored model credentials cannot be decrypted.") from error
-    effective = Settings.model_validate(values)
+    effective = ModelSettings.model_validate(values)
     for address in (effective.chat_base_url, effective.embedding_base_url):
         if address:
             validate_provider_url(address)
-    try:
-        ZoneInfo(effective.billing_time_zone)
-    except (ValueError, ZoneInfoNotFoundError) as error:
-        raise ValueError("Invalid billing time zone.") from error
     return effective

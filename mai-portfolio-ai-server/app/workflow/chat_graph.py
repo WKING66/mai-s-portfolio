@@ -9,8 +9,8 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.provider.model_budget_client import Price
 from app.provider.model_gateway import ModelGateway
-from app.service.billing import Price
 
 
 class HistoryEntry(BaseModel):
@@ -33,12 +33,16 @@ class ChatGraph:
         model: ChatOpenAI,
         *,
         price: Price,
+        currency: str,
+        price_version: str,
         input_limit: int,
         output_limit: int,
     ) -> None:
         self.gateway = gateway
         self.model = model
         self.price = price
+        self.currency = currency
+        self.price_version = price_version
         self.input_limit = input_limit
         self.output_limit = output_limit
         self.graph = (
@@ -74,6 +78,8 @@ class ChatGraph:
                 self.model,
                 messages,
                 price=self.price,
+                currency=self.currency,
+                price_version=self.price_version,
                 input_limit=self.input_limit,
                 output_limit=self.output_limit,
             )
