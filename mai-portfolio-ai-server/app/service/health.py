@@ -2,7 +2,7 @@ from sqlmodel import col, select
 
 from app.config import Settings, effective_settings
 from app.contracts.wire import ExecutionRejected
-from app.service.billing import ModelAttempt
+from app.service.billing import ModelAttempt, PendingBudgetReport
 from app.service.execution import Execution
 from app.service.preferences import read_preferences
 from app.storage.database import Sessions
@@ -13,6 +13,7 @@ async def check_readiness(settings: Settings, sessions: Sessions) -> None:
     async with sessions() as session:
         await session.exec(select(col(Execution.execution_id)).limit(1))
         await session.exec(select(col(ModelAttempt.attempt_id)).limit(1))
+        await session.exec(select(col(PendingBudgetReport.attempt_id)).limit(1))
         preferences = await read_preferences(session)
         try:
             effective_settings(settings, preferences.runtime)

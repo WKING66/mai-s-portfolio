@@ -7,14 +7,14 @@ from uuid import UUID
 from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from app.config import Settings
+from app.config import ModelSettings
+from app.provider.model_budget_client import BillingRejected, ModelBudgetClient, Price
 from app.provider.provider_http import provider_http_client
-from app.service.billing import Billing, BillingRejected, Price
 
 
 class ModelGateway:
-    def __init__(self, billing: Billing) -> None:
-        self.billing = billing
+    def __init__(self, budget: ModelBudgetClient) -> None:
+        self.budget = budget
 
     async def stream_chat(
         self,
@@ -23,6 +23,8 @@ class ModelGateway:
         messages: Sequence[BaseMessage],
         *,
         price: Price,
+        currency: str,
+        price_version: str,
         input_limit: int,
         output_limit: int,
     ) -> AsyncGenerator[str]:
@@ -40,38 +42,45 @@ class ModelGateway:
         )
         if message_bytes + 32 * (len(messages) + 1) > input_limit:
             raise BillingRejected("Chat input exceeds its verified billing bound.")
-        reservation = await self.billing.reserve(
-            attempt_id, "chat", price, input_limit, output_limit
+        await self.budget.reserve(
+            attempt_id,
+            price=price,
+            input_limit=input_limit,
+            output_limit=output_limit,
+            currency=currency,
+            price_version=price_version,
         )
         # 2. 只发送访客可见正文，供应商的计费用量用于结算。
         usage = None
-        async with aclosing(
-            cast(
-                AsyncGenerator[AIMessageChunk],
-                model.astream(
-                    list(messages),
-                    max_completion_tokens=output_limit,
-                    stream_usage=True,
-                ),
-            )
-        ) as chunks:
-            async for chunk in chunks:
-                if chunk.usage_metadata is not None:
-                    usage = chunk.usage_metadata
-                if chunk.text:
-                    yield chunk.text
-        # 3. 按可信用量结算。上游中断或未报告用量时保留原预留。
-        if usage is not None:
-            await self.billing.settle(
-                reservation, usage["input_tokens"], usage["output_tokens"]
-            )
+        try:
+            async with aclosing(
+                cast(
+                    AsyncGenerator[AIMessageChunk],
+                    model.astream(
+                        list(messages),
+                        max_completion_tokens=output_limit,
+                        stream_usage=True,
+                    ),
+                )
+            ) as chunks:
+                async for chunk in chunks:
+                    if chunk.usage_metadata is not None:
+                        usage = chunk.usage_metadata
+                    if chunk.text:
+                        yield chunk.text
+        finally:
+            # 供应商已经上报用量时，即使浏览器停止对话也要结算。未上报则保留原预占。
+            if usage is not None:
+                await self.budget.settle(
+                    attempt_id, usage["input_tokens"], usage["output_tokens"]
+                )
 
     async def embed(
         self,
         attempt_id: UUID,
         text: str,
         *,
-        settings: Settings,
+        settings: ModelSettings,
     ) -> list[float]:
         input_limit = settings.embedding_billable_input_limit
         dimensions = settings.embedding_dimensions
@@ -87,7 +96,7 @@ class ModelGateway:
         # 拒绝空文本和超界输入，单次请求须落在已验证的计费范围内。
         if not text.strip() or len(text.encode("utf-8")) > input_limit:
             raise ValueError("Embedding input exceeds its configured bound.")
-        # LangChain 只返回向量，缺少可信用量时保留预留。
+        # 直接读取 SDK 的完整响应，向量与供应商回报的输入用量须来自同一次调用。
         # 关闭自动拆分和重试，确保一次预留只对应一次上游调用。
         async with provider_http_client() as provider_client:
             model = OpenAIEmbeddings(
@@ -100,14 +109,28 @@ class ModelGateway:
                 check_embedding_ctx_length=False,
                 http_async_client=provider_client,
             )
-            await self.billing.reserve(
+            await self.budget.reserve(
                 attempt_id,
-                "embedding",
-                Price(settings.embedding_input_price_per_million),
-                input_limit,
-                0,
+                price=Price(settings.embedding_input_price_per_million),
+                input_limit=input_limit,
+                output_limit=0,
+                currency=settings.billing_currency,
+                price_version=settings.price_version,
             )
-            vector = await model.aembed_query(text)
+            response = await model.async_client.create(
+                input=[text], model=settings.embedding_model, dimensions=dimensions
+            )
+        if isinstance(response, dict):
+            data = response["data"]
+            usage = response.get("usage")
+            input_tokens = usage.get("prompt_tokens") if usage else None
+            vector = cast(list[float], data[0]["embedding"])
+        else:
+            input_tokens = response.usage.prompt_tokens if response.usage else None
+            vector = cast(list[float], response.data[0].embedding)
+        # 维度错误也可能产生费用，先用可信用量结算，再检查返回的向量。
+        if type(input_tokens) is int and input_tokens > 0:
+            await self.budget.settle(attempt_id, input_tokens, 0)
         # 不兼容维度不可交给检索索引，避免写入后无法查询。
         if len(vector) != dimensions:
             raise ValueError("Unexpected embedding dimensions.")
