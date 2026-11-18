@@ -17,6 +17,8 @@ export interface SavedTurn extends ChatSnapshot {
 
 export interface ConversationSummary {
   conversationId: string
+  title?: string
+  createdAt?: string
   updatedAt: string
 }
 

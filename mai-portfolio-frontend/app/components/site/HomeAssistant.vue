@@ -12,6 +12,7 @@ const {
   recoverable,
   canStop,
   histories,
+  conversationId,
   nextCursor,
   loggedIn,
   send,
@@ -23,6 +24,15 @@ const {
 } = useSiteAssistant()
 const showHistory = ref(false)
 const actionError = ref('')
+const historyDate = new Intl.DateTimeFormat('zh-CN', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Asia/Shanghai',
+})
+function formatHistoryDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : historyDate.format(date)
+}
 async function manage(action: () => Promise<unknown>) {
   actionError.value = ''
   try {
@@ -79,7 +89,7 @@ function trackScroll() {
   }
 }
 async function submit(question = draft.value) {
-  if (!question.trim() || generating.value || restoring.value) {
+  if (!question.trim() || generating.value || restoring.value || recoverable.value) {
     return
   }
   open()
@@ -214,13 +224,15 @@ onBeforeUnmount(() => {
           placeholder="这个个人站是怎么做出来的？"
           maxlength="300"
           required
-        /><button aria-label="发送首页问题" :disabled="generating || restoring">↗</button>
+        /><button aria-label="发送首页问题" :disabled="generating || restoring || recoverable">
+          ↗
+        </button>
       </form>
       <div class="assistant-suggestions">
         <button
           v-for="question in ['介绍一下站主', '做过哪些项目？', '推荐一篇文章']"
           :key="question"
-          :disabled="generating || restoring"
+          :disabled="generating || restoring || recoverable"
           @click="submit(question)"
         >
           {{ question }}
@@ -305,10 +317,13 @@ onBeforeUnmount(() => {
           <button
             v-for="item in histories"
             :key="item.conversationId"
+            class="assistant-history-item"
+            :aria-current="item.conversationId === conversationId ? 'true' : undefined"
             :disabled="generating || restoring"
             @click="manage(() => openConversation(item.conversationId))"
           >
-            {{ new Date(item.updatedAt).toLocaleString() }}
+            <span>{{ item.title?.trim() || '会话' }}</span>
+            <time :datetime="item.updatedAt">{{ formatHistoryDate(item.updatedAt) }}</time>
           </button>
           <button v-if="nextCursor" @click="manage(() => loadHistory(true))">加载更多</button>
         </div>
@@ -747,8 +762,35 @@ onBeforeUnmount(() => {
 .assistant-history {
   display: flex;
   flex-wrap: wrap;
+  max-height: min(15rem, 30dvh);
+  overflow-y: auto;
   gap: 8px;
   padding: 10px 24px;
+}
+.assistant-history-item {
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 9px;
+  border: 1px solid var(--site-line);
+  border-radius: 7px;
+  text-align: start;
+}
+.assistant-history-item span,
+.assistant-history-item time {
+  display: block;
+}
+.assistant-history-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-history-item time {
+  color: var(--site-muted);
+  font-size: 11px;
+}
+.assistant-history-item[aria-current='true'] {
+  border-color: var(--site-accent);
+  background: var(--site-bg-elevated);
 }
 .assistant-status {
   font-size: 11px;

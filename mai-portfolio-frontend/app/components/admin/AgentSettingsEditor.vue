@@ -7,18 +7,21 @@ import AgentExecutionChain from './AgentExecutionChain.vue'
 import AgentModelTest from './AgentModelTest.vue'
 import AgentPromptEditor from './AgentPromptEditor.vue'
 import AgentWallets from './AgentWallets.vue'
+import AgentSiteSettings from './AgentSiteSettings.vue'
 import { useAdminFormLeave } from '../../composables/useAdminFormLeave'
 const providerForm = useTemplateRef('providerForm')
 const modelForm = useTemplateRef('modelForm')
 const chatChain = useTemplateRef('chatChain')
 const embeddingChain = useTemplateRef('embeddingChain')
 const promptEditor = useTemplateRef('promptEditor')
+const siteSettings = useTemplateRef('siteSettings')
 const forms = computed(() => [
   providerForm.value,
   modelForm.value,
   chatChain.value,
   embeddingChain.value,
   promptEditor.value,
+  siteSettings.value,
 ])
 const dirty = computed(() => forms.value.some((form) => form?.dirty))
 const saving = computed(() => forms.value.some((form) => form?.pending))
@@ -31,7 +34,11 @@ let reloadRequested = false
 let disposed = false
 const tab = ref('providers')
 const walletOpened = ref(false)
+const siteOpened = ref(false)
 watch(tab, (value) => {
+  if (value === 'site') {
+    siteOpened.value = true
+  }
   if (value === 'wallets') {
     walletOpened.value = true
   }
@@ -41,6 +48,7 @@ const tabs = [
   { label: '执行链', value: 'routes', icon: 'i-lucide-workflow' },
   { label: 'Prompt', value: 'prompts', icon: 'i-lucide-text-cursor-input' },
   { label: '钱包', value: 'wallets', icon: 'i-lucide-wallet' },
+  { label: '站点与限额', value: 'site', icon: 'i-lucide-sliders-horizontal' },
 ]
 const providerOpen = ref(false)
 const providerToEdit = shallowRef<AgentProvider>()
@@ -107,6 +115,7 @@ onBeforeUnmount(() => {
       </div>
       <div class="flex gap-2">
         <UButton
+          v-if="tab === 'providers' || tab === 'routes'"
           color="neutral"
           variant="outline"
           icon="i-lucide-refresh-cw"
@@ -119,7 +128,7 @@ onBeforeUnmount(() => {
       </div>
     </div>
     <UAlert
-      v-if="error"
+      v-if="error && tab !== 'site'"
       color="error"
       variant="subtle"
       title="读取配置失败"
@@ -127,7 +136,7 @@ onBeforeUnmount(() => {
       :actions="[{ label: '重试', onClick: read }]"
     />
     <div
-      v-if="!catalog && pending"
+      v-if="!catalog && pending && tab !== 'site'"
       class="grid gap-5 xl:grid-cols-2"
       role="status"
       aria-label="正在读取模型目录"
@@ -244,6 +253,7 @@ onBeforeUnmount(() => {
       <AgentPromptEditor v-show="tab === 'prompts'" ref="promptEditor" />
       <AgentWallets v-if="walletOpened" v-show="tab === 'wallets'" :providers="catalog.providers" />
     </template>
+    <AgentSiteSettings v-if="siteOpened" v-show="tab === 'site'" ref="siteSettings" />
     <UModal
       v-model:open="providerOpen"
       :title="providerToEdit ? '编辑供应商' : '添加供应商'"

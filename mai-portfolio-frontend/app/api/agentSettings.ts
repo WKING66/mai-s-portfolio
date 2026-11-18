@@ -1,7 +1,9 @@
 import { useAuthState } from '../composables/useAuthState'
 import { AUTH_ACCESS } from '../constants/auth'
 
-const endpoint = '/api/v1/admin/agent/settings/catalog'
+const settingsEndpoint = '/api/v1/admin/agent/settings'
+const endpoint = `${settingsEndpoint}/catalog`
+const siteEndpoint = `${settingsEndpoint}/site`
 export type AgentModelType = 1 | 2
 
 export interface AgentProvider {
@@ -44,6 +46,18 @@ export interface AgentModelCatalog {
   routes: AgentModelRoute[]
 }
 
+export interface AgentSitePolicy {
+  agentEnabled: boolean
+  globalWindowHours: number
+  globalRequestLimit: number
+  visitorDailyTurnLimit: number
+  accountDailyTurnLimit: number
+}
+
+interface AgentSiteSettings extends AgentSitePolicy {
+  updatedAt: string
+}
+
 export interface AgentModelProbe {
   ok: boolean
   code: string | null
@@ -76,6 +90,15 @@ export interface AgentWallet {
 export function useAgentSettingsApi() {
   const { request } = useAuthState()
   return {
+    readSite: () =>
+      request<AgentSiteSettings>(siteEndpoint, {}, AUTH_ACCESS.OWNER, '读取站点配置失败'),
+    saveSite: (policy: AgentSitePolicy, expectedUpdatedAt: string) =>
+      request<AgentSiteSettings>(
+        siteEndpoint,
+        { method: 'PUT', body: { ...policy, expectedUpdatedAt } },
+        AUTH_ACCESS.OWNER,
+        '保存站点配置失败',
+      ),
     wallets: () =>
       request<{ wallets: AgentWallet[] }>(
         `${endpoint}/wallets`,
