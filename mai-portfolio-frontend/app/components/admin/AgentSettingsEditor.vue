@@ -1,224 +1,276 @@
 <script setup lang="ts">
 import { useAgentSettingsApi } from '../../api/agentSettings'
-import type { AgentRuntime } from '../../api/agentSettings'
-import { useFeedback } from '../../composables/useFeedback'
-
+import type { AgentModel, AgentModelCatalog, AgentProvider } from '../../api/agentSettings'
+import AgentProviderEditor from './AgentProviderEditor.vue'
+import AgentModelEditor from './AgentModelEditor.vue'
+import AgentExecutionChain from './AgentExecutionChain.vue'
+import AgentModelTest from './AgentModelTest.vue'
+import AgentPromptEditor from './AgentPromptEditor.vue'
+import AgentWallets from './AgentWallets.vue'
+import { useAdminFormLeave } from '../../composables/useAdminFormLeave'
+const providerForm = useTemplateRef('providerForm')
+const modelForm = useTemplateRef('modelForm')
+const chatChain = useTemplateRef('chatChain')
+const embeddingChain = useTemplateRef('embeddingChain')
+const promptEditor = useTemplateRef('promptEditor')
+const forms = computed(() => [
+  providerForm.value,
+  modelForm.value,
+  chatChain.value,
+  embeddingChain.value,
+  promptEditor.value,
+])
+const dirty = computed(() => forms.value.some((form) => form?.dirty))
+const saving = computed(() => forms.value.some((form) => form?.pending))
+const { leaveOpen, decideLeave } = useAdminFormLeave(dirty, saving)
 const api = useAgentSettingsApi()
-const feedback = useFeedback()
-const revision = ref<number | null>(null)
-const featureEnabled = ref(false)
-const persona = ref('')
-const chatKey = ref('')
-const embeddingKey = ref('')
-const chatKeyConfigured = ref(false)
-const embeddingKeyConfigured = ref(false)
-const runtime = ref<AgentRuntime>({})
-const original = ref<AgentRuntime>({})
+const catalog = shallowRef<AgentModelCatalog | null>(null)
 const pending = ref(false)
 const error = ref('')
-const pricesConfirmed = ref(false)
-
-const groups = [
-  {
-    title: '模型参数',
-    fields: {
-      chat_base_url: 'Chat API Base URL',
-      chat_model: '对话模型',
-      embedding_base_url: 'Embedding API Base URL',
-      embedding_model: '向量模型',
-      embedding_dimensions: '向量维度',
-    },
-  },
-]
-
-const prices = {
-  chat_input_price_per_million: '对话输入最高单价',
-  chat_output_price_per_million: '对话输出最高单价',
-  embedding_input_price_per_million: '向量输入最高单价',
-}
-
-const priceGroups = [
-  {
-    address: 'chat_base_url',
-    model: 'chat_model',
-    fields: ['chat_input_price_per_million', 'chat_output_price_per_million'],
-  },
-  {
-    address: 'embedding_base_url',
-    model: 'embedding_model',
-    fields: ['embedding_input_price_per_million'],
-  },
-] as const
-
-const affectedPrices = computed(() => {
-  const differs = (key: string) => String(runtime.value[key]) !== String(original.value[key])
-  return priceGroups
-    .filter(
-      ({ address, model }) =>
-        runtime.value[address] &&
-        runtime.value[model] &&
-        (differs(address) || differs(model) || differs('billing_currency')),
-    )
-    .flatMap(({ fields }) => fields)
+let reloadRequested = false
+let disposed = false
+const tab = ref('providers')
+const walletOpened = ref(false)
+watch(tab, (value) => {
+  if (value === 'wallets') {
+    walletOpened.value = true
+  }
 })
-
-watch(runtime, () => {
-  pricesConfirmed.value = false
-}, { deep: true, flush: 'sync' })
-
-const advanced = {
-  billing_currency: '计价币种',
-  model_timeout_seconds: '请求超时（秒）',
-  chat_max_output_tokens: '对话输出 Token 上限',
-  chat_billable_input_limit: '对话计费输入上限（Token）',
-  embedding_billable_input_limit: '向量计费输入上限（Token）',
-  ...prices,
-}
-
-async function update(save = false) {
-  if (pending.value || (save && revision.value === null)) {
+const tabs = [
+  { label: '供应商与模型', value: 'providers', icon: 'i-lucide-boxes' },
+  { label: '执行链', value: 'routes', icon: 'i-lucide-workflow' },
+  { label: 'Prompt', value: 'prompts', icon: 'i-lucide-text-cursor-input' },
+  { label: '钱包', value: 'wallets', icon: 'i-lucide-wallet' },
+]
+const providerOpen = ref(false)
+const providerToEdit = shallowRef<AgentProvider>()
+const modelToEdit = shallowRef<{ provider: AgentProvider; model?: AgentModel }>()
+const modelOpen = computed({
+  get: () => Boolean(modelToEdit.value),
+  set: (open: boolean) => {
+    if (!open) {
+      modelToEdit.value = undefined
+    }
+  },
+})
+const modelsFor = (id: number) =>
+  catalog.value?.models.filter((model) => model.modelProviderId === id) ?? []
+async function read() {
+  if (pending.value) {
+    reloadRequested = true
     return
   }
   pending.value = true
   error.value = ''
   try {
-    const changed = Object.fromEntries(
-      Object.entries(runtime.value).filter(
-        ([key, value]) => String(value) !== String(original.value[key]),
-      ),
-    )
-    // 切换模型时需要完整报价，即使用户确认的金额和上一套相同。
-    if (save && affectedPrices.value.length) {
-      if (!pricesConfirmed.value) {
-        throw new Error('请确认受影响模型的单价后再保存。')
-      }
-      for (const key of affectedPrices.value) {
-        changed[key] = runtime.value[key] ?? ''
-      }
-    }
-    // 报价被修改或重新确认时生成新版本，普通保存保留原版本。
-    if (
-      save &&
-      (Object.keys(prices).some((key) => key in changed) || !original.value.price_version)
-    ) {
-      changed.price_version = `manual-${new Date().toISOString()}`
-    }
-    const result =
-      save && revision.value !== null
-        ? await api.save(revision.value, persona.value, changed, {
-            chatApiKey: chatKey.value || undefined,
-            embeddingApiKey: embeddingKey.value || undefined,
-          })
-        : await api.read()
+    const result = await api.read()
     if (!result) {
-      throw new Error('配置中心没有返回有效结果。')
+      throw new Error('未能读取模型目录，请重试。')
     }
-    revision.value = result.revision
-    featureEnabled.value = result.featureEnabled
-    persona.value = result.persona
-    chatKeyConfigured.value = result.chatKeyConfigured
-    embeddingKeyConfigured.value = result.embeddingKeyConfigured
-    chatKey.value = ''
-    embeddingKey.value = ''
-    runtime.value = {
-      ...result.runtime,
-    }
-    original.value = result.runtime
-    if (save) {
-      feedback.success('数字人配置已保存。')
+    if (!reloadRequested && !disposed) {
+      catalog.value = result
     }
   } catch (failure) {
-    const reason = failure instanceof Error ? failure.message : '配置中心暂不可用。'
-    error.value = save ? `保存失败，输入已保留。${reason}` : reason
-    if (save) {
-      feedback.error(error.value)
+    if (!reloadRequested && !disposed) {
+      error.value = failure instanceof Error ? failure.message : '配置中心暂不可用。'
     }
   } finally {
     pending.value = false
+    if (reloadRequested && !disposed) {
+      reloadRequested = false
+      void read()
+    }
   }
 }
-
-onMounted(() => update())
+function editProvider(provider?: AgentProvider) {
+  providerToEdit.value = provider
+  providerOpen.value = true
+}
+async function providerSaved() {
+  providerOpen.value = false
+  await read()
+}
+async function modelSaved() {
+  modelToEdit.value = undefined
+  await read()
+}
+onMounted(read)
+onBeforeUnmount(() => {
+  disposed = true
+})
 </script>
-
 <template>
-  <form class="space-y-6" @submit.prevent="update(true)">
-    <p v-if="error" role="alert" class="text-error">{{ error }}</p>
-    <p v-if="revision === null && pending" role="status">正在读取配置…</p>
-    <fieldset v-if="revision !== null" :disabled="pending" class="space-y-6">
-      <p class="text-sm text-muted">
-        网站 AI 功能{{ featureEnabled ? '已开启' : '已关闭' }} · 当前修订 {{ revision }}
-      </p>
-      <UFormField label="回答风格">
-        <UTextarea v-model="persona" class="w-full" :maxlength="2000" required />
-      </UFormField>
-      <section v-for="group in groups" :key="group.title" class="space-y-3">
-        <h2 class="font-semibold">{{ group.title }}</h2>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField v-for="(label, key) in group.fields" :key="key" :label="label">
-            <UInput
-              :model-value="String(runtime[key] ?? '')"
-              class="w-full"
-              @update:model-value="runtime[key] = String($event)"
-            />
-          </UFormField>
-        </div>
-      </section>
-      <p class="text-sm text-muted">
-        填写供应商的 HTTPS API
-        基础地址。更换地址来源时请重新填写对应密钥。金额预算由 Spring 配置。
-      </p>
-      <section class="grid gap-4 sm:grid-cols-2">
-        <UFormField
-          label="对话 API 密钥"
-          :description="chatKeyConfigured ? '已配置，留空保留' : '尚未配置'"
-        >
-          <UInput v-model="chatKey" type="password" autocomplete="new-password" class="w-full" />
-        </UFormField>
-        <UFormField
-          label="向量 API 密钥"
-          :description="embeddingKeyConfigured ? '已配置，留空保留' : '尚未配置'"
-        >
-          <UInput
-            v-model="embeddingKey"
-            type="password"
-            autocomplete="new-password"
-            class="w-full"
-          />
-        </UFormField>
-      </section>
-      <div v-if="affectedPrices.length" class="space-y-2">
-        <p class="text-sm">请核对以下每百万 Token 单价（{{ runtime.billing_currency || '币种未填写' }}）。如需修改，可在下方计价设置中填写。</p>
-        <ul class="list-disc ps-5 text-sm">
-          <li v-for="key in affectedPrices" :key="key">
-            {{ prices[key] }} {{ runtime[key] || '未填写' }}
-          </li>
-        </ul>
-        <UCheckbox v-model="pricesConfirmed" label="确认使用上述单价（相同价格可直接沿用）" />
+  <div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="max-w-full min-w-0 overflow-x-auto">
+        <UTabs v-model="tab" :items="tabs" :content="false" class="w-max" />
       </div>
-      <details class="space-y-3 rounded border border-default p-4">
-        <summary class="cursor-pointer font-medium">高级设置 · 请求限制与计价</summary>
-        <p class="text-sm text-muted">
-          价格按每百万 Token 填写。实时调用预占使用最高适用价；币种应与供应商实际报价一致。
-        </p>
-        <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField v-for="(label, key) in advanced" :key="key" :label="label">
-            <UInput
-              :model-value="String(runtime[key] ?? '')"
-              class="w-full"
-              @update:model-value="runtime[key] = String($event)"
-            />
-          </UFormField>
-        </div>
-      </details>
-    </fieldset>
-    <div class="flex gap-3">
-      <UButton type="submit" :disabled="revision === null || pending" :loading="pending"
-        >保存配置</UButton
-      >
-      <UButton type="button" variant="outline" :disabled="pending" @click="update()"
-        >重新读取</UButton
-      >
+      <div class="flex gap-2">
+        <UButton
+          color="neutral"
+          variant="outline"
+          icon="i-lucide-refresh-cw"
+          :loading="pending"
+          @click="read"
+          >刷新目录</UButton
+        ><UButton v-if="tab === 'providers'" icon="i-lucide-plus" @click="editProvider()"
+          >添加供应商</UButton
+        >
+      </div>
     </div>
-  </form>
+    <UAlert
+      v-if="error"
+      color="error"
+      variant="subtle"
+      title="读取配置失败"
+      :description="error"
+      :actions="[{ label: '重试', onClick: read }]"
+    />
+    <div
+      v-if="!catalog && pending"
+      class="grid gap-5 xl:grid-cols-2"
+      role="status"
+      aria-label="正在读取模型目录"
+    >
+      <USkeleton v-for="index in 2" :key="index" class="h-64 rounded-xl" />
+    </div>
+    <template v-if="catalog">
+      <section v-show="tab === 'providers'" class="space-y-5">
+        <div
+          v-if="!catalog.providers.length"
+          class="rounded-xl border border-dashed border-default bg-default p-12 text-center"
+        >
+          <UIcon name="i-lucide-boxes" class="size-9 text-primary" />
+          <h2 class="mt-3 font-semibold">连接你的第一个供应商</h2>
+          <p class="mt-2 text-sm text-muted">添加接入信息，在卡片下配置模型，再加入执行链。</p>
+          <UButton class="mt-5" icon="i-lucide-plus" @click="editProvider()">添加供应商</UButton>
+        </div>
+        <div class="grid items-start gap-5 xl:grid-cols-2">
+          <article
+            v-for="provider in catalog.providers"
+            :key="provider.id"
+            class="overflow-hidden rounded-xl border border-default bg-default shadow-sm"
+          >
+            <header class="flex items-start gap-3 border-b border-default p-5">
+              <span class="rounded-lg bg-primary/10 p-2.5 text-primary"
+                ><UIcon name="i-lucide-plug-zap" class="size-5"
+              /></span>
+              <div class="min-w-0 flex-1">
+                <h2 class="truncate font-semibold">{{ provider.title }}</h2>
+                <p class="mt-1 truncate text-xs text-muted">
+                  {{ provider.providerCode }} · OpenAI 兼容
+                </p>
+              </div>
+              <UButton
+                icon="i-lucide-settings-2"
+                variant="ghost"
+                color="neutral"
+                :aria-label="`编辑 ${provider.title} 接入信息`"
+                @click="editProvider(provider)"
+              />
+            </header>
+            <div class="space-y-3 border-b border-default bg-muted/30 px-5 py-4">
+              <p class="truncate font-mono text-xs text-muted" :title="provider.baseUrl">
+                {{ provider.baseUrl }}
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <UBadge
+                  :color="provider.keyConfigured ? 'success' : 'warning'"
+                  variant="subtle"
+                  size="sm"
+                  >{{ provider.keyConfigured ? '密钥已配置' : '待配置密钥' }}</UBadge
+                ><UBadge v-if="provider.walletKey" color="neutral" variant="outline" size="sm">{{
+                  provider.walletKey
+                }}</UBadge
+                ><span class="ml-auto text-xs text-muted"
+                  >{{ modelsFor(provider.id).length }} 个模型</span
+                >
+              </div>
+            </div>
+            <ul class="divide-y divide-default px-5">
+              <li
+                v-for="model in modelsFor(provider.id)"
+                :key="model.id"
+                class="flex items-center gap-3 py-4"
+              >
+                <span
+                  class="size-2 shrink-0 rounded-full"
+                  :class="model.isActive ? 'bg-success' : 'bg-muted'"
+                />
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium">{{ model.modelNickname }}</p>
+                  <p class="mt-1 truncate font-mono text-xs text-muted">{{ model.modelKey }}</p>
+                  <AgentModelTest
+                    :model="model"
+                    :provider-revision="provider.revision"
+                    class="mt-2"
+                  />
+                </div>
+                <UBadge color="neutral" variant="subtle" size="sm">{{
+                  model.modelType === 1 ? 'Chat' : 'Embedding'
+                }}</UBadge
+                ><UButton
+                  icon="i-lucide-pencil"
+                  color="neutral"
+                  variant="ghost"
+                  :aria-label="`编辑模型 ${model.modelNickname}`"
+                  @click="modelToEdit = { provider, model }"
+                />
+              </li>
+            </ul>
+            <p v-if="!modelsFor(provider.id).length" class="px-5 py-6 text-sm text-muted">
+              添加该供应商支持的对话或向量模型。
+            </p>
+            <footer class="border-t border-default px-5 py-3">
+              <UButton
+                icon="i-lucide-plus"
+                variant="ghost"
+                size="sm"
+                @click="modelToEdit = { provider }"
+                >添加模型</UButton
+              >
+            </footer>
+          </article>
+        </div>
+      </section>
+      <section v-show="tab === 'routes'" class="space-y-5">
+        <AgentExecutionChain
+          ref="chatChain"
+          :type="1"
+          :catalog="catalog"
+          @saved="read"
+        /><AgentExecutionChain ref="embeddingChain" :type="2" :catalog="catalog" @saved="read" />
+      </section>
+      <AgentPromptEditor v-show="tab === 'prompts'" ref="promptEditor" />
+      <AgentWallets v-if="walletOpened" v-show="tab === 'wallets'" :providers="catalog.providers" />
+    </template>
+    <UModal
+      v-model:open="providerOpen"
+      :title="providerToEdit ? '编辑供应商' : '添加供应商'"
+      :dismissible="false"
+      :close="false"
+      ><template #body
+        ><AgentProviderEditor
+          v-if="providerOpen"
+          ref="providerForm"
+          :provider="providerToEdit"
+          @saved="providerSaved"
+          @cancel="providerOpen = false" /></template
+    ></UModal>
+    <UModal
+      v-model:open="modelOpen"
+      :title="modelToEdit?.model ? '编辑模型' : '添加模型'"
+      :dismissible="false"
+      :close="false"
+      ><template #body
+        ><AgentModelEditor
+          v-if="modelToEdit"
+          ref="modelForm"
+          :model="modelToEdit.model"
+          :provider="modelToEdit.provider"
+          @saved="modelSaved"
+          @cancel="modelToEdit = undefined" /></template
+    ></UModal>
+    <AdminDiscardChanges :open="leaveOpen" @decision="decideLeave" />
+  </div>
 </template>

@@ -119,6 +119,7 @@ export function createAgentChatApi(csrfToken: () => string) {
 
   return {
     status: () => json<{ enabled: boolean }>('/status'),
+    claim: () => json<{ conversationId: string | null }>('/conversations/claim', 'POST', {}),
     create: () => json<{ conversationId: string }>('/conversations', 'POST', {}),
     list: (cursor?: string) =>
       json<{ items: ConversationSummary[]; nextCursor: string | null }>(
@@ -134,7 +135,5 @@ export function createAgentChatApi(csrfToken: () => string) {
     resume: (id: string, receive: (event: ChatEvent) => void, signal: AbortSignal) =>
       events(`/executions/${id}/events`, receive, signal),
     stop: (id: string) => json<ChatSnapshot>(`/executions/${id}/stop`, 'POST', {}),
-    import: (importId: string, turns: { question: string; answer: string }[]) =>
-      json<{ conversationId: string }>('/conversations/import', 'POST', { importId, turns }),
   }
 }

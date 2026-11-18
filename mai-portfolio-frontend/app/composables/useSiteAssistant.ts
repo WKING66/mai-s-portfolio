@@ -2,17 +2,13 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { AgentChatError, createAgentChatApi } from '../api/agentChat'
 import type { ChatSnapshot, ConversationSummary, SavedTurn } from '../api/agentChat'
 import { useAuthState } from './useAuthState'
+import {
+  rememberAnonymousConversation,
+  restoreAnonymousConversation,
+} from '../utils/site/assistantStorage'
 
-const visitorKey = 'portfolio-agent:visitor'
 const active = (status: SavedTurn['status']) =>
   status === 'pending' || status === 'accepted' || status === 'running'
-
-interface BrowserConversation {
-  id: string
-  pending?: SavedTurn
-  importId?: string
-  turns?: { question: string; answer: string }[]
-}
 
 export function useSiteAssistant() {
   const auth = useAuthState()
@@ -21,46 +17,24 @@ export function useSiteAssistant() {
   const turns = ref<SavedTurn[]>([])
   const generating = ref(false)
   const error = ref('')
+  const restoring = ref(false)
+  const opening = ref(false)
   const conversationId = ref<string>()
   const histories = ref<ConversationSummary[]>([])
   const nextCursor = ref<string | null>(null)
   const loggedIn = computed(() => auth.state.value.loggedIn)
   const key = computed(() =>
-    loggedIn.value ? `portfolio-agent:account:${auth.state.value.username}` : visitorKey,
+    loggedIn.value ? `account:${auth.state.value.username}` : 'anonymous',
   )
-  const hasAnonymousHistory = ref(false)
   let controller: AbortController | undefined
   let loaded = false
-
-  function stored(storageKey = key.value): BrowserConversation | null {
-    try {
-      return JSON.parse(localStorage.getItem(storageKey) || 'null')
-    } catch {
-      return null
-    }
-  }
+  let generation = 0
+  let openSequence = 0
+  let historySequence = 0
 
   function remember() {
-    if (!conversationId.value) {
-      return
-    }
-    const previous = stored()
-    const entry: BrowserConversation = { id: conversationId.value }
-    const pending = turns.value.find((turn) => active(turn.status))
-    if (pending) {
-      entry.pending = pending
-    }
     if (!loggedIn.value) {
-      entry.importId = previous?.importId ?? crypto.randomUUID()
-      entry.turns = turns.value
-        .filter((turn) => !active(turn.status) && turn.text)
-        .slice(-20)
-        .map((turn) => ({ question: turn.question, answer: turn.text.slice(0, 4000) }))
-    }
-    try {
-      localStorage.setItem(key.value, JSON.stringify(entry))
-    } catch {
-      // 浏览器禁用本地存储时保留当前页面状态，登录用户仍可从网站历史恢复。
+      rememberAnonymousConversation(conversationId.value)
     }
   }
 
@@ -126,7 +100,7 @@ export function useSiteAssistant() {
           turn.status = 'failed'
           if (failure.status === 404 && !loggedIn.value) {
             conversationId.value = undefined
-            localStorage.removeItem(key.value)
+            rememberAnonymousConversation()
           }
         }
         remember()
@@ -140,29 +114,32 @@ export function useSiteAssistant() {
   }
 
   async function open(id?: string) {
-    const saved = stored()
-    const target = id ?? saved?.id
+    if (generating.value) {
+      return
+    }
+    const target = id ?? restoreAnonymousConversation()
     if (!target) {
       return
     }
-    const owner = key.value
-    const result = await api.read(target)
-    if (owner !== key.value) {
-      return
-    }
-    conversationId.value = target
-    turns.value = result.turns
-    if (
-      !id &&
-      saved?.pending &&
-      !turns.value.some((turn) => turn.requestId === saved.pending?.requestId)
-    ) {
-      turns.value.push(saved.pending)
-    }
-    remember()
-    const pending = turns.value.find((turn) => active(turn.status))
-    if (pending) {
-      void run(pending)
+    const owner = generation
+    const sequence = ++openSequence
+    opening.value = true
+    try {
+      const result = await api.read(target)
+      if (owner !== generation || sequence !== openSequence) {
+        return
+      }
+      conversationId.value = target
+      turns.value = result.turns
+      remember()
+      const pending = turns.value.find((turn) => active(turn.status))
+      if (pending) {
+        void run(pending)
+      }
+    } finally {
+      if (owner === generation && sequence === openSequence) {
+        opening.value = false
+      }
     }
   }
 
@@ -170,9 +147,13 @@ export function useSiteAssistant() {
     if (!loggedIn.value) {
       return
     }
-    const owner = key.value
+    const owner = generation
+    const sequence = ++historySequence
     const page = await api.list(more ? (nextCursor.value ?? undefined) : undefined)
-    if (owner !== key.value) {
+    if (owner !== generation) {
+      return
+    }
+    if (sequence !== historySequence) {
       return
     }
     histories.value = more ? [...histories.value, ...page.items] : page.items
@@ -180,7 +161,13 @@ export function useSiteAssistant() {
   }
 
   async function send(question: string, quote = '') {
-    if (generating.value || turns.value.some((turn) => active(turn.status)) || !question.trim()) {
+    if (
+      restoring.value ||
+      opening.value ||
+      generating.value ||
+      turns.value.some((turn) => active(turn.status)) ||
+      !question.trim()
+    ) {
       return
     }
     const text = quote ? `参考以下摘录：\n${quote}\n\n${question.trim()}` : question.trim()
@@ -193,11 +180,11 @@ export function useSiteAssistant() {
     })
     const turn = turns.value.at(-1)!
     generating.value = true
-    const owner = key.value
+    const owner = generation
     try {
       if (!conversationId.value) {
         const created = await api.create()
-        if (owner !== key.value) {
+        if (owner !== generation) {
           return
         }
         conversationId.value = created.conversationId
@@ -205,12 +192,12 @@ export function useSiteAssistant() {
       remember()
       await run(turn)
     } catch (failure) {
-      if (owner === key.value) {
+      if (owner === generation) {
         turn.status = 'failed'
         error.value = failure instanceof Error ? failure.message : '无法创建会话。'
       }
     } finally {
-      if (owner === key.value) {
+      if (owner === generation) {
         generating.value = false
       }
     }
@@ -221,15 +208,18 @@ export function useSiteAssistant() {
     if (!turn?.executionId) {
       return
     }
-    const owner = key.value
+    const owner = generation
+    const stoppedController = controller
     try {
       const stopped = await api.stop(turn.executionId)
-      if (owner === key.value) {
+      if (owner === generation && turns.value.includes(turn)) {
         apply(turn, stopped)
-        controller?.abort()
+        stoppedController?.abort()
       }
     } catch (failure) {
-      error.value = failure instanceof Error ? failure.message : '暂时无法停止生成。'
+      if (owner === generation) {
+        error.value = failure instanceof Error ? failure.message : '暂时无法停止生成。'
+      }
     }
   }
 
@@ -241,67 +231,106 @@ export function useSiteAssistant() {
   }
 
   async function clear() {
-    if (!loggedIn.value || generating.value) {
+    if (!loggedIn.value || generating.value || restoring.value || opening.value) {
       return
     }
-    const owner = key.value
-    const created = await api.create()
-    if (owner !== key.value) {
-      return
+    const owner = generation
+    generating.value = true
+    try {
+      const created = await api.create()
+      if (owner !== generation) {
+        return
+      }
+      conversationId.value = created.conversationId
+      turns.value = []
+      await loadHistory()
+    } finally {
+      if (owner === generation) {
+        generating.value = false
+      }
     }
-    conversationId.value = created.conversationId
-    turns.value = []
-    remember()
-    await loadHistory()
-  }
-
-  async function importAnonymous() {
-    const saved = stored(visitorKey)
-    if (!loggedIn.value || !saved?.importId || !saved.turns?.length) {
-      return
-    }
-    const owner = key.value
-    const result = await api.import(saved.importId, saved.turns)
-    if (owner !== key.value) {
-      return
-    }
-    localStorage.removeItem(visitorKey)
-    hasAnonymousHistory.value = false
-    await open(result.conversationId)
-    await loadHistory()
   }
 
   async function initialize() {
+    const owner = generation
+    const anonymousId = restoreAnonymousConversation()
+    if (!enabled.value) {
+      return
+    }
+    restoring.value = true
     try {
-      hasAnonymousHistory.value = Boolean(stored(visitorKey)?.turns?.length)
-      if (enabled.value) {
-        await open()
+      if (anonymousId && loggedIn.value) {
+        // HttpOnly 访客 Cookie 决定可认领的会话，不上传正文或客户端身份。
+        const claimed = await api.claim()
+        if (owner !== generation) {
+          return
+        }
+        if (claimed.conversationId) {
+          await open(claimed.conversationId)
+          if (owner === generation) {
+            rememberAnonymousConversation()
+          }
+          return
+        }
+        rememberAnonymousConversation()
+      } else if (anonymousId) {
+        try {
+          await open(anonymousId)
+          return
+        } catch (failure) {
+          if (!(failure instanceof AgentChatError) || ![403, 404].includes(failure.status)) {
+            throw failure
+          }
+          if (owner !== generation) {
+            return
+          }
+          rememberAnonymousConversation()
+        }
+      }
+      if (loggedIn.value && owner === generation) {
+        await loadHistory()
+        const latestConversation = histories.value[0]
+        if (owner === generation && latestConversation) {
+          await open(latestConversation.conversationId)
+        }
       }
     } catch (failure) {
-      if (failure instanceof AgentChatError && failure.status === 404) {
-        localStorage.removeItem(key.value)
-      } else {
+      if (owner === generation) {
         error.value = failure instanceof Error ? failure.message : '无法恢复会话。'
+      }
+    } finally {
+      if (owner === generation) {
+        restoring.value = false
       }
     }
   }
 
   onMounted(async () => {
+    const owner = generation
     try {
       await auth.ensureSession()
-      enabled.value = (await api.status()).enabled
+      const status = await api.status()
+      if (owner !== generation) {
+        return
+      }
+      enabled.value = status.enabled
       loaded = true
       await initialize()
     } catch {
-      enabled.value = false
+      if (owner === generation) {
+        enabled.value = false
+      }
     }
   })
   watch(key, () => {
     if (!loaded) {
       return
     }
+    generation++
     controller?.abort()
     controller = undefined
+    opening.value = false
+    restoring.value = false
     generating.value = false
     conversationId.value = undefined
     turns.value = []
@@ -310,10 +339,14 @@ export function useSiteAssistant() {
     error.value = ''
     void initialize()
   })
-  onBeforeUnmount(() => controller?.abort())
+  onBeforeUnmount(() => {
+    generation++
+    controller?.abort()
+  })
 
   return {
     enabled,
+    restoring: computed(() => restoring.value || opening.value),
     turns,
     generating,
     error,
@@ -321,7 +354,6 @@ export function useSiteAssistant() {
     histories,
     nextCursor,
     loggedIn,
-    hasAnonymousHistory,
     latest: computed(() => turns.value.at(-1)),
     recoverable: computed(() => turns.value.some((turn) => active(turn.status))),
     canStop: computed(() => turns.value.some((turn) => active(turn.status) && turn.executionId)),
@@ -331,6 +363,5 @@ export function useSiteAssistant() {
     resume,
     open,
     loadHistory,
-    importAnonymous,
   }
 }

@@ -6,6 +6,7 @@ const {
   enabled,
   turns,
   generating,
+  restoring,
   latest,
   error,
   recoverable,
@@ -13,14 +14,12 @@ const {
   histories,
   nextCursor,
   loggedIn,
-  hasAnonymousHistory,
   send,
   stop,
   clear,
   resume,
   open: openConversation,
   loadHistory,
-  importAnonymous,
 } = useSiteAssistant()
 const showHistory = ref(false)
 const actionError = ref('')
@@ -80,7 +79,7 @@ function trackScroll() {
   }
 }
 async function submit(question = draft.value) {
-  if (!question.trim() || generating.value) {
+  if (!question.trim() || generating.value || restoring.value) {
     return
   }
   open()
@@ -215,13 +214,13 @@ onBeforeUnmount(() => {
           placeholder="这个个人站是怎么做出来的？"
           maxlength="300"
           required
-        /><button aria-label="发送首页问题" :disabled="generating">↗</button>
+        /><button aria-label="发送首页问题" :disabled="generating || restoring">↗</button>
       </form>
       <div class="assistant-suggestions">
         <button
           v-for="question in ['介绍一下站主', '做过哪些项目？', '推荐一篇文章']"
           :key="question"
-          :disabled="generating"
+          :disabled="generating || restoring"
           @click="submit(question)"
         >
           {{ question }}
@@ -297,16 +296,16 @@ onBeforeUnmount(() => {
             >
               历史
             </button>
-            <button v-if="loggedIn" :disabled="generating" @click="clearConversation">新建</button
+            <button v-if="loggedIn" :disabled="generating || restoring" @click="clearConversation">
+              新建</button
             ><button aria-label="关闭 AI 向导" @click="close">×</button>
           </div>
         </header>
         <div v-if="loggedIn && showHistory" class="assistant-history">
-          <button v-if="hasAnonymousHistory" @click="manage(importAnonymous)">导入匿名问答</button>
           <button
             v-for="item in histories"
             :key="item.conversationId"
-            :disabled="generating"
+            :disabled="generating || restoring"
             @click="manage(() => openConversation(item.conversationId))"
           >
             {{ new Date(item.updatedAt).toLocaleString() }}
@@ -364,7 +363,7 @@ onBeforeUnmount(() => {
               required
             /><button
               aria-label="发送对话问题"
-              :disabled="generating || recoverable || !draft.trim()"
+              :disabled="generating || restoring || recoverable || !draft.trim()"
             >
               ↑
             </button>
