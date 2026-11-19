@@ -41,6 +41,12 @@ async function manage(action: () => Promise<unknown>) {
     actionError.value = failure instanceof Error ? failure.message : '会话操作失败。'
   }
 }
+function toggleHistory() {
+  showHistory.value = !showHistory.value
+  if (showHistory.value) {
+    void manage(() => loadHistory())
+  }
+}
 const dialog = useTemplateRef<HTMLDialogElement>('drawer')
 const log = useTemplateRef<HTMLElement>('log')
 const input = useTemplateRef<HTMLInputElement>('input')
@@ -301,10 +307,7 @@ onBeforeUnmount(() => {
             <button
               v-if="loggedIn"
               :aria-expanded="showHistory"
-              @click="
-                showHistory = !showHistory
-                if (showHistory) manage(() => loadHistory())
-              "
+              @click="toggleHistory"
             >
               历史
             </button>
