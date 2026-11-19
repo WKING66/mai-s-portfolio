@@ -17,13 +17,21 @@ const {
   loggedIn,
   send,
   stop,
-  clear,
+  clearing,
+  canClearContent,
+  clearContent,
+  newConversation,
   resume,
   open: openConversation,
   loadHistory,
 } = useSiteAssistant()
 const showHistory = ref(false)
+const clearTarget = ref<string>()
 const actionError = ref('')
+watch(conversationId, () => {
+  clearTarget.value = undefined
+  actionError.value = ''
+})
 const historyDate = new Intl.DateTimeFormat('zh-CN', {
   dateStyle: 'medium',
   timeStyle: 'short',
@@ -80,6 +88,7 @@ function close() {
   dialog.value?.close()
 }
 function afterClose() {
+  clearTarget.value = undefined
   document.body.style.overflow = previousOverflow
   tools.value = null
   opener?.focus({ preventScroll: true })
@@ -95,7 +104,13 @@ function trackScroll() {
   }
 }
 async function submit(question = draft.value) {
-  if (!question.trim() || generating.value || restoring.value || recoverable.value) {
+  if (
+    !question.trim() ||
+    generating.value ||
+    restoring.value ||
+    recoverable.value ||
+    clearing.value
+  ) {
     return
   }
   open()
@@ -115,9 +130,26 @@ watch(
     }
   },
 )
-function clearConversation() {
-  void manage(clear)
+function startConversation() {
+  void manage(newConversation)
   quote.value = ''
+}
+function requestClearContent() {
+  if (canClearContent.value) {
+    clearTarget.value = conversationId.value
+    actionError.value = ''
+  }
+}
+function confirmClearContent() {
+  if (!clearTarget.value || clearTarget.value !== conversationId.value || !canClearContent.value) {
+    return
+  }
+  clearTarget.value = undefined
+  void manage(async () => {
+    if (await clearContent()) {
+      jumpToLatest()
+    }
+  })
 }
 function setWidth(value: number) {
   drawerWidth.value = Math.min(window.innerWidth, Math.max(420, value))
@@ -304,25 +336,55 @@ onBeforeUnmount(() => {
             <strong id="assistant-title">{{ name }}的 AI 向导</strong><small>站长数字人</small>
           </div>
           <div class="assistant-head-actions">
-            <button
-              v-if="loggedIn"
-              :aria-expanded="showHistory"
-              @click="toggleHistory"
-            >
+            <button v-if="loggedIn" :aria-expanded="showHistory" @click="toggleHistory">
               历史
             </button>
-            <button v-if="loggedIn" :disabled="generating || restoring" @click="clearConversation">
-              新建</button
-            ><button aria-label="关闭 AI 向导" @click="close">×</button>
+            <button
+              v-if="loggedIn"
+              :disabled="generating || restoring || clearing"
+              @click="startConversation"
+            >
+              新建
+            </button>
+            <button
+              v-if="conversationId && turns.length"
+              type="button"
+              :disabled="!canClearContent"
+              @click="requestClearContent"
+            >
+              {{ clearing ? '正在清空…' : '清空聊天内容' }}
+            </button>
+            <button aria-label="关闭 AI 向导" @click="close">×</button>
           </div>
         </header>
+        <div
+          v-if="clearTarget && clearTarget === conversationId"
+          class="flex flex-wrap items-center gap-2 px-4 py-3 text-sm"
+          role="group"
+          aria-label="确认清空聊天内容"
+        >
+          <p class="w-full">
+            清空后，本会话的问答将无法恢复，也不会用于后续回复。会话与已用次数会保留。
+          </p>
+          <UButton size="sm" color="neutral" variant="outline" @click="clearTarget = undefined">
+            取消
+          </UButton>
+          <UButton
+            size="sm"
+            color="error"
+            :disabled="!canClearContent"
+            @click="confirmClearContent"
+          >
+            确认清空
+          </UButton>
+        </div>
         <div v-if="loggedIn && showHistory" class="assistant-history">
           <button
             v-for="item in histories"
             :key="item.conversationId"
             class="assistant-history-item"
             :aria-current="item.conversationId === conversationId ? 'true' : undefined"
-            :disabled="generating || restoring"
+            :disabled="generating || restoring || clearing"
             @click="manage(() => openConversation(item.conversationId))"
           >
             <span>{{ item.title?.trim() || '会话' }}</span>
@@ -364,8 +426,8 @@ onBeforeUnmount(() => {
             <span>{{ quote }}</span
             ><button aria-label="移除引用" @click="quote = ''">×</button>
           </div>
-          <p v-if="error || actionError" role="alert" class="assistant-status">
-            {{ error || actionError }}
+          <p v-if="actionError || error" role="alert" class="assistant-status">
+            {{ actionError || error }}
           </p>
           <button v-if="canStop" class="stop-button" @click="stop">■ 停止生成</button>
           <button v-if="recoverable && !generating" type="button" @click="resume">
@@ -381,7 +443,7 @@ onBeforeUnmount(() => {
               required
             /><button
               aria-label="发送对话问题"
-              :disabled="generating || restoring || recoverable || !draft.trim()"
+              :disabled="generating || restoring || recoverable || clearing || !draft.trim()"
             >
               ↑
             </button>

@@ -22,6 +22,13 @@ export interface ConversationSummary {
   updatedAt: string
 }
 
+export interface ConversationDetails {
+  conversationId: string
+  title: string
+  createdAt: string
+  turns: SavedTurn[]
+}
+
 type ChatEvent =
   | { kind: 'accepted'; value: Pick<ChatSnapshot, 'requestId' | 'executionId' | 'status'> }
   | { kind: 'snapshot' | 'terminal'; value: ChatSnapshot }
@@ -128,6 +135,8 @@ export function createAgentChatApi(csrfToken: () => string) {
         cursor ? `/conversations?cursor=${encodeURIComponent(cursor)}` : '/conversations',
       ),
     read: (id: string) => json<{ turns: SavedTurn[] }>(`/conversations/${id}`),
+    clearContent: (id: string) =>
+      json<ConversationDetails>(`/conversations/${encodeURIComponent(id)}/clear`, 'POST'),
     submit: (
       id: string,
       body: { requestId: string; question: string },

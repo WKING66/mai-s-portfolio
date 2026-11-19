@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
   status: vi.fn<ChatApi['status']>(),
   claim: vi.fn<ChatApi['claim']>(),
   create: vi.fn<ChatApi['create']>(),
+  clearContent: vi.fn<ChatApi['clearContent']>(),
   list: vi.fn<ChatApi['list']>(),
   read: vi.fn<ChatApi['read']>(),
   submit: vi.fn<ChatApi['submit']>(),
@@ -65,6 +66,104 @@ afterEach(() => {
   lifecycle.unmount?.()
   scope.stop()
   vi.unstubAllGlobals()
+})
+
+const oldTurn = {
+  requestId: 'request',
+  executionId: '27',
+  question: '旧问题',
+  text: '旧回复',
+  status: 'completed',
+} as const
+const cleared = {
+  conversationId: '12',
+  title: '新会话',
+  createdAt: '2026-11-18T00:00:00Z',
+  turns: [],
+}
+
+describe('清空聊天内容', () => {
+  it('更新当前历史标题并保留原会话供下一问使用', async () => {
+    session.value = { loggedIn: true, username: 'alice', csrfToken: 'csrf' }
+    api.list.mockResolvedValue({
+      items: [{ conversationId: '12', title: '旧问题', updatedAt: cleared.createdAt }],
+      nextCursor: null,
+    })
+    api.read.mockResolvedValue({ turns: [oldTurn] })
+    api.clearContent.mockImplementation(async () => ({ ...cleared, turns: [] }))
+    const chat = setup()
+    await lifecycle.mount?.()
+
+    expect(await chat.clearContent()).toBe(true)
+    expect(api.clearContent).toHaveBeenCalledWith('12')
+    expect(chat.turns.value).toEqual([])
+    expect(chat.histories.value[0]?.title).toBe('新会话')
+
+    await chat.send('下一问')
+    expect(api.submit.mock.calls[0]?.[0]).toBe('12')
+    expect(api.create).not.toHaveBeenCalled()
+  })
+
+  it('匿名会话清空后仍保留同一个续读编号', async () => {
+    values.set(ANONYMOUS_CONVERSATION_KEY, '12')
+    api.read.mockResolvedValue({ turns: [oldTurn] })
+    api.clearContent.mockImplementation(async () => ({ ...cleared, turns: [] }))
+    const chat = setup()
+    await lifecycle.mount?.()
+    expect(await chat.clearContent()).toBe(true)
+    expect(chat.turns.value).toEqual([])
+    expect(values.get(ANONYMOUS_CONVERSATION_KEY)).toBe('12')
+  })
+
+  it('服务端返回 409 时保留正文并提示先停止生成', async () => {
+    values.set(ANONYMOUS_CONVERSATION_KEY, '12')
+    api.read.mockResolvedValue({ turns: [oldTurn] })
+    api.clearContent.mockRejectedValue(new AgentChatError('Conflict', 409))
+    const chat = setup()
+    await lifecycle.mount?.()
+
+    await expect(chat.clearContent()).rejects.toThrow('请先停止生成')
+    expect(chat.turns.value).toEqual([oldTurn])
+    expect(chat.canClearContent.value).toBe(true)
+  })
+
+  it('跨登录状态的迟到清空响应不能覆盖新选中的会话', async () => {
+    values.set(ANONYMOUS_CONVERSATION_KEY, '12')
+    api.read.mockResolvedValueOnce({ turns: [oldTurn] })
+    let complete!: (result: Awaited<ReturnType<ChatApi['clearContent']>>) => void
+    api.clearContent.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          complete = resolve
+        }),
+    )
+    const chat = setup()
+    await lifecycle.mount?.()
+    const pending = chat.clearContent()
+
+    const accountTurn = { ...oldTurn, question: '账号历史' }
+    api.list.mockResolvedValue({
+      items: [{ conversationId: '22', updatedAt: cleared.createdAt }],
+      nextCursor: null,
+    })
+    api.read.mockResolvedValue({ turns: [accountTurn] })
+    session.value = { loggedIn: true, username: 'alice', csrfToken: 'csrf' }
+    await vi.waitFor(() => expect(chat.conversationId.value).toBe('22'))
+    complete(cleared)
+
+    expect(await pending).toBe(false)
+    expect(chat.turns.value).toEqual([accountTurn])
+  })
+  it('存在尚未结束的回复时，不发清空请求', async () => {
+    values.set(ANONYMOUS_CONVERSATION_KEY, '12')
+    api.read.mockResolvedValue({ turns: [{ ...oldTurn, status: 'running' }] })
+    const chat = setup()
+    await lifecycle.mount?.()
+
+    expect(chat.canClearContent.value).toBe(false)
+    expect(await chat.clearContent()).toBe(false)
+    expect(api.clearContent).not.toHaveBeenCalled()
+  })
 })
 
 describe('站点聊天会话恢复', () => {

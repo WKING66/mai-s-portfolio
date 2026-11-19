@@ -19,6 +19,17 @@ export function useSiteAssistant() {
   const error = ref('')
   const restoring = ref(false)
   const opening = ref(false)
+  const clearing = ref(false)
+  const canClearContent = computed(
+    () =>
+      Boolean(conversationId.value) &&
+      turns.value.length > 0 &&
+      !generating.value &&
+      !restoring.value &&
+      !opening.value &&
+      !clearing.value &&
+      !turns.value.some((turn) => active(turn.status)),
+  )
   const conversationId = ref<string>()
   const histories = ref<ConversationSummary[]>([])
   const nextCursor = ref<string | null>(null)
@@ -114,7 +125,7 @@ export function useSiteAssistant() {
   }
 
   async function open(id?: string) {
-    if (generating.value) {
+    if (generating.value || clearing.value) {
       return
     }
     const target = id ?? restoreAnonymousConversation()
@@ -164,6 +175,7 @@ export function useSiteAssistant() {
     if (
       restoring.value ||
       opening.value ||
+      clearing.value ||
       generating.value ||
       turns.value.some((turn) => active(turn.status)) ||
       !question.trim()
@@ -225,13 +237,51 @@ export function useSiteAssistant() {
 
   function resume() {
     const turn = turns.value.find((item) => active(item.status))
-    if (turn && !generating.value) {
+    if (turn && !generating.value && !clearing.value) {
       void run(turn)
     }
   }
 
-  async function clear() {
-    if (!loggedIn.value || generating.value || restoring.value || opening.value) {
+  async function clearContent() {
+    const id = conversationId.value
+    if (!id || !canClearContent.value) {
+      return false
+    }
+    const owner = generation
+    clearing.value = true
+    try {
+      const result = await api.clearContent(id)
+      if (owner !== generation || id !== conversationId.value) {
+        return false
+      }
+      turns.value = result.turns
+      error.value = ''
+      // Ignore history requests started before the clear response.
+      historySequence++
+      histories.value = histories.value.map((item) =>
+        item.conversationId === id
+          ? { ...item, title: result.title, createdAt: result.createdAt }
+          : item,
+      )
+      remember()
+      return true
+    } catch (failure) {
+      if (owner !== generation || id !== conversationId.value) {
+        return false
+      }
+      if (failure instanceof AgentChatError && failure.status === 409) {
+        throw new AgentChatError('当前会话正在生成回复，请先停止生成，再清空聊天内容。', 409)
+      }
+      throw failure
+    } finally {
+      if (owner === generation) {
+        clearing.value = false
+      }
+    }
+  }
+
+  async function newConversation() {
+    if (!loggedIn.value || generating.value || restoring.value || opening.value || clearing.value) {
       return
     }
     const owner = generation
@@ -341,6 +391,7 @@ export function useSiteAssistant() {
     controller?.abort()
     controller = undefined
     opening.value = false
+    clearing.value = false
     restoring.value = false
     generating.value = false
     conversationId.value = undefined
@@ -370,7 +421,10 @@ export function useSiteAssistant() {
     canStop: computed(() => turns.value.some((turn) => active(turn.status) && turn.executionId)),
     send,
     stop,
-    clear,
+    clearing,
+    canClearContent,
+    clearContent,
+    newConversation,
     resume,
     open,
     loadHistory,
