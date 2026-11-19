@@ -284,6 +284,17 @@ export function useSiteAssistant() {
           if (owner !== generation) {
             return
           }
+          if (
+            failure.status === 404 &&
+            /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(anonymousId)
+          ) {
+            // The migrated conversation is looked up by the existing guest cookie.
+            const restored = await api.create()
+            if (owner === generation) {
+              await open(restored.conversationId)
+            }
+            return
+          }
           rememberAnonymousConversation()
         }
       }

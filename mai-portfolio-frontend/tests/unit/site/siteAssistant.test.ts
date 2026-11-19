@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, shallowRef } from 'vue'
-import type { createAgentChatApi } from '../../../app/api/agentChat'
+import { AgentChatError, type createAgentChatApi } from '../../../app/api/agentChat'
 import { useSiteAssistant } from '../../../app/composables/useSiteAssistant'
 import { ANONYMOUS_CONVERSATION_KEY } from '../../../app/utils/site/assistantStorage'
 
@@ -113,6 +113,32 @@ describe('站点聊天会话恢复', () => {
     await chat.send('question')
     expect(chat.latest.value?.text).toBe('answer')
     expect(chat.error.value).toBe('')
+  })
+
+  it('旧匿名编号失效后自动恢复历史，不发起问答', async () => {
+    const oldId = '12345678-1234-1234-1234-123456789abc'
+    values.set(ANONYMOUS_CONVERSATION_KEY, oldId)
+    api.read.mockRejectedValueOnce(new AgentChatError('Not found', 404))
+    api.read.mockResolvedValueOnce({
+      turns: [
+        {
+          requestId: 'old-request',
+          executionId: '27',
+          question: '旧问题',
+          text: '旧回复',
+          status: 'completed',
+        },
+      ],
+    })
+
+    const chat = setup()
+    await lifecycle.mount?.()
+
+    expect(api.create).toHaveBeenCalledOnce()
+    expect(api.read.mock.calls).toEqual([[oldId], ['12']])
+    expect(chat.latest.value?.text).toBe('旧回复')
+    expect(values.get(ANONYMOUS_CONVERSATION_KEY)).toBe('12')
+    expect(api.submit).not.toHaveBeenCalled()
   })
 
   it('登录后按原编号读取服务端归属，成功后移除匿名编号', async () => {
