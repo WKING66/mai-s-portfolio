@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 from cryptography.fernet import Fernet
-from httpx import AsyncHTTPTransport, ConnectError, Request, Response
+from httpx import AsyncHTTPTransport, Request, Response
 
 from app.keygen import generate_secret_file
-from app.provider.provider_http import ProviderTransport, validate_provider_url
+from app.provider.provider_http import provider_http_client, validate_provider_url
 
 
 def test_secret_file_is_valid_and_cannot_be_overwritten(tmp_path: Path) -> None:
@@ -35,65 +35,27 @@ def test_secret_file_is_valid_and_cannot_be_overwritten(tmp_path: Path) -> None:
         "https://api.example.com:8443/v1",
     ],
 )
-def test_provider_address_requires_public_https_hostname(address: str) -> None:
+def test_provider_address_requires_https_hostname(address: str) -> None:
     with pytest.raises(ValueError):
         validate_provider_url(address)
 
 
-def test_transport_uses_checked_ip_and_original_tls_hostname(
+def test_provider_client_leaves_hostname_resolution_to_http_transport(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def check() -> None:
-        loop = asyncio.get_running_loop()
-
         async def resolve(*_args: object, **_kwargs: object) -> list[tuple]:
-            return [(2, 1, 6, "", ("8.8.8.8", 443))]
+            return [(2, 1, 6, "", ("198.18.0.47", 443))]
 
         async def send(_transport: AsyncHTTPTransport, request: Request) -> Response:
-            assert request.url.host == "8.8.8.8"
-            assert request.headers["Host"] == "api.example.com"
-            assert request.extensions["sni_hostname"] == "api.example.com"
-            return Response(200)
-
-        monkeypatch.setattr(loop, "getaddrinfo", resolve)
-        monkeypatch.setattr(AsyncHTTPTransport, "handle_async_request", send)
-        async with ProviderTransport() as transport:
-            request = Request("POST", "https://api.example.com/v1/chat/completions")
-            response = await transport.handle_async_request(request)
-            assert response.status_code == 200
             assert request.url.host == "api.example.com"
-
-            async def resolve_internal(
-                *_args: object, **_kwargs: object
-            ) -> list[tuple]:
-                return [(2, 1, 6, "", ("10.0.0.1", 443))]
-
-            monkeypatch.setattr(loop, "getaddrinfo", resolve_internal)
-            with pytest.raises(ConnectError):
-                await transport.handle_async_request(request)
-
-    asyncio.run(check())
-
-
-def test_provider_dns_can_use_more_than_three_seconds(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def check() -> None:
-        async def resolve(*_args: object, **_kwargs: object) -> list[tuple]:
-            await asyncio.sleep(3.1)
-            return [(2, 1, 6, "", ("8.8.8.8", 443))]
-
-        async def send(_transport: AsyncHTTPTransport, _request: Request) -> Response:
+            assert request.headers["Host"] == "api.example.com"
             return Response(200)
 
         monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", resolve)
         monkeypatch.setattr(AsyncHTTPTransport, "handle_async_request", send)
-        async with ProviderTransport() as transport:
-            request = Request(
-                "GET",
-                "https://api.example.com/v1/models",
-                extensions={"timeout": {"connect": 5.0}},
-            )
-            assert (await transport.handle_async_request(request)).status_code == 200
+        async with provider_http_client() as client:
+            response = await client.get("https://api.example.com/v1/models")
+            assert response.status_code == 200
 
     asyncio.run(check())
