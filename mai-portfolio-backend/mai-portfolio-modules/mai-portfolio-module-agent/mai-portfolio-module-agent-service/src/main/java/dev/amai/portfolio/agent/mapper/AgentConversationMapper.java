@@ -9,41 +9,52 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface AgentConversationMapper extends BaseMapper<AgentConversation> {
-    String insertConversation(@Param("id") String id, @Param("owner") String owner,
-            @Param("anonymous") boolean anonymous, @Param("importId") String importId);
+    Long insertAnonymous(@Param("owner") String owner);
 
-    String lockConversation(@Param("id") String id, @Param("owner") String owner);
-
-    List<AgentConversation> list(@Param("owner") String owner, @Param("cursor") String cursor,
+    List<AgentConversation> list(@Param("owner") String owner, @Param("cursor") Long cursor,
             @Param("limit") int limit);
 
-    default String findAnonymous(String owner) {
-        return findId(owner, true, null);
-    }
-
-    default String findImport(String owner, String importId) {
-        return findId(owner, false, importId);
-    }
-
-    private String findId(String owner, boolean anonymous, String importId) {
-        // 匿名身份和导入编号各有唯一约束，冲突后的查询最多返回原会话编号。
-        List<String> ids = selectObjs(Wrappers.lambdaQuery(AgentConversation.class)
+    default Long findAnonymous(String owner) {
+        List<Long> ids = selectObjs(Wrappers.lambdaQuery(AgentConversation.class)
                 .select(AgentConversation::getId)
                 .eq(AgentConversation::getOwnerKey, owner)
-                .eq(AgentConversation::isAnonymous, anonymous)
-                .eq(importId != null, AgentConversation::getImportId, importId));
+                .eq(AgentConversation::isAnonymous, true));
         return ids.isEmpty() ? null : ids.getFirst();
     }
 
-    default boolean existsOwned(String id, String owner) {
-        return exists(Wrappers.lambdaQuery(AgentConversation.class)
+    default AgentConversation findOwned(Long id, String owner) {
+        return selectOne(Wrappers.lambdaQuery(AgentConversation.class)
                 .eq(AgentConversation::getId, id)
                 .eq(AgentConversation::getOwnerKey, owner));
     }
 
-    default void touch(String id) {
+    default void applyFirstTitle(Long id, String title) {
+        // 只有保留创建时默认标题的会话可由首问补齐显示名。
+        update(Wrappers.lambdaUpdate(AgentConversation.class)
+                .set(AgentConversation::getTitle, title)
+                .eq(AgentConversation::getId, id)
+                .apply("title = '新会话 ' || to_char(created_at AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:MI:SS')"));
+    }
+
+    default void touch(Long id) {
         update(Wrappers.lambdaUpdate(AgentConversation.class)
                 .setSql("updated_at = CURRENT_TIMESTAMP")
                 .eq(AgentConversation::getId, id));
+    }
+
+    default void resetTitle(Long id, String title) {
+        update(Wrappers.lambdaUpdate(AgentConversation.class)
+                .set(AgentConversation::getTitle, title)
+                .setSql("updated_at = CURRENT_TIMESTAMP")
+                .eq(AgentConversation::getId, id));
+    }
+
+    default int claimAnonymous(Long id, String visitor, String account) {
+        return update(Wrappers.lambdaUpdate(AgentConversation.class)
+                .set(AgentConversation::getOwnerKey, account)
+                .set(AgentConversation::isAnonymous, false)
+                .eq(AgentConversation::getId, id)
+                .eq(AgentConversation::getOwnerKey, visitor)
+                .eq(AgentConversation::isAnonymous, true));
     }
 }

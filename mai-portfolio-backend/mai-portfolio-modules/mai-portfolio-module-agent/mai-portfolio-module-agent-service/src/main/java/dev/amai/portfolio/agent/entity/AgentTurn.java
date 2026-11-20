@@ -1,6 +1,5 @@
 package dev.amai.portfolio.agent.entity;
 
-import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -16,12 +15,14 @@ import lombok.Setter;
 @NoArgsConstructor
 @TableName("agent_turn")
 public class AgentTurn {
-    @TableId(type = IdType.INPUT)
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
     private String requestId;
 
-    private String conversationId;
+    private Long conversationId;
 
-    private String executionId;
+    private Long executionId;
 
     private String question;
 
@@ -29,24 +30,30 @@ public class AgentTurn {
 
     private AgentTurnState status;
 
-    private String errorCode;
+    private String errorMes;
+
+    private Long inputTokens;
+
+    private Long outputTokens;
+
+    private Integer usageStatus;
 
     private OffsetDateTime acceptBefore;
 
     private OffsetDateTime quotaAt;
 
-    @TableField(insertStrategy = FieldStrategy.NEVER, updateStrategy = FieldStrategy.NEVER)
-    private Long ordinal;
+    @TableField("is_deleted")
+    private boolean deleted;
 
-    public AgentTurn(String requestId, String conversationId, String executionId, String question,
-            String answer, AgentTurnState status, String errorCode, OffsetDateTime acceptBefore) {
+    public AgentTurn(String requestId, Long conversationId, Long executionId, String question,
+            String answer, AgentTurnState status, String errorMes, OffsetDateTime acceptBefore) {
         this.requestId = requestId;
         this.conversationId = conversationId;
         this.executionId = executionId;
         this.question = question;
         this.answer = answer;
         this.status = status;
-        this.errorCode = errorCode;
+        this.errorMes = errorMes;
         this.acceptBefore = acceptBefore;
     }
 }

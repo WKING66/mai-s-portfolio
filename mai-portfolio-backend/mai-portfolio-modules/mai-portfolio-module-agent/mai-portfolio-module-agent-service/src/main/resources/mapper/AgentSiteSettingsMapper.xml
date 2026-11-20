@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.agent.mapper.AgentSiteSettingsMapper">
+    <select id="read" resultType="dev.amai.portfolio.agent.entity.AgentSiteSettings">
+        SELECT agent_enabled, global_window_hours, global_request_limit,
+               visitor_daily_turn_limit, account_daily_turn_limit, updated_at
+        FROM site_config
+    </select>
+    <update id="save">
+        UPDATE site_config
+        SET agent_enabled = #{agentEnabled},
+            global_window_hours = #{globalWindowHours},
+            global_request_limit = #{globalRequestLimit},
+            visitor_daily_turn_limit = #{visitorDailyTurnLimit},
+            account_daily_turn_limit = #{accountDailyTurnLimit},
+            updated_at = GREATEST(LOCALTIMESTAMP(3), updated_at + INTERVAL '1 millisecond')
+        WHERE updated_at = #{expectedUpdatedAt}
+    </update>
+</mapper>

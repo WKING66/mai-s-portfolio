@@ -1,12 +1,6 @@
-from decimal import Decimal
-from typing import Any
-
-from cryptography.fernet import Fernet, InvalidToken
+from cryptography.fernet import Fernet
 from pydantic import (
     AliasChoices,
-    AnyHttpUrl,
-    BaseModel,
-    ConfigDict,
     Field,
     PostgresDsn,
     SecretStr,
@@ -15,7 +9,6 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.keygen import default_secret_path
-from app.provider.provider_http import validate_provider_url
 
 
 class Settings(BaseSettings):
@@ -34,7 +27,6 @@ class Settings(BaseSettings):
     ai_db_schema: str = Field(default="site_guide", pattern=r"^[a-z][a-z0-9_]{0,62}$")
     ai_server_token: SecretStr
     config_encryption_key: SecretStr = SecretStr("")
-    java_model_budget_url: AnyHttpUrl | None = None
 
     execution_concurrency: int = Field(default=2, gt=0, le=16)
     execution_queue_limit: int = Field(default=8, ge=0, le=128)
@@ -47,55 +39,6 @@ class Settings(BaseSettings):
         return value
 
 
-class ModelSettings(BaseModel):
-    """模型配置只从数据库读取，字段默认值用于展示尚未配置的状态。"""
-
-    model_config = ConfigDict(hide_input_in_errors=True)
-
-    model_provider: str = "openai-compatible"
-    chat_base_url: str = ""
-    chat_api_key: SecretStr = SecretStr("")
-    chat_model: str = ""
-    embedding_base_url: str = ""
-    embedding_api_key: SecretStr = SecretStr("")
-    embedding_model: str = ""
-    embedding_dimensions: int = Field(default=0, ge=0)
-    model_timeout_seconds: int = Field(default=45, gt=0, le=180)
-    chat_max_output_tokens: int = Field(default=512, gt=0, le=8192)
-    chat_billable_input_limit: int = Field(default=0, ge=0)
-    embedding_billable_input_limit: int = Field(default=0, ge=0)
-
-    billing_currency: str = ""
-    price_version: str = ""
-    chat_input_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
-    chat_output_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
-    embedding_input_price_per_million: Decimal = Field(default=Decimal(0), ge=0)
-
-
-# 数据库、服务令牌和加密主密钥用于启动信任边界，供应商参数由配置中心维护。
-EDITABLE_SETTINGS = frozenset(
-    {
-        "chat_base_url",
-        "chat_model",
-        "embedding_base_url",
-        "embedding_model",
-        "embedding_dimensions",
-        "model_timeout_seconds",
-        "chat_max_output_tokens",
-        "chat_billable_input_limit",
-        "embedding_billable_input_limit",
-        "billing_currency",
-        "price_version",
-        "chat_input_price_per_million",
-        "chat_output_price_per_million",
-        "embedding_input_price_per_million",
-    }
-)
-
-
-STORED_SECRET_FIELDS = ("chat_api_key", "embedding_api_key")
-
-
 def encrypt_provider_key(bootstrap: Settings, value: SecretStr) -> str:
     # 使用部署密钥加密，数据库和响应都不保存明文供应商密钥。
     return (
@@ -105,26 +48,6 @@ def encrypt_provider_key(bootstrap: Settings, value: SecretStr) -> str:
     )
 
 
-def effective_settings(bootstrap: Settings, overrides: dict[str, Any]) -> ModelSettings:
-    """校验数据库中的模型配置，仅用启动密钥解密供应商凭证。"""
-    # 保留旧版本保存的预算数据供回滚使用，当前版本的运行配置只读取模型设置。
-    overrides = {
-        key: value
-        for key, value in overrides.items()
-        if key not in {"ai_daily_budget", "ai_daily_budget_unlimited", "billing_time_zone"}
-    }
-    if overrides.keys() - EDITABLE_SETTINGS - set(STORED_SECRET_FIELDS):
-        raise ValueError("Unsupported runtime setting.")
-    values = dict(overrides)
-    try:
-        for field in STORED_SECRET_FIELDS:
-            if field in overrides:
-                cipher = Fernet(bootstrap.config_encryption_key.get_secret_value())
-                values[field] = cipher.decrypt(overrides[field]).decode()
-    except (ValueError, InvalidToken) as error:
-        raise ValueError("Stored model credentials cannot be decrypted.") from error
-    effective = ModelSettings.model_validate(values)
-    for address in (effective.chat_base_url, effective.embedding_base_url):
-        if address:
-            validate_provider_url(address)
-    return effective
+def decrypt_provider_key(bootstrap: Settings, ciphertext: str) -> SecretStr:
+    cipher = Fernet(bootstrap.config_encryption_key.get_secret_value())
+    return SecretStr(cipher.decrypt(ciphertext).decode())

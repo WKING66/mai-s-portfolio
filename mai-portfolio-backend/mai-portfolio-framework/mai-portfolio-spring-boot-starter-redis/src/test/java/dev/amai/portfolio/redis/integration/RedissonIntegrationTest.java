@@ -5,8 +5,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import dev.amai.portfolio.redis.autoconfigure.RedisInfrastructureProperties;
 import dev.amai.portfolio.redis.define.cache.RedisKeys;
 import dev.amai.portfolio.redis.rate.RedisRateLimiter;
+import dev.amai.portfolio.redis.rate.RedisRateLimiter.SlidingWindowResult;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -108,6 +114,36 @@ class RedissonIntegrationTest {
                 }
                 assertThat(accepted).isEqualTo(5);
             }
+        }
+    }
+
+    @Test
+    void rollingWindowRestoresCommittedTurnsAndAdmitsOnlyOneContender() throws Exception {
+        String subject = "chat";
+        Duration window = Duration.ofHours(1);
+        assertThat(rateLimiter.acquireSlidingWindow(subject, "new", window, 2))
+                .isEqualTo(SlidingWindowResult.UNINITIALIZED);
+
+        assertThat(rateLimiter.restoreSlidingWindow(
+                subject, window, Map.of("committed", Instant.now().toEpochMilli()), true)).isTrue();
+
+        var contenders = new ArrayList<Future<SlidingWindowResult>>();
+        try (var executor = Executors.newFixedThreadPool(8)) {
+            for (int index = 0; index < 12; index++) {
+                String requestId = "contender-" + index;
+                contenders.add(executor.submit(() -> rateLimiter.acquireSlidingWindow(subject, requestId, window, 2)));
+            }
+            var winners = new ArrayList<String>();
+            for (int index = 0; index < contenders.size(); index++) {
+                if (contenders.get(index).get() == SlidingWindowResult.ALLOWED) {
+                    winners.add("contender-" + index);
+                }
+            }
+            assertThat(winners).hasSize(1);
+            assertThat(rateLimiter.acquireSlidingWindow(subject, winners.getFirst(), window, 2))
+                    .isEqualTo(SlidingWindowResult.ALLOWED);
+            assertThat(rateLimiter.acquireSlidingWindow(subject, "another", window, 2))
+                    .isEqualTo(SlidingWindowResult.EXHAUSTED);
         }
     }
 

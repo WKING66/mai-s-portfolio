@@ -2,23 +2,22 @@ package dev.amai.portfolio.agent.controller;
 
 import static dev.amai.portfolio.agent.constant.AgentConversationConstants.API_PATH;
 import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EVENT_ACCEPTED;
-import static dev.amai.portfolio.agent.constant.AgentConversationConstants.IDENTIFIER_PATTERN;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import dev.amai.portfolio.agent.component.AgentConversationOwnerResolver;
 import dev.amai.portfolio.agent.component.AgentEventWriter;
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
-import dev.amai.portfolio.agent.entity.request.ImportRequest;
 import dev.amai.portfolio.agent.entity.request.SubmitRequest;
 import dev.amai.portfolio.agent.entity.vo.ConversationId;
 import dev.amai.portfolio.agent.service.AgentConversationService;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.system.api.AnonymousConversation;
+import dev.amai.portfolio.web.exception.ApiErrorCode;
+import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Pattern;
 import java.util.Locale;
 import java.util.Map;
 import org.springframework.http.CacheControl;
@@ -65,62 +64,81 @@ public class AgentConversationController {
     @GetMapping("/conversations")
     @SaCheckLogin
     public R<AgentConversationService.ConversationPage> list(
-            @RequestParam(required = false) @Pattern(regexp = IDENTIFIER_PATTERN) String cursor) {
-        return R.success(agentConversationService.list(agentConversationOwnerResolver.accountOwner(), canonicalId(cursor)));
+            @RequestParam(required = false) String cursor) {
+        return R.success(agentConversationService.list(agentConversationOwnerResolver.accountOwner(), cursor == null ? null : positiveId(cursor)));
+    }
+
+    @PostMapping("/conversations/claim")
+    @SaCheckLogin
+    public R<ConversationId> claimAnonymous(HttpServletRequest request) {
+        String id = agentConversationService.claimAnonymous(
+                agentConversationOwnerResolver.visitorOwner(request), agentConversationOwnerResolver.accountOwner());
+        return R.success(new ConversationId(id));
     }
 
     @GetMapping("/conversations/{id}")
     @AnonymousConversation
     public R<AgentConversationService.ConversationDetails> details(
-            @PathVariable @Pattern(regexp = IDENTIFIER_PATTERN) String id, HttpServletRequest request) {
-        return R.success(agentConversationService.details(canonicalId(id), agentConversationOwnerResolver.resolve(request, null).key()));
+            @PathVariable String id, HttpServletRequest request) {
+        return R.success(agentConversationService.details(positiveId(id), agentConversationOwnerResolver.resolve(request, null).key()));
     }
 
-    @PostMapping("/conversations/import")
-    @SaCheckLogin
-    public R<ConversationId> importConversation(@Valid @RequestBody ImportRequest input) {
-        return R.success(new ConversationId(agentConversationService.importConversation(
-                agentConversationOwnerResolver.accountOwner(), canonicalId(input.importId()), input.turns())));
+    @PostMapping("/conversations/{id}/clear")
+    @AnonymousConversation
+    public R<AgentConversationService.ConversationDetails> clear(
+            @PathVariable String id, HttpServletRequest request) {
+        var owner = agentConversationOwnerResolver.resolve(request, null);
+        return R.success(agentConversationService.clear(positiveId(id), owner.key()));
     }
 
     @PostMapping(value = "/conversations/{id}/turns", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @AnonymousConversation
-    public ResponseEntity<StreamingResponseBody> submit(@PathVariable @Pattern(regexp = IDENTIFIER_PATTERN) String id,
-            @Valid @RequestBody SubmitRequest input, HttpServletRequest request) {
+    public ResponseEntity<StreamingResponseBody> submit(@PathVariable String id,
+            @Valid @RequestBody SubmitRequest input, HttpServletRequest request, HttpServletResponse response) {
         var owner = agentConversationOwnerResolver.resolve(request, null);
         var turn = agentConversationService.submit(
-                canonicalId(id), owner.key(), owner.anonymous(), canonicalId(input.requestId()), input.question());
-        return stream(turn, true);
+                positiveId(id), owner.key(), owner.anonymous(), input.requestId().toLowerCase(Locale.ROOT), input.question());
+        return stream(turn, true, response);
     }
 
     @GetMapping("/executions/{id}")
     @AnonymousConversation
-    public R<AgentExecutionSnapshot> snapshot(@PathVariable @Pattern(regexp = IDENTIFIER_PATTERN) String id, HttpServletRequest request) {
-        var turn = agentConversationService.ownedExecution(canonicalId(id), agentConversationOwnerResolver.resolve(request, null).key());
+    public R<AgentExecutionSnapshot> snapshot(@PathVariable String id, HttpServletRequest request) {
+        var turn = agentConversationService.ownedExecution(positiveId(id), agentConversationOwnerResolver.resolve(request, null).key());
         return R.success(agentConversationService.snapshot(turn));
     }
 
     @GetMapping(value = "/executions/{id}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @AnonymousConversation
-    public ResponseEntity<StreamingResponseBody> events(@PathVariable @Pattern(regexp = IDENTIFIER_PATTERN) String id, HttpServletRequest request) {
-        var turn = agentConversationService.ownedExecution(canonicalId(id), agentConversationOwnerResolver.resolve(request, null).key());
-        return stream(turn, false);
+    public ResponseEntity<StreamingResponseBody> events(@PathVariable String id, HttpServletRequest request,
+            HttpServletResponse response) {
+        var turn = agentConversationService.ownedExecution(positiveId(id), agentConversationOwnerResolver.resolve(request, null).key());
+        return stream(turn, false, response);
     }
 
     @PostMapping("/executions/{id}/stop")
     @AnonymousConversation
-    public R<AgentExecutionSnapshot> stop(@PathVariable @Pattern(regexp = IDENTIFIER_PATTERN) String id, HttpServletRequest request) {
-        var turn = agentConversationService.ownedExecution(canonicalId(id), agentConversationOwnerResolver.resolve(request, null).key());
+    public R<AgentExecutionSnapshot> stop(@PathVariable String id, HttpServletRequest request) {
+        var turn = agentConversationService.ownedExecution(positiveId(id), agentConversationOwnerResolver.resolve(request, null).key());
         return R.success(agentConversationService.stop(turn));
     }
 
-    private static String canonicalId(String id) {
-        return id == null ? null : id.toLowerCase(Locale.ROOT);
+    private static long positiveId(String id) {
+        try {
+            long parsed = Long.parseLong(id);
+            if (parsed > 0) {
+                return parsed;
+            }
+        } catch (NumberFormatException ignored) {
+            // 旧会话编号和无效编号统一按不存在处理，浏览器可用访客 Cookie 找回当前会话。
+        }
+        throw new ApiException(ApiErrorCode.NOT_FOUND, "会话或执行不存在。");
     }
 
-    private ResponseEntity<StreamingResponseBody> stream(AgentTurn turn, boolean sendReceipt) {
+    private ResponseEntity<StreamingResponseBody> stream(AgentTurn turn, boolean sendReceipt,
+            HttpServletResponse response) {
         StreamingResponseBody body = output -> {
-            var writer = new AgentEventWriter(output);
+            var writer = new AgentEventWriter(output, response);
             if (sendReceipt) {
                 var receipt = agentConversationService.receipt(turn);
                 writer.write(EVENT_ACCEPTED, jsonMapper.writeValueAsString(receipt));

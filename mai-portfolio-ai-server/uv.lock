@@ -510,6 +510,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "sqlmodel" },
+    { name = "tenacity" },
     { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "uvicorn" },
 ]
@@ -535,6 +536,7 @@ requires-dist = [
     { name = "pydantic-settings", specifier = ">=2.8,<3" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2,<3" },
     { name = "sqlmodel", specifier = ">=0.0.27,<1" },
+    { name = "tenacity", specifier = ">=9,<10" },
     { name = "tzdata", marker = "sys_platform == 'win32'" },
     { name = "uvicorn", specifier = ">=0.34,<1" },
 ]

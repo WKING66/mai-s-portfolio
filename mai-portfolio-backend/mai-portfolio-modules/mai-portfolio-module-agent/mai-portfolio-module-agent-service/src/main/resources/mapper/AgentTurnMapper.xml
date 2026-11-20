@@ -2,30 +2,13 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="dev.amai.portfolio.agent.mapper.AgentTurnMapper">
     <select id="byExecution" resultType="dev.amai.portfolio.agent.entity.AgentTurn">
-        SELECT turn.request_id, turn.conversation_id, turn.execution_id, turn.question,
-               turn.answer, turn.status, turn.error_code, turn.accept_before
+        SELECT turn.id, turn.request_id, turn.conversation_id, turn.execution_id, turn.question,
+               turn.answer, turn.status, turn.error_mes, turn.accept_before,
+               turn.input_tokens, turn.output_tokens, turn.usage_status
         FROM agent_turn turn
         JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
         WHERE turn.execution_id = #{id} AND conversation.owner_key = #{owner}
-    </select>
-    <select id="isOwnedReplay" resultType="boolean">
-        SELECT EXISTS (
-            SELECT 1
-            FROM agent_turn turn
-            JOIN agent_conversation conversation ON conversation.id = turn.conversation_id
-            WHERE turn.request_id = #{requestId}
-              AND turn.conversation_id = #{conversationId}
-              AND turn.question = #{question}
-              AND conversation.owner_key = #{owner}
-        )
-    </select>
-    <select id="globalQuotaReached" resultType="boolean">
-        SELECT count(*) = #{limit}
-        FROM (
-            SELECT 1 FROM agent_turn
-            WHERE quota_at &gt; statement_timestamp() - make_interval(hours =&gt; #{hours})
-            LIMIT #{limit}
-        ) occupied
+          AND turn.is_deleted = false
     </select>
     <select id="countOwnerQuotaSince" resultType="long">
         SELECT count(*)

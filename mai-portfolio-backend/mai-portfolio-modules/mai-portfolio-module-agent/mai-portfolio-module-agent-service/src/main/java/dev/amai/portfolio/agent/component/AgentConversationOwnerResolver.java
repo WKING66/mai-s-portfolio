@@ -32,17 +32,9 @@ public class AgentConversationOwnerResolver {
         if (StpUtil.isLogin()) {
             return new Owner(accountOwner(), false);
         }
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (VISITOR_COOKIE.equals(cookie.getName())) {
-                    String value = cookie.getValue();
-                    if (value != null && VISITOR_ID.matcher(value).matches()) {
-                        return new Owner(VISITOR_PREFIX + value.toLowerCase(Locale.ROOT), true);
-                    }
-                    break;
-                }
-            }
+        String visitor = visitorOwner(request);
+        if (visitor != null) {
+            return new Owner(visitor, true);
         }
         // Cookie 不存在时只允许初始化，不凭 URL 中的会话编号建立匿名身份。
         if (response == null) {
@@ -50,10 +42,30 @@ public class AgentConversationOwnerResolver {
         }
         String id = IdUtil.randomUUID();
         var cookie = ResponseCookie.from(VISITOR_COOKIE, id)
-                .httpOnly(true).secure(request.isSecure()).sameSite("Strict")
-                .path(API_PATH).maxAge(VISITOR_COOKIE_LIFETIME).build();
+                .httpOnly(true)
+                .secure(request.isSecure())
+                .sameSite("Strict")
+                .path(API_PATH)
+                .maxAge(VISITOR_COOKIE_LIFETIME)
+                .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
         return new Owner(VISITOR_PREFIX + id, true);
+    }
+
+    public String visitorOwner(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if (VISITOR_COOKIE.equals(cookie.getName())) {
+                    String value = cookie.getValue();
+                    if (value != null && VISITOR_ID.matcher(value).matches()) {
+                        return VISITOR_PREFIX + value.toLowerCase(Locale.ROOT);
+                    }
+                    break;
+                }
+            }
+        }
+        return null;
     }
 
     public String accountOwner() {

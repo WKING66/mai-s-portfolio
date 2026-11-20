@@ -1,21 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="dev.amai.portfolio.agent.mapper.AgentConversationMapper">
-    <select id="insertConversation" resultType="string" affectData="true" flushCache="true">
-        INSERT INTO agent_conversation (id, owner_key, anonymous, import_id)
-        VALUES (#{id}, #{owner}, #{anonymous}, #{importId})
-        ON CONFLICT
-        <choose>
-            <when test="anonymous">(owner_key) WHERE anonymous</when>
-            <otherwise>(owner_key, import_id)</otherwise>
-        </choose>
-        DO NOTHING RETURNING id
-    </select>
-    <select id="lockConversation" resultType="string">
-        SELECT id FROM agent_conversation WHERE id = #{id} AND owner_key = #{owner} FOR UPDATE
+    <select id="insertAnonymous" resultType="long" affectData="true" flushCache="true">
+        INSERT INTO agent_conversation (owner_key, anonymous, title, created_at)
+        VALUES (#{owner}, true,
+            '新会话 ' || to_char(CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Shanghai', 'YYYY-MM-DD HH24:MI:SS'),
+            CURRENT_TIMESTAMP)
+        ON CONFLICT (owner_key) WHERE anonymous DO NOTHING RETURNING id
     </select>
     <select id="list" resultType="dev.amai.portfolio.agent.entity.AgentConversation">
-        SELECT id, owner_key, anonymous, updated_at FROM agent_conversation
+        SELECT id, owner_key, anonymous, title, created_at, updated_at FROM agent_conversation
         WHERE owner_key = #{owner} AND NOT anonymous
         <if test="cursor != null">
             AND (updated_at, id) &lt; (

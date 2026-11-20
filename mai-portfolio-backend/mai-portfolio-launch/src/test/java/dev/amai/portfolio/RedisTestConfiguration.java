@@ -50,6 +50,12 @@ class RedisTestConfiguration {
             return true;
         }
 
+        @Override
+        public boolean restoreSlidingWindow(String subject, Duration window, Map<String, Long> history,
+                boolean initialize) {
+            return true;
+        }
+
         public synchronized void reset(String namespace, String subject) {
             windows.remove(namespace + ':' + subject);
         }

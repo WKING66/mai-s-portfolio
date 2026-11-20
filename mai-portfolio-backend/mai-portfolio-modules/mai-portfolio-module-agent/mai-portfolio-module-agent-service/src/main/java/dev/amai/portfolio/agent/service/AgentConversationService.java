@@ -1,12 +1,7 @@
 package dev.amai.portfolio.agent.service;
 
-import static dev.amai.portfolio.agent.constant.AgentConversationConstants.MESSAGE_LENGTH_LIMIT;
-
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -16,17 +11,19 @@ public interface AgentConversationService {
 
     String create(String owner, boolean anonymous);
 
-    ConversationPage list(String owner, String cursor);
+    String claimAnonymous(String visitor, String account);
 
-    ConversationDetails details(String id, String owner);
+    ConversationPage list(String owner, Long cursor);
 
-    String importConversation(String owner, String importId, List<ImportedTurn> turns);
+    ConversationDetails details(Long id, String owner);
 
-    AgentTurn submit(String conversation, String owner, boolean anonymous, String requestId, String question);
+    ConversationDetails clear(Long id, String owner);
+
+    AgentTurn submit(Long conversation, String owner, boolean anonymous, String requestId, String question);
 
     Receipt receipt(AgentTurn turn);
 
-    AgentTurn ownedExecution(String execution, String owner);
+    AgentTurn ownedExecution(Long execution, String owner);
 
     AgentExecutionSnapshot snapshot(AgentTurn turn);
 
@@ -44,6 +41,10 @@ public interface AgentConversationService {
     record ConversationSummary(
             String conversationId,
 
+            String title,
+
+            OffsetDateTime createdAt,
+
             OffsetDateTime updatedAt) {}
 
     record ConversationPage(
@@ -53,6 +54,10 @@ public interface AgentConversationService {
 
     record ConversationDetails(
             String conversationId,
+
+            String title,
+
+            OffsetDateTime createdAt,
 
             List<TurnView> turns) {}
 
@@ -65,14 +70,13 @@ public interface AgentConversationService {
 
             String text,
 
-            String status) {}
+            String status,
 
-    record ImportedTurn(
-            @NotBlank
-            @Size(max = MESSAGE_LENGTH_LIMIT)
-            String question,
+            String errorMes,
 
-            @NotNull
-            @Size(max = MESSAGE_LENGTH_LIMIT)
-            String answer) {}
+            Long inputTokens,
+
+            Long outputTokens,
+
+            Integer usageStatus) {}
 }

@@ -6,9 +6,8 @@ public final class AgentConversationConstants {
             "(?i)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
     public static final int CONVERSATION_PAGE_SIZE = 20;
     public static final int CONVERSATION_TURN_LIMIT = 100;
-    public static final int HISTORY_TURN_LIMIT = 6;
-    public static final int IMPORT_TURN_LIMIT = 20;
-    public static final int MESSAGE_LENGTH_LIMIT = 4000;
+    public static final int HISTORY_TURN_LIMIT = 5;
+    public static final int MESSAGE_LENGTH_LIMIT = 300;
     public static final int ACCEPTANCE_WINDOW_SECONDS = 45;
     public static final int RECOVERY_BATCH_SIZE = 12;
     public static final long RECOVERY_DELAY_MILLIS = 10_000;
@@ -19,6 +18,7 @@ public final class AgentConversationConstants {
     public static final String SSE_DATA_PREFIX = "data: ";
     public static final String EVENT_ACCEPTED = "accepted";
     public static final String EVENT_SNAPSHOT = "snapshot";
+    public static final String EVENT_PROGRESS = "progress";
     public static final String EVENT_TERMINAL = "terminal";
     public static final String EVENT_DELTA = "delta";
     public static final String EVENT_SOURCES = "sources";

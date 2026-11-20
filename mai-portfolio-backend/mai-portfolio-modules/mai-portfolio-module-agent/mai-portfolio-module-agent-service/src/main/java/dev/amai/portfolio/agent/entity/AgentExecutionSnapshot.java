@@ -13,7 +13,18 @@ public record AgentExecutionSnapshot(
 
         List<String> sources,
 
-        ExecutionError error) {
+        ExecutionError error,
+
+        Long inputTokens,
+
+        Long outputTokens,
+
+        Integer usageStatus) {
+
+    public AgentExecutionSnapshot(String requestId, String executionId, String status,
+            String text, List<String> sources, ExecutionError error) {
+        this(requestId, executionId, status, text, sources, error, null, null, 3);
+    }
 
     public record ExecutionError(
             String code,
