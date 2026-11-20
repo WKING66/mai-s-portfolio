@@ -355,8 +355,8 @@ export function useSiteAssistant() {
     }
     restoring.value = true
     try {
-      if (anonymousId && loggedIn.value) {
-        // HttpOnly 访客 Cookie 决定可认领的会话，不上传正文或客户端身份。
+      if (loggedIn.value) {
+        // 即使本地编号丢失，服务端仍可通过 HttpOnly 访客 Cookie 认领。
         const claimed = await api.claim()
         if (owner !== generation) {
           return

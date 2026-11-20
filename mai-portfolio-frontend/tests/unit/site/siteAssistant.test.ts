@@ -329,6 +329,20 @@ describe('站点聊天会话恢复', () => {
     expect(values.size).toBe(0)
   })
 
+  it('登录后没有本地匿名编号也会尝试认领 Cookie 对应的历史', async () => {
+    session.value = { loggedIn: true, username: 'alice', csrfToken: 'csrf' }
+    api.claim.mockResolvedValue({ conversationId: '12' })
+    api.read.mockResolvedValue({ turns: [oldTurn] })
+    const chat = setup()
+    await lifecycle.mount?.()
+
+    expect(api.claim).toHaveBeenCalledOnce()
+    expect(api.read).toHaveBeenCalledWith('12')
+    expect(chat.conversationId.value).toBe('12')
+    expect(chat.turns.value).toEqual([oldTurn])
+    expect(api.list).not.toHaveBeenCalled()
+  })
+
   it('认领失败保留匿名编号，不读取账号或伪装迁移成功', async () => {
     values.set(ANONYMOUS_CONVERSATION_KEY, '12')
     session.value = { loggedIn: true, username: 'alice', csrfToken: 'csrf' }
