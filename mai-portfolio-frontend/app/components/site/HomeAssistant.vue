@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AssistantReplyProgress from './AssistantReplyProgress.vue'
 import { useSiteAssistant } from '../../composables/useSiteAssistant'
 
 defineProps<{ name: string }>()
@@ -7,6 +8,7 @@ const {
   turns,
   generating,
   progress,
+  finishedProgress,
   restoring,
   latest,
   error,
@@ -26,12 +28,7 @@ const {
   open: openConversation,
   loadHistory,
 } = useSiteAssistant()
-const progressLabels = {
-  queued: '等待开始',
-  preparing: '正在准备回答',
-  thinking: '正在思考',
-  output: '正在输出回答',
-}
+
 const showHistory = ref(false)
 const clearTarget = ref<string>()
 const actionError = ref('')
@@ -128,15 +125,12 @@ async function submit(question = draft.value) {
   follow.value = true
   await send(question, contextQuote)
 }
-watch(
-  () => latest.value?.text,
-  async () => {
-    await nextTick()
-    if (follow.value) {
-      jumpToLatest()
-    }
-  },
-)
+watch([() => latest.value?.text, () => progress.value?.phases.length], async () => {
+  await nextTick()
+  if (follow.value) {
+    jumpToLatest()
+  }
+})
 function startConversation() {
   void manage(newConversation)
   quote.value = ''
@@ -411,19 +405,11 @@ onBeforeUnmount(() => {
             </div>
             <div class="assistant-answer">
               <small>✳ AI 向导</small>
-              <ol
-                v-if="progress?.requestId === turn.requestId && progress.phases.length"
-                class="assistant-progress"
-                aria-label="回答进度"
-              >
-                <li
-                  v-for="(phase, index) in progress.phases"
-                  :key="phase"
-                  :aria-current="index === progress.phases.length - 1 ? 'step' : undefined"
-                >
-                  {{ progressLabels[phase] }}
-                </li>
-              </ol>
+              <AssistantReplyProgress
+                :live-phases="progress?.requestId === turn.requestId ? progress.phases : undefined"
+                :finished-phases="finishedProgress.get(turn)"
+                :status="turn.status"
+              />
               <p class="stream-content">
                 {{ turn.text
                 }}<span
@@ -783,32 +769,6 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
   line-height: 1.9;
   margin: 12px 0;
-}
-.assistant-progress {
-  display: grid;
-  gap: 8px;
-  margin: 12px 0;
-  padding-inline-start: 14px;
-  border-inline-start: 1px solid var(--site-line);
-  color: var(--site-muted);
-  font-size: 0.8125rem;
-}
-.assistant-progress li {
-  position: relative;
-}
-.assistant-progress li::before {
-  position: absolute;
-  inset-inline-start: -18px;
-  inset-block-start: 0.5em;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-  content: '';
-}
-.assistant-progress [aria-current='step'] {
-  color: var(--site-accent);
-  font-weight: 600;
 }
 .stream-caret {
   display: inline-block;

@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { AgentChatError, createAgentChatApi } from '../api/agentChat'
 import type {
   ChatProgressPhase,
@@ -12,7 +12,7 @@ import {
   restoreAnonymousConversation,
 } from '../utils/site/assistantStorage'
 
-type DisplayPhase = ChatProgressPhase | 'output'
+export type DisplayPhase = ChatProgressPhase | 'output'
 const active = (status: SavedTurn['status']) =>
   status === 'pending' || status === 'accepted' || status === 'running'
 
@@ -23,6 +23,8 @@ export function useSiteAssistant() {
   const turns = ref<SavedTurn[]>([])
   const generating = ref(false)
   const progress = ref<{ requestId: string; phases: DisplayPhase[] }>()
+  // A timeline belongs to its displayed turn and is not persisted as conversation data.
+  const finishedProgress = reactive(new WeakMap<SavedTurn, ChatProgressPhase[]>())
   const error = ref('')
   const restoring = ref(false)
   const opening = ref(false)
@@ -63,6 +65,18 @@ export function useSiteAssistant() {
     remember()
   }
 
+  function finishProgress(turn: SavedTurn) {
+    const current = progress.value
+    if (current?.requestId !== turn.requestId) {
+      return
+    }
+    const stages = current.phases.filter((phase) => phase !== 'output')
+    if (stages.length) {
+      finishedProgress.set(turn, stages)
+    }
+    progress.value = undefined
+  }
+
   async function run(turn: SavedTurn) {
     if (!conversationId.value) {
       return
@@ -97,7 +111,7 @@ export function useSiteAssistant() {
         case 'terminal':
           apply(turn, event.value)
           if (event.kind === 'terminal' || !active(turn.status)) {
-            progress.value = undefined
+            finishProgress(turn)
           } else if (turn.text.length) {
             recordPhase('output')
           }
@@ -136,6 +150,7 @@ export function useSiteAssistant() {
           [400, 403, 404, 409, 422, 429].includes(failure.status)
         ) {
           turn.status = 'failed'
+          finishProgress(turn)
           if (failure.status === 404 && !loggedIn.value) {
             conversationId.value = undefined
             rememberAnonymousConversation()
@@ -254,8 +269,8 @@ export function useSiteAssistant() {
       const stopped = await api.stop(turn.executionId)
       if (owner === generation && turns.value.includes(turn)) {
         apply(turn, stopped)
-        if (controller === stoppedController) {
-          progress.value = undefined
+        if (controller === stoppedController && !active(turn.status)) {
+          finishProgress(turn)
         }
         stoppedController?.abort()
       }
@@ -444,6 +459,7 @@ export function useSiteAssistant() {
     turns,
     generating,
     progress,
+    finishedProgress,
     error,
     conversationId,
     histories,

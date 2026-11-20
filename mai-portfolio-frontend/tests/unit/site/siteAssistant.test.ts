@@ -167,7 +167,7 @@ describe('清空聊天内容', () => {
 })
 
 describe('回答进度', () => {
-  it('阶段按实际收到顺序去重，首字后忽略进度，终态立即收起', async () => {
+  it('跳过未收到的阶段，收起后保留本轮实际进度供回看', async () => {
     const chat = setup()
     await lifecycle.mount?.()
     api.submit.mockImplementation(async (_id, body, receive) => {
@@ -186,6 +186,24 @@ describe('回答进度', () => {
     })
     await chat.send('问题')
     expect(chat.latest.value?.text).toBe('答案')
+    expect(chat.error.value).toBe('')
+    const finished = chat.latest.value!
+    expect(chat.finishedProgress.get(finished)).toEqual(['preparing', 'thinking'])
+
+    api.submit.mockImplementationOnce(async (_id, body, receive) => {
+      receive({
+        kind: 'terminal',
+        value: {
+          requestId: body.requestId,
+          executionId: '28',
+          status: 'completed',
+          text: '直接回答',
+        },
+      })
+    })
+    await chat.send('下一问')
+    expect(chat.finishedProgress.get(finished)).toEqual(['preparing', 'thinking'])
+    expect(chat.finishedProgress.get(chat.latest.value!)).toBeUndefined()
   })
 
   it('续读舍弃旧阶段，从新快照与进度恢复，已有正文直接进入输出', async () => {
