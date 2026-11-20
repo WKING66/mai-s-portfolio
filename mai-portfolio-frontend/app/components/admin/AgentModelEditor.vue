@@ -10,6 +10,19 @@ const modelKey = ref(props.model?.modelKey ?? '')
 const type = ref<1 | 2>(props.model?.modelType ?? 1)
 const maxOutputTokens = ref(props.model?.config.maxOutputTokens ?? 1024)
 const dimensions = ref<number | undefined>(props.model?.config.dimensions ?? undefined)
+const thinkingValues = { default: null, on: true, off: false }
+const thinkingOptions: { label: string; value: keyof typeof thinkingValues }[] = [
+  { label: '跟随模型默认', value: 'default' },
+  { label: '开启', value: 'on' },
+  { label: '关闭', value: 'off' },
+]
+function readThinkingMode(value?: boolean | null): keyof typeof thinkingValues {
+  if (value == null) {
+    return 'default'
+  }
+  return value ? 'on' : 'off'
+}
+const thinkingMode = ref(readThinkingMode(props.model?.config.enableThink))
 const isActive = ref(props.model?.isActive ?? false)
 const pending = ref(false)
 const error = ref('')
@@ -19,6 +32,7 @@ const signature = () =>
     modelKey.value,
     type.value,
     type.value === 1 ? maxOutputTokens.value : dimensions.value,
+    type.value === 1 ? thinkingMode.value : null,
     isActive.value,
   ])
 const original = signature()
@@ -43,7 +57,10 @@ async function save() {
         modelType: type.value,
         config:
           type.value === 1
-            ? { maxOutputTokens: Number(maxOutputTokens.value) }
+            ? {
+                maxOutputTokens: Number(maxOutputTokens.value),
+                enableThink: thinkingValues[thinkingMode.value],
+              }
             : { dimensions: dimensions.value ? Number(dimensions.value) : null },
         isActive: isActive.value,
         expectedRevision: props.model?.revision,
@@ -87,6 +104,9 @@ async function save() {
       <UFormField v-else label="输出维度" description="加入执行链前需明确有效输出维度。"
         ><UInput v-model="dimensions" type="number" :min="1" class="w-full"
       /></UFormField>
+      <UFormField v-if="type === 1" label="思考模式" description="仅在供应商和模型支持时生效。">
+        <USelect v-model="thinkingMode" :items="thinkingOptions" class="w-full" />
+      </UFormField>
       <USwitch v-model="isActive" label="启用此模型" description="加入执行链后才会参与站点请求。" />
     </fieldset>
     <div class="flex justify-end gap-2">

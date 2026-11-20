@@ -31,7 +31,7 @@ export interface AgentModel {
   modelKey: string
   modelNickname: string
   modelType: AgentModelType
-  config: { maxOutputTokens?: number; dimensions?: number | null }
+  config: { maxOutputTokens?: number; dimensions?: number | null; enableThink?: boolean | null }
   isActive: boolean
   revision: number
 }
