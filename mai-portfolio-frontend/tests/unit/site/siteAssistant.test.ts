@@ -166,6 +166,62 @@ describe('清空聊天内容', () => {
   })
 })
 
+describe('回答进度', () => {
+  it('阶段按实际收到顺序去重，首字后忽略进度，终态立即收起', async () => {
+    const chat = setup()
+    await lifecycle.mount?.()
+    api.submit.mockImplementation(async (_id, body, receive) => {
+      receive({ kind: 'progress', value: { phase: 'preparing' } })
+      receive({ kind: 'progress', value: { phase: 'preparing' } })
+      receive({ kind: 'progress', value: { phase: 'thinking' } })
+      expect(chat.progress.value?.phases).toEqual(['preparing', 'thinking'])
+      receive({ kind: 'delta', value: { offset: 0, text: '答' } })
+      receive({ kind: 'progress', value: { phase: 'queued' } })
+      expect(chat.progress.value?.phases).toEqual(['preparing', 'thinking', 'output'])
+      receive({
+        kind: 'terminal',
+        value: { requestId: body.requestId, executionId: '27', status: 'completed', text: '答案' },
+      })
+      expect(chat.progress.value).toBeUndefined()
+    })
+    await chat.send('问题')
+    expect(chat.latest.value?.text).toBe('答案')
+  })
+
+  it('续读舍弃旧阶段，从新快照与进度恢复，已有正文直接进入输出', async () => {
+    const chat = setup()
+    await lifecycle.mount?.()
+    api.submit.mockImplementation(async (_id, body, receive) => {
+      receive({
+        kind: 'accepted',
+        value: { requestId: body.requestId, executionId: '27', status: 'accepted' },
+      })
+      receive({ kind: 'progress', value: { phase: 'queued' } })
+      throw new AgentChatError('断流', 0)
+    })
+    await chat.send('问题')
+    expect(chat.progress.value).toBeUndefined()
+
+    api.resume.mockImplementation(async (_id, receive) => {
+      const snapshot = {
+        requestId: chat.latest.value!.requestId,
+        executionId: '27',
+        status: 'running',
+        text: '',
+      } as const
+      receive({ kind: 'snapshot', value: snapshot })
+      receive({ kind: 'progress', value: { phase: 'thinking' } })
+      expect(chat.progress.value?.phases).toEqual(['thinking'])
+      receive({ kind: 'snapshot', value: { ...snapshot, text: '答' } })
+      expect(chat.progress.value?.phases).toEqual(['thinking', 'output'])
+      receive({ kind: 'terminal', value: { ...snapshot, status: 'completed', text: '答案' } })
+    })
+    chat.resume()
+    await vi.waitFor(() => expect(chat.latest.value?.status).toBe('completed'))
+    expect(chat.progress.value).toBeUndefined()
+  })
+})
+
 describe('站点聊天会话恢复', () => {
   it('发送与完整流结束后只存匿名 ID', async () => {
     api.submit.mockImplementation(async (_id, body, receive) => {

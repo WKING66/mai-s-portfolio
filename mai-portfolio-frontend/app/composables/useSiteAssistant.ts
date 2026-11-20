@@ -1,12 +1,18 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { AgentChatError, createAgentChatApi } from '../api/agentChat'
-import type { ChatSnapshot, ConversationSummary, SavedTurn } from '../api/agentChat'
+import type {
+  ChatProgressPhase,
+  ChatSnapshot,
+  ConversationSummary,
+  SavedTurn,
+} from '../api/agentChat'
 import { useAuthState } from './useAuthState'
 import {
   rememberAnonymousConversation,
   restoreAnonymousConversation,
 } from '../utils/site/assistantStorage'
 
+type DisplayPhase = ChatProgressPhase | 'output'
 const active = (status: SavedTurn['status']) =>
   status === 'pending' || status === 'accepted' || status === 'running'
 
@@ -16,6 +22,7 @@ export function useSiteAssistant() {
   const enabled = ref(false)
   const turns = ref<SavedTurn[]>([])
   const generating = ref(false)
+  const progress = ref<{ requestId: string; phases: DisplayPhase[] }>()
   const error = ref('')
   const restoring = ref(false)
   const opening = ref(false)
@@ -62,7 +69,14 @@ export function useSiteAssistant() {
     }
     const runController = new AbortController()
     controller = runController
+    progress.value = { requestId: turn.requestId, phases: [] }
     generating.value = true
+    function recordPhase(phase: DisplayPhase) {
+      const phases = progress.value?.phases
+      if (phases && !phases.includes(phase) && !phases.includes('output')) {
+        phases.push(phase)
+      }
+    }
     error.value = ''
     const receive: Parameters<typeof api.resume>[1] = (event) => {
       if (controller !== runController) {
@@ -74,9 +88,19 @@ export function useSiteAssistant() {
           turn.status = event.value.status
           remember()
           break
+        case 'progress':
+          if (active(turn.status)) {
+            recordPhase(event.value.phase)
+          }
+          break
         case 'snapshot':
         case 'terminal':
           apply(turn, event.value)
+          if (event.kind === 'terminal' || !active(turn.status)) {
+            progress.value = undefined
+          } else if (turn.text.length) {
+            recordPhase('output')
+          }
           break
         case 'delta':
           if (!active(turn.status)) {
@@ -86,6 +110,9 @@ export function useSiteAssistant() {
             throw new AgentChatError('回答进度已变化，请继续读取。', 0)
           }
           turn.text += event.value.text
+          if (event.value.text.length) {
+            recordPhase('output')
+          }
           break
       }
     }
@@ -119,6 +146,7 @@ export function useSiteAssistant() {
     } finally {
       if (controller === runController) {
         controller = undefined
+        progress.value = undefined
         generating.value = false
       }
     }
@@ -226,6 +254,9 @@ export function useSiteAssistant() {
       const stopped = await api.stop(turn.executionId)
       if (owner === generation && turns.value.includes(turn)) {
         apply(turn, stopped)
+        if (controller === stoppedController) {
+          progress.value = undefined
+        }
         stoppedController?.abort()
       }
     } catch (failure) {
@@ -390,6 +421,7 @@ export function useSiteAssistant() {
     generation++
     controller?.abort()
     controller = undefined
+    progress.value = undefined
     opening.value = false
     clearing.value = false
     restoring.value = false
@@ -411,6 +443,7 @@ export function useSiteAssistant() {
     restoring: computed(() => restoring.value || opening.value),
     turns,
     generating,
+    progress,
     error,
     conversationId,
     histories,

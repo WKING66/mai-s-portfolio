@@ -6,6 +6,7 @@ const {
   enabled,
   turns,
   generating,
+  progress,
   restoring,
   latest,
   error,
@@ -25,6 +26,12 @@ const {
   open: openConversation,
   loadHistory,
 } = useSiteAssistant()
+const progressLabels = {
+  queued: '等待开始',
+  preparing: '正在准备回答',
+  thinking: '正在思考',
+  output: '正在输出回答',
+}
 const showHistory = ref(false)
 const clearTarget = ref<string>()
 const actionError = ref('')
@@ -404,10 +411,27 @@ onBeforeUnmount(() => {
             </div>
             <div class="assistant-answer">
               <small>✳ AI 向导</small>
+              <ol
+                v-if="progress?.requestId === turn.requestId && progress.phases.length"
+                class="assistant-progress"
+                aria-label="回答进度"
+              >
+                <li
+                  v-for="(phase, index) in progress.phases"
+                  :key="phase"
+                  :aria-current="index === progress.phases.length - 1 ? 'step' : undefined"
+                >
+                  {{ progressLabels[phase] }}
+                </li>
+              </ol>
               <p class="stream-content">
                 {{ turn.text
                 }}<span
-                  v-if="turn.status === 'running' || turn.status === 'accepted'"
+                  v-if="
+                    progress?.requestId === turn.requestId &&
+                    progress.phases.includes('output') &&
+                    turn.text
+                  "
                   class="stream-caret"
                   aria-hidden="true"
                 />
@@ -415,7 +439,12 @@ onBeforeUnmount(() => {
               <p v-if="turn.status === 'interrupted'" class="assistant-status">
                 已停止生成，已输出内容保留。
               </p>
-              <p v-if="turn.status === 'pending'" class="assistant-status">正在发送或确认受理。</p>
+              <p
+                v-if="turn.status === 'pending' && !progress?.phases.length"
+                class="assistant-status"
+              >
+                正在发送或确认受理。
+              </p>
               <p v-if="turn.status === 'failed'" class="assistant-status">模型服务暂不可用。</p>
             </div>
           </article>
@@ -754,6 +783,32 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
   line-height: 1.9;
   margin: 12px 0;
+}
+.assistant-progress {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding-inline-start: 14px;
+  border-inline-start: 1px solid var(--site-line);
+  color: var(--site-muted);
+  font-size: 0.8125rem;
+}
+.assistant-progress li {
+  position: relative;
+}
+.assistant-progress li::before {
+  position: absolute;
+  inset-inline-start: -18px;
+  inset-block-start: 0.5em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+.assistant-progress [aria-current='step'] {
+  color: var(--site-accent);
+  font-weight: 600;
 }
 .stream-caret {
   display: inline-block;

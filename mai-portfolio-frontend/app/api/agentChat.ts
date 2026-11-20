@@ -29,7 +29,21 @@ export interface ConversationDetails {
   turns: SavedTurn[]
 }
 
+export type ChatProgressPhase = 'queued' | 'preparing' | 'thinking'
+
+function readProgress(data: string): ChatProgressPhase | undefined {
+  try {
+    const phase: unknown = JSON.parse(data)?.phase
+    if (phase === 'queued' || phase === 'preparing' || phase === 'thinking') {
+      return phase
+    }
+  } catch {
+    // Invalid optional progress does not interrupt the answer stream.
+  }
+}
+
 type ChatEvent =
+  | { kind: 'progress'; value: { phase: ChatProgressPhase } }
   | { kind: 'accepted'; value: Pick<ChatSnapshot, 'requestId' | 'executionId' | 'status'> }
   | { kind: 'snapshot' | 'terminal'; value: ChatSnapshot }
   | { kind: 'delta'; value: { offset: number; text: string } }
@@ -107,7 +121,12 @@ export function createAgentChatApi(csrfToken: () => string) {
             .filter((line) => line.startsWith('data:'))
             .map((line) => line.slice(5).trimStart())
             .join('\n')
-          if (
+          if (data && kind === 'progress') {
+            const phase = readProgress(data)
+            if (phase) {
+              receive({ kind, value: { phase } })
+            }
+          } else if (
             data &&
             (kind === 'accepted' || kind === 'snapshot' || kind === 'terminal' || kind === 'delta')
           ) {
