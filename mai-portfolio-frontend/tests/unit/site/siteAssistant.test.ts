@@ -257,6 +257,55 @@ describe('带引用的提问', () => {
     expect(formatAssistantQuestion('😀'.repeat(150)).length).toBe(300)
   })
 
+  it('受理事件丢失后用同一请求号续读，只通知一次', async () => {
+    const chat = setup()
+    await lifecycle.mount?.()
+    const notify = vi.fn()
+    let originalId = ''
+    api.submit.mockImplementationOnce(async (_id, body, receive) => {
+      originalId = body.requestId
+      receive({ kind: 'progress', value: { phase: 'queued' } })
+      throw new AgentChatError('连接中断', 503)
+    })
+    await chat.send('原问题', notify)
+    expect(notify).not.toHaveBeenCalled()
+
+    api.submit.mockImplementationOnce(async (_id, body, receive) => {
+      expect(body.requestId).toBe(originalId)
+      receive({
+        kind: 'snapshot',
+        value: { requestId: body.requestId, executionId: '27', status: 'running', text: '答' },
+      })
+      receive({
+        kind: 'terminal',
+        value: { requestId: body.requestId, executionId: '27', status: 'completed', text: '答案' },
+      })
+    })
+    chat.resume()
+    await vi.waitFor(() => expect(chat.latest.value?.status).toBe('completed'))
+    expect(notify).toHaveBeenCalledOnce()
+  })
+
+  it('账号切换后忽略原会话迟到的受理事件', async () => {
+    const chat = setup()
+    await lifecycle.mount?.()
+    const notify = vi.fn()
+    let lateEvent: (() => void) | undefined
+    api.submit.mockImplementationOnce(async (_id, body, receive) => {
+      lateEvent = () =>
+        receive({
+          kind: 'accepted',
+          value: { requestId: body.requestId, executionId: '27', status: 'accepted' },
+        })
+      throw new AgentChatError('连接中断', 503)
+    })
+    await chat.send('访客问题', notify)
+    session.value = { loggedIn: true, username: 'alice', csrfToken: 'csrf' }
+    await vi.waitFor(() => expect(api.list).toHaveBeenCalled())
+    lateEvent?.()
+    expect(notify).not.toHaveBeenCalled()
+  })
+
   it('拦截完整串 301 字，允许 300 字，受理前不通知清空', async () => {
     const chat = setup()
     await lifecycle.mount?.()

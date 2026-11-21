@@ -47,6 +47,7 @@ export function useSiteAssistant() {
   const key = computed(() =>
     loggedIn.value ? `account:${auth.state.value.username}` : 'anonymous',
   )
+  const pendingAcceptance = new Map<string, () => void>()
   let controller: AbortController | undefined
   let loaded = false
   let generation = 0
@@ -78,7 +79,7 @@ export function useSiteAssistant() {
     progress.value = undefined
   }
 
-  async function run(turn: SavedTurn, onAccepted?: () => void) {
+  async function run(turn: SavedTurn) {
     if (!conversationId.value) {
       return
     }
@@ -94,8 +95,8 @@ export function useSiteAssistant() {
     }
     error.value = ''
     const markAccepted = () => {
-      const notify = onAccepted
-      onAccepted = undefined
+      const notify = pendingAcceptance.get(turn.requestId)
+      pendingAcceptance.delete(turn.requestId)
       notify?.()
     }
     const receive: Parameters<typeof api.resume>[1] = (event) => {
@@ -121,6 +122,7 @@ export function useSiteAssistant() {
           }
           apply(turn, event.value)
           if (event.kind === 'terminal' || !active(turn.status)) {
+            pendingAcceptance.delete(turn.requestId)
             finishProgress(turn)
           } else if (turn.text.length) {
             recordPhase('output')
@@ -160,6 +162,7 @@ export function useSiteAssistant() {
           [400, 403, 404, 409, 422, 429].includes(failure.status)
         ) {
           turn.status = 'failed'
+          pendingAcceptance.delete(turn.requestId)
           finishProgress(turn)
           if (failure.status === 404 && !loggedIn.value) {
             conversationId.value = undefined
@@ -245,6 +248,9 @@ export function useSiteAssistant() {
       status: 'pending',
     })
     const turn = turns.value.at(-1)!
+    if (onAccepted) {
+      pendingAcceptance.set(turn.requestId, onAccepted)
+    }
     generating.value = true
     const owner = generation
     try {
@@ -256,8 +262,9 @@ export function useSiteAssistant() {
         conversationId.value = created.conversationId
       }
       remember()
-      await run(turn, onAccepted)
+      await run(turn)
     } catch (failure) {
+      pendingAcceptance.delete(turn.requestId)
       if (owner === generation) {
         turn.status = 'failed'
         error.value = failure instanceof Error ? failure.message : '无法创建会话。'
@@ -445,6 +452,7 @@ export function useSiteAssistant() {
       return
     }
     generation++
+    pendingAcceptance.clear()
     controller?.abort()
     controller = undefined
     progress.value = undefined
@@ -461,6 +469,7 @@ export function useSiteAssistant() {
   })
   onBeforeUnmount(() => {
     generation++
+    pendingAcceptance.clear()
     controller?.abort()
   })
 

@@ -70,6 +70,22 @@ const log = useTemplateRef<HTMLElement>('log')
 const input = useTemplateRef<HTMLInputElement>('input')
 const draft = ref('')
 const homeQuestion = ref('')
+let draftRevision = 0
+let homeQuestionRevision = 0
+watch(
+  draft,
+  () => {
+    draftRevision++
+  },
+  { flush: 'sync' },
+)
+watch(
+  homeQuestion,
+  () => {
+    homeQuestionRevision++
+  },
+  { flush: 'sync' },
+)
 const inviting = ref(false)
 
 function dismissInvitation() {
@@ -114,7 +130,7 @@ function trackScroll() {
     follow.value = element.scrollHeight - element.clientHeight - element.scrollTop < 70
   }
 }
-async function submit(question = draft.value) {
+async function submit(question: string, source?: 'draft' | 'home') {
   if (
     !question.trim() ||
     generating.value ||
@@ -133,11 +149,13 @@ async function submit(question = draft.value) {
   }
   actionError.value = ''
   follow.value = true
+  const originalDraftRevision = draftRevision
+  const originalHomeRevision = homeQuestionRevision
   await send(payload, () => {
-    if (draft.value === question) {
+    if (source === 'draft' && draftRevision === originalDraftRevision) {
       draft.value = ''
     }
-    if (homeQuestion.value === question) {
+    if (source === 'home' && homeQuestionRevision === originalHomeRevision) {
       homeQuestion.value = ''
     }
     if (quote.value === contextQuote) {
@@ -279,7 +297,7 @@ onBeforeUnmount(() => {
       <p class="text-muted text-sm">关于我的项目、笔记和学习路线，问问站内向导。</p>
     </div>
     <div>
-      <form class="assistant-form" @submit.prevent="submit(homeQuestion)">
+      <form class="assistant-form" @submit.prevent="submit(homeQuestion, 'home')">
         <input
           v-model="homeQuestion"
           aria-label="向 AI 提问"
@@ -476,7 +494,7 @@ onBeforeUnmount(() => {
           <button v-if="recoverable && !generating" type="button" @click="resume">
             继续读取本轮
           </button>
-          <form class="assistant-form" @submit.prevent="submit()">
+          <form class="assistant-form" @submit.prevent="submit(draft, 'draft')">
             <input
               ref="input"
               v-model="draft"
