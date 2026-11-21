@@ -148,10 +148,28 @@ sudo /usr/local/sbin/mai-portfolio-deploy restore-db <备份目录>     # 结构
 - 三个容器 `Up`，`spring/web/ai` 探活均 200（经 Nginx 的 `https://127.0.0.1/api/v1/profile` 也是 200）。
 - 安全组收敛后，从**另一台公网主机**（175）扫描 174 的 `22/80/443/3000/5432/6379/9333/9344` 全部被拒（含 22）。
 - SSH 加固后：`mai-ops` 公钥登录成功、`sudo` 要求密码；`root` 与 `mai-test` 的密码登录均被拒。
-- 应用层验收（21 项通过）：首页 200、公开资料 200、OWNER 登录、Cookie `Secure`+`HttpOnly`+`SameSite=Lax`、CSRF 缺失时写操作 403、两个普通账号注册与登录、跨账号会话不串号、普通账号访问管理接口 403。
+- 应用层验收（systemd 阶段 21 项通过；容器化后关键路径 6/6 复验通过）：首页 200、公开资料 200、OWNER 登录、Cookie `Secure`+`HttpOnly`+`SameSite=Lax`、CSRF 缺失时写操作 403、两个普通账号注册与登录、跨账号会话不串号、普通账号访问管理接口 403。
 - 登录限流生效（连续调用触发 429，5 次/300 秒）。
 
-### 3.2 未实测（缺凭据，标"待验收"）
+### 3.2 容器化后的资源与延迟实测
+
+测试条件：`74f8a3a4c915` 三容器运行、中间件在宿主；客户端经 Nginx 同源 HTTPS 回环访问。
+
+| 场景 | 结果 |
+| --- | --- |
+| 空闲 30 s | CPU 均值 0.5%（峰值 3.3%），内存 1424 MB / 3884 MB，swap 峰值 1 MB |
+| 页面 `/` 并发 4 | 49.0 rps，p50 77.7 ms，p95 112.0 ms，p99 158.7 ms，5xx 0 |
+| 页面 `/` 并发 8 | 43.8 rps，p50 178.0 ms，p95 216.7 ms，p99 239.0 ms，5xx 0 |
+| API `/api/v1/profile` 并发 4 | 382.9 rps，p50 9.5 ms，p95 16.1 ms，p99 19.8 ms，5xx 0 |
+| 压测期间资源 | CPU 均值 73.4%（峰值 89.7%），内存 1437 MB / 3884 MB，无 OOM |
+
+容器化后认证路径复验 6/6 通过：OWNER 登录、Cookie `Secure`+`HttpOnly`+`SameSite=Lax`、
+会话查询（roles=`["OWNER"]`）、缺 CSRF 写操作 403、会话创建、turns 打到 Java→Python 链路
+（返回 500 属预期：站点 AI 已开启但尚未配置模型供应商）。
+
+首段正文耗时、并发聊天 P95、OOM 计数需真实模型调用，仍待验收。
+
+### 3.3 未实测（缺凭据，标"待验收"）
 
 | 项 | 原因 |
 | --- | --- |
@@ -159,7 +177,6 @@ sudo /usr/local/sbin/mai-portfolio-deploy restore-db <备份目录>     # 结构
 | SSE 端到端首段正文 | 同上；当前只验证到 Nginx→Spring 通道与 `text/event-stream` 路由存在 |
 | OSS 资产上传与签名直连 | 缺 OSS AccessKey；当前 `PORTFOLIO_MEDIA_STORAGE=local` |
 | 并发聊天下的 CPU/内存/P95 | 依赖真实模型调用 |
-| 页面/API 延迟与资源占用 | 环境已就绪，测量脚本 `deploy/test-4c4g/perf.py` 已随包交付，尚未跑 |
 
 ---
 
