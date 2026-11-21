@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import AssistantReplyProgress from './AssistantReplyProgress.vue'
 import { useSiteAssistant } from '../../composables/useSiteAssistant'
+import {
+  ASSISTANT_QUESTION_LIMIT,
+  ASSISTANT_QUOTE_LIMIT,
+  formatAssistantQuestion,
+  prepareAssistantQuote,
+} from '../../utils/site/assistantQuestion'
 
 defineProps<{ name: string }>()
 const {
@@ -69,7 +75,8 @@ const inviting = ref(false)
 function dismissInvitation() {
   inviting.value = false
 }
-const quote = ref('')
+const quote = ref<ReturnType<typeof prepareAssistantQuote>>()
+const quotedLength = computed(() => formatAssistantQuestion(draft.value, quote.value?.text).length)
 const selectedText = ref('')
 const tools = ref<{ x: number; y: number } | null>(null)
 const drawerWidth = ref(940)
@@ -119,11 +126,24 @@ async function submit(question = draft.value) {
   }
   open()
   const contextQuote = quote.value
-  draft.value = ''
-  homeQuestion.value = ''
-  quote.value = ''
+  const payload = formatAssistantQuestion(question, contextQuote?.text)
+  if (payload.length > ASSISTANT_QUESTION_LIMIT) {
+    actionError.value = `问题和引用合计 ${payload.length} 字，最多 ${ASSISTANT_QUESTION_LIMIT} 字（含提示语和换行）。请缩短问题或移除引用。`
+    return
+  }
+  actionError.value = ''
   follow.value = true
-  await send(question, contextQuote)
+  await send(payload, () => {
+    if (draft.value === question) {
+      draft.value = ''
+    }
+    if (homeQuestion.value === question) {
+      homeQuestion.value = ''
+    }
+    if (quote.value === contextQuote) {
+      quote.value = undefined
+    }
+  })
 }
 watch([() => latest.value?.text, () => progress.value?.phases.length], async () => {
   await nextTick()
@@ -133,7 +153,7 @@ watch([() => latest.value?.text, () => progress.value?.phases.length], async () 
 })
 function startConversation() {
   void manage(newConversation)
-  quote.value = ''
+  quote.value = undefined
 }
 function requestClearContent() {
   if (canClearContent.value) {
@@ -193,7 +213,7 @@ function inspectSelection() {
       tools.value = null
       return
     }
-    selectedText.value = selection.toString().trim().slice(0, 1000)
+    selectedText.value = selection.toString().trim()
     const rect = range.getBoundingClientRect()
     tools.value = selectedText.value
       ? {
@@ -204,7 +224,10 @@ function inspectSelection() {
   })
 }
 function selectAction(action: string) {
-  quote.value = selectedText.value
+  if (generating.value || restoring.value || recoverable.value || clearing.value) {
+    return
+  }
+  quote.value = prepareAssistantQuote(selectedText.value)
   tools.value = null
   window.getSelection()?.removeAllRanges()
   open()
@@ -261,7 +284,7 @@ onBeforeUnmount(() => {
           v-model="homeQuestion"
           aria-label="向 AI 提问"
           placeholder="这个个人站是怎么做出来的？"
-          maxlength="300"
+          :maxlength="ASSISTANT_QUESTION_LIMIT"
           required
         /><button aria-label="发送首页问题" :disabled="generating || restoring || recoverable">
           ↗
@@ -438,8 +461,13 @@ onBeforeUnmount(() => {
         <button v-if="!follow" class="latest-button" @click="jumpToLatest">回到最新回复 ↓</button>
         <div class="assistant-bottom">
           <div v-if="quote" class="assistant-quote">
-            <span>{{ quote }}</span
-            ><button aria-label="移除引用" @click="quote = ''">×</button>
+            <div class="assistant-quote-content">
+              <span>{{ quote.text }}</span>
+              <small v-if="quote.truncated"
+                >选区超过 {{ ASSISTANT_QUOTE_LIMIT }} 字，仅引用前段。</small
+              >
+            </div>
+            <button aria-label="移除引用" @click="quote = undefined">×</button>
           </div>
           <p v-if="actionError || error" role="alert" class="assistant-status">
             {{ actionError || error }}
@@ -454,7 +482,7 @@ onBeforeUnmount(() => {
               v-model="draft"
               aria-label="继续提问"
               :placeholder="quote ? '关于所选内容，你想了解什么？' : '问问项目、文章或学习路线…'"
-              maxlength="300"
+              :maxlength="ASSISTANT_QUESTION_LIMIT"
               required
             /><button
               aria-label="发送对话问题"
@@ -463,6 +491,12 @@ onBeforeUnmount(() => {
               ↑
             </button>
           </form>
+          <p
+            v-if="quote && draft.trim()"
+            :class="{ 'text-error': quotedLength > ASSISTANT_QUESTION_LIMIT }"
+          >
+            含引用 {{ quotedLength }} / {{ ASSISTANT_QUESTION_LIMIT }} 字
+          </p>
           <p>{{ loggedIn ? '登录会话可在历史中恢复' : '匿名模式保留当前会话' }}</p>
         </div>
       </div>
@@ -807,7 +841,15 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
   font-size: 12px;
 }
-.assistant-quote span {
+.assistant-quote-content {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+.assistant-quote-content span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: 80px;
   overflow: auto;
   flex: 1;

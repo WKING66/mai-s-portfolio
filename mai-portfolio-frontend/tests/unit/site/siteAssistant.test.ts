@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, shallowRef } from 'vue'
 import { AgentChatError, type createAgentChatApi } from '../../../app/api/agentChat'
 import { useSiteAssistant } from '../../../app/composables/useSiteAssistant'
+import {
+  formatAssistantQuestion,
+  prepareAssistantQuote,
+} from '../../../app/utils/site/assistantQuestion'
 import { ANONYMOUS_CONVERSATION_KEY } from '../../../app/utils/site/assistantStorage'
 
 type ChatApi = ReturnType<typeof createAgentChatApi>
@@ -240,6 +244,53 @@ describe('回答进度', () => {
   })
 })
 
+describe('带引用的提问', () => {
+  it('引用不拆分 emoji，快捷动作和手填问题共用完整提交预算', () => {
+    const quote = prepareAssistantQuote('字'.repeat(199) + '😀后续')
+    expect(quote).toEqual({ text: '字'.repeat(199), truncated: true })
+    for (const action of ['解释这段', '展开讲讲']) {
+      expect(formatAssistantQuestion(action, quote.text)).toBe(
+        '参考以下摘录：\n' + quote.text + '\n\n' + action,
+      )
+    }
+    expect(formatAssistantQuestion(' ', quote.text)).toBe('')
+    expect(formatAssistantQuestion('😀'.repeat(150)).length).toBe(300)
+  })
+
+  it('拦截完整串 301 字，允许 300 字，受理前不通知清空', async () => {
+    const chat = setup()
+    await lifecycle.mount?.()
+    const notify = vi.fn()
+    const quote = prepareAssistantQuote('摘'.repeat(200)).text
+    const budget = 300 - formatAssistantQuestion('问', quote).length + 1
+    const valid = formatAssistantQuestion('问'.repeat(budget), quote)
+    expect(valid).toHaveLength(300)
+    await chat.send(valid + '超', notify)
+    expect(api.create).not.toHaveBeenCalled()
+    expect(api.submit).not.toHaveBeenCalled()
+
+    api.create.mockRejectedValueOnce(new Error('会话创建失败'))
+    await chat.send(valid, notify)
+    expect(notify).not.toHaveBeenCalled()
+
+    api.submit.mockImplementationOnce(async (_id, body, receive) => {
+      expect(notify).not.toHaveBeenCalled()
+      expect(body.question).toBe(valid)
+      receive({
+        kind: 'accepted',
+        value: { requestId: body.requestId, executionId: '27', status: 'accepted' },
+      })
+      receive({
+        kind: 'terminal',
+        value: { requestId: body.requestId, executionId: '27', status: 'completed', text: '答' },
+      })
+    })
+    await chat.send(valid, notify)
+    expect(api.submit).toHaveBeenCalledOnce()
+    expect(notify).toHaveBeenCalledOnce()
+    expect(chat.latest.value?.text).toBe('答')
+  })
+})
 describe('站点聊天会话恢复', () => {
   it('发送与完整流结束后只存匿名 ID', async () => {
     api.submit.mockImplementation(async (_id, body, receive) => {

@@ -6,6 +6,7 @@ import type {
   ConversationSummary,
   SavedTurn,
 } from '../api/agentChat'
+import { ASSISTANT_QUESTION_LIMIT } from '../utils/site/assistantQuestion'
 import { useAuthState } from './useAuthState'
 import {
   rememberAnonymousConversation,
@@ -77,7 +78,7 @@ export function useSiteAssistant() {
     progress.value = undefined
   }
 
-  async function run(turn: SavedTurn) {
+  async function run(turn: SavedTurn, onAccepted?: () => void) {
     if (!conversationId.value) {
       return
     }
@@ -92,12 +93,18 @@ export function useSiteAssistant() {
       }
     }
     error.value = ''
+    const markAccepted = () => {
+      const notify = onAccepted
+      onAccepted = undefined
+      notify?.()
+    }
     const receive: Parameters<typeof api.resume>[1] = (event) => {
       if (controller !== runController) {
         return
       }
       switch (event.kind) {
         case 'accepted':
+          markAccepted()
           turn.executionId = event.value.executionId
           turn.status = event.value.status
           remember()
@@ -109,6 +116,9 @@ export function useSiteAssistant() {
           break
         case 'snapshot':
         case 'terminal':
+          if (event.value.executionId) {
+            markAccepted()
+          }
           apply(turn, event.value)
           if (event.kind === 'terminal' || !active(turn.status)) {
             finishProgress(turn)
@@ -214,18 +224,19 @@ export function useSiteAssistant() {
     nextCursor.value = page.nextCursor
   }
 
-  async function send(question: string, quote = '') {
+  async function send(text: string, onAccepted?: () => void) {
     if (
       restoring.value ||
       opening.value ||
       clearing.value ||
       generating.value ||
       turns.value.some((turn) => active(turn.status)) ||
-      !question.trim()
+      !text.trim() ||
+      text.length > ASSISTANT_QUESTION_LIMIT
     ) {
       return
     }
-    const text = quote ? `参考以下摘录：\n${quote}\n\n${question.trim()}` : question.trim()
+
     turns.value.push({
       requestId: crypto.randomUUID(),
       executionId: null,
@@ -245,7 +256,7 @@ export function useSiteAssistant() {
         conversationId.value = created.conversationId
       }
       remember()
-      await run(turn)
+      await run(turn, onAccepted)
     } catch (failure) {
       if (owner === generation) {
         turn.status = 'failed'
