@@ -22,12 +22,12 @@ log "创建目录骨架"
 install -d -m 0755 "$BASE"
 install -d -m 0755 "$BASE/releases"
 install -d -m 0755 "$BASE/tmp"
-install -d -m 0750 "$BASE/shared"
+install -d -m 0751 "$BASE/shared"
 install -d -m 0700 "$SECRETS"
 install -d -m 0750 "$ENVDIR"
 install -d -m 0750 "$BASE/shared/state"
 install -d -m 0750 "$BASE/shared/backups"
-for svc in spring web ai; do install -d -m 0750 "$LOGS/$svc"; done
+for svc in spring web ai; do install -d -m 0770 "$LOGS/$svc"; done
 
 # ---------------------------------------------------------------- 账号
 log "创建独立账号 mai-ops / mai-test / mai-deploy"
@@ -53,9 +53,12 @@ chmod 0600 /home/{mai-ops,mai-test,mai-deploy}/.ssh/authorized_keys
 
 # 工作目录：测试账号跑测试，部署账号只读产物。
 install -d -m 0750 -o mai-test -g mai-test /home/mai-test/work
-chown -R mai-deploy:mai-deploy "$BASE/releases" "$BASE/tmp"
-chgrp -R mai-deploy "$LOGS"
-chmod 0750 "$LOGS"/*
+chown -R mai-deploy:mai-deploy "$BASE/releases" "$BASE/tmp" "$BASE/shared/media"
+chgrp -R mai-deploy "$BASE/shared/logs" "$BASE/shared/state" "$BASE/shared/env"
+chmod 0770 "$LOGS" "$LOGS"/*
+find "$LOGS" -type d -exec chmod g+s {} \;
+# 测试账号只读日志：目录默认 ACL 保留组写权限，否则新日志文件服务写不进去。
+setfacl -R -d -m u:mai-test:r-X -d -m g::rwx -d -m m::rwx "$LOGS" 2>/dev/null || true
 
 # 维护者：完整 sudo。部署账号：只允许运行本项目受控脚本。
 cat > /etc/sudoers.d/90-mai-ops <<'EOF'
@@ -112,6 +115,13 @@ if [ ! -f "$AUTH_DIR/private.pem" ]; then
   chmod 0600 "$AUTH_DIR/private.pem"
   chmod 0644 "$AUTH_DIR/public.der" "$AUTH_DIR/public.spki.b64"
 fi
+
+# 私钥只给服务组读；公钥不是机密，额外放一份世界可读副本供前端与测试使用。
+chgrp mai-deploy "$AUTH_DIR" "$AUTH_DIR/private.pem"
+chmod 0750 "$AUTH_DIR"
+chmod 0640 "$AUTH_DIR/private.pem"
+install -d -m 0755 "$BASE/shared/public"
+install -m 0644 "$AUTH_DIR/public.spki.b64" "$BASE/shared/public/auth-public.spki.b64"
 
 # TLS：同机 HTTPS 测试入口使用自签证书，浏览器经 SSH 隧道访问。
 TLS_DIR="$SECRETS/tls"
@@ -211,11 +221,15 @@ SPRINGDOC_API_DOCS_ENABLED=false
 LOGGING_SWAGGER_UI_ENABLED=false
 LOG_FILE=${LOGS}/spring/mai-portfolio.log
 LOG_FILE_PATTERN=${LOGS}/spring/mai-portfolio.%d{yyyy-MM-dd}.%i.log.gz
+# prod 档未提供 portfolio.api-log 默认值，缺失会因绑定校验失败而无法启动。
+SPRING_APPLICATION_JSON={"portfolio":{"api-log":{"enabled":true,"max-payload-length":2048,"additional-sensitive-fields":[]}}}
 MEDIA_STORAGE=local
-MEDIA_LOCAL_DIRECTORY=${BASE}/shared/media
+PORTFOLIO_MEDIA_STORAGE=local
+PORTFOLIO_MEDIA_LOCAL_DIRECTORY=${BASE}/shared/media
 MEDIA_SIGNED_URL_TTL=1h
+# prod 档未提供 portfolio.media 绑定，环境变量必须用完整属性名。
 # OSS 测试凭据由维护者提供后改为 oss 并补齐下列四项：
-# MEDIA_STORAGE=oss
+# PORTFOLIO_MEDIA_STORAGE=oss
 # PORTFOLIO_MEDIA_OSS_ENDPOINT=
 # PORTFOLIO_MEDIA_OSS_BUCKET_NAME=
 # PORTFOLIO_MEDIA_OSS_ACCESS_KEY_ID=

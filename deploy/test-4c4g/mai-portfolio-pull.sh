@@ -96,24 +96,25 @@ verify_one() {
 }
 
 fetch() { # fetch <asset>：多镜像、多轮、单进程；成功与否只看 digest。
-  local asset="$1" direct="$direct_base/$asset" round u urls=()
-  for m in $MIRRORS; do urls+=("$m/$direct"); done
-  urls+=("$direct")
-
+  local asset="$1" direct="$direct_base/$asset" round u
   for round in 1 2 3; do
-    for u in "${urls[@]}"; do
+    for u in $MIRRORS $direct_base; do
+      [ -n "$u" ] || continue
       rm -f "$incoming/$asset" "$incoming/$asset.aria2"
       if command -v aria2c >/dev/null 2>&1; then
-        timeout 900 aria2c -q -x16 -s16 -k1M --max-tries=2 --retry-wait=2           --check-integrity=false --console-log-level=error --summary-interval=0           --dir="$incoming" --out="$asset" --allow-overwrite=true "$u" || true
+        # aria2 收尾偶发挂住；用 timeout 收口，成败交给 digest 判定。
+        timeout 900 aria2c -q -x16 -s16 -k1M --max-tries=2 --retry-wait=2 \
+          --check-integrity=false --console-log-level=error --summary-interval=0 \
+          --dir="$incoming" --out="$asset" --allow-overwrite=true "$u/$asset" || true
         rm -f "$incoming/$asset.aria2"
       else
-        curl -fsSL --retry 2 --connect-timeout 10 -o "$incoming/$asset" "$u" || true
+        curl -fsSL --retry 2 --connect-timeout 10 -o "$incoming/$asset" "$u/$asset" || true
       fi
       if verify_one "$asset"; then
         say "已下载并校验：$asset"
         return 0
       fi
-      say "第 $round 轮未通过，换下一个地址"
+      say "第 $round 轮未通过（$u），换下一个地址"
     done
   done
   die "$asset 下载失败或内容与发布 digest 不一致"

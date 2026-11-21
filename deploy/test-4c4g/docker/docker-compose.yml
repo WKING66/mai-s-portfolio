@@ -14,6 +14,8 @@ services:
     volumes:
       - /srv/mai-portfolio/shared/logs/spring:/srv/mai-portfolio/shared/logs/spring
       - /srv/mai-portfolio/shared/media:/srv/mai-portfolio/shared/media
+      # 认证私钥只读挂载：容器只读它校验登录密文。
+      - /srv/mai-portfolio/shared/secrets/auth:/srv/mai-portfolio/shared/secrets/auth:ro
     restart: unless-stopped
     mem_limit: 1400m
     logging:
