@@ -4,6 +4,9 @@ name: test-4c4g release
 # 只在 GitHub 托管 Runner 上构建与发布产物；测试机主动出站拉取，服务端不开任何入站口。
 # 触发方式：维护者手动 workflow_dispatch，默认取 dev HEAD，必须已通过 pr-gate。
 on:
+  # 临时验证触发（验证后删除，仅保留 workflow_dispatch）
+  push:
+    branches: [codex/test-4c4g-cd-run]
   workflow_dispatch:
     inputs:
       sha:
