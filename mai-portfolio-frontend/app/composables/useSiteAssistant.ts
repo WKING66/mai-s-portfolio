@@ -6,6 +6,7 @@ import type {
   ConversationSummary,
   SavedTurn,
 } from '../api/agentChat'
+import { ASSISTANT_QUESTION_LIMIT } from '../utils/site/assistantQuestion'
 import { useAuthState } from './useAuthState'
 import {
   rememberAnonymousConversation,
@@ -46,6 +47,7 @@ export function useSiteAssistant() {
   const key = computed(() =>
     loggedIn.value ? `account:${auth.state.value.username}` : 'anonymous',
   )
+  const pendingAcceptance = new Map<string, () => void>()
   let controller: AbortController | undefined
   let loaded = false
   let generation = 0
@@ -92,12 +94,18 @@ export function useSiteAssistant() {
       }
     }
     error.value = ''
+    const markAccepted = () => {
+      const notify = pendingAcceptance.get(turn.requestId)
+      pendingAcceptance.delete(turn.requestId)
+      notify?.()
+    }
     const receive: Parameters<typeof api.resume>[1] = (event) => {
       if (controller !== runController) {
         return
       }
       switch (event.kind) {
         case 'accepted':
+          markAccepted()
           turn.executionId = event.value.executionId
           turn.status = event.value.status
           remember()
@@ -109,8 +117,12 @@ export function useSiteAssistant() {
           break
         case 'snapshot':
         case 'terminal':
+          if (event.value.executionId) {
+            markAccepted()
+          }
           apply(turn, event.value)
           if (event.kind === 'terminal' || !active(turn.status)) {
+            pendingAcceptance.delete(turn.requestId)
             finishProgress(turn)
           } else if (turn.text.length) {
             recordPhase('output')
@@ -150,6 +162,7 @@ export function useSiteAssistant() {
           [400, 403, 404, 409, 422, 429].includes(failure.status)
         ) {
           turn.status = 'failed'
+          pendingAcceptance.delete(turn.requestId)
           finishProgress(turn)
           if (failure.status === 404 && !loggedIn.value) {
             conversationId.value = undefined
@@ -214,18 +227,19 @@ export function useSiteAssistant() {
     nextCursor.value = page.nextCursor
   }
 
-  async function send(question: string, quote = '') {
+  async function send(text: string, onAccepted?: () => void) {
     if (
       restoring.value ||
       opening.value ||
       clearing.value ||
       generating.value ||
       turns.value.some((turn) => active(turn.status)) ||
-      !question.trim()
+      !text.trim() ||
+      text.length > ASSISTANT_QUESTION_LIMIT
     ) {
       return
     }
-    const text = quote ? `参考以下摘录：\n${quote}\n\n${question.trim()}` : question.trim()
+
     turns.value.push({
       requestId: crypto.randomUUID(),
       executionId: null,
@@ -234,6 +248,9 @@ export function useSiteAssistant() {
       status: 'pending',
     })
     const turn = turns.value.at(-1)!
+    if (onAccepted) {
+      pendingAcceptance.set(turn.requestId, onAccepted)
+    }
     generating.value = true
     const owner = generation
     try {
@@ -247,6 +264,7 @@ export function useSiteAssistant() {
       remember()
       await run(turn)
     } catch (failure) {
+      pendingAcceptance.delete(turn.requestId)
       if (owner === generation) {
         turn.status = 'failed'
         error.value = failure instanceof Error ? failure.message : '无法创建会话。'
@@ -434,6 +452,7 @@ export function useSiteAssistant() {
       return
     }
     generation++
+    pendingAcceptance.clear()
     controller?.abort()
     controller = undefined
     progress.value = undefined
@@ -450,6 +469,7 @@ export function useSiteAssistant() {
   })
   onBeforeUnmount(() => {
     generation++
+    pendingAcceptance.clear()
     controller?.abort()
   })
 
