@@ -1,0 +1,45 @@
+# 4c4g 测试环境：应用容器 + 宿主机独立中间件。
+# 中间件（PostgreSQL 16 / Redis / Nginx）在宿主机原生部署，与容器生命周期解耦；
+# 三个应用容器共享宿主网络，只绑定 127.0.0.1，可直接连 127.0.0.1 的中间件，
+# 且不会有任何端口暴露到外部。
+services:
+  spring:
+    image: mai-portfolio-spring:${RELEASE}
+    container_name: mai-portfolio-spring
+    network_mode: host
+    env_file:
+      - /srv/mai-portfolio/shared/env/spring.env
+    # 容器内用宿主 mai-deploy 的 uid/gid，日志与本地媒体目录才能正常写入。
+    user: "1003:1003"
+    volumes:
+      - /srv/mai-portfolio/shared/logs/spring:/srv/mai-portfolio/shared/logs/spring
+      - /srv/mai-portfolio/shared/media:/srv/mai-portfolio/shared/media
+    restart: unless-stopped
+    mem_limit: 1400m
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+
+  ai:
+    image: mai-portfolio-ai:${RELEASE}
+    container_name: mai-portfolio-ai
+    network_mode: host
+    env_file:
+      - /srv/mai-portfolio/shared/env/ai.env
+    restart: unless-stopped
+    mem_limit: 900m
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
+
+  web:
+    image: mai-portfolio-web:${RELEASE}
+    container_name: mai-portfolio-web
+    network_mode: host
+    env_file:
+      - /srv/mai-portfolio/shared/env/web.env
+    restart: unless-stopped
+    mem_limit: 800m
+    logging:
+      driver: json-file
+      options: { max-size: "20m", max-file: "3" }
