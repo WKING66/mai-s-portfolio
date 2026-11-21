@@ -1,29 +1,56 @@
 <script setup lang="ts">
+import AssistantReplyProgress from './AssistantReplyProgress.vue'
 import { useSiteAssistant } from '../../composables/useSiteAssistant'
+import {
+  ASSISTANT_QUESTION_LIMIT,
+  ASSISTANT_QUOTE_LIMIT,
+  formatAssistantQuestion,
+  prepareAssistantQuote,
+} from '../../utils/site/assistantQuestion'
 
 defineProps<{ name: string }>()
 const {
   enabled,
   turns,
   generating,
+  progress,
+  finishedProgress,
+  restoring,
   latest,
   error,
   recoverable,
   canStop,
   histories,
+  conversationId,
   nextCursor,
   loggedIn,
-  hasAnonymousHistory,
   send,
   stop,
-  clear,
+  clearing,
+  canClearContent,
+  clearContent,
+  newConversation,
   resume,
   open: openConversation,
   loadHistory,
-  importAnonymous,
 } = useSiteAssistant()
+
 const showHistory = ref(false)
+const clearTarget = ref<string>()
 const actionError = ref('')
+watch(conversationId, () => {
+  clearTarget.value = undefined
+  actionError.value = ''
+})
+const historyDate = new Intl.DateTimeFormat('zh-CN', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'Asia/Shanghai',
+})
+function formatHistoryDate(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? '' : historyDate.format(date)
+}
 async function manage(action: () => Promise<unknown>) {
   actionError.value = ''
   try {
@@ -32,17 +59,40 @@ async function manage(action: () => Promise<unknown>) {
     actionError.value = failure instanceof Error ? failure.message : '会话操作失败。'
   }
 }
+function toggleHistory() {
+  showHistory.value = !showHistory.value
+  if (showHistory.value) {
+    void manage(() => loadHistory())
+  }
+}
 const dialog = useTemplateRef<HTMLDialogElement>('drawer')
 const log = useTemplateRef<HTMLElement>('log')
 const input = useTemplateRef<HTMLInputElement>('input')
 const draft = ref('')
 const homeQuestion = ref('')
+let draftRevision = 0
+let homeQuestionRevision = 0
+watch(
+  draft,
+  () => {
+    draftRevision++
+  },
+  { flush: 'sync' },
+)
+watch(
+  homeQuestion,
+  () => {
+    homeQuestionRevision++
+  },
+  { flush: 'sync' },
+)
 const inviting = ref(false)
 
 function dismissInvitation() {
   inviting.value = false
 }
-const quote = ref('')
+const quote = ref<ReturnType<typeof prepareAssistantQuote>>()
+const quotedLength = computed(() => formatAssistantQuestion(draft.value, quote.value?.text).length)
 const selectedText = ref('')
 const tools = ref<{ x: number; y: number } | null>(null)
 const drawerWidth = ref(940)
@@ -65,6 +115,7 @@ function close() {
   dialog.value?.close()
 }
 function afterClose() {
+  clearTarget.value = undefined
   document.body.style.overflow = previousOverflow
   tools.value = null
   opener?.focus({ preventScroll: true })
@@ -79,30 +130,65 @@ function trackScroll() {
     follow.value = element.scrollHeight - element.clientHeight - element.scrollTop < 70
   }
 }
-async function submit(question = draft.value) {
-  if (!question.trim() || generating.value) {
+async function submit(question: string, source?: 'draft' | 'home') {
+  if (
+    !question.trim() ||
+    generating.value ||
+    restoring.value ||
+    recoverable.value ||
+    clearing.value
+  ) {
     return
   }
   open()
   const contextQuote = quote.value
-  draft.value = ''
-  homeQuestion.value = ''
-  quote.value = ''
+  const payload = formatAssistantQuestion(question, contextQuote?.text)
+  if (payload.length > ASSISTANT_QUESTION_LIMIT) {
+    actionError.value = `问题和引用合计 ${payload.length} 字，最多 ${ASSISTANT_QUESTION_LIMIT} 字（含提示语和换行）。请缩短问题或移除引用。`
+    return
+  }
+  actionError.value = ''
   follow.value = true
-  await send(question, contextQuote)
+  const originalDraftRevision = draftRevision
+  const originalHomeRevision = homeQuestionRevision
+  await send(payload, () => {
+    if (source === 'draft' && draftRevision === originalDraftRevision) {
+      draft.value = ''
+    }
+    if (source === 'home' && homeQuestionRevision === originalHomeRevision) {
+      homeQuestion.value = ''
+    }
+    if (quote.value === contextQuote) {
+      quote.value = undefined
+    }
+  })
 }
-watch(
-  () => latest.value?.text,
-  async () => {
-    await nextTick()
-    if (follow.value) {
+watch([() => latest.value?.text, () => progress.value?.phases.length], async () => {
+  await nextTick()
+  if (follow.value) {
+    jumpToLatest()
+  }
+})
+function startConversation() {
+  void manage(newConversation)
+  quote.value = undefined
+}
+function requestClearContent() {
+  if (canClearContent.value) {
+    clearTarget.value = conversationId.value
+    actionError.value = ''
+  }
+}
+function confirmClearContent() {
+  if (!clearTarget.value || clearTarget.value !== conversationId.value || !canClearContent.value) {
+    return
+  }
+  clearTarget.value = undefined
+  void manage(async () => {
+    if (await clearContent()) {
       jumpToLatest()
     }
-  },
-)
-function clearConversation() {
-  void manage(clear)
-  quote.value = ''
+  })
 }
 function setWidth(value: number) {
   drawerWidth.value = Math.min(window.innerWidth, Math.max(420, value))
@@ -145,7 +231,7 @@ function inspectSelection() {
       tools.value = null
       return
     }
-    selectedText.value = selection.toString().trim().slice(0, 1000)
+    selectedText.value = selection.toString().trim()
     const rect = range.getBoundingClientRect()
     tools.value = selectedText.value
       ? {
@@ -156,7 +242,10 @@ function inspectSelection() {
   })
 }
 function selectAction(action: string) {
-  quote.value = selectedText.value
+  if (generating.value || restoring.value || recoverable.value || clearing.value) {
+    return
+  }
+  quote.value = prepareAssistantQuote(selectedText.value)
   tools.value = null
   window.getSelection()?.removeAllRanges()
   open()
@@ -208,20 +297,22 @@ onBeforeUnmount(() => {
       <p class="text-muted text-sm">关于我的项目、笔记和学习路线，问问站内向导。</p>
     </div>
     <div>
-      <form class="assistant-form" @submit.prevent="submit(homeQuestion)">
+      <form class="assistant-form" @submit.prevent="submit(homeQuestion, 'home')">
         <input
           v-model="homeQuestion"
           aria-label="向 AI 提问"
           placeholder="这个个人站是怎么做出来的？"
-          maxlength="300"
+          :maxlength="ASSISTANT_QUESTION_LIMIT"
           required
-        /><button aria-label="发送首页问题" :disabled="generating">↗</button>
+        /><button aria-label="发送首页问题" :disabled="generating || restoring || recoverable">
+          ↗
+        </button>
       </form>
       <div class="assistant-suggestions">
         <button
           v-for="question in ['介绍一下站主', '做过哪些项目？', '推荐一篇文章']"
           :key="question"
-          :disabled="generating"
+          :disabled="generating || restoring || recoverable"
           @click="submit(question)"
         >
           {{ question }}
@@ -287,29 +378,59 @@ onBeforeUnmount(() => {
             <strong id="assistant-title">{{ name }}的 AI 向导</strong><small>站长数字人</small>
           </div>
           <div class="assistant-head-actions">
-            <button
-              v-if="loggedIn"
-              :aria-expanded="showHistory"
-              @click="
-                showHistory = !showHistory
-                if (showHistory) manage(() => loadHistory())
-              "
-            >
+            <button v-if="loggedIn" :aria-expanded="showHistory" @click="toggleHistory">
               历史
             </button>
-            <button v-if="loggedIn" :disabled="generating" @click="clearConversation">新建</button
-            ><button aria-label="关闭 AI 向导" @click="close">×</button>
+            <button
+              v-if="loggedIn"
+              :disabled="generating || restoring || clearing"
+              @click="startConversation"
+            >
+              新建
+            </button>
+            <button
+              v-if="conversationId && turns.length"
+              type="button"
+              :disabled="!canClearContent"
+              @click="requestClearContent"
+            >
+              {{ clearing ? '正在清空…' : '清空聊天内容' }}
+            </button>
+            <button aria-label="关闭 AI 向导" @click="close">×</button>
           </div>
         </header>
+        <div
+          v-if="clearTarget && clearTarget === conversationId"
+          class="flex flex-wrap items-center gap-2 px-4 py-3 text-sm"
+          role="group"
+          aria-label="确认清空聊天内容"
+        >
+          <p class="w-full">
+            清空后，本会话的问答将无法恢复，也不会用于后续回复。会话与已用次数会保留。
+          </p>
+          <UButton size="sm" color="neutral" variant="outline" @click="clearTarget = undefined">
+            取消
+          </UButton>
+          <UButton
+            size="sm"
+            color="error"
+            :disabled="!canClearContent"
+            @click="confirmClearContent"
+          >
+            确认清空
+          </UButton>
+        </div>
         <div v-if="loggedIn && showHistory" class="assistant-history">
-          <button v-if="hasAnonymousHistory" @click="manage(importAnonymous)">导入匿名问答</button>
           <button
             v-for="item in histories"
             :key="item.conversationId"
-            :disabled="generating"
+            class="assistant-history-item"
+            :aria-current="item.conversationId === conversationId ? 'true' : undefined"
+            :disabled="generating || restoring || clearing"
             @click="manage(() => openConversation(item.conversationId))"
           >
-            {{ new Date(item.updatedAt).toLocaleString() }}
+            <span>{{ item.title?.trim() || '会话' }}</span>
+            <time :datetime="item.updatedAt">{{ formatHistoryDate(item.updatedAt) }}</time>
           </button>
           <button v-if="nextCursor" @click="manage(() => loadHistory(true))">加载更多</button>
         </div>
@@ -325,10 +446,19 @@ onBeforeUnmount(() => {
             </div>
             <div class="assistant-answer">
               <small>✳ AI 向导</small>
+              <AssistantReplyProgress
+                :live-phases="progress?.requestId === turn.requestId ? progress.phases : undefined"
+                :finished-phases="finishedProgress.get(turn)"
+                :status="turn.status"
+              />
               <p class="stream-content">
                 {{ turn.text
                 }}<span
-                  v-if="turn.status === 'running' || turn.status === 'accepted'"
+                  v-if="
+                    progress?.requestId === turn.requestId &&
+                    progress.phases.includes('output') &&
+                    turn.text
+                  "
                   class="stream-caret"
                   aria-hidden="true"
                 />
@@ -336,7 +466,12 @@ onBeforeUnmount(() => {
               <p v-if="turn.status === 'interrupted'" class="assistant-status">
                 已停止生成，已输出内容保留。
               </p>
-              <p v-if="turn.status === 'pending'" class="assistant-status">正在发送或确认受理。</p>
+              <p
+                v-if="turn.status === 'pending' && !progress?.phases.length"
+                class="assistant-status"
+              >
+                正在发送或确认受理。
+              </p>
               <p v-if="turn.status === 'failed'" class="assistant-status">模型服务暂不可用。</p>
             </div>
           </article>
@@ -344,31 +479,42 @@ onBeforeUnmount(() => {
         <button v-if="!follow" class="latest-button" @click="jumpToLatest">回到最新回复 ↓</button>
         <div class="assistant-bottom">
           <div v-if="quote" class="assistant-quote">
-            <span>{{ quote }}</span
-            ><button aria-label="移除引用" @click="quote = ''">×</button>
+            <div class="assistant-quote-content">
+              <span>{{ quote.text }}</span>
+              <small v-if="quote.truncated"
+                >选区超过 {{ ASSISTANT_QUOTE_LIMIT }} 字，仅引用前段。</small
+              >
+            </div>
+            <button aria-label="移除引用" @click="quote = undefined">×</button>
           </div>
-          <p v-if="error || actionError" role="alert" class="assistant-status">
-            {{ error || actionError }}
+          <p v-if="actionError || error" role="alert" class="assistant-status">
+            {{ actionError || error }}
           </p>
           <button v-if="canStop" class="stop-button" @click="stop">■ 停止生成</button>
           <button v-if="recoverable && !generating" type="button" @click="resume">
             继续读取本轮
           </button>
-          <form class="assistant-form" @submit.prevent="submit()">
+          <form class="assistant-form" @submit.prevent="submit(draft, 'draft')">
             <input
               ref="input"
               v-model="draft"
               aria-label="继续提问"
               :placeholder="quote ? '关于所选内容，你想了解什么？' : '问问项目、文章或学习路线…'"
-              maxlength="300"
+              :maxlength="ASSISTANT_QUESTION_LIMIT"
               required
             /><button
               aria-label="发送对话问题"
-              :disabled="generating || recoverable || !draft.trim()"
+              :disabled="generating || restoring || recoverable || clearing || !draft.trim()"
             >
               ↑
             </button>
           </form>
+          <p
+            v-if="quote && draft.trim()"
+            :class="{ 'text-error': quotedLength > ASSISTANT_QUESTION_LIMIT }"
+          >
+            含引用 {{ quotedLength }} / {{ ASSISTANT_QUESTION_LIMIT }} 字
+          </p>
           <p>{{ loggedIn ? '登录会话可在历史中恢复' : '匿名模式保留当前会话' }}</p>
         </div>
       </div>
@@ -713,7 +859,15 @@ onBeforeUnmount(() => {
   margin-bottom: 10px;
   font-size: 12px;
 }
-.assistant-quote span {
+.assistant-quote-content {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 4px;
+}
+.assistant-quote-content span {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   max-height: 80px;
   overflow: auto;
   flex: 1;
@@ -748,8 +902,35 @@ onBeforeUnmount(() => {
 .assistant-history {
   display: flex;
   flex-wrap: wrap;
+  max-height: min(15rem, 30dvh);
+  overflow-y: auto;
   gap: 8px;
   padding: 10px 24px;
+}
+.assistant-history-item {
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 9px;
+  border: 1px solid var(--site-line);
+  border-radius: 7px;
+  text-align: start;
+}
+.assistant-history-item span,
+.assistant-history-item time {
+  display: block;
+}
+.assistant-history-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-history-item time {
+  color: var(--site-muted);
+  font-size: 11px;
+}
+.assistant-history-item[aria-current='true'] {
+  border-color: var(--site-accent);
+  background: var(--site-bg-elevated);
 }
 .assistant-status {
   font-size: 11px;

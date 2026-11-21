@@ -13,45 +13,57 @@ import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface AgentTurnMapper extends BaseMapper<AgentTurn> {
-    AgentTurn byExecution(@Param("id") String executionId, @Param("owner") String owner);
+    AgentTurn byExecution(@Param("id") Long executionId, @Param("owner") String owner);
 
-    boolean isOwnedReplay(@Param("requestId") String requestId, @Param("conversationId") String conversationId,
-            @Param("owner") String owner, @Param("question") String question);
+    default AgentTurn byRequestId(String requestId) {
+        return selectOne(Wrappers.lambdaQuery(AgentTurn.class).eq(AgentTurn::getRequestId, requestId));
+    }
 
     int insertPending(@Param("turn") AgentTurn turn);
 
-    boolean globalQuotaReached(@Param("hours") int windowHours, @Param("limit") int limit);
+    // 访客与账号使用不同锁命名空间，认领固定按访客、账号顺序取得两把锁。
+    @Select("SELECT clock_timestamp() FROM pg_advisory_xact_lock("
+            + "CASE WHEN starts_with(#{owner}, 'visitor:') THEN 713742601 ELSE 713742602 END, hashtext(#{owner}))")
+    OffsetDateTime lockOwner(@Param("owner") String owner);
 
-    @Select("SELECT clock_timestamp() FROM pg_advisory_xact_lock(#{key})")
-    OffsetDateTime lockQuota(@Param("key") long key);
-
-    default long countQuotaSince(OffsetDateTime cutoff) {
-        return selectCount(Wrappers.lambdaQuery(AgentTurn.class)
+    default List<AgentTurn> quotaHistorySince(OffsetDateTime cutoff) {
+        return selectList(Wrappers.lambdaQuery(AgentTurn.class)
+                .select(AgentTurn::getRequestId, AgentTurn::getQuotaAt)
                 .gt(AgentTurn::getQuotaAt, cutoff));
     }
 
     long countOwnerQuotaSince(@Param("owner") String owner, @Param("cutoff") OffsetDateTime cutoff);
 
-    default List<AgentTurn> turns(String conversationId, int limit) {
+    default List<AgentTurn> turns(Long conversationId, int limit) {
         return selectList(new Page<>(1, limit, false), Wrappers.lambdaQuery(AgentTurn.class)
                 .eq(AgentTurn::getConversationId, conversationId)
-                .orderByDesc(AgentTurn::getOrdinal));
+                .eq(AgentTurn::isDeleted, false)
+                .orderByDesc(AgentTurn::getId));
     }
 
-    default List<AgentTurn> recentCompleted(String conversationId, int limit) {
+    default List<AgentTurn> recentCompleted(Long conversationId, int limit) {
         return selectList(new Page<>(1, limit, false), Wrappers.lambdaQuery(AgentTurn.class)
                 .eq(AgentTurn::getConversationId, conversationId)
+                .eq(AgentTurn::isDeleted, false)
                 .eq(AgentTurn::getStatus, AgentTurnState.COMPLETED.getCode())
-                .orderByDesc(AgentTurn::getOrdinal));
+                .orderByDesc(AgentTurn::getId));
     }
 
-    default boolean active(String conversationId) {
+    default boolean active(Long conversationId) {
         return exists(Wrappers.lambdaQuery(AgentTurn.class)
                 .eq(AgentTurn::getConversationId, conversationId)
                 .in(AgentTurn::getStatus, AgentTurnState.activeCodes()));
     }
 
-    default int attach(String requestId, String executionId) {
+    default int clear(Long conversationId) {
+        // 只移出用户可读内容，配额查询仍需统计已受理的轮次。
+        return update(Wrappers.lambdaUpdate(AgentTurn.class)
+                .set(AgentTurn::isDeleted, true)
+                .eq(AgentTurn::getConversationId, conversationId)
+                .eq(AgentTurn::isDeleted, false));
+    }
+
+    default int attach(String requestId, Long executionId) {
         return update(Wrappers.lambdaUpdate(AgentTurn.class)
                 .set(AgentTurn::getExecutionId, executionId)
                 .set(AgentTurn::getStatus, AgentTurnState.ACCEPTED.getCode())
@@ -63,17 +75,22 @@ public interface AgentTurnMapper extends BaseMapper<AgentTurn> {
     default int failUnbound(String requestId, String error) {
         return update(Wrappers.lambdaUpdate(AgentTurn.class)
                 .set(AgentTurn::getStatus, AgentTurnState.FAILED.getCode())
-                .set(AgentTurn::getErrorCode, error)
+                .set(AgentTurn::getErrorMes, error)
+                .set(AgentTurn::getUsageStatus, 3)
                 .eq(AgentTurn::getRequestId, requestId)
                 .isNull(AgentTurn::getExecutionId)
                 .eq(AgentTurn::getStatus, AgentTurnState.PENDING.getCode()));
     }
 
-    default int saveTerminal(String requestId, String executionId, String answer, AgentTurnState state, String error) {
+    default int saveTerminal(String requestId, Long executionId, String answer, AgentTurnState state,
+            String errorMes, Long inputTokens, Long outputTokens, int usageStatus) {
         return update(Wrappers.lambdaUpdate(AgentTurn.class)
                 .set(AgentTurn::getAnswer, answer)
                 .set(AgentTurn::getStatus, state.getCode())
-                .set(AgentTurn::getErrorCode, error)
+                .set(AgentTurn::getErrorMes, errorMes)
+                .set(AgentTurn::getInputTokens, inputTokens)
+                .set(AgentTurn::getOutputTokens, outputTokens)
+                .set(AgentTurn::getUsageStatus, usageStatus)
                 .eq(AgentTurn::getRequestId, requestId)
                 .eq(AgentTurn::getExecutionId, executionId)
                 .in(AgentTurn::getStatus, AgentTurnState.activeCodes()));
@@ -82,6 +99,6 @@ public interface AgentTurnMapper extends BaseMapper<AgentTurn> {
     default List<AgentTurn> unfinished(int limit) {
         return selectList(new Page<>(1, limit, false), Wrappers.lambdaQuery(AgentTurn.class)
                 .in(AgentTurn::getStatus, AgentTurnState.activeCodes())
-                .orderByAsc(AgentTurn::getOrdinal));
+                .orderByAsc(AgentTurn::getId));
     }
 }

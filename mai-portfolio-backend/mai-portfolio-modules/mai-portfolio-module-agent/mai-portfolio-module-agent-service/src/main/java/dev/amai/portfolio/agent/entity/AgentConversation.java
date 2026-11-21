@@ -11,14 +11,16 @@ import lombok.Setter;
 @Setter
 @TableName("agent_conversation")
 public class AgentConversation {
-    @TableId(type = IdType.INPUT)
-    private String id;
+    @TableId(type = IdType.AUTO)
+    private Long id;
 
     private String ownerKey;
 
     private boolean anonymous;
 
-    private String importId;
+    private String title;
+
+    private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;
 }

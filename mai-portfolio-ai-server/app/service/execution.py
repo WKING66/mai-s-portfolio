@@ -1,26 +1,36 @@
 import asyncio
 import hashlib
 import logging
-from collections.abc import AsyncIterator, Callable
-from contextlib import aclosing, asynccontextmanager
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import aclosing
 from datetime import UTC, datetime, timedelta
-from typing import Literal
-from uuid import UUID, uuid4
+from enum import IntEnum
+from typing import Literal, cast
+from uuid import UUID
 
 from pydantic import AwareDatetime
 from pydantic import Field as ValidationField
-from sqlalchemy import CheckConstraint, DateTime, Text, case, func, update
+from sqlalchemy import BigInteger, DateTime, SmallInteger, Text, case, func, update
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Field, col, select
+from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.contracts.wire import ExecutionRejected, WireModel
-from app.provider.model_budget_client import BillingRejected
-from app.service.preferences import ChatPreferences, read_preferences
 from app.storage.database import Sessions
-from app.workflow.chat_graph import ChatGraph, HistoryEntry
+from app.workflow.chat_graph import ConfiguredChat, HistoryEntry
 
 logger = logging.getLogger(__name__)
+
+
+class ExecutionCode(IntEnum):
+    ACCEPTED = 0
+    RUNNING = 1
+    COMPLETED = 2
+    FAILED = 3
+    INTERRUPTED = 4
+
+
+ACTIVE_CODES = (ExecutionCode.ACCEPTED, ExecutionCode.RUNNING)
 ACTIVE = ("accepted", "running")
 
 
@@ -33,8 +43,8 @@ async def lock_submission(session: AsyncSession, request_id: UUID) -> None:
 
 class SubmitExecution(WireModel):
     request_id: UUID
-    question: str = ValidationField(min_length=1, max_length=4000, pattern=r"\S")
-    history: list[HistoryEntry] = ValidationField(max_length=12)
+    question: str = ValidationField(min_length=1, max_length=300, pattern=r"\S")
+    history: list[HistoryEntry] = ValidationField(max_length=10)
     accept_before: AwareDatetime
 
 
@@ -48,8 +58,8 @@ ExecutionStatus = Literal["accepted", "running", "completed", "failed", "interru
 
 
 class Accepted(WireModel):
-    execution_id: UUID = Field(primary_key=True)
-    status: ExecutionStatus = Field(sa_type=Text)
+    execution_id: str
+    status: ExecutionStatus
 
 
 class ExecutionFields(Accepted):
@@ -57,16 +67,17 @@ class ExecutionFields(Accepted):
     text: str = Field(sa_type=Text, sa_column_kwargs={"server_default": ""})
 
 
-class Execution(ExecutionFields, table=True):
-    __tablename__ = "execution"  # pyright: ignore[reportAssignmentType]
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('accepted', 'running', 'completed', 'failed', 'interrupted')"
-        ),
-    )
-
+class Execution(SQLModel, table=True):
+    __tablename__ = "model_execution"  # pyright: ignore[reportAssignmentType]
+    id: int | None = Field(default=None, primary_key=True, sa_type=BigInteger)
+    request_id: UUID = Field(unique=True)
+    status: int = Field(sa_type=SmallInteger)
     input_hash: str = Field(sa_type=Text)
-    error_code: str | None = Field(default=None, sa_type=Text)
+    text: str = Field(default="", sa_type=Text)
+    error: str | None = Field(default=None, sa_type=Text)
+    input_tokens: int | None = Field(default=None, sa_type=BigInteger)
+    output_tokens: int | None = Field(default=None, sa_type=BigInteger)
+    usage_status: int = Field(default=0, sa_type=SmallInteger)
     created_at: datetime | None = Field(
         default=None,
         nullable=False,
@@ -79,6 +90,9 @@ class Execution(ExecutionFields, table=True):
 class Snapshot(ExecutionFields):
     sources: list[str] = Field(default_factory=list)
     error: ExecutionError | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    usage_status: int = 0
 
 
 class Delta(WireModel):
@@ -86,30 +100,38 @@ class Delta(WireModel):
     text: str
 
 
+ProgressPhase = Literal["queued", "preparing", "thinking"]
+
+
+class Progress(WireModel):
+    phase: ProgressPhase
+
+
 class Executions:
     def __init__(
         self,
         sessions: Sessions,
-        build_graph: Callable[[ChatPreferences], ChatGraph | None],
+        build_configured: Callable[[AsyncSession], Awaitable[tuple[ConfiguredChat, str] | None]],
         *,
         concurrency: int,
         queue_limit: int,
     ) -> None:
         self.sessions = sessions
         self.worker_available = True
-        self.build_graph = build_graph
+        self.build_configured = build_configured
         self.capacity = concurrency + queue_limit
         self.workers = asyncio.Semaphore(concurrency)
         self.submissions = asyncio.Lock()
-        self.tasks: dict[UUID, asyncio.Task[None]] = {}
+        self.tasks: dict[int, asyncio.Task[None]] = {}
+        self.thinking: set[int] = set()
 
     # 重启只中断遗留执行并保留部分正文。上次请求可能已收费，不能自动重放。
     async def recover(self) -> None:
         async with self.sessions.begin() as session:
             await session.exec(
                 update(Execution)
-                .where(col(Execution.status).in_(ACTIVE))
-                .values(status="interrupted", finished_at=func.now())
+                .where(col(Execution.status).in_(ACTIVE_CODES))
+                .values(status=ExecutionCode.INTERRUPTED, usage_status=3, finished_at=func.now())
             )
 
     async def close(self) -> None:
@@ -127,25 +149,25 @@ class Executions:
         for _ in range(20):
             async with self.sessions.begin() as session:
                 ids = (
-                    select(col(Execution.execution_id))
+                    select(col(Execution.id))
                     .where(
                         col(Execution.finished_at) < cutoff, col(Execution.text) != ""
                     )
-                    .order_by(col(Execution.finished_at), col(Execution.execution_id))
+                    .order_by(col(Execution.finished_at), col(Execution.id))
                     .limit(batch_size)
                     .with_for_update(skip_locked=True)
                 )
                 cleared = await session.exec(
                     update(Execution)
-                    .where(col(Execution.execution_id).in_(ids))
+                    .where(col(Execution.id).in_(ids))
                     .values(
                         text="",
-                        error_code=case(
-                            (col(Execution.status) == "completed", "EXECUTION_TEXT_EXPIRED"),
-                            else_=col(Execution.error_code),
+                        error=case(
+                            (col(Execution.status) == ExecutionCode.COMPLETED, "EXECUTION_TEXT_EXPIRED"),
+                            else_=col(Execution.error),
                         ),
                     )
-                    .returning(col(Execution.execution_id))
+                    .returning(col(Execution.id))
                 )
                 count = len(cleared.scalars().all())
             if count < batch_size:
@@ -156,17 +178,6 @@ class Executions:
             raise ExecutionRejected(
                 503, "WORKER_UNAVAILABLE", "Chat worker is unavailable."
             )
-
-    @asynccontextmanager
-    async def settings_write(self) -> AsyncIterator[Callable[[], bool]]:
-        # 配置写入与受理共用锁。等待期间可能失去执行权，取得锁后再检查。
-        async with self.submissions:
-            self.require_worker()
-            yield self.has_active_executions
-
-    def has_active_executions(self) -> bool:
-        self.require_worker()
-        return bool(self.tasks)
 
     async def submit(self, request: SubmitExecution) -> Snapshot:
         # 1. 去重比较问题和历史。截止时间可随重试更新，业务输入不能变。
@@ -191,35 +202,33 @@ class Executions:
                     raise ExecutionRejected(
                         409, "ACCEPTANCE_EXPIRED", "Submission expired."
                     )
-                preferences = await read_preferences(session)
-                graph = self.build_graph(preferences)
+                configured = await self.build_configured(session)
                 # 模型未配置时拒绝受理，避免给网站留下无法运行的队列记录。
-                if graph is None:
+                if configured is None:
                     raise ExecutionRejected(
                         503, "MODEL_UNAVAILABLE", "Chat is unavailable."
                     )
                 # 容量耗尽时返回繁忙，避免无限积压已受理的请求。
                 if len(self.tasks) >= self.capacity:
                     raise ExecutionRejected(429, "CAPACITY_EXHAUSTED", "Chat is busy.")
-                execution_id = uuid4()
+                graph, persona = configured
                 # 3. 固定受理时的 Persona，之后的设置更新只影响新请求。
-                persona = preferences.persona
-                session.add(
-                    Execution(
-                        execution_id=execution_id,
-                        request_id=request.request_id,
-                        input_hash=input_hash,
-                        status="accepted",
-                        text="",
-                    )
+                execution = Execution(
+                    request_id=request.request_id,
+                    input_hash=input_hash,
+                    status=ExecutionCode.ACCEPTED,
                 )
+                session.add(execution)
+                await session.flush()
+                assert execution.id is not None
+                execution_id = execution.id
             # 4. 受理记录提交后才调度。订阅必须始终能读到对应的持久记录。
             task = asyncio.create_task(self.run(execution_id, request, graph, persona))
             self.tasks[execution_id] = task
             task.add_done_callback(lambda _: self.tasks.pop(execution_id, None))
         return Snapshot(
             request_id=request.request_id,
-            execution_id=execution_id,
+            execution_id=str(execution_id),
             status="accepted",
             text="",
         )
@@ -228,10 +237,10 @@ class Executions:
         self,
         session: AsyncSession,
         *,
-        execution_id: UUID | None = None,
+        execution_id: int | None = None,
         request_id: UUID | None = None,
     ) -> tuple[Snapshot, str] | None:
-        condition = col(Execution.execution_id) == execution_id
+        condition = col(Execution.id) == execution_id
         if request_id is not None:
             condition = col(Execution.request_id) == request_id
         row = (await session.exec(select(Execution).where(condition))).one_or_none()
@@ -240,23 +249,39 @@ class Executions:
             return None
         error = None
         # 只返回稳定错误码。供应商异常可能包含密钥或会话正文。
-        if row.error_code:
+        if row.error:
             error = ExecutionError(
-                code=row.error_code,
+                code=row.error,
                 message="Chat could not finish.",
                 request_id=row.request_id,
             )
-        return Snapshot.model_validate(
-            row, from_attributes=True, update={"error": error}
+        return Snapshot(
+            execution_id=str(row.id),
+            request_id=row.request_id,
+            status=cast(ExecutionStatus, ExecutionCode(row.status).name.lower()),
+            text=row.text,
+            error=error,
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            usage_status=row.usage_status,
         ), row.input_hash
 
     async def get(
         self,
-        execution_id: UUID | None = None,
+        execution_id: int | None = None,
         *,
         request_id: UUID | None = None,
     ) -> Snapshot:
         self.require_worker()
+        if request_id is None:
+            # SSE 按执行编号读取已提交快照。只有活动记录找不到本地任务时才与受理互斥复查。
+            async with self.sessions() as session:
+                result = await self.find(session, execution_id=execution_id)
+            if result is None:
+                raise ExecutionRejected(404, "EXECUTION_NOT_FOUND", "Execution not found.")
+            snapshot, _ = result
+            if snapshot.status not in ACTIVE or int(snapshot.execution_id) in self.tasks:
+                return snapshot
         async with self.submissions, self.sessions.begin() as session:
             self.require_worker()
             if request_id is not None:
@@ -269,22 +294,23 @@ class Executions:
                 snapshot, _ = result
                 if (
                     snapshot.status in ACTIVE
-                    and snapshot.execution_id not in self.tasks
+                    and int(snapshot.execution_id) not in self.tasks
                 ):
                     recovered = await session.scalar(
                         update(Execution)
                         .where(
-                            col(Execution.execution_id) == snapshot.execution_id,
-                            col(Execution.status).in_(ACTIVE),
+                            col(Execution.id) == int(snapshot.execution_id),
+                            col(Execution.status).in_(ACTIVE_CODES),
                         )
-                        .values(status="interrupted", finished_at=func.now())
-                        .returning(col(Execution.execution_id))
+                        .values(status=ExecutionCode.INTERRUPTED, usage_status=3, finished_at=func.now())
+                        .returning(col(Execution.id))
                     )
                     if recovered is not None:
                         snapshot.status = "interrupted"
+                        snapshot.usage_status = 3
                     else:
                         result = await self.find(
-                            session, execution_id=snapshot.execution_id
+                            session, execution_id=int(snapshot.execution_id)
                         )
         # 订阅只读取已受理执行，缺少记录时直接拒绝。
         if result is None:
@@ -293,24 +319,32 @@ class Executions:
 
     # 只允许活动执行进入终态。迟到的停止或失败不能覆盖已有结果。
     async def finish(
-        self, execution_id: UUID, status: ExecutionStatus, error: str | None = None
+        self, execution_id: int, status: ExecutionCode, error: str | None = None,
+        graph: ConfiguredChat | None = None,
     ) -> bool:
         async with self.sessions.begin() as session:
             updated = await session.scalar(
                 update(Execution)
                 .where(
-                    col(Execution.execution_id) == execution_id,
-                    col(Execution.status).in_(ACTIVE),
+                    col(Execution.id) == execution_id,
+                    col(Execution.status).in_(ACTIVE_CODES),
                 )
-                .values(status=status, error_code=error, finished_at=func.now())
-                .returning(col(Execution.execution_id))
+                .values(
+                    status=status,
+                    error=error,
+                    input_tokens=graph.input_tokens if graph else None,
+                    output_tokens=graph.output_tokens if graph else None,
+                    usage_status=graph.usage_status if graph else 3,
+                    finished_at=func.now(),
+                )
+                .returning(col(Execution.id))
             )
             return updated is not None
 
-    async def stop(self, execution_id: UUID) -> Snapshot:
+    async def stop(self, execution_id: int) -> Snapshot:
         self.require_worker()
         # 先提交中断，再尽力取消任务。未赢得终态竞争时返回已有快照。
-        if await self.finish(execution_id, "interrupted"):
+        if await self.finish(execution_id, ExecutionCode.INTERRUPTED):
             task = self.tasks.get(execution_id)
             # 只有本进程仍持有任务时才能取消，持久化终态不依赖取消是否成功。
             if task is not None:
@@ -319,9 +353,9 @@ class Executions:
 
     async def run(
         self,
-        execution_id: UUID,
+        execution_id: int,
         request: SubmitExecution,
-        graph: ChatGraph,
+        graph: ConfiguredChat,
         persona: str,
     ) -> None:
         try:
@@ -331,11 +365,11 @@ class Executions:
                     started = await session.scalar(
                         update(Execution)
                         .where(
-                            col(Execution.execution_id) == execution_id,
-                            col(Execution.status) == "accepted",
+                            col(Execution.id) == execution_id,
+                            col(Execution.status) == ExecutionCode.ACCEPTED,
                         )
-                        .values(status="running")
-                        .returning(col(Execution.execution_id))
+                        .values(status=ExecutionCode.RUNNING)
+                        .returning(col(Execution.id))
                     )
                     # 排队期间已停止时跳过生成，避免中断后开始收费。
                     if started is None:
@@ -348,7 +382,8 @@ class Executions:
                             "question": request.question,
                             "history": request.history,
                             "persona": persona,
-                        }
+                        },
+                        on_thinking=lambda: self.thinking.add(execution_id),
                     )
                 ) as chunks:
                     async for text in chunks:
@@ -356,19 +391,19 @@ class Executions:
                             saved = await session.scalar(
                                 update(Execution)
                                 .where(
-                                    col(Execution.execution_id) == execution_id,
-                                    col(Execution.status) == "running",
+                                    col(Execution.id) == execution_id,
+                                    col(Execution.status) == ExecutionCode.RUNNING,
                                 )
                                 .values(text=col(Execution.text) + text)
-                                .returning(col(Execution.execution_id))
+                                .returning(col(Execution.id))
                             )
                             # 终态已被另一操作提交时停止消费，不再向终态正文追加内容。
                             if saved is None:
                                 return
                 # 3. 全部正文保存后再发布完成，终态快照因此包含最终正文。
-                await self.finish(execution_id, "completed")
-        except BillingRejected:
-            await self.finish(execution_id, "failed", "MODEL_BUDGET_UNAVAILABLE")
+                await self.finish(execution_id, ExecutionCode.COMPLETED, graph=graph)
+        except ExecutionRejected as error:
+            await self.finish(execution_id, ExecutionCode.FAILED, error.code, graph)
         except Exception as error:  # noqa: BLE001 - 任务边界统一脱敏
             # 只记录异常类型链，区分 DNS 超时和传输失败，避免输出密钥、请求体或供应商响应。
             cause = error.__cause__
@@ -383,20 +418,36 @@ class Executions:
                 " -> ".join(causes) or "-",
             )
             try:
-                await self.finish(execution_id, "failed", "EXECUTION_FAILED")
+                await self.finish(execution_id, ExecutionCode.FAILED, "EXECUTION_FAILED", graph)
             except SQLAlchemyError:
                 logger.error("could not persist execution failure id=%s", execution_id)
+        finally:
+            self.thinking.discard(execution_id)
+
+    def progress_phase(self, snapshot: Snapshot) -> ProgressPhase:
+        if snapshot.status == "accepted":
+            return "queued"
+        if int(snapshot.execution_id) in self.thinking:
+            return "thinking"
+        return "preparing"
 
     async def events(
         self, initial: Snapshot
-    ) -> AsyncIterator[tuple[Literal["snapshot", "delta", "terminal"], Snapshot | Delta]]:
+    ) -> AsyncIterator[tuple[Literal["snapshot", "progress", "delta", "terminal"], Snapshot | Progress | Delta]]:
         yield "snapshot", initial
-        # 重连用持久快照对齐正文，之后只发送新增长度，不调度模型。
+        # 复用订阅轮询，只在正文到达前发送变化的阶段。重连会看到当前阶段。
         previous = initial.text
+        phase: ProgressPhase | None = None
         snapshot = initial
+        execution_id = int(initial.execution_id)
         while snapshot.status in ACTIVE:
+            if not snapshot.text and phase != 'thinking':
+                observed = self.progress_phase(snapshot)
+                if observed != phase:
+                    yield "progress", Progress(phase=observed)
+                    phase = observed
             await asyncio.sleep(0.25)
-            snapshot = await self.get(initial.execution_id)
+            snapshot = await self.get(execution_id)
             # 偏移按 UTF-16 计数，表情等字符也能与 Java 和浏览器的字符串索引对齐。
             if snapshot.text != previous:
                 delta = Delta(

@@ -17,10 +17,33 @@ export interface SavedTurn extends ChatSnapshot {
 
 export interface ConversationSummary {
   conversationId: string
+  title?: string
+  createdAt?: string
   updatedAt: string
 }
 
+export interface ConversationDetails {
+  conversationId: string
+  title: string
+  createdAt: string
+  turns: SavedTurn[]
+}
+
+export type ChatProgressPhase = 'queued' | 'preparing' | 'thinking'
+
+function readProgress(data: string): ChatProgressPhase | undefined {
+  try {
+    const phase: unknown = JSON.parse(data)?.phase
+    if (phase === 'queued' || phase === 'preparing' || phase === 'thinking') {
+      return phase
+    }
+  } catch {
+    // Invalid optional progress does not interrupt the answer stream.
+  }
+}
+
 type ChatEvent =
+  | { kind: 'progress'; value: { phase: ChatProgressPhase } }
   | { kind: 'accepted'; value: Pick<ChatSnapshot, 'requestId' | 'executionId' | 'status'> }
   | { kind: 'snapshot' | 'terminal'; value: ChatSnapshot }
   | { kind: 'delta'; value: { offset: number; text: string } }
@@ -98,7 +121,12 @@ export function createAgentChatApi(csrfToken: () => string) {
             .filter((line) => line.startsWith('data:'))
             .map((line) => line.slice(5).trimStart())
             .join('\n')
-          if (
+          if (data && kind === 'progress') {
+            const phase = readProgress(data)
+            if (phase) {
+              receive({ kind, value: { phase } })
+            }
+          } else if (
             data &&
             (kind === 'accepted' || kind === 'snapshot' || kind === 'terminal' || kind === 'delta')
           ) {
@@ -119,12 +147,15 @@ export function createAgentChatApi(csrfToken: () => string) {
 
   return {
     status: () => json<{ enabled: boolean }>('/status'),
+    claim: () => json<{ conversationId: string | null }>('/conversations/claim', 'POST', {}),
     create: () => json<{ conversationId: string }>('/conversations', 'POST', {}),
     list: (cursor?: string) =>
       json<{ items: ConversationSummary[]; nextCursor: string | null }>(
         cursor ? `/conversations?cursor=${encodeURIComponent(cursor)}` : '/conversations',
       ),
     read: (id: string) => json<{ turns: SavedTurn[] }>(`/conversations/${id}`),
+    clearContent: (id: string) =>
+      json<ConversationDetails>(`/conversations/${encodeURIComponent(id)}/clear`, 'POST'),
     submit: (
       id: string,
       body: { requestId: string; question: string },
@@ -134,7 +165,5 @@ export function createAgentChatApi(csrfToken: () => string) {
     resume: (id: string, receive: (event: ChatEvent) => void, signal: AbortSignal) =>
       events(`/executions/${id}/events`, receive, signal),
     stop: (id: string) => json<ChatSnapshot>(`/executions/${id}/stop`, 'POST', {}),
-    import: (importId: string, turns: { question: string; answer: string }[]) =>
-      json<{ conversationId: string }>('/conversations/import', 'POST', { importId, turns }),
   }
 }

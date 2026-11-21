@@ -64,5 +64,64 @@ public final class RedisLuaScripts {
         return 1
         """;
 
+    // 快照可能保留旧标记却缺少最近的轮次。仅当前 Redis 进程重建的窗口才可用于放行。
+    private static final String SLIDING_WINDOW_CONTEXT = """
+            redis.replicate_commands()
+            local key = KEYS[1]
+            local process = string.match(redis.call('INFO', 'server'), 'run_id:(%w+)')
+            local marker = '!retained-window:' .. process
+            local retained = redis.call('ZSCORE', key, marker)
+            """;
+
+    /**
+     * KEYS[1] 为事件有序集合，成员为事件编号，分数为 Redis 时间（毫秒）。
+     * ARGV 为事件编号、窗口毫秒数、限额。返回 1 放行、0 达限、-1 未初始化、-2 需要更长历史。
+     * 负分数的保留窗口标记不会随事件过期。键丢失时暂停放行，避免误把丢失状态当成空窗口。
+     */
+    public static final String SLIDING_WINDOW_ACQUIRE = SLIDING_WINDOW_CONTEXT + """
+            if not retained then
+                return -1
+            end
+            retained = -tonumber(retained)
+            local window = tonumber(ARGV[2])
+            if window > retained then
+                return -2
+            end
+            local clock = redis.call('TIME')
+            local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
+            redis.call('ZREMRANGEBYSCORE', key, 0, now - retained)
+            local cutoff = math.max(now - window, 0)
+            local existing = redis.call('ZSCORE', key, ARGV[1])
+            if existing and tonumber(existing) > cutoff then
+                return 1
+            end
+            if redis.call('ZCOUNT', key, '(' .. cutoff, '+inf') >= tonumber(ARGV[3]) then
+                return 0
+            end
+            redis.call('ZADD', key, now, ARGV[1])
+            return 1
+            """;
+
+    /**
+     * ARGV 为历史窗口毫秒数、是否允许初始化，以及数据库中的“事件编号、受理时间”对。
+     * 保留原有 Redis 登记和较长的已有历史。初始化被禁止且标记缺失时返回 0。
+     */
+    public static final String SLIDING_WINDOW_RESTORE = SLIDING_WINDOW_CONTEXT + """
+            if not retained then
+                if ARGV[2] ~= '1' then
+                    return 0
+                end
+                redis.call('ZREMRANGEBYSCORE', key, '-inf', '(0')
+            end
+            for i = 3, #ARGV, 2 do
+                redis.call('ZADD', key, 'NX', ARGV[i + 1], ARGV[i])
+            end
+            local window = tonumber(ARGV[1])
+            if not retained or -tonumber(retained) < window then
+                redis.call('ZADD', key, -window, marker)
+            end
+            return 1
+            """;
+
     private RedisLuaScripts() {}
 }

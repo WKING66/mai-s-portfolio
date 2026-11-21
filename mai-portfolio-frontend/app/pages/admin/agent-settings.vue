@@ -7,7 +7,7 @@ useSeoMeta({ title: '数字人配置中心', robots: 'noindex,nofollow' })
 </script>
 
 <template>
-  <AdminShell title="数字人配置中心" description="统一管理回答风格、模型参数和费用上限。">
+  <AdminShell title="数字人配置中心" description="管理模型接入、执行顺序与数字人的回答风格。">
     <AgentSettingsEditor />
   </AdminShell>
 </template>

@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -29,14 +30,17 @@ public class AgentAiClient {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
     private static final Duration EXECUTION_READ_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration SETTINGS_READ_TIMEOUT = Duration.ofSeconds(5);
+    private static final Duration MODEL_PROBE_READ_TIMEOUT = Duration.ofSeconds(15);
 
     private static final String PATH = "/internal/v1/executions";
     private static final String SETTINGS_PATH = "/internal/v1/settings";
+    private static final String CATALOG_PATH = SETTINGS_PATH + "/catalog";
     private static final ParameterizedTypeReference<Map<String, Object>> SETTINGS_TYPE =
             new ParameterizedTypeReference<>() {};
 
     private final RestClient client;
     private final RestClient settingsClient;
+    private final RestClient modelProbeClient;
     private final boolean configured;
 
     private final JsonMapper jsonMapper;
@@ -46,6 +50,7 @@ public class AgentAiClient {
         var http = HttpClient.newBuilder().connectTimeout(CONNECT_TIMEOUT).build();
         this.client = createClient(baseUrl, token, http, EXECUTION_READ_TIMEOUT);
         this.settingsClient = createClient(baseUrl, token, http, SETTINGS_READ_TIMEOUT);
+        this.modelProbeClient = createClient(baseUrl, token, http, MODEL_PROBE_READ_TIMEOUT);
         this.configured = !token.isBlank();
         this.jsonMapper = jsonMapper;
     }
@@ -65,14 +70,26 @@ public class AgentAiClient {
         return configured;
     }
 
-    public Map<String, Object> readSettings() {
-        return settingsClient.get().uri(SETTINGS_PATH).retrieve().body(SETTINGS_TYPE);
+    public Map<String, Object> readCatalog() {
+        return settingsClient.get().uri(CATALOG_PATH).retrieve().body(SETTINGS_TYPE);
     }
 
-    public Map<String, Object> updateSettings(Map<String, Object> request) {
-        return settingsClient.put().uri(SETTINGS_PATH)
+    public Map<String, Object> readCatalog(String operation, Object... uriVariables) {
+        return settingsClient.get().uri(CATALOG_PATH + operation, uriVariables)
+                .retrieve().body(SETTINGS_TYPE);
+    }
+
+    public Map<String, Object> writeCatalog(HttpMethod method, String operation,
+            Map<String, Object> request, Object... uriVariables) {
+        return settingsClient.method(method).uri(CATALOG_PATH + operation, uriVariables)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
+                .retrieve().body(SETTINGS_TYPE);
+    }
+
+    public Map<String, Object> testModel(long modelId) {
+        // 首包后模型还可能在推理，等待 Python 返回正文验证结果。
+        return modelProbeClient.post().uri(CATALOG_PATH + "/models/{id}/test", modelId)
                 .retrieve().body(SETTINGS_TYPE);
     }
 
@@ -93,7 +110,10 @@ public class AgentAiClient {
 
     private AgentExecutionSnapshot lookup(String uri, String id) {
         try {
-            var snapshot = client.get().uri(uri, id).retrieve().body(AgentExecutionSnapshot.class);
+            var snapshot = client.get()
+                    .uri(uri, id)
+                    .retrieve()
+                    .body(AgentExecutionSnapshot.class);
             if (snapshot == null) {
                 throw new RestClientException("AI execution lookup returned no response body");
             }
@@ -150,6 +170,15 @@ public class AgentAiClient {
                     }
                     return null;
                 });
+    }
+
+    /** 进度只向浏览器公开阶段，其他上游字段不进入网站流。 */
+    public String publicProgress(String data) {
+        String phase = jsonMapper.readTree(data).path("phase").asText();
+        return switch (phase) {
+            case "queued", "preparing", "thinking" -> json(Map.of("phase", phase));
+            default -> null;
+        };
     }
 
     public String json(Object value) {

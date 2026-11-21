@@ -28,9 +28,5 @@ public class SiteConfigDO {
 
     private Long resumeMediaId;
 
-    private String seoTitle;
-
-    private String seoDescription;
-
     private LocalDateTime updatedAt;
 }

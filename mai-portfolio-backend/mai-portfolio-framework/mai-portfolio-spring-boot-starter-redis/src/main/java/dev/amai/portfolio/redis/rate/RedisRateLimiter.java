@@ -2,9 +2,15 @@ package dev.amai.portfolio.redis.rate;
 
 import dev.amai.portfolio.redis.define.RedisLuaScripts;
 import dev.amai.portfolio.redis.define.cache.RedisKeys;
+import java.time.Duration;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.redisson.api.RScript;
 import org.redisson.api.RedissonClient;
+import org.redisson.client.RedisException;
 import org.redisson.client.codec.StringCodec;
 
 /** Redis 原子限流的唯一执行入口；不持有进程内计数，不查询数据库。 */
@@ -42,6 +48,61 @@ public class RedisRateLimiter {
         String key = redisKeys.rateLimit("bucket", endpoint + ":" + client + ":" + capacity + ":" + refillRate);
         Long allowed = execute(RedisLuaScripts.TOKEN_BUCKET_ACQUIRE, key, capacity, refillRate, ttl);
         return Long.valueOf(1).equals(allowed);
+    }
+
+    /** 在同一滚动窗口内重复使用事件编号时，返回原许可且不延长该事件的有效期。 */
+    public SlidingWindowResult acquireSlidingWindow(String subject, String eventId, Duration window, int limit) {
+        Long result = executeSlidingWindow(RedisLuaScripts.SLIDING_WINDOW_ACQUIRE, subject,
+                eventId, window.toMillis(), limit);
+        if (Long.valueOf(1).equals(result)) {
+            return SlidingWindowResult.ALLOWED;
+        }
+        if (Long.valueOf(0).equals(result)) {
+            return SlidingWindowResult.EXHAUSTED;
+        }
+        if (Long.valueOf(-1).equals(result)) {
+            return SlidingWindowResult.UNINITIALIZED;
+        }
+        if (Long.valueOf(-2).equals(result)) {
+            return SlidingWindowResult.HISTORY_REQUIRED;
+        }
+        throw new RedisException("Redis 返回了未知的滚动窗口状态");
+    }
+
+    /** 以毫秒时间戳补齐历史，已登记的事件保留原时间。仅在受理已经停止时才允许初始化。 */
+    public boolean restoreSlidingWindow(String subject, Duration window, Map<String, Long> history, boolean initialize) {
+        Object[] arguments = new Object[2 + history.size() * 2];
+        arguments[0] = window.toMillis();
+        arguments[1] = initialize ? 1 : 0;
+        int index = 2;
+        for (var event : history.entrySet()) {
+            arguments[index++] = event.getKey();
+            arguments[index++] = event.getValue();
+        }
+        return Long.valueOf(1).equals(executeSlidingWindow(
+                RedisLuaScripts.SLIDING_WINDOW_RESTORE, subject, arguments));
+    }
+
+    private Long executeSlidingWindow(String script, String subject, Object... arguments) {
+        String key = redisKeys.rateLimit("sliding", subject);
+        try {
+            // 调用方可能持有数据库事务锁。命令超时后由相同事件编号安全重试。
+            return redissonClient.getScript(StringCodec.INSTANCE)
+                    .<Long>evalAsync(RScript.Mode.READ_WRITE, script, RScript.ReturnType.LONG, List.of(key), arguments)
+                    .get(1, TimeUnit.SECONDS);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new RedisException("等待 Redis 滚动窗口时被中断", error);
+        } catch (ExecutionException | TimeoutException error) {
+            throw new RedisException("Redis 滚动窗口未能完成", error);
+        }
+    }
+
+    public enum SlidingWindowResult {
+        ALLOWED,
+        EXHAUSTED,
+        UNINITIALIZED,
+        HISTORY_REQUIRED
     }
 
     private Long execute(String script, String key, Object... arguments) {

@@ -51,6 +51,35 @@ describe('网站聊天流', () => {
     expect(events).toEqual(['accepted', 'snapshot', 'delta', 'terminal'])
   })
 
+  it('发送和续订只转交允许的进度字段，忽略无效进度', async () => {
+    const frames = () =>
+      stream(
+        'event: prog',
+        'ress\ndata: {"phase":"queued","reasoning":"private"}\n\n',
+        'event: progress\ndata: {"phase":"preparing"}\n\n',
+        'event: progress\ndata: {"phase":"thinking"}\n\n',
+        'event: progress\ndata: {"phase":"searching"}\n\n',
+        'event: progress\ndata: invalid\n\n',
+        `event: terminal\ndata: ${JSON.stringify(final)}\n\n`,
+      )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => frames()),
+    )
+    const api = createAgentChatApi(() => 'csrf')
+    const signal = new AbortController().signal
+    const receive = vi.fn()
+    await api.submit('12', { requestId, question: '测试' }, receive, signal)
+    await api.resume(executionId, receive, signal)
+    const expected = [
+      { kind: 'progress', value: { phase: 'queued' } },
+      { kind: 'progress', value: { phase: 'preparing' } },
+      { kind: 'progress', value: { phase: 'thinking' } },
+      { kind: 'terminal', value: final },
+    ]
+    expect(receive.mock.calls.map(([event]) => event)).toEqual([...expected, ...expected])
+  })
+
   it('无终态的断流仍可按同一执行编号订阅恢复', async () => {
     const fetcher = vi
       .fn()
