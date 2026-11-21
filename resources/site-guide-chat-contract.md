@@ -14,7 +14,7 @@
 | POST /conversations/claim | 登录成功后由前端自动调用。Spring 用 HttpOnly 访客 Cookie 把仍属于访客的原会话移交当前账号。无需提交正文或访客编号。返回 `conversationId`，没有可转移会话时为空。 |
 | GET /conversations/{conversationId} | 向会话所有者返回已保存的问答和当前执行状态。 |
 | POST /conversations/{conversationId}/clear | 所有者清空所选会话，返回原会话编号、默认标题和空的问答列表。生成中返回 409，停止后可重试。旧问答不会再展示、进入模型上下文或按原执行编号恢复，已受理的轮次仍计入限额。 |
-| POST /conversations/{conversationId}/turns | 接收 `requestId` 和 `question`。成功受理后以 HTTP 200 和 `text/event-stream` 在同一响应中返回受理事件、快照、首字前进度、正文增量和终态。 |
+| POST /conversations/{conversationId}/turns | 接收 `requestId` 和 `question`。前端引用最多 200 个 UTF-16 单元，引用、提示语和问题拼接后的 `question` 最多 300 个 UTF-16 单元。成功受理后以 HTTP 200 和 `text/event-stream` 在同一响应中返回受理事件、快照、首字前进度、正文增量和终态。 |
 | GET /executions/{executionId} | 向执行所有者返回快照。 |
 | GET /executions/{executionId}/events | 刷新或断线后，执行所有者续订已有执行。 |
 | POST /executions/{executionId}/stop | 执行所有者停止执行并获取快照。 |
@@ -59,7 +59,7 @@ Accept: text/event-stream
 | `POST /catalog/models/{id}/test` | 单独探测该模型，返回 `ok`、`code` 和 `dimensions`，不改生效链。 |
 | `GET /catalog/prompts`、`GET /catalog/prompts/{id}/versions` | 分别返回 `prompts` 和 `versions` 数组。 |
 | `POST /catalog/prompts/{id}/versions`、`PUT /catalog/prompts/{id}/active-version` | 发布用 `content`，回退用 `versionId`，两者均带 `expectedActiveVersionId`。 |
-| `GET /catalog/wallets` | 返回 `wallets`。DeepSeek 官方接入读取余额与原币种，其他暂未接入余额 API 的钱包返回 `unsupported`。 |
+| `GET /catalog/wallets` | 返回 `wallets`。DeepSeek 官方接入读取余额与原币种，其他暂未接入余额 API 的钱包返回 `unsupported`。按钱包去重，每批并发查询最多 3 个钱包组。总时限 4 秒，到期返回已完成的余额及未完成钱包的降级状态。 |
 
 ## AI 服务接口
 
