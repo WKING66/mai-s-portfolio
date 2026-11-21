@@ -65,8 +65,12 @@ jobs:
           fi
 
           # 2. 必须存在通过的 pr-gate：合并提交看第二父提交，压缩合并看 PR 头提交。
+          # 父提交按空白拆分，避免把两个父提交当成一个 URL 片段。
           candidates=("$sha")
-          while read -r parent; do candidates+=("$parent"); done < <(git rev-list --parents -n1 "$sha" | cut -d' ' -f2-)
+          read -r -a parents <<< "$(git rev-list --parents -n1 "$sha" | cut -d' ' -f2-)"
+          for parent in "${parents[@]:-}"; do
+            [ -n "$parent" ] && candidates+=("$parent")
+          done
           pr=$(git log -1 --format=%s "$sha" | grep -oE '\(#[0-9]+\)|pull request #[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
           if [ -n "$pr" ]; then
             head=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
