@@ -1,0 +1,23 @@
+[Unit]
+Description=mai-portfolio Spring backend (4c4g test)
+After=network-online.target postgresql.service redis-server.service
+Wants=network-online.target postgresql.service redis-server.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=mai-deploy
+Group=mai-deploy
+WorkingDirectory=/srv/mai-portfolio/current/spring
+EnvironmentFile=/srv/mai-portfolio/shared/env/spring.env
+# 4c4g 单机：堆上限 1100m，给 Nuxt/Python/PostgreSQL 留出余量。
+ExecStart=/usr/bin/java -Xms256m -Xmx1100m -XX:MaxMetaspaceSize=256m -XX:+ExitOnOutOfMemoryError -jar /srv/mai-portfolio/current/spring/app.jar
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=60
+LimitNOFILE=65535
+StandardOutput=append:/srv/mai-portfolio/shared/logs/spring/stdout.log
+StandardError=append:/srv/mai-portfolio/shared/logs/spring/stderr.log
+
+[Install]
+WantedBy=multi-user.target

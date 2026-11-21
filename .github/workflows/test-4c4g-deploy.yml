@@ -1,0 +1,227 @@
+name: test-4c4g release
+
+# 4c4g 单机测试环境的发布流水线。
+# 只在 GitHub 托管 Runner 上构建与发布产物；测试机主动出站拉取，服务端不开任何入站口。
+# 触发方式：维护者手动 workflow_dispatch，默认取 dev HEAD，必须已通过 pr-gate。
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: '要发布的 dev 提交 SHA（留空 = dev HEAD）'
+        required: false
+        default: ''
+      note:
+        description: '本次发布备注（写入 manifest）'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  checks: read
+  actions: read
+
+concurrency:
+  group: test-4c4g-release
+  cancel-in-progress: false
+
+env:
+  TAG_PREFIX: test4c4g
+
+jobs:
+  resolve:
+    name: resolve + guard
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      short: ${{ steps.pick.outputs.short }}
+      tag: ${{ steps.pick.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - id: pick
+        name: 选定提交并校验来源
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          INPUT_SHA: ${{ inputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin dev
+          sha="${INPUT_SHA:-$(git rev-parse origin/dev)}"
+          sha=$(git rev-parse "$sha^{commit}")
+          short=$(printf '%s' "$sha" | cut -c1-12)
+
+          # 1. 必须是 dev 历史内的提交：禁止发布特性分支上的任意提交。
+          if ! git merge-base --is-ancestor "$sha" origin/dev; then
+            echo "::error title=不在 dev 历史内::提交 $sha 不是 origin/dev 的祖先，拒绝发布。"
+            exit 1
+          fi
+
+          # 2. 必须存在通过的 pr-gate：合并提交看第二父提交，压缩合并看 PR 头提交。
+          candidates=("$sha")
+          while read -r parent; do candidates+=("$parent"); done < <(git rev-list --parents -n1 "$sha" | cut -d' ' -f2-)
+          pr=$(git log -1 --format=%s "$sha" | grep -oE '\(#[0-9]+\)|pull request #[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
+          if [ -n "$pr" ]; then
+            head=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/pulls/$pr" | jq -r '.head.sha')
+            candidates+=("$head")
+          fi
+          ok=false
+          for c in "${candidates[@]}"; do
+            conclusion=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/commits/$c/check-runs?per_page=100" \
+              | jq -r '[.check_runs[] | select(.name=="pr-gate") | .conclusion] | if any(. == "success") then "success" else "none" end')
+            if [ "$conclusion" = "success" ]; then ok=true; say="命中 $c"; break; fi
+          done
+          if [ "$ok" != true ]; then
+            echo "::error title=缺少通过的 pr-gate::未能在 $sha 及其父提交/PR 头提交上找到成功的 pr-gate 检查。先让 PR 通过 pr-gate 再发布。"
+            exit 1
+          fi
+
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG_PREFIX}-${short}" >> "$GITHUB_OUTPUT"
+          echo "发布提交 $sha（$say）"
+
+  build-spring:
+    name: build spring
+    needs: resolve
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: mai-portfolio-backend/**/pom.xml
+      # dev 测试源码目前无法编译，发布包只跳过测试编译；质量门禁由 pr-gate 负责。
+      - run: mvn -B -q -Dmaven.test.skip=true package -pl mai-portfolio-launch -am
+      - run: |
+          jar=$(find mai-portfolio-launch/target -maxdepth 1 -name '*.jar' ! -name '*.original' | head -1)
+          test -n "$jar"
+          cp "$jar" "$RUNNER_TEMP/spring.jar"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spring-jar
+          path: ${{ runner.temp }}/spring.jar
+          if-no-files-found: error
+
+  build-web:
+    name: build web
+    needs: resolve
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: mai-portfolio-frontend/package.json
+      - run: |
+          if ! test -f pnpm-workspace.yaml; then
+            pnpm config set --location=project --json allowBuilds '{"esbuild":false,"unrs-resolver":false,"vue-demi":false}'
+          fi
+          pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: tar -czf "$RUNNER_TEMP/web.tar.gz" .output
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-output
+          path: ${{ runner.temp }}/web.tar.gz
+          if-no-files-found: error
+
+  build-ai:
+    name: build ai
+    needs: resolve
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-ai-server
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      # 依赖在 Runner 上解析并下载为 linux x86_64 wheel，服务器离线安装，保证架构一致。
+      - run: |
+          set -euo pipefail
+          uv venv "$RUNNER_TEMP/dl" --python 3.12
+          uv pip install --python "$RUNNER_TEMP/dl/bin/python" pip
+          uv export --frozen --no-dev --no-emit-project > "$RUNNER_TEMP/requirements.txt"
+          "$RUNNER_TEMP/dl/bin/python" -m pip download -r "$RUNNER_TEMP/requirements.txt" \
+            -d "$RUNNER_TEMP/wheels" --only-binary=:all:
+          ls "$RUNNER_TEMP/wheels" | wc -l
+      - run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/ai"
+          mkdir -p "$stage"
+          cp -r app migrations alembic.ini pyproject.toml uv.lock "$stage"/
+          cp "$RUNNER_TEMP/requirements.txt" "$stage"/
+          cp -r "$RUNNER_TEMP/wheels" "$stage"/
+          tar -czf "$RUNNER_TEMP/ai.tar.gz" -C "$stage" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-bundle
+          path: ${{ runner.temp }}/ai.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: publish release
+    needs: [resolve, build-spring, build-web, build-ai]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: "${{ runner.temp }}/assets"
+          merge-multiple: true
+      - name: 生成清单与校验值
+        env:
+          SHA: ${{ needs.resolve.outputs.sha }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/assets"
+          for f in spring.jar web.tar.gz ai.tar.gz; do test -f "$f" || { echo "::error::缺少产物 $f"; exit 1; }; done
+          jq -n --arg sha "$SHA" --arg tag "$TAG" --arg note "$NOTE" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg runner "$(uname -m)" \
+            '{gitSha:$sha,tag:$tag,builtAt:$ts,builtBy:"github-actions",cdManaged:true,arch:$runner,note:$note}' > manifest.json
+          sha256sum spring.jar web.tar.gz ai.tar.gz manifest.json > SHA256SUMS
+          ls -l
+          cat SHA256SUMS
+      - name: 创建 Release 并上传产物
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/assets"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error title=重名发布::Release $TAG 已存在，拒绝覆盖已发布产物。"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --title "test-4c4g $SHA" \
+            --notes "4c4g 测试环境发布 $SHA，由 test-4c4g release 工作流生成。" \
+            spring.jar web.tar.gz ai.tar.gz manifest.json SHA256SUMS

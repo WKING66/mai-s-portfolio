@@ -1,0 +1,23 @@
+[Unit]
+Description=mai-portfolio Nuxt web (4c4g test)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=mai-deploy
+Group=mai-deploy
+WorkingDirectory=/srv/mai-portfolio/current/web
+EnvironmentFile=/srv/mai-portfolio/shared/env/web.env
+Environment=PATH=/opt/node/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NODE_OPTIONS=--max-old-space-size=512
+ExecStart=/opt/node/bin/node /srv/mai-portfolio/current/web/.output/server/index.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+StandardOutput=append:/srv/mai-portfolio/shared/logs/web/stdout.log
+StandardError=append:/srv/mai-portfolio/shared/logs/web/stderr.log
+
+[Install]
+WantedBy=multi-user.target
