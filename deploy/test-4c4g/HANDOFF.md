@@ -4,6 +4,19 @@
 > 主用机：`160.202.241.174`（Ubuntu 24.04.2 LTS，4 核 / 3.8 GB / 30 GB，2 GB swap）
 > 备用机：`160.202.241.175`（本次未部署业务，仅用于验证安全组是否真的收敛）
 
+## 0. 对话中途确认的要求与落实情况
+
+| 你的要求 | 落实方式 | 状态 |
+| --- | --- | --- |
+| 只允许本机 IP 连接两台主机；本地会挂代理 | 安全组与 UFW 都只放行 `22 ← 14.26.224.157/32`（这是服务器**实际看到**的 SSH 来源）。你的代理 HTTPS 出口 `47.129.211.92` 未放行，`198.18.x.x` 一律不用 | 已完成 |
+| 云安全组你自己操作，我先给规则 | 已给出唯一规则表；你执行后我从备用机 `160.202.241.175` 反向扫描主用机的 `22/80/443/3000/5432/6379/9333/9344`，全部被拒（含 22），确认是白名单而非仅关业务口 | 已完成并验证 |
+| GitHub 国内访问差，要配代理或镜像 | 拉取器默认多镜像（`ghfast.top` / `gh-proxy.com` / `ghproxy.net`）+ aria2 16 线程 + 断点续传；完整性以 GitHub Releases API 的 `asset.digest` 为准，镜像只承担传输。实测直连约 8 KB/s，镜像可达 MB/s 级 | 已完成（未配 HTTP 代理：服务器无可用上游） |
+| 补上 Docker，前后端服务用 Docker，数据库/Redis 等中间件单独部署 | 三个应用容器化（`network_mode: host`，只绑 `127.0.0.1`）；PostgreSQL、Redis、Nginx 保持宿主机原生 systemd，与容器生命周期解耦；容器只承载 CI 产物，服务器不编译 | 已完成并复验 |
+| 不要再做额外验证测试，尽快交付 | 收到该要求后停止扩展验收矩阵，仅保留：容器化后关键路径复验 6 项、空闲/负载资源采样、页面与 API 延迟 | 已遵守 |
+| 生成交接文档 | 本文件；并附 `README.md`（包结构）与两个可直接运行的脚本 | 已完成 |
+| 凭据走既有安全渠道 | 密码只落在服务器 `root` 可读文件，不出现在对话、仓库或日志；本机私钥放在 `~/.ssh/mai-portfolio-test4c4g/` | 已完成（sudo 密码领取见 §4） |
+| 需要授权时用链接形式 | GitHub PAT 创建链接、PR 打开链接均以 URL 形式给出 | 已完成 |
+
 ---
 
 ## 1. 做了什么
@@ -99,8 +112,13 @@ https://localhost:8443          # 自签证书，首次需手动信任
 ### 2.3 主机指纹
 
 ```
-（见下文"领取账号"命令：ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub）
+ED25519  SHA256:4qZu+PolrK1xzBIDDDg3k7c0/Wfr7+Tki9FRBGIdVU8
+RSA-3072 SHA256:KMMof6XiC60XNGBHQO1+TFLpxVL/olrz4cuwCLKZGBs
 ```
+
+维护者密钥指纹：`mai_ops` = `SHA256:VgI0P6uIm11pYdhsqhPk45aTiOyHJpfr1FaIols0Ey8`，
+`mai_test` = `SHA256:rikgl7nJroayLNWDf9Ly4fvQ99UJFU2GfNxtkgdqhe8`，
+`mai_deploy` = `SHA256:xMmHoRIkxNBhC192M4j+tq2zluZjA1CamVZNEo6obws`。
 
 ### 2.4 账号
 
@@ -249,3 +267,28 @@ Nginx 用 `$remote_addr` 作为 `X-Forwarded-For`，而隧道让所有请求的�
 | 模型供应商测试 Key | 真实 Chat / Embedding / SSE 正文 / 并发聊天 P95 无法验收 | 在后台「站点与限额」配置供应商地址、Key、模型 ID |
 | OSS 测试 AccessKey | 资产上传与签名直连无法验收 | 提供后把 `PORTFOLIO_MEDIA_*` 改为 `oss` 并重启 spring 容器 |
 | GitHub `Pull requests: write` | 我无法创建 PR（已尝试，403）；分支已推送 | 你用 https://github.com/WKING66/mai-s-portfolio/pull/new/codex/test-4c4g-docker 直接开 |
+
+---
+
+## 7. 未完成的测试项（逐项标注）
+
+以下项目**没有实测**，不能当作已验收；括号内是阻塞原因。
+
+| # | 测试项 | 状态 | 阻塞原因 |
+| --- | --- | --- | --- |
+| 1 | 真实 Chat 对话（模型返回正文） | 未测 | 缺模型供应商测试 Key |
+| 2 | 真实 Embedding | 未测 | 同上 |
+| 3 | SSE 首段正文耗时（TTFB 到首个 `delta`） | 未测 | 无模型返回；仅验证到请求进入 Java→Python 链路后返回 500 |
+| 4 | 并发聊天时的 CPU / 内存 / swap / P95 | 未测 | 同上 |
+| 5 | 聊天负载下的 5xx 与 OOM 计数 | 未测 | 同上（页面/API 负载下 5xx=0、无 OOM 已测） |
+| 6 | OSS 上传、签名直连、1 小时过期 | 未测 | 缺 OSS AccessKey；当前 `PORTFOLIO_MEDIA_STORAGE=local` |
+| 7 | 资源级跨账号隔离（A 读 B 的会话/执行/资产） | 部分 | 已测「会话不串号」与「普通账号访问管理接口 403」；逐资源越权未穷举 |
+| 8 | 回退演练（`rollback`） | 未演练 | 脚本已实现但未实机执行（会把当前版本回退，属破坏性操作） |
+| 9 | 双库恢复演练（`restore-db`） | 未演练 | 同上 |
+| 10 | 数据库结构变更路径（停机点备份→迁移→失败保留日志） | 未演练 | 本次部署为首次建库，没有可对比的上一版结构 |
+| 11 | M2 索引并行场景复测 | 不适用 | M2 尚未实现；pgvector 0.6.0 与 `site_guide_test` schema 已就绪 |
+| 12 | 云控制台恢复通道验证 | 待你确认 | 需你在控制台执行 `passwd mai-ops`（见 §4） |
+| 13 | 备用机 `160.202.241.175` 业务部署与加固 | 未做 | 按任务定位只作备用；本次仅用于安全组反向验证 |
+| 14 | `mai-ops` sudo 可用性 | 阻塞 | 密码只存在于 root 可读文件（见 §4） |
+
+> 结论：环境、CD、账号体系、安全边界、页面/API 性能可用；**凡涉及模型或 OSS 的功能链路一律未验收**。
