@@ -28,9 +28,9 @@ class AssetQueryServiceImplTest {
 
     @Test void bulkQueryUsesReadyTypeAndIdsWithoutRetrievingObjectBytesOrInferringUsageFromKeys() {
         MediaAssetDO row = new MediaAssetDO();
-        row.setId(19L); row.setAssetType(0); row.setStatus(1); row.setUsage("IMAGE");
+        row.setId(19L); row.setType(0); row.setStatus(1); row.setUsage(AssetUsage.IMAGE.code());
         row.setUploaderAccountId(7L); row.setStorageKey("legacy/arbitrary/object.png");
-        row.setOriginalFilename("image.png"); row.setMimeType("image/png"); row.setByteSize(12L);
+        row.setOriginalFilename("image.png"); row.setContentType("image/png"); row.setByteSize(12L);
         when(mapper.selectList(any())).thenReturn(List.of(row));
         Instant expiry = Instant.parse("2030-01-01T00:00:00Z");
         when(storage.accessUrl(row.getStorageKey())).thenReturn(new StoredObjectAccessUrl("https://oss.test/signed", expiry));
@@ -54,7 +54,7 @@ class AssetQueryServiceImplTest {
     }
     @Test void metadataQueryDoesNotDependOnStorageAvailability() {
         var row = new MediaAssetDO();
-        row.setId(19L); row.setStatus(1); row.setAssetType(0); row.setUsage("AVATAR"); row.setUploaderAccountId(7L);
+        row.setId(19L); row.setStatus(1); row.setType(0); row.setUsage(AssetUsage.AVATAR.code()); row.setUploaderAccountId(7L);
         when(mapper.selectById(19L)).thenReturn(row);
         assertThat(service.findReadyMetadata(19L)).contains(new AssetMetadataData(19L, AssetType.IMAGE, AssetUsage.AVATAR, 7L));
         row.setStatus(2);
