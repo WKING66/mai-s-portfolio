@@ -51,6 +51,50 @@ class AliyunOssObjectStorageTest {
     }
 
     @Test
+    void confinesEveryOssOperationToConfiguredPrefixAndKeepsTheLogicalKey() throws Exception {
+        OSS client = mock(OSS.class);
+        String logicalKey = "assets/images/object.png";
+        String ossKey = "test/mai-portfolio-a/" + logicalKey;
+        byte[] content = {1};
+        var metadata = new ObjectMetadata();
+        metadata.setContentLength(content.length);
+        var remote = new OSSObject();
+        remote.setObjectMetadata(metadata);
+        remote.setObjectContent(new ByteArrayInputStream(content));
+        when(client.putObject(any(PutObjectRequest.class))).thenReturn(new PutObjectResult());
+        when(client.generatePresignedUrl(any(GeneratePresignedUrlRequest.class)))
+                .thenReturn(new java.net.URI("https://oss.test/signed").toURL());
+        when(client.getObject(BUCKET, ossKey)).thenReturn(remote);
+        when(client.doesObjectExist(BUCKET, ossKey)).thenReturn(true);
+        var storage = new AliyunOssObjectStorage(
+                client, BUCKET, java.time.Duration.ofHours(1), "test/mai-portfolio-a/");
+
+        var stored = storage.store(new ObjectStorageWriteRequest(
+                logicalKey, new ByteArrayInputStream(content), content.length, "image/png"));
+        assertThat(stored.objectKey()).isEqualTo(logicalKey);
+        storage.accessUrl(logicalKey);
+        storage.downloadUrl(logicalKey, "object.png");
+        assertThat(storage.exists(logicalKey)).isTrue();
+        try (var opened = storage.open(logicalKey)) {
+            assertThat(opened.inputStream().readAllBytes()).isEqualTo(content);
+        }
+        storage.delete(logicalKey);
+
+        var upload = ArgumentCaptor.forClass(PutObjectRequest.class);
+        var signatures = ArgumentCaptor.forClass(GeneratePresignedUrlRequest.class);
+        verify(client).putObject(upload.capture());
+        assertThat(upload.getValue().getKey()).isEqualTo(ossKey);
+        verify(client, org.mockito.Mockito.times(2)).generatePresignedUrl(signatures.capture());
+        assertThat(signatures.getAllValues()).allSatisfy(request -> assertThat(request.getKey()).isEqualTo(ossKey));
+        verify(client).deleteObject(BUCKET, ossKey);
+        assertThatThrownBy(() -> storage.delete("../unrelated"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new AliyunOssObjectStorage(
+                client, BUCKET, java.time.Duration.ofHours(1), "test/../other/"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void mapsOssFileAlreadyExistsToStableStorageException() {
         OSS client = mock(OSS.class);
         OSSException conflict = mock(OSSException.class);

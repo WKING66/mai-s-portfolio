@@ -7,7 +7,6 @@ import com.aliyun.oss.ClientBuilderConfiguration;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
 import com.aliyun.oss.common.comm.Protocol;
-import com.aliyun.oss.model.CannedAccessControlList;
 import dev.amai.portfolio.storage.exception.ObjectAlreadyExistsException;
 import dev.amai.portfolio.storage.ObjectStorageWriteRequest;
 import java.io.ByteArrayInputStream;
@@ -40,7 +39,8 @@ class AliyunOssObjectStorageIntegrationTest {
             requiredEnvironment("OSS_ACCESS_KEY_ID"),
             requiredEnvironment("OSS_ACCESS_KEY_SECRET"),
             configuration);
-        storage = new AliyunOssObjectStorage(client, bucketName);
+        storage = new AliyunOssObjectStorage(
+                client, bucketName, java.time.Duration.ofHours(1), requiredEnvironment("OSS_KEY_PREFIX"));
     }
 
     @AfterEach
@@ -52,9 +52,6 @@ class AliyunOssObjectStorageIntegrationTest {
 
     @Test
     void storesReadsRefusesOverwriteAndDeletesObjectInPrivateBucket() throws Exception {
-        assertThat(client.getBucketAcl(bucketName).getCannedACL())
-            .isEqualTo(CannedAccessControlList.Private);
-
         String objectKey = "integration-tests/" + UUID.randomUUID() + ".txt";
         byte[] content = "mai-portfolio-oss-integration".getBytes(StandardCharsets.UTF_8);
         try {
@@ -63,6 +60,19 @@ class AliyunOssObjectStorageIntegrationTest {
 
             assertThat(stored.eTag()).isNotBlank();
             assertThat(storage.exists(objectKey)).isTrue();
+            var signed = java.net.URI.create(storage.accessUrl(objectKey).url());
+            try (var http = java.net.http.HttpClient.newHttpClient()) {
+                var request = java.net.http.HttpRequest.newBuilder(signed)
+                        .timeout(java.time.Duration.ofSeconds(15)).GET().build();
+                var response = http.send(request, java.net.http.HttpResponse.BodyHandlers.ofByteArray());
+                assertThat(response.statusCode()).isEqualTo(200);
+                assertThat(response.body()).isEqualTo(content);
+                var unsigned = new java.net.URI(signed.getScheme(), signed.getAuthority(), signed.getPath(), null, null);
+                var unsignedRequest = java.net.http.HttpRequest.newBuilder(unsigned)
+                        .timeout(java.time.Duration.ofSeconds(15)).GET().build();
+                assertThat(http.send(unsignedRequest, java.net.http.HttpResponse.BodyHandlers.discarding()).statusCode())
+                        .isEqualTo(403);
+            }
             try (var object = storage.open(objectKey)) {
                 assertThat(object.byteSize()).isEqualTo(content.length);
                 assertThat(object.inputStream().readAllBytes()).isEqualTo(content);

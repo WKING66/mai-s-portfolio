@@ -41,6 +41,7 @@ portfolio:
     oss:
       endpoint: ${OSS_ENDPOINT:https://oss-cn-shenzhen.aliyuncs.com}
       bucket-name: ${OSS_BUCKET_NAME:amai-portfolio}
+      key-prefix: ${OSS_KEY_PREFIX:}
       access-key-id: ${OSS_ACCESS_KEY_ID}
       access-key-secret: ${OSS_ACCESS_KEY_SECRET}
       connect-timeout: ${OSS_CONNECT_TIMEOUT:5s}

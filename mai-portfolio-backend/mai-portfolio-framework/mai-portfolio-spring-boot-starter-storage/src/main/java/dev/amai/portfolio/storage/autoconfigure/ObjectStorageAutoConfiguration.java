@@ -60,7 +60,8 @@ public class ObjectStorageAutoConfiguration {
         return new AliyunOssObjectStorage(
                 ossClient,
                 mediaStorageProperties.oss().bucketName(),
-                mediaStorageProperties.signedUrlTtl());
+                mediaStorageProperties.signedUrlTtl(),
+                mediaStorageProperties.oss().keyPrefix());
     }
 
     private String validateOssConfiguration(MediaStorageProperties.Oss ossProperties) {
