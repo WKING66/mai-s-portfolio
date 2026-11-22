@@ -30,6 +30,7 @@ class Settings(BaseSettings):
 
     execution_concurrency: int = Field(default=2, gt=0, le=16)
     execution_queue_limit: int = Field(default=8, ge=0, le=128)
+    chat_timing_enabled: bool = False
 
     @field_validator("ai_server_token")
     @classmethod

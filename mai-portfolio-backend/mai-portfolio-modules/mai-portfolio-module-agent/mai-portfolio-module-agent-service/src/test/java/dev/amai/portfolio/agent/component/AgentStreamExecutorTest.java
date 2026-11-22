@@ -26,6 +26,7 @@ import dev.amai.portfolio.web.advice.GlobalExceptionHandler;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -55,13 +56,14 @@ class AgentStreamExecutorTest {
             assertTrue(Thread.currentThread().getName().startsWith("agent-sse-"));
             forwarding.countDown();
             assertTrue(finish.await(10, TimeUnit.SECONDS));
+            call.<BiConsumer<String, String>>getArgument(1).accept("delta", "{\"text\":\"正文\"}");
             return null;
         }).when(service).events(eq(active), any(), any());
 
         var streams = new AgentStreamExecutor(1, 1);
         try {
             var mvc = MockMvcBuilders.standaloneSetup(
-                            new AgentConversationController(service, owners, streams, JsonMapper.builder().build()),
+                            new AgentConversationController(service, owners, streams, JsonMapper.builder().build(), true),
                             new ExportFixture())
                     .setControllerAdvice(new GlobalExceptionHandler()).build();
             var first = mvc.perform(submission(FIRST_ID)).andExpect(request().asyncStarted()).andReturn();
@@ -85,7 +87,8 @@ class AgentStreamExecutorTest {
             finish.countDown();
             mvc.perform(asyncDispatch(first)).andExpect(status().isOk())
                     .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
-                    .andExpect(content().string(containsString("event: accepted")));
+                    .andExpect(content().string(containsString("event: accepted")))
+                    .andExpect(content().string(containsString("event: delta")));
         } finally {
             finish.countDown();
             streams.close();

@@ -1,12 +1,16 @@
 import asyncio
 import json
+import logging
 from dataclasses import replace
+from uuid import UUID
 
 import httpx
 import pytest
 from langchain_core.messages import HumanMessage
+from openai import APIError
 from pydantic import SecretStr, ValidationError
 
+from app.chat_timing import ChatTiming
 from app.contracts.model_catalog import ChatParameters, ModelConfig
 from app.contracts.wire import ExecutionRejected
 from app.provider import model_routing
@@ -77,8 +81,10 @@ def test_thinking_option_round_trips_as_a_boolean() -> None:
         ChatParameters.model_validate({"enableThink": "false"})
 
 
-def test_thinking_only_signals_once_before_visible_text() -> None:
+def test_thinking_only_signals_once_before_visible_text(caplog: pytest.LogCaptureFixture) -> None:
     trace: list[str] = []
+    timing = ChatTiming(UUID("46abe276-08b6-4d59-8d3d-7822920dcfac"), 23)
+    caplog.set_level(logging.INFO, logger="uvicorn.error.chat_timing")
 
     def respond(_: httpx.Request) -> httpx.Response:
         reasoning = {
@@ -96,7 +102,7 @@ def test_thinking_only_signals_once_before_visible_text() -> None:
             routing = ModelRouting(http)
             async for chunk in routing.stream_chat(
                 [candidate(1, "fixture")], [HumanMessage("你好")],
-                on_thinking=lambda: trace.append("thinking"),
+                on_thinking=lambda: trace.append("thinking"), timing=timing,
             ):
                 if chunk.text:
                     trace.append(chunk.text)
@@ -104,10 +110,23 @@ def test_thinking_only_signals_once_before_visible_text() -> None:
 
     asyncio.run(check())
 
+    messages = [record.getMessage() for record in caplog.records if record.name == "uvicorn.error.chat_timing"]
+    attempt, = [line for line in messages if line.startswith("chat_model_timing")]
+    fields = dict(item.split("=", 1) for item in attempt.split()[1:])
+    assert fields["request_id"] == str(timing.request_id)
+    assert fields["execution_id"] == "23"
+    assert (int(fields["dispatched_ms"]) <= int(fields["first_frame_ms"])
+            <= int(fields["first_thinking_ms"]) <= int(fields["first_body_ms"]))
+    assert "private fixture" not in attempt
+    assert "正式正文" not in attempt
+    assert "fixture-key" not in attempt
 
-def test_free_quota_rejection_falls_back_to_next_model_on_same_card() -> None:
+
+def test_free_quota_rejection_falls_back_to_next_model_on_same_card(caplog: pytest.LogCaptureFixture) -> None:
     called: list[str] = []
     models = [candidate(1, "primary"), candidate(2, "backup"), candidate(3, "unused")]
+    timing = ChatTiming(UUID("666d32c3-1649-4b4f-8537-bdfb2fb58cf8"), 24)
+    caplog.set_level(logging.INFO, logger="uvicorn.error.chat_timing")
 
     def respond(request: httpx.Request) -> httpx.Response:
         model = json.loads(request.content)["model"]
@@ -126,13 +145,48 @@ def test_free_quota_rejection_falls_back_to_next_model_on_same_card() -> None:
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
             routing = ModelRouting(http)
             chunks = [
-                chunk.text async for chunk in routing.stream_chat(models, [HumanMessage("你好")])
+                chunk.text async for chunk in routing.stream_chat(models, [HumanMessage("你好")], timing=timing)
             ]
             assert "".join(chunks) == "可用"
             assert called == ["primary", "backup"]
             assert routing.available(models) == models[1:]
 
     asyncio.run(check())
+
+    attempts = [line for line in caplog.messages if line.startswith("chat_model_timing")]
+    assert len(attempts) == 2
+    assert "model_id=1 attempt=1" in attempts[0]
+    assert "http_status=403 provider_code=AllocationQuota.FreeTierOnly" in attempts[0]
+    assert "first_body_ms=None" in attempts[0]
+    assert "model_id=2 attempt=1" in attempts[1]
+    assert "first_body_ms=None" not in attempts[1]
+
+
+def test_timing_reports_allowlisted_error_in_http_200_stream(caplog: pytest.LogCaptureFixture) -> None:
+    timing = ChatTiming(UUID("0c702ac5-38bd-4a49-89ef-e38528076cae"), 25)
+    caplog.set_level(logging.INFO, logger="uvicorn.error.chat_timing")
+
+    def respond(_: httpx.Request) -> httpx.Response:
+        error = {"error": {"code": "Throttling.RateQuota", "message": "private provider text"}}
+        return httpx.Response(
+            200, headers={"content-type": "text/event-stream"},
+            content=stream_data("fixture", " ") + f"data: {json.dumps(error)}\n\n".encode(),
+        )
+
+    async def check() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+            routing = ModelRouting(http)
+            with pytest.raises(APIError):
+                async for _ in routing.stream_chat(
+                    [candidate(1, "fixture")], [HumanMessage("你好")], timing=timing,
+                ):
+                    pass
+
+    asyncio.run(check())
+    attempt, = [line for line in caplog.messages if line.startswith("chat_model_timing")]
+    assert "first_body_ms=None" in attempt
+    assert "error_type=APIError http_status=None provider_code=Throttling.RateQuota" in attempt
+    assert "private provider text" not in attempt
 
 
 class BrokenResponse(httpx.AsyncByteStream):

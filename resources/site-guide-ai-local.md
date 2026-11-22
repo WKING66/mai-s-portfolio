@@ -56,3 +56,18 @@ AI 每小时清理已终结超过 24 小时的执行正文，保留请求标识�
 - 新轮次必须取得 Redis 的全站滚动窗口许可，默认最近一小时最多 60 轮。Redis 超时或不可用时，新轮次返回 503。已受理轮次的恢复在业务层按 PostgreSQL 的原请求编号处理，站点的请求频率保护和登录本身仍依赖 Redis。
 - 切换新版时先停止旧 Java 实例的受理并等待在途事务结束，再启动新版，等 Java 就绪后恢复入口受理。Java 启动时用 PostgreSQL 中当前窗口内的 `quota_at` 和 `request_id` 补齐 Redis，已有登记保留原时间。
 - 单机 Redis 短时断连后，原进程和原窗口仍在时，新轮次随连接恢复而恢复。Redis 进程重启后，旧快照可能缺少最近的轮次，新轮次继续返回 503。待 Redis 恢复后停止 Java 并等待旧实例退出，再启动 Java 重建窗口。若 Redis 窗口键被删除，也执行同样的 Java 重启步骤。
+
+## 实机首字计时
+
+诊断默认关闭。短时验收可在 Python 设置 `CHAT_TIMING_ENABLED=true`，在 Spring 设置
+`site-guide.chat-timing.enabled=true`（容器环境变量 `SITE_GUIDE_CHATTIMING_ENABLED=true`）。
+用内部日志的 `request_id` 和 `execution_id` 关联浏览器或压测客户端的发送和首段非空白正文。
+
+- `chat_execution_timing` 从 Python 受理提交起算，记录获得执行位、进入运行态、首段正文提交及任务结束。
+- `chat_candidate_selection` 和 `chat_model_timing` 记录配置候选与当前可用候选、每次尝试的模型目录 ID、序号、请求开始、首个解码 SSE 帧、LangChain 首块、首个思考信号和首段可见正文。
+  现有 5 秒超时针对 LangChain 首块。首个解码帧可能携带角色或思考信号。
+- `chat_sse_timing` 从 Java 控制器接手请求起算，区分进入 SSE 线程、轮次已就绪、受理帧写出、首段可见正文收到和写出。
+  同一执行可有多条连接日志，按发送和续订区分。
+
+进程内耗时使用单调时钟，两个进程的相对时间各有起点。同机测试可用日志中的 Unix 毫秒起点对齐 Java 和 Python，进程内部用单调时钟差值，客户端以自己的第一次提交为首字计时起点。
+日志只包含标识、计时、状态和已知错误码。正文、思考原文、凭据、供应商响应不写入诊断日志。验收结束关闭开关。
