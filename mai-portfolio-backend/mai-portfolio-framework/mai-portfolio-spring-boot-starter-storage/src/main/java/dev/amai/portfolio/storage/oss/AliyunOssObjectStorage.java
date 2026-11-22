@@ -43,18 +43,30 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
     private final OSS ossClient;
     private final String bucketName;
     private final Duration signedUrlTtl;
+    private final String keyPrefix;
 
     public AliyunOssObjectStorage(OSS ossClient, String bucketName) {
         this(ossClient, bucketName, MediaStorageProperties.DEFAULT_SIGNED_URL_TTL);
     }
 
     public AliyunOssObjectStorage(OSS ossClient, String bucketName, Duration signedUrlTtl) {
+        this(ossClient, bucketName, signedUrlTtl, null);
+    }
+
+    public AliyunOssObjectStorage(
+            OSS ossClient, String bucketName, Duration signedUrlTtl, String keyPrefix) {
         this.ossClient = Objects.requireNonNull(ossClient);
         if (bucketName == null || bucketName.isBlank()) {
             throw new IllegalArgumentException(
                     StorageMessageConstants.OSS_CONFIGURATION_INCOMPLETE);
         }
         this.bucketName = bucketName.trim();
+        String configuredPrefix = Objects.requireNonNullElse(keyPrefix, "");
+        this.keyPrefix = configuredPrefix.isEmpty()
+                ? ""
+                : ObjectStorageKeyValidator.validate(configuredPrefix.endsWith("/")
+                        ? configuredPrefix.substring(0, configuredPrefix.length() - 1)
+                        : configuredPrefix) + "/";
         this.signedUrlTtl = Objects.requireNonNull(signedUrlTtl);
         if (signedUrlTtl.isZero() || signedUrlTtl.isNegative()) {
             throw new IllegalArgumentException(StorageMessageConstants.ACCESS_URL_TTL_INVALID);
@@ -80,7 +92,7 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
 
     private StoredObjectAccessUrl signedUrl(String objectKey, String filename) {
         // 1. 校验对象身份并将到期时间对齐到 SDK 使用的毫秒精度。
-        String key = ObjectStorageKeyValidator.validate(objectKey);
+        String key = ossKey(objectKey);
         Instant expiresAt = Instant.ofEpochMilli(Instant.now().plus(signedUrlTtl).toEpochMilli());
         try {
             // 2. 下载文件名随响应头一起签名；旧 .bin 对象也能使用原始名称，无需迁移文件。
@@ -109,6 +121,7 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
     public StoredObject store(ObjectStorageWriteRequest request) {
         Objects.requireNonNull(request, StorageMessageConstants.CONTENT_REQUIRED);
         // 1. 先核对完整字节长度；不匹配时清理暂存内容，不调用 OSS。
+        String key = ossKey(request.objectKey());
         Path stagedContent = stageAndVerify(request);
         // 2. 传递已校验元数据，并使用 OSS 条件写入禁止同键覆盖。
         ObjectMetadata objectMetadata = new ObjectMetadata();
@@ -119,7 +132,7 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
         try (InputStream input = Files.newInputStream(stagedContent)) {
             // 3. 从暂存文件上传，关闭本次打开的流；原始输入流仍归调用方持有。
             PutObjectRequest putObjectRequest =
-                    new PutObjectRequest(bucketName, request.objectKey(), input, objectMetadata);
+                    new PutObjectRequest(bucketName, key, input, objectMetadata);
             PutObjectResult putObjectResult = ossClient.putObject(putObjectRequest);
             return new StoredObject(
                     request.objectKey(), request.byteSize(), putObjectResult.getETag());
@@ -135,14 +148,14 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
 
     @Override
     public StoredObjectContent open(String objectKey) {
-        String key = ObjectStorageKeyValidator.validate(objectKey);
+        String key = ossKey(objectKey);
         try {
             // 内容流交给返回对象持有，调用方关闭 StoredObjectContent 时释放连接。
             OSSObject ossObject = ossClient.getObject(bucketName, key);
             return new StoredObjectContent(
                     ossObject.getObjectContent(), ossObject.getObjectMetadata().getContentLength());
         } catch (OSSException error) {
-            throw translate(error, key, StorageMessageConstants.READ_FAILED);
+            throw translate(error, objectKey, StorageMessageConstants.READ_FAILED);
         } catch (ClientException error) {
             throw new ObjectStorageException(StorageMessageConstants.READ_FAILED, error);
         }
@@ -150,7 +163,7 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
 
     @Override
     public boolean exists(String objectKey) {
-        String key = ObjectStorageKeyValidator.validate(objectKey);
+        String key = ossKey(objectKey);
         try {
             return ossClient.doesObjectExist(bucketName, key);
         } catch (OSSException | ClientException error) {
@@ -160,12 +173,18 @@ public final class AliyunOssObjectStorage implements ObjectStorage {
 
     @Override
     public void delete(String objectKey) {
-        String key = ObjectStorageKeyValidator.validate(objectKey);
+        String key = ossKey(objectKey);
         try {
             ossClient.deleteObject(bucketName, key);
         } catch (OSSException | ClientException error) {
             throw new ObjectStorageException(StorageMessageConstants.DELETE_FAILED, error);
         }
+    }
+
+    // 数据库和调用方继续使用逻辑键。只有调用 OSS SDK 时才加环境前缀。
+    private String ossKey(String objectKey) {
+        String logicalKey = ObjectStorageKeyValidator.validate(objectKey);
+        return ObjectStorageKeyValidator.validate(keyPrefix + logicalKey);
     }
 
     private ObjectStorageException translate(

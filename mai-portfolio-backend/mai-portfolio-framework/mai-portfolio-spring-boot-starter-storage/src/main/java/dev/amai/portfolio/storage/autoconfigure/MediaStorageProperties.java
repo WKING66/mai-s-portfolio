@@ -25,7 +25,7 @@ public record MediaStorageProperties(
     public MediaStorageProperties {
         storage = storage == null ? MediaStorageType.LOCAL : storage;
         localDirectory = localDirectory == null ? DEFAULT_LOCAL_DIRECTORY : localDirectory;
-        oss = oss == null ? new Oss(null, null, null, null, null, null, 0) : oss;
+        oss = oss == null ? new Oss(null, null, null, null, null, null, 0, null) : oss;
         signedUrlTtl = signedUrlTtl == null ? DEFAULT_SIGNED_URL_TTL : signedUrlTtl;
         if (signedUrlTtl.isZero() || signedUrlTtl.isNegative()) {
             throw new IllegalArgumentException(StorageMessageConstants.ACCESS_URL_TTL_INVALID);
@@ -46,7 +46,9 @@ public record MediaStorageProperties(
 
             Duration socketTimeout,
 
-            int maxConnections
+            int maxConnections,
+
+            String keyPrefix
 
         ) {
         private static final Duration DEFAULT_CONNECT_TIMEOUT = Duration.ofSeconds(5);

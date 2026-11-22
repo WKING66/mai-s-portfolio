@@ -24,12 +24,14 @@ mai-deploy ALL=(root) NOPASSWD: /usr/local/sbin/mai-portfolio-deploy ^deploy\ te
 | --- | --- |
 | Spring | `SPRING_PROFILES_ACTIVE=prod`，`SPRING_DATASOURCE_DRUID_URL`、`SPRING_DATASOURCE_DRUID_USERNAME`、`SPRING_DATASOURCE_DRUID_PASSWORD`，`REDIS_PASSWORD`、`REDIS_DATABASE`、`REDIS_KEY_PREFIX`，`AUTH_RSA_PRIVATE_KEY_LOCATION` 指向已挂载的 PEM URI，ADMIN_ALLOWED_ORIGINS 指定实际 HTTPS 站点来源，`SITE_GUIDE_AI_TOKEN` 与 AI 侧一致。 |
 | 日志与本地媒体 | `LOG_FILE=/srv/mai-portfolio/shared/logs/spring/mai-portfolio.log`，`MEDIA_LOCAL_DIRECTORY=/srv/mai-portfolio/shared/media`，`MEDIA_STORAGE=local`。 |
-| OSS | 使用独立测试 Bucket，设置 `MEDIA_STORAGE=oss`、`OSS_ENDPOINT`、`OSS_BUCKET_NAME`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`。接口使用自己的 `assets/` 对象键，权限须覆盖本次会创建的资产类别。 |
+| OSS | 使用独立测试 Bucket，或在共享私有 Bucket 中设置专用 `OSS_KEY_PREFIX`（如 `test/mai-portfolio-a/`），并将凭据的对象权限限于该前缀。设置 `MEDIA_STORAGE=oss`、`OSS_ENDPOINT`、`OSS_BUCKET_NAME`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`。 |
 | AI 与 Web | AI 需要 `DATABASE_URL`、`AI_DB_SCHEMA`、`AI_SERVER_TOKEN` 与 `CONFIG_ENCRYPTION_KEY`；通过管理界面配置模型。Web 使用同机 API 地址和回环监听。 |
 
 GitHub 公共 Release 的元数据通过直连 TLS 核对。若大文件需要代理，由维护者在 `/etc/mai-portfolio/github-transfer.curl` 配置受信任的出站代理，文件 root-only，仅用于传输，不增加入站端口。测试主机无需 GitHub 写权限令牌。直连和代理都太慢时，可为 mai-deploy 准备可写的 /srv/mai-portfolio/incoming 目录，然后通过现有 SSH 将官方同名资产上传到该目录的完整标签子目录。部署入口仍独立向 GitHub 取证，只接受匹配摘要的私有副本。维护者在发布成功后清理已上传的临时文件。
 
 新建数据库首次启动时，由维护者通过环境注入 PORTFOLIO_BOOTSTRAP_ENABLED=true 和 PORTFOLIO_BOOTSTRAP_INITIAL_PASSWORD，初始化站点与管理员。初始化成功后移除初始密码并关闭该开关。已有站点继续使用现有数据库与账号。
+
+旧环境从本地存储切换到 OSS 前，按数据库的逻辑对象键把已引用文件复制到目标前缀，逐项校验内容并保留本地副本。确认发布验收通过后再处理本地数据。
 
 ## 发布和失败恢复
 
