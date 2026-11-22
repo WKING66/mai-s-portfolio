@@ -177,7 +177,7 @@ jobs:
           if-no-files-found: error
 
   draft:
-    name: Prepare draft for maintainer review
+    name: Stage verified test release assets
     permissions:
       contents: write
     needs: [resolve, build-spring, build-web, build-ai]
@@ -214,10 +214,13 @@ jobs:
             echo "::error title=重名发布::Release $TAG 已存在，拒绝覆盖已发布产物。"
             exit 1
           fi
+          summary=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA" --jq '.commit.message | split("\n")[0]')
+          test -n "$summary"
+          printf '## 变更摘要\n\n%s\n\n候选提交：%s\n' "$summary" "$SHA" > "$RUNNER_TEMP/release-notes.md"
           gh release create "$TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
             --target "$SHA" \
             --title "test-4c4g $SHA" \
-            --notes "4c4g 测试环境发布 $SHA，待维护者审核后手动发布。" \
+            --notes-file "$RUNNER_TEMP/release-notes.md" \
             spring.jar web.tar.gz ai.tar.gz manifest.json SHA256SUMS
