@@ -77,18 +77,27 @@ stop_stack() {
 }
 
 github_json() {
-  curl -q --fail --silent --show-error --proto '=https' --connect-timeout 10 --max-time 40 \
+  curl -q --noproxy '*' --fail --silent --show-error --proto '=https' --connect-timeout 10 --max-time 40 \
     -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$repo/$1"
 }
 
 asset_matches() {
   local path=$1 size=$2 digest=$3
-  [[ $(stat -c %s "$path") == "$size" ]] &&
+  [[ -f "$path" && $(stat -c %s "$path") == "$size" ]] &&
     printf '%s  %s\n' "$digest" "$path" | sha256sum --check --status
 }
 
+download_asset() {
+  local path=$1 size=$2 digest=$3 url=$4
+  shift 4
+  curl -q "$@" --no-insecure --no-proxy-insecure --fail --silent --show-error --location \
+    --proto '=https' --proto-redir '=https' --connect-timeout 10 --max-time 1200 \
+    --max-filesize "$size" --output "$path" "$url" &&
+    asset_matches "$path" "$size" "$digest"
+}
+
 stage_release() {
-  local tag=$1 dir=$2 sha asset size digest
+  local tag=$1 dir=$2 sha asset size digest destination url
   local transfer=()
   # Optional root-owned curl config for the asset transfer only. Metadata always goes to GitHub.
   if [[ -f "$config/github-transfer.curl" ]]; then
@@ -114,10 +123,19 @@ stage_release() {
         asset_matches "$dir/$asset" "$size" "$digest"; then
       continue
     fi
-    curl -q "${transfer[@]}" --no-insecure --fail --silent --show-error --location --proto '=https' \
-      --proto-redir '=https' --connect-timeout 15 --max-time 1200 --max-filesize "$size" --retry 2 \
-      --output "$dir/$asset" "https://github.com/$repo/releases/download/$tag/$asset"
-    asset_matches "$dir/$asset" "$size" "$digest" || die "GitHub size or digest mismatch for $asset."
+    destination="$dir/$asset"
+    url="https://github.com/$repo/releases/download/$tag/$asset"
+    if (( ${#transfer[@]} )); then
+      if download_asset "$destination" "$size" "$digest" "$url" \
+        "${transfer[@]}" --retry 0 --speed-limit 8192 --speed-time 15; then
+        continue
+      fi
+      printf '[deploy] Proxy download failed or did not match GitHub for %s. Trying direct for this release.\n' "$asset" >&2
+      transfer=()
+      rm -f -- "$destination"
+    fi
+    download_asset "$destination" "$size" "$digest" "$url" --noproxy '*' --retry 2 ||
+      die "Direct download failed or GitHub size or digest mismatch for $asset."
   done
   jq -e --arg sha "$sha" --arg tag "$tag" \
     '.gitSha == $sha and .tag == $tag and .cdManaged == true and .builtBy == "github-actions" and .arch == "x86_64"' \
