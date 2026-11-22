@@ -27,7 +27,7 @@ mai-deploy ALL=(root) NOPASSWD: /usr/local/sbin/mai-portfolio-deploy ^deploy\ te
 | OSS | 使用独立测试 Bucket，或在共享私有 Bucket 中设置专用 `OSS_KEY_PREFIX`（如 `test/mai-portfolio-a/`），并将凭据的对象权限限于该前缀。设置 `MEDIA_STORAGE=oss`、`OSS_ENDPOINT`、`OSS_BUCKET_NAME`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`。 |
 | AI 与 Web | AI 需要 `DATABASE_URL`、`AI_DB_SCHEMA`、`AI_SERVER_TOKEN` 与 `CONFIG_ENCRYPTION_KEY`；通过管理界面配置模型。Web 使用同机 API 地址和回环监听。 |
 
-GitHub 公共 Release 的元数据通过直连 TLS 核对。若大文件需要代理，由维护者在 `/etc/mai-portfolio/github-transfer.curl` 配置受信任的出站代理，文件 root-only，仅用于传输，不增加入站端口。测试主机无需 GitHub 写权限令牌。直连和代理都太慢时，可为 mai-deploy 准备可写的 /srv/mai-portfolio/incoming 目录，然后通过现有 SSH 将官方同名资产上传到该目录的完整标签子目录。部署入口仍独立向 GitHub 取证，只接受匹配摘要的私有副本。维护者在发布成功后清理已上传的临时文件。
+GitHub 公共 Release 的元数据通过直连 TLS 核对。若大文件需要代理，由维护者在 `/etc/mai-portfolio/github-transfer.curl` 配置受信任的出站代理，文件 root-only，仅用于传输，不增加入站端口。连接失败、持续 15 秒低于 8 KiB/s 或资产校验失败时，丢弃该次代理取得的文件，当前版本余下的资产改用直连。直连同样核对 GitHub 官方大小和 SHA-256。测试主机无需 GitHub 写权限令牌。直连和代理都太慢时，可为 mai-deploy 准备可写的 /srv/mai-portfolio/incoming 目录，然后通过现有 SSH 将官方同名资产上传到该目录的完整标签子目录。部署入口仍独立向 GitHub 取证，只接受匹配摘要的私有副本。维护者在发布成功后清理已上传的临时文件。
 
 新建数据库首次启动时，由维护者通过环境注入 PORTFOLIO_BOOTSTRAP_ENABLED=true 和 PORTFOLIO_BOOTSTRAP_INITIAL_PASSWORD，初始化站点与管理员。初始化成功后移除初始密码并关闭该开关。已有站点继续使用现有数据库与账号。
 
