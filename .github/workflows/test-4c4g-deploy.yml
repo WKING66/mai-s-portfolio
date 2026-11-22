@@ -4,10 +4,26 @@ on:
   push:
     branches: [dev]
     paths:
-      - '.github/workflows/pr-gate.yml'
-      - '.github/workflows/test-4c4g-deploy.yml'
-      - 'deploy/test-4c4g/**'
-      - 'mai-portfolio-backend/mai-portfolio-launch/src/main/resources/application-prod.yaml'
+      # These inputs affect the Spring JAR, Nuxt output, or AI bundle.
+      - 'mai-portfolio-backend/**/src/main/**'
+      - 'mai-portfolio-backend/**/pom.xml'
+      - 'mai-portfolio-backend/.mvn/**'
+      - 'mai-portfolio-frontend/app/**'
+      - 'mai-portfolio-frontend/public/**'
+      - 'mai-portfolio-frontend/server/**'
+      - 'mai-portfolio-frontend/shared/**'
+      - 'mai-portfolio-frontend/nuxt.config.*'
+      - 'mai-portfolio-frontend/package.json'
+      - 'mai-portfolio-frontend/pnpm-lock.yaml'
+      - 'mai-portfolio-frontend/pnpm-workspace.yaml'
+      - 'mai-portfolio-frontend/.npmrc'
+      - 'mai-portfolio-frontend/tsconfig.json'
+      - 'mai-portfolio-frontend/scripts/check-package-manager.mjs'
+      - 'mai-portfolio-ai-server/app/**'
+      - 'mai-portfolio-ai-server/migrations/**'
+      - 'mai-portfolio-ai-server/alembic.ini'
+      - 'mai-portfolio-ai-server/pyproject.toml'
+      - 'mai-portfolio-ai-server/uv.lock'
   workflow_dispatch:
     inputs:
       sha:
