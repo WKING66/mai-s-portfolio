@@ -5,16 +5,23 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import dev.amai.portfolio.asset.api.*;
+import dev.amai.portfolio.blog.entity.request.BlogContentRequest;
+import dev.amai.portfolio.blog.entity.request.BlogPropertiesRequest;
 import dev.amai.portfolio.blog.entity.request.BlogRequest;
+import dev.amai.portfolio.blog.entity.request.BlogRevisionRequest;
 import dev.amai.portfolio.blog.entity.vo.BlogVo;
+import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.enums.ResourceStatus;
 import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.common.ContentListRequest;
+import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.storage.*;
 import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.web.exception.*;
 
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -52,7 +59,6 @@ import javax.imageio.ImageIO;
         matches = "jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/blog_document_test(?:_[a-z0-9_]+)?")
 class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
     @MockitoBean org.redisson.api.RedissonClient redis;
-    @MockitoBean dev.amai.portfolio.system.service.impl.AccountAuthenticationServiceImpl identity;
     @MockitoBean ObjectStorage storage;
     @MockitoBean dev.amai.portfolio.blog.component.RemoteResourceFetcher remote;
     @Autowired BlogService blogs;
@@ -62,12 +68,14 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
     @Autowired JdbcTemplate jdbc;
     private final Map<String, byte[]> objects = new HashMap<>();
     private long account;
+    private MockedStatic<AccountContext> identity;
 
     @BeforeEach
     void prepare() throws Exception {
         jdbc.execute(
                 "TRUNCATE"
-                    + " blog_post,document,document_version,document_version_asset,media_asset,user_account"
+                    + " blog_post,document,document_content,document_resource,document_content_tag,"
+                    + "document_import_task,document_processing_task,media_asset,user_account"
                     + " CASCADE");
         account =
                 jdbc.queryForObject(
@@ -76,7 +84,7 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                             + " VALUES (?,0,'unused',0,now(),now()) RETURNING id",
                         Long.class,
                         "blog-test-" + UUID.randomUUID());
-        when(identity.currentAccountId()).thenReturn(account);
+        identity = bindIdentity();
         when(storage.store(any()))
                 .thenAnswer(
                         call -> {
@@ -92,6 +100,10 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                                                 + call.getArgument(0)
                                                 + "?Signature=test",
                                         Instant.parse("2030-01-01T00:00:00Z")));
+        when(storage.downloadUrl(anyString(), anyString()))
+                .thenAnswer(call -> new StoredObjectAccessUrl(
+                        "https://oss.example/" + call.getArgument(0) + "?Signature=test",
+                        Instant.parse("2030-01-01T00:00:00Z")));
         when(storage.open(anyString()))
                 .thenAnswer(
                         call -> {
@@ -116,10 +128,38 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                 .delete(anyString());
     }
 
-    private BlogRequest input(
-            BlogVo old, String slug, String title, String body, boolean download) {
-        return new BlogRequest(
-                old == null ? null : old.version(), slug, title, "summary", body, download, false);
+    @AfterEach
+    void releaseIdentity() {
+        if (identity != null) {
+            identity.close();
+        }
+    }
+
+    private MockedStatic<AccountContext> bindIdentity() {
+        var mock = mockStatic(AccountContext.class);
+        mock.when(AccountContext::currentAccount)
+                .thenReturn(new AccountContext.Account(account, "blog-test", List.of("OWNER")));
+        return mock;
+    }
+
+    private BlogVo create(String slug, String title, String body, boolean download) {
+        return blogs.create(new BlogRequest(null, requestId(), slug, title, "summary", body,
+                List.of(), download, false));
+    }
+
+    private BlogVo edit(BlogVo old, String slug, String title, String body, boolean download) {
+        var properties = blogs.saveProperties(old.id(), new BlogPropertiesRequest(old.revision(),
+                requestId(), title, "summary", slug, List.of(), download));
+        return blogs.saveContent(old.id(), new BlogContentRequest(properties.revision(),
+                requestId(), body, false));
+    }
+
+    private BlogVo transition(BlogVo old, BlogAction action) {
+        return blogs.transition(old.id(), new BlogRevisionRequest(old.revision(), requestId()), action);
+    }
+
+    private String requestId() {
+        return UUID.randomUUID().toString();
     }
 
     private byte[] png() throws Exception {
@@ -139,10 +179,10 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                 + "$$\r\n\\sum_{k=1}^{n}k=\\frac{n(n+1)}{2}\r\n$$\r\n\r\n"
                 + "$$\r\nA=\\begin{pmatrix}\r\n1 & 2 \\\\\r\n3 & 4\r\n\\end{pmatrix}\r\n$$\r\n\r\n"
                 + "$$\r\n\\begin{aligned}\r\nf(x) &= x^2+2x+1 \\\\\r\n &= (x+1)^2\r\n\\end{aligned}\r\n$$\r\n";
-        var draft = blogs.save(null, input(null, "dialect-test", "原文", markdown, false));
+        var draft = create("dialect-test", "原文", markdown, false);
         assertThat(draft.content()).isEqualTo(markdown);
         assertThat(draft.resources()).isEmpty();
-        var published = blogs.publish(draft.id(), draft.version(), true);
+        var published = transition(draft, BlogAction.PUBLISH);
         var publicArticle = blogs.publicArticle("dialect-test");
         assertThat(publicArticle.content()).isEqualTo(markdown);
         assertThat(new com.fasterxml.jackson.databind.ObjectMapper().findAndRegisterModules()
@@ -152,34 +192,29 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
 
     @Test
     void draftAndPublishedSnapshotsStayIndependentAndStaleWritesConflict() {
-        var draft = blogs.save(null, input(null, "snapshot-test", "First", "# First", true));
-        assertThat(blogs.list("PUBLIC", 1, 12).items()).noneMatch(b -> b.id() == draft.id());
-        var published = blogs.publish(draft.id(), draft.version(), true);
+        var draft = create("snapshot-test", "First", "# First", true);
+        assertThat(blogs.list(new ContentListRequest("PUBLIC", 1, 12, null)).getItems()).noneMatch(b -> b.id() == draft.id());
+        var published = transition(draft, BlogAction.PUBLISH);
         var edited =
-                blogs.save(
-                        draft.id(), input(published, "snapshot-test", "Second", "# Second", true));
+                edit(published, "snapshot-test", "Second", "# Second", true);
         assertThat(blogs.publicArticle("snapshot-test").title()).isEqualTo("First");
         assertThat(blogs.publicArticle("snapshot-test").content()).isEqualTo("# First");
         assertThat(blogs.get(edited.id()).content()).isEqualTo("# Second");
         assertThat(edited.title()).isEqualTo("Second");
         assertThatThrownBy(
                         () ->
-                                blogs.save(
-                                        draft.id(),
-                                        input(published, "snapshot-test", "Stale", "stale", true)))
+                                edit(published, "snapshot-test", "Stale", "stale", true))
                 .isInstanceOfSatisfying(
                         ApiException.class,
-                        e -> assertThat(e.code()).isEqualTo(ApiErrorCode.DATA_CONFLICT));
-        var republished = blogs.publish(edited.id(), edited.version(), true);
+                        e -> assertThat(e.code()).isEqualTo(ApiErrorCode.DOCUMENT_REVISION_CONFLICT));
+        var republished = transition(edited, BlogAction.PUBLISH);
         assertThat(blogs.publicArticle("snapshot-test").title()).isEqualTo("Second");
         assertThat(blogs.publicArticle("snapshot-test").content()).isEqualTo("# Second");
         assertThatThrownBy(
                         () ->
-                                blogs.save(
-                                        edited.id(),
-                                        input(republished, "renamed", "Second", "# Second", true)))
+                                edit(republished, "renamed", "Second", "# Second", true))
                 .isInstanceOf(ApiException.class);
-        blogs.publish(republished.id(), republished.version(), false);
+        transition(republished, BlogAction.UNPUBLISH);
         assertThatThrownBy(() -> blogs.publicArticle("snapshot-test"))
                 .isInstanceOfSatisfying(
                         ApiException.class,
@@ -197,16 +232,14 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                                 "# Imported\n![missing](missing.png)"
                                         .getBytes(StandardCharsets.UTF_8)),
                         List.of(),
-                        false);
+                        false, List.of(), requestId());
         assertThat(draft.resources()).hasSize(1);
         assertThat(draft.resources().getFirst().status()).isEqualTo(ResourceStatus.INVALID);
         var edited =
-                blogs.save(
-                        draft.id(),
-                        input(draft, "missing-resource", "Imported", draft.content(), true));
-        assertThatThrownBy(() -> blogs.publish(edited.id(), edited.version(), true))
+                edit(draft, "missing-resource", "Imported", draft.content(), true);
+        assertThatThrownBy(() -> transition(edited, BlogAction.PUBLISH))
                 .isInstanceOf(ApiException.class);
-        assertThat(blogs.get(draft.id()).version()).isEqualTo(edited.version());
+        assertThat(blogs.get(draft.id()).revision()).isEqualTo(edited.revision());
         assertThat(objects).isEmpty();
     }
 
@@ -229,7 +262,7 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                                         "report.txt",
                                         "text/plain",
                                         "attachment".getBytes(StandardCharsets.UTF_8))),
-                        false);
+                        false, List.of(), requestId());
         assertThat(draft.resources())
                 .hasSize(2)
                 .allSatisfy(r -> assertThat(r.status()).isEqualTo(ResourceStatus.READY));
@@ -270,14 +303,14 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
         output.reset();
         bodyOnly.writer().write(output);
         assertThat(output.toString(StandardCharsets.UTF_8)).contains("https://oss.example/");
-        var edited = blogs.save(draft.id(), input(draft, "resource-snapshot", "Resources", draft.content(), true));
-        var published = blogs.publish(edited.id(), edited.version(), true);
-        var privateDraft = blogs.save(draft.id(), input(published, "resource-snapshot", "Private draft", "# No resources", true));
+        var edited = edit(draft, "resource-snapshot", "Resources", draft.content(), true);
+        var published = transition(edited, BlogAction.PUBLISH);
+        var privateDraft = edit(published, "resource-snapshot", "Private draft", "# No resources", true);
         assertThat(privateDraft.resources()).isEmpty();
         var publicArticle = blogs.publicArticle("resource-snapshot");
         assertThat(publicArticle.content()).isEqualTo(edited.content()).doesNotContain("Signature=");
         assertThat(publicArticle.resources()).hasSize(2);
-        blogs.publish(privateDraft.id(), privateDraft.version(), false);
+        transition(privateDraft, BlogAction.UNPUBLISH);
         clearInvocations(storage);
         assertThatThrownBy(() -> blogs.publicArticle("resource-snapshot"))
                 .isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.code()).isEqualTo(ApiErrorCode.NOT_FOUND));
@@ -287,25 +320,23 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
     @Test
     void bodyOnlyStillReturnsMarkdownWhenIncludeResourcesSelectedAndDownloadPolicyIsEnforced()
             throws Exception {
-        var draft = blogs.save(null, input(null, "no-resource", "Text", "body", false));
+        var draft = create("no-resource", "Text", "body", false);
         assertThat(exports.prepare(blogs.exportDocument(draft.id(), "MANAGE"), true).filename())
                 .endsWith(".md");
         assertThatThrownBy(() -> blogs.exportDocument(draft.id(), "PUBLIC"))
                 .isInstanceOf(ApiException.class);
-        var published = blogs.publish(draft.id(), draft.version(), true);
+        var published = transition(draft, BlogAction.PUBLISH);
         assertThatThrownBy(() -> blogs.exportDocument(draft.id(), "PUBLIC"))
                 .isInstanceOf(ApiException.class);
-        var edited = blogs.save(draft.id(), input(published, "no-resource", "Text", "body", true));
+        var edited = edit(published, "no-resource", "Text", "body", true);
         assertThat(blogs.exportDocument(edited.id(), "PUBLIC").content()).contains("body");
 
-        assertThatThrownBy(() -> blogs.get(draft.id())).isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> blogs.exportDocument(draft.id(), "MANAGE"))
-                .isInstanceOf(ApiException.class);
+        assertThat(blogs.exportDocument(draft.id(), "MANAGE").content()).contains("body");
     }
 
     @Test
-    void databaseFailureCompensatesNewAssetsButNeverDeletesBoundAssets() throws Exception {
-        var existing = blogs.save(null, input(null, "unique-slug", "Existing", "body", true));
+    void duplicateSlugLeavesBoundAssetsAndDocumentsIntact() throws Exception {
+        var existing = create("unique-slug", "Existing", "body", true);
         long before = jdbc.queryForObject("SELECT count(*) FROM document", Long.class);
         var imported =
                 blogs.importDocument(
@@ -315,7 +346,7 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                                 "text/markdown",
                                 "![a](a.png)".getBytes(StandardCharsets.UTF_8)),
                         List.of(new MockMultipartFile("resources", "a.png", "image/png", png())),
-                        false);
+                        false, List.of(), requestId());
         Long bound = imported.resources().getFirst().assetId();
         files.discardUnbound(Set.of(bound), account);
         assertThat(
@@ -324,17 +355,13 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                 .isEqualTo(1);
         assertThatThrownBy(
                         () ->
-                                blogs.save(
-                                        null,
-                                        new BlogRequest(
-                                                null,
-                                                "unique-slug",
+                                blogs.create(new BlogRequest(null, requestId(), "unique-slug",
                                                 "Duplicate",
                                                 "summary",
                                                 "![new](https://example.com/a.png)",
-                                                true,
-                                                true)))
-                .isInstanceOf(org.springframework.dao.DataIntegrityViolationException.class);
+                                                List.of(), true, true)))
+                .isInstanceOfSatisfying(ApiException.class,
+                        error -> assertThat(error.code()).isEqualTo(ApiErrorCode.BLOG_SLUG_CONFLICT));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM document", Long.class))
                 .isEqualTo(before + 1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM media_asset", Long.class))
@@ -344,24 +371,18 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
 
     @Test
     void competingEditorsCannotBothWriteTheSameRevision() throws Exception {
-        var draft = blogs.save(null, input(null, "concurrent-edit", "Original", "body", true));
+        var draft = create("concurrent-edit", "Original", "body", true);
         var start = new java.util.concurrent.CountDownLatch(1);
         try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
             java.util.concurrent.Callable<Boolean> write =
                     () -> {
                         start.await();
-                        try {
-                            blogs.save(
-                                    draft.id(),
-                                    input(
-                                            draft,
-                                            "concurrent-edit",
-                                            "Concurrent",
-                                            "new body",
-                                            true));
+                        try (var threadIdentity = bindIdentity()) {
+                            blogs.saveContent(draft.id(), new BlogContentRequest(draft.revision(),
+                                    requestId(), "new body", false));
                             return true;
                         } catch (ApiException e) {
-                            assertThat(e.code()).isEqualTo(ApiErrorCode.DATA_CONFLICT);
+                            assertThat(e.code()).isEqualTo(ApiErrorCode.DOCUMENT_REVISION_CONFLICT);
                             return false;
                         }
                     };
@@ -372,10 +393,10 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
         }
         assertThat(
                         jdbc.queryForObject(
-                                "SELECT count(*) FROM document_version WHERE document_id=?",
+                                "SELECT revision FROM document WHERE id=?",
                                 Long.class,
                                 draft.documentId()))
-                .isEqualTo(2);
+                .isEqualTo(draft.revision() + 1);
     }
 
     @Test
@@ -392,11 +413,11 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                                 "text/markdown",
                                 "![a](a.png)".getBytes(StandardCharsets.UTF_8)),
                         List.of(new MockMultipartFile("resources", "a.png", "image/png", png())),
-                        false);
+                        false, List.of(), requestId());
         assertThat(draft.previewIssue()).isNotBlank();
         assertThat(draft.content()).contains("resource://");
         assertThat(draft.resources().getFirst().status()).isEqualTo(ResourceStatus.READY);
-        assertThat(blogs.get(draft.id()).version()).isEqualTo(draft.version());
+        assertThat(blogs.get(draft.id()).revision()).isEqualTo(draft.revision());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM blog_post", Long.class)).isEqualTo(1);
         assertThatThrownBy(() -> exports.prepare(blogs.exportDocument(draft.id(), "MANAGE"), true))
                 .isInstanceOf(ApiException.class);

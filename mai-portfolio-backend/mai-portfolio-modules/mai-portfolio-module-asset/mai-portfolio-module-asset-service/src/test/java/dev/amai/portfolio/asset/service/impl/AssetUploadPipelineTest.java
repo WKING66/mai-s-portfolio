@@ -119,8 +119,8 @@ class AssetUploadPipelineTest {
             "application/octet-stream", new byte[] {1}, null, null));
         var row = ArgumentCaptor.forClass(MediaAssetDO.class);
         verify(assets).insert(row.capture());
-        assertThat(row.getValue().getAssetType()).isEqualTo(2);
-        assertThat(row.getValue().getUsage()).isEqualTo("ATTACHMENT");
+        assertThat(row.getValue().getType()).isEqualTo(2);
+        assertThat(row.getValue().getUsage()).isEqualTo(AssetUsage.ATTACHMENT.code());
         assertThat(row.getValue().getUploaderAccountId()).isEqualTo(7L);
         assertThat(row.getValue().getWidth()).isNull();
     }
