@@ -26,6 +26,7 @@ import dev.amai.portfolio.agent.mapper.AgentSiteSettingsMapper;
 import dev.amai.portfolio.agent.mapper.AgentTurnMapper;
 import dev.amai.portfolio.agent.service.AgentSiteSettingsService;
 import dev.amai.portfolio.redis.rate.RedisRateLimiter;
+import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -34,6 +35,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.redisson.client.RedisException;
 import org.springframework.transaction.support.SimpleTransactionStatus;
 import org.springframework.transaction.support.TransactionCallback;
@@ -205,6 +207,45 @@ class AgentConversationRecoveryTest {
         assertEquals("{\"phase\":\"thinking\"}", client.publicProgress(
                 "{\"phase\":\"thinking\",\"reasoning_content\":\"private fixture\",\"model\":\"fixture\"}"));
         assertNull(client.publicProgress("{\"phase\":\"unknown\"}"));
+    }
+
+    @Test
+    void capacityRejectionPreservesRecordedQuotaAndOriginalRequest() {
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
+        givenOwnedConversation(1L, "account:7");
+        when(agentTurnMapper.lockOwner("account:7")).thenReturn(now);
+        when(agentTurnMapper.insertPending(any())).thenReturn(1);
+        when(redisRateLimiter.acquireSlidingWindow("site-guide:chat", "request", Duration.ofHours(2), 3))
+                .thenReturn(RedisRateLimiter.SlidingWindowResult.ALLOWED);
+        when(agentAiClient.submit(any())).thenThrow(new AgentAiClient.CapacityRejected(new IllegalStateException()));
+
+        var error = assertThrows(ApiException.class, () ->
+                agentConversationService.submit(1L, "account:7", false, "request", "问题"));
+
+        assertEquals(ApiErrorCode.CAPACITY_EXHAUSTED, error.code());
+        assertEquals(2, error.retryAfterSeconds());
+        var pending = ArgumentCaptor.forClass(AgentTurn.class);
+        verify(agentTurnMapper).insertPending(pending.capture());
+        assertEquals(now, pending.getValue().getQuotaAt());
+        verify(agentAiClient).byRequest("request");
+        verify(agentTurnMapper, never()).failUnbound(anyString(), anyString());
+    }
+
+    @Test
+    void capacityRejectionCanRecoverAConcurrentAdmission() {
+        givenOwnedConversation(1L, "account:7");
+        when(agentTurnMapper.lockOwner("account:7")).thenReturn(OffsetDateTime.now(ZoneOffset.UTC));
+        when(agentTurnMapper.insertPending(any())).thenReturn(1);
+        when(redisRateLimiter.acquireSlidingWindow("site-guide:chat", "request", Duration.ofHours(2), 3))
+                .thenReturn(RedisRateLimiter.SlidingWindowResult.ALLOWED);
+        when(agentAiClient.submit(any())).thenThrow(new AgentAiClient.CapacityRejected(new IllegalStateException()));
+        var linked = boundTurn(11L);
+        when(agentTurnMapper.byRequestId("request")).thenReturn(null, linked);
+        when(agentAiClient.byRequest("request")).thenReturn(
+                new AgentExecutionSnapshot("request", "11", "accepted", "", List.of(), null));
+
+        assertSame(linked, agentConversationService.submit(1L, "account:7", false, "request", "问题"));
+        verify(agentTurnMapper).attach("request", 11L);
     }
 
     private void givenOwnedConversation(Long id, String owner) {

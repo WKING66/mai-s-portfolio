@@ -1,5 +1,6 @@
 package dev.amai.portfolio.agent.service.impl;
 
+import static dev.amai.portfolio.agent.constant.AgentConversationConstants.BUSY_RETRY_AFTER_SECONDS;
 import static dev.amai.portfolio.agent.constant.AgentConversationConstants.ACCEPTANCE_WINDOW_SECONDS;
 import static dev.amai.portfolio.agent.constant.AgentConversationConstants.CONVERSATION_PAGE_SIZE;
 import static dev.amai.portfolio.agent.constant.AgentConversationConstants.CONVERSATION_TURN_LIMIT;
@@ -225,10 +226,25 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             var accepted = agentAiClient.submit(new AgentAiClient.Submission(
                     requestId, question, history, turn.getAcceptBefore()));
             return attach(turn, accepted.executionId());
+        } catch (AgentAiClient.CapacityRejected busy) {
+            // 本次调用未受理。并发的同编号请求仍可能已经受理，此时接回原执行。
+            try {
+                var prior = agentAiClient.byRequest(requestId);
+                if (prior != null) {
+                    return attach(turn, prior.executionId());
+                }
+            } catch (RestClientException unknown) {
+                throw pendingSubmission();
+            }
+            throw new ApiException(ApiErrorCode.CAPACITY_EXHAUSTED, "模型执行队列繁忙，请稍后重试本轮。",
+                    BUSY_RETRY_AFTER_SECONDS);
         } catch (RestClientException error) {
-            // 上游拒绝也可能和同编号的受理并发，保留原编号供继续查询。
-            throw new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认发送结果，请重试原请求。");
+            throw pendingSubmission();
         }
+    }
+
+    private static ApiException pendingSubmission() {
+        return new ApiException(ApiErrorCode.AGENT_UNAVAILABLE, "暂时无法确认发送结果，请重试原请求。");
     }
 
     private void checkPersonalQuota(String owner, boolean anonymous, AgentSiteSettings settings, OffsetDateTime now) {
@@ -269,7 +285,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
         }
     }
 
-    public void events(AgentTurn turn, BiConsumer<String, String> output) {
+    public void events(AgentTurn turn, BiConsumer<String, String> output, Runnable keepAlive) {
         if (turn.getStatus().isTerminal()) {
             String value = agentAiClient.json(persisted(turn));
             output.accept(EVENT_SNAPSHOT, value);
@@ -289,7 +305,7 @@ public class AgentConversationServiceImpl implements AgentConversationService {
             } else if (EVENT_SNAPSHOT.equals(event) || EVENT_DELTA.equals(event) || EVENT_SOURCES.equals(event)) {
                 output.accept(event, data);
             }
-        });
+        }, keepAlive);
     }
 
     @Scheduled(fixedDelay = RECOVERY_DELAY_MILLIS)

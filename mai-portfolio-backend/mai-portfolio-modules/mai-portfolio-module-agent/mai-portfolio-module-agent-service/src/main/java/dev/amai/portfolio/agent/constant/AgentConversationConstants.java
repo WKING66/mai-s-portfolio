@@ -9,6 +9,7 @@ public final class AgentConversationConstants {
     public static final int HISTORY_TURN_LIMIT = 5;
     public static final int MESSAGE_LENGTH_LIMIT = 300;
     public static final int ACCEPTANCE_WINDOW_SECONDS = 45;
+    public static final int BUSY_RETRY_AFTER_SECONDS = 2;
     public static final int RECOVERY_BATCH_SIZE = 12;
     public static final long RECOVERY_DELAY_MILLIS = 10_000;
 

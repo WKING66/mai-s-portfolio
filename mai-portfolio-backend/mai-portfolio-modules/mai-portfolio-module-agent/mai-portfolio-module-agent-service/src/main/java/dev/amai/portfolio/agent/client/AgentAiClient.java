@@ -94,10 +94,31 @@ public class AgentAiClient {
     }
 
     public Accepted submit(Submission submission) {
-        return client.post().uri(PATH)
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(submission)
-                .retrieve().body(Accepted.class);
+        try {
+            return client.post().uri(PATH)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(submission)
+                    .retrieve().body(Accepted.class);
+        } catch (HttpClientErrorException.TooManyRequests error) {
+            AgentExecutionSnapshot.ExecutionError rejection;
+            try {
+                rejection = error.getResponseBodyAs(AgentExecutionSnapshot.ExecutionError.class);
+            } catch (IllegalStateException invalidResponse) {
+                throw error;
+            }
+            // Python 的通用错误响应可省略 requestId。若传了编号，必须对应本次请求。
+            if (rejection != null && "CAPACITY_EXHAUSTED".equals(rejection.code())
+                    && (rejection.requestId() == null || submission.requestId().equals(rejection.requestId()))) {
+                throw new CapacityRejected(error);
+            }
+            throw error;
+        }
+    }
+
+    public static final class CapacityRejected extends RestClientException {
+        public CapacityRejected(Throwable cause) {
+            super("AI execution capacity exhausted", cause);
+        }
     }
 
     public AgentExecutionSnapshot byRequest(String requestId) {
@@ -138,7 +159,7 @@ public class AgentAiClient {
                 .retrieve().body(AgentExecutionSnapshot.class);
     }
 
-    public void events(String executionId, BiConsumer<String, String> receive) {
+    public void events(String executionId, BiConsumer<String, String> receive, Runnable keepAlive) {
         client.get().uri(PATH + "/{id}/events", executionId)
                 .accept(MediaType.TEXT_EVENT_STREAM)
                 .exchange((request, response) -> {
@@ -158,6 +179,8 @@ public class AgentAiClient {
                                 }
                                 event = null;
                                 data.setLength(0);
+                            } else if (line.startsWith(":")) {
+                                keepAlive.run();
                             } else if (line.startsWith(SSE_EVENT_PREFIX)) {
                                 event = line.substring(SSE_EVENT_PREFIX.length());
                             } else if (line.startsWith(SSE_DATA_PREFIX)) {

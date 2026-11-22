@@ -6,6 +6,7 @@ import static dev.amai.portfolio.agent.constant.AgentConversationConstants.EVENT
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import dev.amai.portfolio.agent.component.AgentConversationOwnerResolver;
 import dev.amai.portfolio.agent.component.AgentEventWriter;
+import dev.amai.portfolio.agent.component.AgentStreamExecutor;
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
 import dev.amai.portfolio.agent.entity.request.SubmitRequest;
@@ -18,11 +19,14 @@ import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,12 +44,16 @@ public class AgentConversationController {
 
     private final AgentConversationOwnerResolver agentConversationOwnerResolver;
 
+    private final AgentStreamExecutor streams;
+
     private final JsonMapper jsonMapper;
 
     public AgentConversationController(AgentConversationService agentConversationService,
-            AgentConversationOwnerResolver agentConversationOwnerResolver, JsonMapper jsonMapper) {
+            AgentConversationOwnerResolver agentConversationOwnerResolver, AgentStreamExecutor streams,
+            JsonMapper jsonMapper) {
         this.agentConversationService = agentConversationService;
         this.agentConversationOwnerResolver = agentConversationOwnerResolver;
+        this.streams = streams;
         this.jsonMapper = jsonMapper;
     }
 
@@ -93,12 +101,15 @@ public class AgentConversationController {
 
     @PostMapping(value = "/conversations/{id}/turns", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @AnonymousConversation
-    public ResponseEntity<StreamingResponseBody> submit(@PathVariable String id,
+    public StreamingResponseBody submit(@PathVariable String id,
             @Valid @RequestBody SubmitRequest input, HttpServletRequest request, HttpServletResponse response) {
         var owner = agentConversationOwnerResolver.resolve(request, null);
-        var turn = agentConversationService.submit(
-                positiveId(id), owner.key(), owner.anonymous(), input.requestId().toLowerCase(Locale.ROOT), input.question());
-        return stream(turn, true, response);
+        long conversationId = positiveId(id);
+        streams.select(request);
+        // 专用线程可用后才开始受理。拒绝时响应尚未开流，可返回原业务状态码。
+        return output -> streams.runSubmission(() -> stream(output, response, true,
+                () -> agentConversationService.submit(conversationId, owner.key(), owner.anonymous(),
+                        input.requestId().toLowerCase(Locale.ROOT), input.question())));
     }
 
     @GetMapping("/executions/{id}")
@@ -110,10 +121,11 @@ public class AgentConversationController {
 
     @GetMapping(value = "/executions/{id}/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @AnonymousConversation
-    public ResponseEntity<StreamingResponseBody> events(@PathVariable String id, HttpServletRequest request,
+    public StreamingResponseBody events(@PathVariable String id, HttpServletRequest request,
             HttpServletResponse response) {
         var turn = agentConversationService.ownedExecution(positiveId(id), agentConversationOwnerResolver.resolve(request, null).key());
-        return stream(turn, false, response);
+        streams.select(request);
+        return output -> stream(output, response, false, () -> turn);
     }
 
     @PostMapping("/executions/{id}/stop")
@@ -135,18 +147,23 @@ public class AgentConversationController {
         throw new ApiException(ApiErrorCode.NOT_FOUND, "会话或执行不存在。");
     }
 
-    private ResponseEntity<StreamingResponseBody> stream(AgentTurn turn, boolean sendReceipt,
-            HttpServletResponse response) {
-        StreamingResponseBody body = output -> {
-            var writer = new AgentEventWriter(output, response);
+    private void stream(OutputStream output, HttpServletResponse response, boolean sendReceipt,
+            Supplier<AgentTurn> loadTurn) {
+        var turn = loadTurn.get();
+        response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.setHeader(HttpHeaders.CACHE_CONTROL, CacheControl.noStore().getHeaderValue());
+        response.setHeader("X-Accel-Buffering", "no");
+
+        var writer = new AgentEventWriter(output, response);
+        try {
             if (sendReceipt) {
                 var receipt = agentConversationService.receipt(turn);
                 writer.write(EVENT_ACCEPTED, jsonMapper.writeValueAsString(receipt));
             }
-            agentConversationService.events(turn, writer::write);
-        };
-        return ResponseEntity.ok().contentType(MediaType.TEXT_EVENT_STREAM)
-                .cacheControl(CacheControl.noStore())
-                .header("X-Accel-Buffering", "no").body(body);
+            agentConversationService.events(turn, writer::write, writer::keepAlive);
+        } catch (AgentEventWriter.Disconnected ignored) {
+            // 断线只结束订阅，定时任务会补存执行终态。
+        }
     }
 }

@@ -20,6 +20,7 @@ const {
   error,
   recoverable,
   canStop,
+  canCancelWait,
   histories,
   conversationId,
   nextCursor,
@@ -491,6 +492,9 @@ onBeforeUnmount(() => {
             {{ actionError || error }}
           </p>
           <button v-if="canStop" class="stop-button" @click="stop">■ 停止生成</button>
+          <button v-else-if="canCancelWait" class="stop-button" type="button" @click="stop">
+            取消等待
+          </button>
           <button v-if="recoverable && !generating" type="button" @click="resume">
             继续读取本轮
           </button>
