@@ -29,7 +29,7 @@ public interface AgentConversationService {
 
     AgentExecutionSnapshot stop(AgentTurn turn);
 
-    void events(AgentTurn turn, BiConsumer<String, String> output);
+    void events(AgentTurn turn, BiConsumer<String, String> output, Runnable keepAlive);
 
     record Receipt(
             String requestId,

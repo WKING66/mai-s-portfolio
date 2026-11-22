@@ -564,3 +564,63 @@ describe('站点聊天会话恢复', () => {
     expect(chat.conversationId.value).toBe('new')
   })
 })
+
+describe('聊天短时繁忙', () => {
+  it('等待 Retry-After 后用原请求号重试，受理时才消费草稿', async () => {
+    vi.useFakeTimers()
+    try {
+      const chat = setup()
+      await lifecycle.mount?.()
+      const accepted = vi.fn()
+      api.submit
+        .mockRejectedValueOnce(new AgentChatError('忙', 429, 'CAPACITY_EXHAUSTED', 2_000))
+        .mockImplementationOnce(async (_conversation, input, receive) => {
+          receive({
+            kind: 'accepted',
+            value: { requestId: input.requestId, executionId: '23', status: 'accepted' },
+          })
+        })
+      const sending = chat.send('问题', accepted)
+      await vi.advanceTimersByTimeAsync(1_999)
+      expect(api.submit).toHaveBeenCalledTimes(1)
+      expect(accepted).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(501)
+      await sending
+      expect(api.submit).toHaveBeenCalledTimes(2)
+      expect(api.submit.mock.calls[1]?.[1]).toEqual(api.submit.mock.calls[0]?.[1])
+      expect(accepted).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('取消等待会中止退避，本轮仍可按原编号继续读取', async () => {
+    vi.useFakeTimers()
+    try {
+      const chat = setup()
+      await lifecycle.mount?.()
+      api.submit.mockRejectedValueOnce(new AgentChatError('忙', 429, 'CHAT_STREAM_BUSY', 2_000))
+      const sending = chat.send('问题')
+      await vi.advanceTimersByTimeAsync(10)
+      expect(chat.canCancelWait.value).toBe(true)
+      await chat.stop()
+      await sending
+      await vi.advanceTimersByTimeAsync(3_000)
+      expect(api.submit).toHaveBeenCalledTimes(1)
+      expect(api.stop).not.toHaveBeenCalled()
+      expect(chat.canCancelWait.value).toBe(false)
+      expect(chat.recoverable.value).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('轮次额度用尽时不自动重试', async () => {
+    const chat = setup()
+    await lifecycle.mount?.()
+    api.submit.mockRejectedValueOnce(new AgentChatError('额度用完', 429, 'RATE_LIMITED'))
+    await chat.send('问题')
+    expect(api.submit).toHaveBeenCalledTimes(1)
+    expect(chat.turns.value[0]?.status).toBe('failed')
+  })
+})

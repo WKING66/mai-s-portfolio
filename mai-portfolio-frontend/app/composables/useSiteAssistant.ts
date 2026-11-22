@@ -17,6 +17,21 @@ export type DisplayPhase = ChatProgressPhase | 'output'
 const active = (status: SavedTurn['status']) =>
   status === 'pending' || status === 'accepted' || status === 'running'
 
+function waitForRetry(delayMs: number, signal: AbortSignal): Promise<void> {
+  signal.throwIfAborted()
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort)
+      resolve()
+    }, delayMs)
+    signal.addEventListener('abort', abort, { once: true })
+  })
+}
+
 export function useSiteAssistant() {
   const auth = useAuthState()
   const api = createAgentChatApi(() => auth.state.value.csrfToken || '')
@@ -142,16 +157,32 @@ export function useSiteAssistant() {
           break
       }
     }
+    const conversation = conversationId.value
+    const retryDeadline = performance.now() + 40_000
     try {
-      if (turn.executionId) {
-        await api.resume(turn.executionId, receive, runController.signal)
-      } else {
-        await api.submit(
-          conversationId.value,
-          { requestId: turn.requestId, question: turn.question },
-          receive,
-          runController.signal,
-        )
+      for (let retries = 0; ; retries++) {
+        try {
+          if (turn.executionId) {
+            await api.resume(turn.executionId, receive, runController.signal)
+          } else {
+            await api.submit(
+              conversation,
+              { requestId: turn.requestId, question: turn.question },
+              receive,
+              runController.signal,
+            )
+          }
+          break
+        } catch (failure) {
+          if (!(failure instanceof AgentChatError) || !failure.retryableBusy || retries >= 2) {
+            throw failure
+          }
+          const delayMs = (failure.retryAfterMs ?? 2_000) + Math.random() * 500
+          if (performance.now() + delayMs >= retryDeadline) {
+            throw failure
+          }
+          await waitForRetry(delayMs, runController.signal)
+        }
       }
     } catch (failure) {
       if (!runController.signal.aborted && controller === runController) {
@@ -159,6 +190,7 @@ export function useSiteAssistant() {
         // 明确的输入拒绝不需要再查，网络或依赖故障则保留编号供续读。
         if (
           failure instanceof AgentChatError &&
+          !failure.retryableBusy &&
           [400, 403, 404, 409, 422, 429].includes(failure.status)
         ) {
           turn.status = 'failed'
@@ -279,6 +311,7 @@ export function useSiteAssistant() {
   async function stop() {
     const turn = turns.value.find((item) => active(item.status))
     if (!turn?.executionId) {
+      controller?.abort()
       return
     }
     const owner = generation
@@ -488,6 +521,14 @@ export function useSiteAssistant() {
     latest: computed(() => turns.value.at(-1)),
     recoverable: computed(() => turns.value.some((turn) => active(turn.status))),
     canStop: computed(() => turns.value.some((turn) => active(turn.status) && turn.executionId)),
+    canCancelWait: computed(() =>
+      turns.value.some(
+        (turn) =>
+          progress.value?.requestId === turn.requestId &&
+          turn.status === 'pending' &&
+          !turn.executionId,
+      ),
+    ),
     send,
     stop,
     clearing,

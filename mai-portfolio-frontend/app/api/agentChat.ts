@@ -52,8 +52,17 @@ export class AgentChatError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
+    readonly retryAfterMs?: number,
   ) {
     super(message)
+  }
+
+  get retryableBusy() {
+    return (
+      this.status === 429 &&
+      (this.code === 'CHAT_STREAM_BUSY' || this.code === 'CAPACITY_EXHAUSTED')
+    )
   }
 }
 
@@ -74,7 +83,11 @@ export function createAgentChatApi(csrfToken: () => string) {
     if (!response.ok) {
       const error = await response.json().catch(() => null)
       const message = typeof error?.message === 'string' ? error.message : '模型服务暂不可用。'
-      throw new AgentChatError(message, response.status)
+      const code = typeof error?.code === 'string' ? error.code : undefined
+      const retryAfter = response.headers.get('Retry-After')
+      const retryAfterMs =
+        retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1_000 : undefined
+      throw new AgentChatError(message, response.status, code, retryAfterMs)
     }
     return response
   }

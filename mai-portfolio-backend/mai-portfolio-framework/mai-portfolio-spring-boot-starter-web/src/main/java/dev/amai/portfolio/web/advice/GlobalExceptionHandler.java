@@ -12,6 +12,7 @@ import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
@@ -34,8 +35,11 @@ public class GlobalExceptionHandler {
     /** 显式业务拒绝使用其错误码和 HTTP 状态，不转换为 DTO 校验失败。 */
     @ExceptionHandler(ApiException.class)
     ResponseEntity<R<Void>> handleBusiness(ApiException exception) {
-        return ResponseEntity.status(exception.code().status())
-                .body(R.failure(exception.code().name(), exception.getMessage(), List.of()));
+        var response = ResponseEntity.status(exception.code().status()).contentType(MediaType.APPLICATION_JSON);
+        if (exception.retryAfterSeconds() != null) {
+            response.header(HttpHeaders.RETRY_AFTER, exception.retryAfterSeconds().toString());
+        }
+        return response.body(R.failure(exception.code().name(), exception.getMessage(), List.of()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
