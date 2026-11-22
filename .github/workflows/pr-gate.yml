@@ -1,11 +1,13 @@
 name: PR gate
 on:
+  push:
+    branches: [dev]
   pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review]
 permissions:
   contents: read
 concurrency:
-  group: pr-gate-${{ github.event.pull_request.number }}
+  group: pr-gate-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 jobs:
   changes:
@@ -21,9 +23,20 @@ jobs:
           fetch-depth: 0
       - id: diff
         shell: bash
+        env:
+          PUSH_BEFORE: ${{ github.event.before }}
+          EVENT: ${{ github.event_name }}
         run: |
-          # PR 的合并候选可能已经使用更新的目标分支，第一父提交才是实际基线。
-          base_sha=$(git rev-parse HEAD^1)
+          if [[ "$EVENT" == push ]]; then
+            if [[ "$PUSH_BEFORE" =~ ^[0-9a-f]{40}$ ]] && git merge-base --is-ancestor "$PUSH_BEFORE" HEAD; then
+              base_sha=$PUSH_BEFORE
+            else
+              base_sha=$(git hash-object -t tree -w /dev/null)
+            fi
+          else
+            # 对 PR 的实际合并候选，第一父提交是目标分支基线。
+            base_sha=$(git rev-parse HEAD^1)
+          fi
           echo "base_sha=$base_sha" >> "$GITHUB_OUTPUT"
           git diff --check "$base_sha" HEAD
           python3 -m unittest discover -s .github/scripts
@@ -43,7 +56,7 @@ jobs:
           java-version: '21'
           cache: maven
           cache-dependency-path: mai-portfolio-backend/**/pom.xml
-      - run: mvn -B -q -pl mai-portfolio-launch -am -DskipTests compile
+      - run: mvn -B -q -pl mai-portfolio-launch -am test-compile
       - run: |
           mvn -B -q -pl :mai-portfolio-module-system-service -am -Dtest=AuthenticationInterceptorTest,RequestAuthorizationTest,AuthServiceSessionTest,AccountProfileServiceImplTest -Dsurefire.failIfNoSpecifiedTests=false test
           mvn -B -q -pl :mai-portfolio-module-agent-service -am -Dtest=AgentConversationRecoveryTest -Dsurefire.failIfNoSpecifiedTests=false test

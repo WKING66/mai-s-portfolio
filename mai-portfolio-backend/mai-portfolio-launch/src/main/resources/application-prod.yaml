@@ -9,9 +9,54 @@ server:
       protocol-header: X-Forwarded-Proto
       remote-ip-header: X-Forwarded-For
 
+spring:
+  datasource:
+    druid:
+      url: ${SPRING_DATASOURCE_DRUID_URL}
+      username: ${SPRING_DATASOURCE_DRUID_USERNAME}
+      password: ${SPRING_DATASOURCE_DRUID_PASSWORD}
+      stat-view-servlet:
+        enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      database: ${REDIS_DATABASE:0}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:3s}
+      timeout: ${REDIS_COMMAND_TIMEOUT:3s}
+
 portfolio:
+  bootstrap:
+    enabled: ${PORTFOLIO_BOOTSTRAP_ENABLED:false}
+    initial-password: ${PORTFOLIO_BOOTSTRAP_INITIAL_PASSWORD:}
   security:
     require-https: true
+    allowed-origins: ${ADMIN_ALLOWED_ORIGINS}
+    rsa-private-key: ${AUTH_RSA_PRIVATE_KEY_LOCATION}
+  redis:
+    key-prefix: ${REDIS_KEY_PREFIX:mai-portfolio}
+  api-log:
+    enabled: ${API_LOG_ENABLED:true}
+    max-payload-length: ${API_LOG_MAX_PAYLOAD_LENGTH:2048}
+    additional-sensitive-fields: []
+  media:
+    storage: ${MEDIA_STORAGE:local}
+    local-directory: ${MEDIA_LOCAL_DIRECTORY:.local-media}
+    oss:
+      endpoint: ${OSS_ENDPOINT:}
+      bucket-name: ${OSS_BUCKET_NAME:}
+      access-key-id: ${OSS_ACCESS_KEY_ID:}
+      access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
+      connect-timeout: ${OSS_CONNECT_TIMEOUT:5s}
+      socket-timeout: ${OSS_SOCKET_TIMEOUT:30s}
+      max-connections: ${OSS_MAX_CONNECTIONS:20}
+
+logging:
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${LOG_FILE_PATTERN:${LOG_FILE:logs/mai-portfolio.log}.%d{yyyy-MM-dd}.%i.gz}
+      total-size-cap: ${LOG_TOTAL_SIZE_CAP:512MB}
 
 sa-token:
   cookie:

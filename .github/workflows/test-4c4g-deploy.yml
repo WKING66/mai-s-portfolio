@@ -1,0 +1,223 @@
+name: test-4c4g release candidate
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - '.github/workflows/pr-gate.yml'
+      - '.github/workflows/test-4c4g-deploy.yml'
+      - 'deploy/test-4c4g/**'
+      - 'mai-portfolio-backend/mai-portfolio-launch/src/main/resources/application-prod.yaml'
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full dev candidate SHA with a successful integration gate'
+        required: true
+      note:
+        description: 'Candidate notes'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-4c4g-release
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: Verify exact dev candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      sha: ${{ steps.pick.outputs.sha }}
+      tag: ${{ steps.pick.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+          persist-credentials: false
+      - id: pick
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          INPUT_SHA: ${{ inputs.sha || github.sha }}
+          RUN_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [[ "$RUN_REF" != refs/heads/dev ]]; then
+            echo "::error::Dispatch this workflow from dev."
+            exit 1
+          fi
+          if [[ ! "$INPUT_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Pass the complete dev commit SHA."
+            exit 1
+          fi
+          if ! git rev-list --first-parent HEAD | grep -Fx "$INPUT_SHA" >/dev/null; then
+            echo "::error::Candidate is outside the first-parent dev history."
+            exit 1
+          fi
+          deadline=$((SECONDS + 900))
+          while true; do
+            runs=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/pr-gate.yml/runs" \
+              -f branch=dev -f event=push -f head_sha="$INPUT_SHA" -F per_page=1)
+            result=$(jq -r --arg sha "$INPUT_SHA" '
+              .workflow_runs[0]
+              | select(.head_sha == $sha and .event == "push" and .head_branch == "dev")
+              | if .status == "completed" then .conclusion else "waiting" end
+            ' <<< "$runs")
+            if [[ "$result" == success ]]; then break; fi
+            if [[ -n "$result" && "$result" != waiting ]] || (( SECONDS >= deadline )); then
+              echo "::error::The latest official dev integration gate for $INPUT_SHA must have succeeded."
+              exit 1
+            fi
+            sleep 15
+          done
+          echo "sha=$INPUT_SHA" >> "$GITHUB_OUTPUT"
+          echo "tag=test4c4g-${INPUT_SHA:0:12}" >> "$GITHUB_OUTPUT"
+
+  build-spring:
+    name: build spring
+    needs: resolve
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: mai-portfolio-backend/**/pom.xml
+      - run: mvn -B -q -DskipTests package -pl mai-portfolio-launch -am
+      - run: |
+          jar=$(find mai-portfolio-launch/target -maxdepth 1 -name '*.jar' ! -name '*.original' | head -1)
+          test -n "$jar"
+          cp "$jar" "$RUNNER_TEMP/spring.jar"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spring-jar
+          path: ${{ runner.temp }}/spring.jar
+          if-no-files-found: error
+
+  build-web:
+    name: build web
+    needs: resolve
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: mai-portfolio-frontend/package.json
+      - run: |
+          if ! test -f pnpm-workspace.yaml; then
+            pnpm config set --location=project --json allowBuilds '{"esbuild":false,"unrs-resolver":false,"vue-demi":false}'
+          fi
+          pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: tar -czf "$RUNNER_TEMP/web.tar.gz" .output
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-output
+          path: ${{ runner.temp }}/web.tar.gz
+          if-no-files-found: error
+
+  build-ai:
+    name: build ai
+    needs: resolve
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mai-portfolio-ai-server
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      # 依赖在 Runner 上解析并下载为 linux x86_64 wheel，服务器离线安装，保证架构一致。
+      - run: |
+          set -euo pipefail
+          uv venv "$RUNNER_TEMP/dl" --python 3.12
+          uv pip install --python "$RUNNER_TEMP/dl/bin/python" pip
+          uv export --frozen --no-dev --no-emit-project > "$RUNNER_TEMP/requirements.txt"
+          "$RUNNER_TEMP/dl/bin/python" -m pip download -r "$RUNNER_TEMP/requirements.txt" \
+            -d "$RUNNER_TEMP/wheels" --only-binary=:all:
+          ls "$RUNNER_TEMP/wheels" | wc -l
+      - run: |
+          set -euo pipefail
+          stage="$RUNNER_TEMP/ai"
+          mkdir -p "$stage"
+          cp -r app migrations alembic.ini pyproject.toml uv.lock "$stage"/
+          cp "$RUNNER_TEMP/requirements.txt" "$stage"/
+          cp -r "$RUNNER_TEMP/wheels" "$stage"/
+          tar -czf "$RUNNER_TEMP/ai.tar.gz" -C "$stage" .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-bundle
+          path: ${{ runner.temp }}/ai.tar.gz
+          if-no-files-found: error
+
+  draft:
+    name: Prepare draft for maintainer review
+    permissions:
+      contents: write
+    needs: [resolve, build-spring, build-web, build-ai]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: "${{ runner.temp }}/assets"
+          merge-multiple: true
+      - name: 生成清单与校验值
+        env:
+          SHA: ${{ needs.resolve.outputs.sha }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/assets"
+          for f in spring.jar web.tar.gz ai.tar.gz; do test -f "$f" || { echo "::error::缺少产物 $f"; exit 1; }; done
+          jq -n --arg sha "$SHA" --arg tag "$TAG" --arg note "$NOTE" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg runner "$(uname -m)" \
+            '{gitSha:$sha,tag:$tag,builtAt:$ts,builtBy:"github-actions",cdManaged:true,arch:$runner,note:$note}' > manifest.json
+          sha256sum spring.jar web.tar.gz ai.tar.gz manifest.json > SHA256SUMS
+          ls -l
+          cat SHA256SUMS
+      - name: Upload candidate assets to draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          SHA: ${{ needs.resolve.outputs.sha }}
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/assets"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error title=重名发布::Release $TAG 已存在，拒绝覆盖已发布产物。"
+            exit 1
+          fi
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --target "$SHA" \
+            --title "test-4c4g $SHA" \
+            --notes "4c4g 测试环境发布 $SHA，待维护者审核后手动发布。" \
+            spring.jar web.tar.gz ai.tar.gz manifest.json SHA256SUMS
