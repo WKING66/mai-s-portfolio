@@ -60,7 +60,8 @@ AI 每小时清理已终结超过 24 小时的执行正文，保留请求标识�
 ## 实机首字计时
 
 诊断默认关闭。短时验收可在 Python 设置 `CHAT_TIMING_ENABLED=true`，在 Spring 设置
-`site-guide.chat-timing.enabled=true`（容器环境变量 `SITE_GUIDE_CHATTIMING_ENABLED=true`）。
+`site-guide.chat-timing.enabled=true`（容器环境变量 `SITEGUIDE_CHATTIMING_ENABLED=true`）。
+也可以把原属性名合并到现有的 `SPRING_APPLICATION_JSON`，保留其中的其他属性。
 用内部日志的 `request_id` 和 `execution_id` 关联浏览器或压测客户端的发送和首段非空白正文。
 
 - `chat_execution_timing` 从 Python 受理提交起算，记录获得执行位、进入运行态、首段正文提交及任务结束。
