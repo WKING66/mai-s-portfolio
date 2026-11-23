@@ -79,6 +79,7 @@ def create_app(settings: Settings) -> FastAPI:
                 configured_chat,
                 concurrency=settings.execution_concurrency,
                 queue_limit=settings.execution_queue_limit,
+                chat_timing_enabled=settings.chat_timing_enabled,
             )
             # 会话锁保证单执行进程，避免第二个进程启动时误把正在运行的问答标为中断。
             async with engine.connect() as connection:

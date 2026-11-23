@@ -15,6 +15,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.chat_timing import ChatTiming
 from app.contracts.wire import ExecutionRejected, WireModel
 from app.storage.database import Sessions
 from app.workflow.chat_graph import ConfiguredChat, HistoryEntry
@@ -115,11 +116,13 @@ class Executions:
         *,
         concurrency: int,
         queue_limit: int,
+        chat_timing_enabled: bool = False,
     ) -> None:
         self.sessions = sessions
         self.worker_available = True
         self.build_configured = build_configured
         self.capacity = concurrency + queue_limit
+        self.chat_timing_enabled = chat_timing_enabled
         self.workers = asyncio.Semaphore(concurrency)
         self.submissions = asyncio.Lock()
         self.tasks: dict[int, asyncio.Task[None]] = {}
@@ -223,9 +226,16 @@ class Executions:
                 assert execution.id is not None
                 execution_id = execution.id
             # 4. 受理记录提交后才调度。订阅必须始终能读到对应的持久记录。
-            task = asyncio.create_task(self.run(execution_id, request, graph, persona))
+            timing = ChatTiming(request.request_id, execution_id) if self.chat_timing_enabled else None
+            task = asyncio.create_task(self.run(execution_id, request, graph, persona, timing))
             self.tasks[execution_id] = task
-            task.add_done_callback(lambda _: self.tasks.pop(execution_id, None))
+
+            def on_done(finished: asyncio.Task[None]) -> None:
+                self.tasks.pop(execution_id, None)
+                if timing is not None:
+                    timing.log_finished(finished.cancelled())
+
+            task.add_done_callback(on_done)
         return Snapshot(
             request_id=request.request_id,
             execution_id=str(execution_id),
@@ -357,10 +367,13 @@ class Executions:
         request: SubmitExecution,
         graph: ConfiguredChat,
         persona: str,
+        timing: ChatTiming | None = None,
     ) -> None:
         try:
             # 1. 获得执行槽后才从已受理切换到运行中。
             async with self.workers:
+                if timing is not None:
+                    timing.slot_acquired_ms = timing.elapsed_ms()
                 async with self.sessions.begin() as session:
                     started = await session.scalar(
                         update(Execution)
@@ -374,6 +387,8 @@ class Executions:
                     # 排队期间已停止时跳过生成，避免中断后开始收费。
                     if started is None:
                         return
+                if timing is not None:
+                    timing.running_committed_ms = timing.elapsed_ms()
                 # 2. 先保存正文增量，订阅者只读取已提交的数据。
                 async with aclosing(
                     graph.stream(
@@ -384,6 +399,7 @@ class Executions:
                             "persona": persona,
                         },
                         on_thinking=lambda: self.thinking.add(execution_id),
+                        timing=timing,
                     )
                 ) as chunks:
                     async for text in chunks:
@@ -400,6 +416,8 @@ class Executions:
                             # 终态已被另一操作提交时停止消费，不再向终态正文追加内容。
                             if saved is None:
                                 return
+                        if timing is not None and timing.first_body_committed_ms is None and text.strip():
+                            timing.first_body_committed_ms = timing.elapsed_ms()
                 # 3. 全部正文保存后再发布完成，终态快照因此包含最终正文。
                 await self.finish(execution_id, ExecutionCode.COMPLETED, graph=graph)
         except ExecutionRejected as error:

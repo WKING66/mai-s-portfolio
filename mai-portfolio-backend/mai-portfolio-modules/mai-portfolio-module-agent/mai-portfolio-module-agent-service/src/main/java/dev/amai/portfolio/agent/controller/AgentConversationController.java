@@ -7,6 +7,7 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import dev.amai.portfolio.agent.component.AgentConversationOwnerResolver;
 import dev.amai.portfolio.agent.component.AgentEventWriter;
 import dev.amai.portfolio.agent.component.AgentStreamExecutor;
+import dev.amai.portfolio.agent.component.AgentStreamTiming;
 import dev.amai.portfolio.agent.entity.AgentExecutionSnapshot;
 import dev.amai.portfolio.agent.entity.AgentTurn;
 import dev.amai.portfolio.agent.entity.request.SubmitRequest;
@@ -23,7 +24,9 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -48,13 +51,16 @@ public class AgentConversationController {
 
     private final JsonMapper jsonMapper;
 
+    private final boolean chatTimingEnabled;
+
     public AgentConversationController(AgentConversationService agentConversationService,
             AgentConversationOwnerResolver agentConversationOwnerResolver, AgentStreamExecutor streams,
-            JsonMapper jsonMapper) {
+            JsonMapper jsonMapper, @Value("${site-guide.chat-timing.enabled:false}") boolean chatTimingEnabled) {
         this.agentConversationService = agentConversationService;
         this.agentConversationOwnerResolver = agentConversationOwnerResolver;
         this.streams = streams;
         this.jsonMapper = jsonMapper;
+        this.chatTimingEnabled = chatTimingEnabled;
     }
 
     @GetMapping("/status")
@@ -103,11 +109,12 @@ public class AgentConversationController {
     @AnonymousConversation
     public StreamingResponseBody submit(@PathVariable String id,
             @Valid @RequestBody SubmitRequest input, HttpServletRequest request, HttpServletResponse response) {
+        var requestStart = chatTimingEnabled ? AgentStreamTiming.RequestStart.now() : null;
         var owner = agentConversationOwnerResolver.resolve(request, null);
         long conversationId = positiveId(id);
         streams.select(request);
         // 专用线程可用后才开始受理。拒绝时响应尚未开流，可返回原业务状态码。
-        return output -> streams.runSubmission(() -> stream(output, response, true,
+        return output -> streams.runSubmission(() -> stream(output, response, true, requestStart,
                 () -> agentConversationService.submit(conversationId, owner.key(), owner.anonymous(),
                         input.requestId().toLowerCase(Locale.ROOT), input.question())));
     }
@@ -123,9 +130,10 @@ public class AgentConversationController {
     @AnonymousConversation
     public StreamingResponseBody events(@PathVariable String id, HttpServletRequest request,
             HttpServletResponse response) {
+        var requestStart = chatTimingEnabled ? AgentStreamTiming.RequestStart.now() : null;
         var turn = agentConversationService.ownedExecution(positiveId(id), agentConversationOwnerResolver.resolve(request, null).key());
         streams.select(request);
-        return output -> stream(output, response, false, () -> turn);
+        return output -> stream(output, response, false, requestStart, () -> turn);
     }
 
     @PostMapping("/executions/{id}/stop")
@@ -148,7 +156,8 @@ public class AgentConversationController {
     }
 
     private void stream(OutputStream output, HttpServletResponse response, boolean sendReceipt,
-            Supplier<AgentTurn> loadTurn) {
+            AgentStreamTiming.RequestStart requestStart, Supplier<AgentTurn> loadTurn) {
+        long workerStart = requestStart == null ? 0 : System.nanoTime();
         var turn = loadTurn.get();
         response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
@@ -156,14 +165,23 @@ public class AgentConversationController {
         response.setHeader("X-Accel-Buffering", "no");
 
         var writer = new AgentEventWriter(output, response);
+        var timing = requestStart != null
+                ? new AgentStreamTiming(writer, jsonMapper, turn, sendReceipt, requestStart, workerStart) : null;
+        BiConsumer<String, String> writeEvent = timing == null ? writer::write : timing::write;
+        boolean disconnected = false;
         try {
             if (sendReceipt) {
                 var receipt = agentConversationService.receipt(turn);
-                writer.write(EVENT_ACCEPTED, jsonMapper.writeValueAsString(receipt));
+                writeEvent.accept(EVENT_ACCEPTED, jsonMapper.writeValueAsString(receipt));
             }
-            agentConversationService.events(turn, writer::write, writer::keepAlive);
+            agentConversationService.events(turn, writeEvent, writer::keepAlive);
         } catch (AgentEventWriter.Disconnected ignored) {
             // 断线只结束订阅，定时任务会补存执行终态。
+            disconnected = true;
+        } finally {
+            if (timing != null) {
+                timing.logFinished(disconnected);
+            }
         }
     }
 }

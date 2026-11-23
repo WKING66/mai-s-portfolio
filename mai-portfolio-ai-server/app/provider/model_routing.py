@@ -15,6 +15,7 @@ from openai import APIConnectionError, APIStatusError, RateLimitError
 from pydantic import PrivateAttr, SecretStr
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt
 
+from app.chat_timing import ChatTiming, ModelAttemptTiming
 from app.contracts.model_catalog import ChatParameters, EmbeddingParameters
 from app.contracts.wire import ExecutionRejected
 
@@ -75,6 +76,10 @@ def fit_chat_context(messages: list[BaseMessage], output_tokens: int) -> list[Ba
 
 class ChatOpenAIWithThinkingProgress(ChatOpenAI):
     _on_thinking: Callable[[], None] | None = PrivateAttr(default=None)
+    _timing: ModelAttemptTiming | None = PrivateAttr(default=None)
+
+    def track_timing(self, timing: ModelAttemptTiming | None) -> None:
+        self._timing = timing
 
     def track_thinking(self, callback: Callable[[], None] | None) -> None:
         self._on_thinking = callback
@@ -84,12 +89,19 @@ class ChatOpenAIWithThinkingProgress(ChatOpenAI):
         base_generation_info: dict[str, Any] | None,
     ) -> ChatGenerationChunk | None:
         # LangChain 会丢弃兼容接口的非标准思考字段。在转换前只观察是否出现，后续事件不携带原文。
-        if self._on_thinking is not None:
+        if self._timing is not None:
+            self._timing.mark_frame()
+        if self._on_thinking is not None or (
+            self._timing is not None and self._timing.first_thinking_ms is None
+        ):
             choices = chunk.get("choices") or []
             delta = (choices[0].get("delta") or {}) if choices else {}
             if delta.get("reasoning_content") or delta.get("reasoning") or delta.get("reasoning_details"):
-                self._on_thinking()
-                self._on_thinking = None
+                if self._timing is not None:
+                    self._timing.mark_thinking()
+                if self._on_thinking is not None:
+                    self._on_thinking()
+                    self._on_thinking = None
         return super()._convert_chunk_to_generation_chunk(chunk, default_chunk_class, base_generation_info)
 
 
@@ -115,8 +127,15 @@ class ModelRouting:
         report_usage: Callable[[UsageMetadata | None], None] | None = None,
         *,
         on_thinking: Callable[[], None] | None = None,
+        timing: ChatTiming | None = None,
     ) -> AsyncGenerator[AIMessageChunk]:
-        for candidate in self.available(candidates):
+        available = self.available(candidates)
+        if timing is not None:
+            timing.log_candidates(
+                [candidate.model_id for candidate in candidates],
+                [candidate.model_id for candidate in available],
+            )
+        for candidate in available:
             parameters = ChatParameters.model_validate(candidate.config)
             model = ChatOpenAIWithThinkingProgress(
                 model=candidate.model_key,
@@ -151,16 +170,26 @@ class ModelRouting:
                                 stream_usage=True,
                             ),
                         )
+                        probe = (
+                            ModelAttemptTiming(timing, candidate.model_id, attempt.retry_state.attempt_number)
+                            if timing is not None else None
+                        )
+                        model.track_timing(probe)
                         try:
                             async with aclosing(stream):
                                 async with asyncio.timeout(MODEL_RESPONSE_TIMEOUT):
                                     first = await anext(stream, None)
                                 if first is not None:
+                                    if probe is not None:
+                                        probe.first_chunk_ms = probe.chat.elapsed_ms()
+                                        probe.mark_text(first.text)
                                     usage = first.usage_metadata
                                     emitted = bool(first.text)
                                     output_limit_reached = first.response_metadata.get("finish_reason") == "length"
                                     yield first
                                 async for chunk in stream:
+                                    if probe is not None:
+                                        probe.mark_text(chunk.text)
                                     if chunk.usage_metadata is not None:
                                         usage = chunk.usage_metadata
                                     emitted = emitted or bool(chunk.text)
@@ -169,6 +198,8 @@ class ModelRouting:
                                     )
                                     yield chunk
                         except (TimeoutError, APIConnectionError, APIStatusError) as error:
+                            if probe is not None:
+                                probe.mark_error(error)
                             if report_usage is not None and (
                                 usage is not None or isinstance(error, TimeoutError)
                                 or (isinstance(error, APIConnectionError) and not can_retry(error))
@@ -180,6 +211,13 @@ class ModelRouting:
                             self.cool_down(candidate, error)
                             # 已有正文时结束本轮。业务错误不会触发模型请求重试。
                             raise ExecutionRejected(503, "MODEL_STREAM_INTERRUPTED", "模型输出已中断。") from error
+                        except (Exception, asyncio.CancelledError, GeneratorExit) as error:
+                            if probe is not None:
+                                probe.mark_error(error)
+                            raise
+                        finally:
+                            if probe is not None:
+                                probe.log_finished()
                         if report_usage is not None:
                             report_usage(usage)
                 if emitted:
