@@ -48,20 +48,12 @@ class ProjectServiceImplTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"manage", "INVALID", ""})
-    void rejectsInvalidViewsBeforeQuery(String view) {
-        assertThatThrownBy(() -> service.list(new ContentListRequest(view, 1, 12, null)))
-            .isInstanceOf(ApiException.class).hasMessage(ProjectMessageConstants.INVALID_QUERY);
-        verifyNoInteractions(projects, links, tags);
-    }
-
-    @Test
-    void rejectsOversizeAndPublicStatusFilter() {
-        assertThatThrownBy(() -> service.list(new ContentListRequest("PUBLIC", 1, 51, null)))
-            .isInstanceOf(ApiException.class);
-        assertThatThrownBy(() -> service.list(new ContentListRequest("PUBLIC", 1, 3, "DRAFT")))
-            .isInstanceOf(ApiException.class);
-        verifyNoInteractions(projects, links, tags);
+    @ValueSource(strings = {"DRAFT", "PUBLISHED"})
+    void rejectsPublicStatusFilterBeforeQuery(String status) {
+        assertThatThrownBy(() -> service.list(new ContentListRequest("PUBLIC", 1, 3, status)))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("status 仅用于 MANAGE");
+        verifyNoInteractions(projects, links, tags, taxonomy, media, assets);
     }
 
     @Test

@@ -1,16 +1,23 @@
 package dev.amai.portfolio.portfolio.controller;
 
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
 import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.ViewPageVO;
 import dev.amai.portfolio.portfolio.entity.vo.ProjectItemVo;
 import dev.amai.portfolio.portfolio.service.ProjectService;
 import dev.amai.portfolio.web.advice.GlobalExceptionHandler;
-import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 class ProjectListContractTest {
@@ -33,9 +40,25 @@ class ProjectListContractTest {
                 .andExpect(jsonPath("$.data.page").value(2))
                 .andExpect(jsonPath("$.data.size").value(20))
                 .andExpect(jsonPath("$.data.items").isArray());
-        clearInvocations(projects);
-        mvc.perform(get("/api/v1/projects").param("size", "51"))
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "view, manage",
+        "view, INVALID",
+        "view, ''",
+        "page, 0",
+        "page, 10001",
+        "size, 0",
+        "size, 51"
+    })
+    void rejectsInvalidListParametersBeforeCallingProjectService(String parameter, String value) throws Exception {
+        var projectService = mock(ProjectService.class);
+        var mvc = MockMvcBuilders.standaloneSetup(new ProjectController(projectService))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
+
+        mvc.perform(get("/api/v1/projects").param(parameter, value))
                 .andExpect(status().isUnprocessableEntity());
-        verifyNoInteractions(projects);
+        verifyNoInteractions(projectService);
     }
 }
