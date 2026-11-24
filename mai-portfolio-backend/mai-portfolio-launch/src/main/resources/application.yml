@@ -60,6 +60,8 @@ mybatis-plus:
 springdoc:
   api-docs:
     enabled: true
+  swagger-ui:
+    enabled: true
 
 site-guide:
   ai-base-url: ${SITE_GUIDE_AI_BASE_URL:http://127.0.0.1:9344}
@@ -82,8 +84,6 @@ logging:
       max-history: ${LOG_MAX_HISTORY:30}
       total-size-cap: ${LOG_TOTAL_SIZE_CAP:2GB}
       clean-history-on-start: false
-  swagger-ui:
-    enabled: true
 
 sa-token:
   token-name: portfolio_session

@@ -5,7 +5,7 @@ server:
 spring:
   datasource:
     druid:
-      # 开发库固定为独立的 portfolio_dev，凭据只从仓库根目录被忽略的 .env 注入。
+      # 开发库固定为独立的 portfolio_dev，可通过启动环境变量覆盖连接参数。
       url: jdbc:postgresql://${PSQL_HOST:127.0.0.1}:${PSQL_PORT:5432}/portfolio_dev
       username: ${PSQL_USERNAME:postgres}
       password: ${PSQL_PASSWORD:123456}
@@ -17,8 +17,8 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:123456}
+      port: ${REDIS_PORT:6380}
+      password: ${REDIS_PASSWORD:}
       database: ${REDIS_DATABASE:0}
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:3s}
       timeout: ${REDIS_COMMAND_TIMEOUT:3s}
