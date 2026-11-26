@@ -11,11 +11,12 @@ from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from openai import APIConnectionError, APIStatusError, RateLimitError
+from openai import APIConnectionError, APIError, APIStatusError, RateLimitError
 from pydantic import PrivateAttr, SecretStr
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt
 
-from app.chat_timing import ChatTiming, ModelAttemptTiming
+from app.chat_timing import SAFE_PROVIDER_CODES, ChatTiming, ModelAttemptTiming
+from app.contracts.execution_diagnostics import ExecutionDiagnostics, FinishReason
 from app.contracts.model_catalog import ChatParameters, EmbeddingParameters
 from app.contracts.wire import ExecutionRejected
 
@@ -77,9 +78,15 @@ def fit_chat_context(messages: list[BaseMessage], output_tokens: int) -> list[Ba
 class ChatOpenAIWithThinkingProgress(ChatOpenAI):
     _on_thinking: Callable[[], None] | None = PrivateAttr(default=None)
     _timing: ModelAttemptTiming | None = PrivateAttr(default=None)
+    _refused: bool = PrivateAttr(default=False)
+
+    @property
+    def refused(self) -> bool:
+        return self._refused
 
     def track_timing(self, timing: ModelAttemptTiming | None) -> None:
         self._timing = timing
+        self._refused = False
 
     def track_thinking(self, callback: Callable[[], None] | None) -> None:
         self._on_thinking = callback
@@ -91,18 +98,35 @@ class ChatOpenAIWithThinkingProgress(ChatOpenAI):
         # LangChain 会丢弃兼容接口的非标准思考字段。在转换前只观察是否出现，后续事件不携带原文。
         if self._timing is not None:
             self._timing.mark_frame()
-        if self._on_thinking is not None or (
-            self._timing is not None and self._timing.first_thinking_ms is None
-        ):
-            choices = chunk.get("choices") or []
-            delta = (choices[0].get("delta") or {}) if choices else {}
-            if delta.get("reasoning_content") or delta.get("reasoning") or delta.get("reasoning_details"):
-                if self._timing is not None:
-                    self._timing.mark_thinking()
-                if self._on_thinking is not None:
-                    self._on_thinking()
-                    self._on_thinking = None
+        choices = chunk.get("choices") or []
+        delta = (choices[0].get("delta") or {}) if choices else {}
+        if delta.get("refusal"):
+            self._refused = True
+        if delta.get("reasoning_content") or delta.get("reasoning") or delta.get("reasoning_details"):
+            if self._timing is not None:
+                self._timing.mark_thinking()
+            if self._on_thinking is not None:
+                self._on_thinking()
+                self._on_thinking = None
         return super()._convert_chunk_to_generation_chunk(chunk, default_chunk_class, base_generation_info)
+
+
+def upstream_finish_reason(error: TimeoutError | APIError) -> FinishReason:
+    if isinstance(error, TimeoutError):
+        return FinishReason.FIRST_CHUNK_TIMEOUT
+    if isinstance(error.code, str):
+        if error.code in {"context_length_exceeded", "context_window_exceeded"}:
+            return FinishReason.CONTEXT_LIMIT
+        if error.code in SAFE_PROVIDER_CODES:
+            return FinishReason.CAPACITY_LIMIT
+        if error.code in {"content_filter", "content_policy_violation", "refusal"}:
+            return FinishReason.UPSTREAM_REJECTED
+    if isinstance(error, APIStatusError):
+        if error.status_code in {429, 503, 529}:
+            return FinishReason.CAPACITY_LIMIT
+        if error.status_code < 500:
+            return FinishReason.UPSTREAM_REJECTED
+    return FinishReason.UNAVAILABLE
 
 
 class ModelRouting:
@@ -128,15 +152,27 @@ class ModelRouting:
         *,
         on_thinking: Callable[[], None] | None = None,
         timing: ChatTiming | None = None,
+        diagnostics: ExecutionDiagnostics | None = None,
     ) -> AsyncGenerator[AIMessageChunk]:
+        diagnostics = diagnostics if diagnostics is not None else ExecutionDiagnostics()
         available = self.available(candidates)
         if timing is not None:
             timing.log_candidates(
                 [candidate.model_id for candidate in candidates],
                 [candidate.model_id for candidate in available],
             )
+        eligible: list[tuple[Candidate, ChatParameters, list[BaseMessage]]] = []
+        reason = FinishReason.UNAVAILABLE
         for candidate in available:
             parameters = ChatParameters.model_validate(candidate.config)
+            try:
+                context = fit_chat_context(messages, parameters.max_output_tokens)
+            except ExecutionRejected:
+                reason = FinishReason.CONTEXT_LIMIT
+            else:
+                eligible.append((candidate, parameters, context))
+
+        for index, (candidate, parameters, context) in enumerate(eligible):
             model = ChatOpenAIWithThinkingProgress(
                 model=candidate.model_key,
                 base_url=candidate.base_url,
@@ -147,87 +183,123 @@ class ModelRouting:
                 http_async_client=self.http,
             )
             model.track_thinking(on_thinking)
-            try:
-                context = fit_chat_context(messages, parameters.max_output_tokens)
-            except ExecutionRejected:
-                continue
-
-            emitted = False
-            output_limit_reached = False
-            try:
-                async for attempt in AsyncRetrying(
-                    retry=retry_if_exception(can_retry),
-                    stop=stop_after_attempt(MAX_ATTEMPTS),
-                    reraise=True,
-                ):
-                    with attempt:
-                        usage = None
-                        stream = cast(
-                            AsyncGenerator[AIMessageChunk],
-                            model.astream(
-                                context,
-                                max_completion_tokens=parameters.max_output_tokens,
-                                stream_usage=True,
-                            ),
-                        )
-                        probe = (
-                            ModelAttemptTiming(timing, candidate.model_id, attempt.retry_state.attempt_number)
-                            if timing is not None else None
-                        )
-                        model.track_timing(probe)
-                        try:
-                            async with aclosing(stream):
-                                async with asyncio.timeout(MODEL_RESPONSE_TIMEOUT):
-                                    first = await anext(stream, None)
-                                if first is not None:
-                                    if probe is not None:
-                                        probe.first_chunk_ms = probe.chat.elapsed_ms()
-                                        probe.mark_text(first.text)
-                                    usage = first.usage_metadata
-                                    emitted = bool(first.text)
-                                    output_limit_reached = first.response_metadata.get("finish_reason") == "length"
-                                    yield first
-                                async for chunk in stream:
-                                    if probe is not None:
-                                        probe.mark_text(chunk.text)
-                                    if chunk.usage_metadata is not None:
-                                        usage = chunk.usage_metadata
-                                    emitted = emitted or bool(chunk.text)
-                                    output_limit_reached = output_limit_reached or (
-                                        chunk.response_metadata.get("finish_reason") == "length"
-                                    )
-                                    yield chunk
-                        except (TimeoutError, APIConnectionError, APIStatusError) as error:
+            for attempt_number in range(1, MAX_ATTEMPTS + 1):
+                await diagnostics.dispatch_allowed.wait()
+                diagnostics.start(candidate.model_id, candidate.model_revision)
+                probe = (
+                    ModelAttemptTiming(timing, candidate.model_id, attempt_number)
+                    if timing is not None else None
+                )
+                model.track_timing(probe)
+                usage = None
+                emitted = False
+                finish_signal: FinishReason | None = None
+                prefix: list[str] = []
+                next_candidate = 1 if index + 1 < len(eligible) else 0
+                try:
+                    stream = cast(AsyncGenerator[AIMessageChunk], model.astream(
+                        context, max_completion_tokens=parameters.max_output_tokens, stream_usage=True,
+                    ))
+                    async with aclosing(stream):
+                        async with asyncio.timeout(MODEL_RESPONSE_TIMEOUT):
+                            try:
+                                chunk = await anext(stream, None)
+                            except ValueError as error:
+                                # LangChain 把首块前的正常 EOF 包装为此异常。
+                                if str(error) != "No generation chunks were returned":
+                                    raise
+                                chunk = None
+                        if probe is not None and chunk is not None:
+                            probe.first_chunk_ms = probe.chat.elapsed_ms()
+                        while chunk is not None:
+                            content = chunk.text
+                            visible = bool(content.strip())
+                            diagnostics.observe(visible)
                             if probe is not None:
-                                probe.mark_error(error)
-                            if report_usage is not None and (
-                                usage is not None or isinstance(error, TimeoutError)
-                                or (isinstance(error, APIConnectionError) and not can_retry(error))
-                                or (isinstance(error, APIStatusError) and error.status_code >= 500)
-                            ):
-                                report_usage(usage)
-                            if not emitted:
-                                raise
-                            self.cool_down(candidate, error)
-                            # 已有正文时结束本轮。业务错误不会触发模型请求重试。
-                            raise ExecutionRejected(503, "MODEL_STREAM_INTERRUPTED", "模型输出已中断。") from error
-                        except (Exception, asyncio.CancelledError, GeneratorExit) as error:
-                            if probe is not None:
-                                probe.mark_error(error)
-                            raise
-                        finally:
-                            if probe is not None:
-                                probe.log_finished()
-                        if report_usage is not None:
-                            report_usage(usage)
-                if emitted:
-                    self.retry_at.pop(candidate.revision_key, None)
-                    return
-                # 输出额度耗尽只影响本轮，下一轮仍可尝试该候选。
-                if not output_limit_reached:
-                    self.cool_down(candidate, TimeoutError())
-            except (TimeoutError, APIConnectionError, APIStatusError) as error:
-                self.cool_down(candidate, error)
+                                probe.mark_text(content)
+                            if chunk.usage_metadata is not None:
+                                usage = chunk.usage_metadata
+                            upstream_reason = chunk.response_metadata.get("finish_reason")
+                            if upstream_reason == "length":
+                                finish_signal = FinishReason.OUTPUT_LIMIT
+                            elif upstream_reason == "content_filter":
+                                finish_signal = FinishReason.UPSTREAM_REJECTED
+                            # 空白前缀与首段可见正文一起提交，切换候选时丢弃旧前缀。
+                            if emitted or visible:
+                                if prefix:
+                                    chunk = chunk.model_copy(update={"content": "".join(prefix) + content})
+                                    prefix.clear()
+                                emitted = True
+                                yield chunk
+                            elif content:
+                                prefix.append(content)
+                            chunk = await anext(stream, None)
+                except (TimeoutError, APIError) as error:
+                    if probe is not None:
+                        probe.mark_error(error)
+                    stream_error = isinstance(error, APIError) and not isinstance(
+                        error, (APIConnectionError, APIStatusError),
+                    )
+                    retriable = can_retry(error)
+                    if report_usage is not None and (
+                        usage is not None or stream_error or isinstance(error, TimeoutError)
+                        or (isinstance(error, APIConnectionError) and not retriable)
+                        or (isinstance(error, APIStatusError) and error.status_code >= 500)
+                    ):
+                        report_usage(usage)
+                    if model.refused:
+                        finish_signal = FinishReason.UPSTREAM_REJECTED
+                    reason = finish_signal or upstream_finish_reason(error)
+                    if emitted:
+                        if reason in (FinishReason.FIRST_CHUNK_TIMEOUT, FinishReason.UNAVAILABLE):
+                            reason = FinishReason.STREAM_INTERRUPTED
+                        diagnostics.end(reason)
+                        diagnostics.finish_reason = reason
+                        self.cool_down(candidate, error)
+                        raise ExecutionRejected(503, "MODEL_STREAM_INTERRUPTED", "模型输出已中断。") from error
+                    if attempt_number < MAX_ATTEMPTS and retriable:
+                        diagnostics.end(reason, 2)
+                        continue
+                    diagnostics.end(reason, next_candidate)
+                    self.cool_down(candidate, error)
+                    if stream_error and not next_candidate:
+                        diagnostics.finish_reason = reason
+                        raise
+                    break
+                except (asyncio.CancelledError, GeneratorExit) as error:
+                    # 停止方保存的快照保留仍在途的尝试，不伪造上游结果。
+                    if probe is not None:
+                        probe.mark_error(error)
+                    raise
+                except Exception as error:
+                    if probe is not None:
+                        probe.mark_error(error)
+                    diagnostics.end(FinishReason.INTERNAL_ERROR)
+                    diagnostics.finish_reason = FinishReason.INTERNAL_ERROR
+                    raise
+                else:
+                    if report_usage is not None:
+                        report_usage(usage)
+                    if model.refused:
+                        finish_signal = FinishReason.UPSTREAM_REJECTED
+                    reason = finish_signal or (FinishReason.COMPLETED if emitted else FinishReason.EMPTY_BODY)
+                    if reason == FinishReason.COMPLETED:
+                        diagnostics.end(reason)
+                        diagnostics.finish_reason = reason
+                        self.retry_at.pop(candidate.revision_key, None)
+                        return
+                    if emitted:
+                        diagnostics.end(reason)
+                        diagnostics.finish_reason = reason
+                        raise ExecutionRejected(503, "MODEL_STREAM_INTERRUPTED", "模型输出已中断。")
+                    diagnostics.end(reason, next_candidate)
+                    if reason == FinishReason.EMPTY_BODY:
+                        self.cool_down(candidate, TimeoutError())
+                    break
+                finally:
+                    if probe is not None:
+                        probe.log_finished()
+        diagnostics.finish_reason = reason
         raise ExecutionRejected(503, "MODEL_UNAVAILABLE", "模型服务暂不可用。")
 
     async def embed(self, candidates: list[Candidate], text: str) -> list[float]:
