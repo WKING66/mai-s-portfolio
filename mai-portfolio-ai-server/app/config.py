@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     ai_server_token: SecretStr
     config_encryption_key: SecretStr = SecretStr("")
 
-    execution_concurrency: int = Field(default=2, gt=0, le=16)
+    execution_concurrency: int = Field(default=2, gt=0, le=32)
     execution_queue_limit: int = Field(default=8, ge=0, le=128)
     chat_timing_enabled: bool = False
 

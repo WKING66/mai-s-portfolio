@@ -3,6 +3,7 @@ import hashlib
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import aclosing
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import IntEnum
 from typing import Literal, cast
@@ -108,6 +109,20 @@ class Progress(WireModel):
     phase: ProgressPhase
 
 
+BODY_FLUSH_INTERVAL = 0.225
+BODY_FLUSH_BYTES = 256
+
+
+@dataclass
+class BodyBatch:
+    timing: ChatTiming | None
+    changed: asyncio.Condition = field(default_factory=asyncio.Condition)
+    parts: list[str] = field(default_factory=list)
+    size: int = 0
+    deadline: float = 0.0
+    closed: bool = False
+
+
 class Executions:
     def __init__(
         self,
@@ -126,6 +141,7 @@ class Executions:
         self.workers = asyncio.Semaphore(concurrency)
         self.submissions = asyncio.Lock()
         self.tasks: dict[int, asyncio.Task[None]] = {}
+        self.body_batches: dict[int, BodyBatch] = {}
         self.thinking: set[int] = set()
 
     # 重启只中断遗留执行并保留部分正文。上次请求可能已收费，不能自动重放。
@@ -138,10 +154,15 @@ class Executions:
             )
 
     async def close(self) -> None:
-        tasks = tuple(self.tasks.values())
-        for task in tasks:
-            task.cancel()
-        await asyncio.gather(*tasks, return_exceptions=True)
+        tasks = tuple((task, self.body_batches[execution_id]) for execution_id, task in self.tasks.items())
+        for task, body in tasks:
+            # 避免在数据库提交途中取消。任务退出时刷完尾段，再恢复遗留状态。
+            async with body.changed:
+                if not task.cancelling():
+                    body.closed = True
+                    body.changed.notify()
+                    task.cancel()
+        await asyncio.gather(*(task for task, _ in tasks), return_exceptions=True)
         if self.worker_available:
             await self.recover()
 
@@ -227,11 +248,14 @@ class Executions:
                 execution_id = execution.id
             # 4. 受理记录提交后才调度。订阅必须始终能读到对应的持久记录。
             timing = ChatTiming(request.request_id, execution_id) if self.chat_timing_enabled else None
-            task = asyncio.create_task(self.run(execution_id, request, graph, persona, timing))
+            body = BodyBatch(timing)
+            self.body_batches[execution_id] = body
+            task = asyncio.create_task(self.run(execution_id, request, graph, persona, body))
             self.tasks[execution_id] = task
 
             def on_done(finished: asyncio.Task[None]) -> None:
                 self.tasks.pop(execution_id, None)
+                self.body_batches.pop(execution_id, None)
                 if timing is not None:
                     timing.log_finished(finished.cancelled())
 
@@ -353,13 +377,105 @@ class Executions:
 
     async def stop(self, execution_id: int) -> Snapshot:
         self.require_worker()
-        # 先提交中断，再尽力取消任务。未赢得终态竞争时返回已有快照。
-        if await self.finish(execution_id, ExecutionCode.INTERRUPTED):
-            task = self.tasks.get(execution_id)
-            # 只有本进程仍持有任务时才能取消，持久化终态不依赖取消是否成功。
-            if task is not None:
-                task.cancel()
+        body = self.body_batches.get(execution_id)
+        if body is None:
+            await self.finish(execution_id, ExecutionCode.INTERRUPTED)
+        else:
+            # 序列化正文追加与停止。中断提交前保存已接收的正文，终态后不再追加。
+            async with body.changed:
+                await self.flush_body(execution_id, body)
+                if await self.finish(execution_id, ExecutionCode.INTERRUPTED):
+                    body.closed = True
+                    task = self.tasks.get(execution_id)
+                    if task is not None:
+                        task.cancel()
         return await self.get(execution_id)
+
+    async def flush_body(self, execution_id: int, body: BodyBatch) -> bool:
+        if not body.parts:
+            return True
+        text = "".join(body.parts)
+        async with self.sessions.begin() as session:
+            saved = await session.scalar(
+                update(Execution)
+                .where(
+                    col(Execution.id) == execution_id,
+                    col(Execution.status) == ExecutionCode.RUNNING,
+                )
+                .values(text=col(Execution.text) + text)
+                .returning(col(Execution.id))
+            )
+        body.parts.clear()
+        body.size = 0
+        body.deadline = asyncio.get_running_loop().time() + BODY_FLUSH_INTERVAL
+        if saved is None:
+            body.closed = True
+            return False
+        timing = body.timing
+        if timing is not None and timing.first_body_committed_ms is None and text.strip():
+            timing.first_body_committed_ms = timing.elapsed_ms()
+        return True
+
+    async def flush_body_on_deadline(self, execution_id: int, body: BodyBatch) -> None:
+        loop = asyncio.get_running_loop()
+        async with body.changed:
+            while not body.closed:
+                if not body.parts:
+                    await body.changed.wait()
+                elif loop.time() >= body.deadline:
+                    await self.flush_body(execution_id, body)
+                else:
+                    try:
+                        # 等上游下一块时也要按时刷库，不能通过超时取消供应商读取。
+                        async with asyncio.timeout_at(body.deadline):
+                            await body.changed.wait()
+                    except TimeoutError:
+                        continue
+
+    async def stream_body(
+        self, execution_id: int, request: SubmitExecution, graph: ConfiguredChat,
+        persona: str, body: BodyBatch,
+    ) -> None:
+        stream_error: Exception | None = None
+        loop = asyncio.get_running_loop()
+        async with asyncio.TaskGroup() as tasks:
+            tasks.create_task(self.flush_body_on_deadline(execution_id, body))
+            try:
+                async with aclosing(
+                    graph.stream(
+                        {
+                            "execution_id": execution_id,
+                            "question": request.question,
+                            "history": request.history,
+                            "persona": persona,
+                        },
+                        on_thinking=lambda: self.thinking.add(execution_id),
+                        timing=body.timing,
+                    )
+                ) as chunks:
+                    async for text in chunks:
+                        if not text:
+                            continue
+                        async with body.changed:
+                            if body.closed:
+                                break
+                            body.parts.append(text)
+                            body.size += len(text.encode())
+                            if loop.time() >= body.deadline or body.size >= BODY_FLUSH_BYTES:
+                                if not await self.flush_body(execution_id, body):
+                                    break
+                            else:
+                                body.changed.notify()
+            except Exception as error:  # noqa: BLE001 - 退出任务组后由 run 统一处理
+                # 保留上游错误类型，刷完尾段再交给执行错误处理。
+                stream_error = error
+            finally:
+                async with body.changed:
+                    body.closed = True
+                    body.changed.notify()
+                    await self.flush_body(execution_id, body)
+        if stream_error is not None:
+            raise stream_error
 
     async def run(
         self,
@@ -367,8 +483,9 @@ class Executions:
         request: SubmitExecution,
         graph: ConfiguredChat,
         persona: str,
-        timing: ChatTiming | None = None,
+        body: BodyBatch,
     ) -> None:
+        timing = body.timing
         try:
             # 1. 获得执行槽后才从已受理切换到运行中。
             async with self.workers:
@@ -389,35 +506,8 @@ class Executions:
                         return
                 if timing is not None:
                     timing.running_committed_ms = timing.elapsed_ms()
-                # 2. 先保存正文增量，订阅者只读取已提交的数据。
-                async with aclosing(
-                    graph.stream(
-                        {
-                            "execution_id": execution_id,
-                            "question": request.question,
-                            "history": request.history,
-                            "persona": persona,
-                        },
-                        on_thinking=lambda: self.thinking.add(execution_id),
-                        timing=timing,
-                    )
-                ) as chunks:
-                    async for text in chunks:
-                        async with self.sessions.begin() as session:
-                            saved = await session.scalar(
-                                update(Execution)
-                                .where(
-                                    col(Execution.id) == execution_id,
-                                    col(Execution.status) == ExecutionCode.RUNNING,
-                                )
-                                .values(text=col(Execution.text) + text)
-                                .returning(col(Execution.id))
-                            )
-                            # 终态已被另一操作提交时停止消费，不再向终态正文追加内容。
-                            if saved is None:
-                                return
-                        if timing is not None and timing.first_body_committed_ms is None and text.strip():
-                            timing.first_body_committed_ms = timing.elapsed_ms()
+                # 2. 首块立即保存，后续合批；订阅者只读取已提交的正文。
+                await self.stream_body(execution_id, request, graph, persona, body)
                 # 3. 全部正文保存后再发布完成，终态快照因此包含最终正文。
                 await self.finish(execution_id, ExecutionCode.COMPLETED, graph=graph)
         except ExecutionRejected as error:

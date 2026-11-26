@@ -19,8 +19,8 @@ public class AgentStreamExecutor {
     private final ThreadPoolTaskExecutor executor;
     private final Semaphore newStreams;
 
-    public AgentStreamExecutor(@Value("${site-guide.chat-streams.max-new:20}") int maxNewStreams,
-            @Value("${site-guide.chat-streams.resume-reserve:2}") int resumeReserve) {
+    public AgentStreamExecutor(@Value("${site-guide.chat-streams.max-new:24}") int maxNewStreams,
+            @Value("${site-guide.chat-streams.resume-reserve:4}") int resumeReserve) {
         if (maxNewStreams < 1 || resumeReserve < 1) {
             throw new IllegalArgumentException("Chat stream limits must be positive.");
         }
