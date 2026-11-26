@@ -5,11 +5,11 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import dev.amai.portfolio.blog.component.DocumentRenderer;
 import dev.amai.portfolio.blog.entity.domain.BlogPostDO;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
-import dev.amai.portfolio.blog.service.DocumentService;
 import dev.amai.portfolio.common.ContentListRequest;
+import dev.amai.portfolio.document.api.DocumentResourceViewService;
+import dev.amai.portfolio.document.api.DocumentService;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.validation.Validator;
@@ -22,7 +22,7 @@ class BlogListSearchTest {
     private final BlogPostMapper mapper = mock(BlogPostMapper.class);
     private final DocumentService documents = mock(DocumentService.class);
     private final BlogServiceImpl service = new BlogServiceImpl(mapper, documents, null, null, null,
-            mock(DocumentRenderer.class), null, null, null, null,
+            mock(DocumentResourceViewService.class), null, null, null, null,
             mock(PlatformTransactionManager.class), mock(Validator.class));
 
     @Test

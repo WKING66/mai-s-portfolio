@@ -1,23 +1,36 @@
 package dev.amai.portfolio.blog.service.impl;
 
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
-import static dev.amai.portfolio.blog.constant.DocumentPolicy.MAX_SOURCE_FILENAME_LENGTH;
+import static dev.amai.portfolio.document.constant.DocumentPolicy.MAX_SOURCE_FILENAME_LENGTH;
 
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import dev.amai.portfolio.asset.api.*;
-import dev.amai.portfolio.blog.component.*;
-import dev.amai.portfolio.blog.config.DocumentProperties;
-import dev.amai.portfolio.blog.convert.*;
-import dev.amai.portfolio.blog.entity.domain.*;
+import dev.amai.portfolio.blog.convert.BlogConvert;
+import dev.amai.portfolio.blog.entity.domain.BlogPostDO;
 import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
-import dev.amai.portfolio.blog.enums.*;
+import dev.amai.portfolio.blog.enums.BlogAction;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
-import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.blog.service.BlogService;
 import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.ViewPageVO;
+import dev.amai.portfolio.document.api.DocumentImportLimits;
+import dev.amai.portfolio.document.api.DocumentImportTaskService;
+import dev.amai.portfolio.document.api.DocumentParser;
+import dev.amai.portfolio.document.api.DocumentResourcePreparationService;
+import dev.amai.portfolio.document.api.DocumentResourceViewService;
+import dev.amai.portfolio.document.api.DocumentService;
+import dev.amai.portfolio.document.entity.domain.Document;
+import dev.amai.portfolio.document.entity.domain.DocumentDraft;
+import dev.amai.portfolio.document.entity.domain.DocumentInputResource;
+import dev.amai.portfolio.document.entity.domain.DocumentResource;
+import dev.amai.portfolio.document.entity.domain.PreparedDocument;
+import dev.amai.portfolio.document.entity.vo.DocumentResourceVo;
+import dev.amai.portfolio.document.enums.ContentStage;
+import dev.amai.portfolio.document.enums.DocumentOrigin;
+import dev.amai.portfolio.document.enums.ResourceStatus;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.validation.ValidationGroups;
@@ -52,11 +65,11 @@ public class BlogServiceImpl implements BlogService {
 
     private final DocumentImportTaskService documentImportTaskService;
 
-    private final DocumentResourceResolver documentResourceResolver;
+    private final DocumentResourcePreparationService documentResourcePreparationService;
 
     private final DocumentParser documentParser;
 
-    private final DocumentRenderer documentRenderer;
+    private final DocumentResourceViewService documentResourceViewService;
 
     private final AssetFileService assetFileService;
 
@@ -64,7 +77,7 @@ public class BlogServiceImpl implements BlogService {
 
     private final TaxonomyQueryService taxonomyQueryService;
 
-    private final DocumentProperties documentProperties;
+    private final DocumentImportLimits documentImportLimits;
 
     private final TransactionTemplate transactionTemplate;
 
@@ -77,21 +90,21 @@ public class BlogServiceImpl implements BlogService {
 
     public BlogServiceImpl(BlogPostMapper blogPostMapper, DocumentService documentService,
             DocumentImportTaskService documentImportTaskService,
-            DocumentResourceResolver documentResourceResolver, DocumentParser documentParser,
-            DocumentRenderer documentRenderer, AssetFileService assetFileService,
+            DocumentResourcePreparationService documentResourcePreparationService, DocumentParser documentParser,
+            DocumentResourceViewService documentResourceViewService, AssetFileService assetFileService,
             AssetQueryService assetQueryService, TaxonomyQueryService taxonomyQueryService,
-            DocumentProperties documentProperties,
+            DocumentImportLimits documentImportLimits,
             PlatformTransactionManager transactionManager, Validator validator) {
         this.blogPostMapper = blogPostMapper;
         this.documentService = documentService;
         this.documentImportTaskService = documentImportTaskService;
-        this.documentResourceResolver = documentResourceResolver;
+        this.documentResourcePreparationService = documentResourcePreparationService;
         this.documentParser = documentParser;
-        this.documentRenderer = documentRenderer;
+        this.documentResourceViewService = documentResourceViewService;
         this.assetFileService = assetFileService;
         this.assetQueryService = assetQueryService;
         this.taxonomyQueryService = taxonomyQueryService;
-        this.documentProperties = documentProperties;
+        this.documentImportLimits = documentImportLimits;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.validator = validator;
     }
@@ -151,7 +164,7 @@ public class BlogServiceImpl implements BlogService {
             // 下架、没有正式正文或 slug 不存在均不提供公开文章；原有 OSS 地址不由这里撤销。
             throw missing();
         }
-        var document = documentService.readPublished(article.getDocument(), article.getContent());
+        var document = documentService.readPublished(article.getDocument());
         return project(article.getBlog(), document, false);
     }
 
@@ -162,12 +175,12 @@ public class BlogServiceImpl implements BlogService {
         String hash = writeFingerprint(request);
         var creation = documentService.findCreation(account, request.requestId());
         if (creation != null) {
-            requireSameHash(creation.getCreateRequestHash(), hash);
-            return get(blogByDocument(creation.getId()).getId());
+            requireSameHash(creation.requestHash(), hash);
+            return get(blogByDocument(creation.documentId()).getId());
         }
         requireAvailableSlug(cleanSlug(request.slug()), null);
         var tags = taxonomyQueryService.requireTags(request.tagIds());
-        var prepared = documentResourceResolver.prepare(request.content(), Map.of(), Map.of(),
+        var prepared = documentResourcePreparationService.prepare(request.content(), Map.of(), Map.of(),
                 request.remoteRightsConfirmed(), account);
         var draft = new DocumentDraft(request.title(), request.summary(), prepared, tags,
                 account, request.requestId(), hash);
@@ -194,7 +207,7 @@ public class BlogServiceImpl implements BlogService {
         // 正文完全未变时不解析 Markdown、不查资源清单；明确重试失败网络图片是实际业务操作，不能跳过。
         var prepared = Objects.equals(current.content(), request.content()) && !retryResources
                 ? new PreparedDocument(current.content(), current.resources(), Set.of())
-                : documentResourceResolver.prepare(request.content(),
+                : documentResourcePreparationService.prepare(request.content(),
                         documentService.references(initial.getDocumentId()), Map.of(),
                         request.remoteRightsConfirmed(), account);
         SavedDraft saved;
@@ -349,18 +362,18 @@ public class BlogServiceImpl implements BlogService {
         long account = AccountContext.currentAccount().id();
         // 1. 来源记录独立提交；解析或正文事务失败仍有可追溯入口。
         String filename = sourceFilename(file == null ? null : file.getOriginalFilename());
-        var task = documentImportTaskService.begin(account, requestId, filename,
+        long taskId = documentImportTaskService.begin(account, requestId, filename,
                 file == null ? 0 : file.getSize());
         SavedDraft saved;
         try {
-            byte[] source = read(file, documentProperties.getMaxContentBytes());
+            byte[] source = read(file, documentImportLimits.getMaxContentBytes());
             String sourceSha256 = sha256(source);
-            documentImportTaskService.recordSource(task.getId(), sourceSha256);
+            documentImportTaskService.recordSource(taskId, sourceSha256);
             var tags = taxonomyQueryService.requireTags(tagIds);
             var local = localResources(input);
             var parsed = documentParser.parse(filename, source, local);
             // 2. 来源差异止于 Parser；资源归档和保存复用编辑链路。
-            var prepared = documentResourceResolver.prepare(parsed.content(), Map.of(),
+            var prepared = documentResourcePreparationService.prepare(parsed.content(), Map.of(),
                     parsed.resources(), rights, account);
             var request = new BlogRequest(null, requestId, "",
                     StrUtil.subPre(parsed.title(), MAX_TITLE_LENGTH), "",
@@ -368,13 +381,13 @@ public class BlogServiceImpl implements BlogService {
             var draft = new DocumentDraft(request.title(), request.summary(), prepared, tags,
                     account, requestId, writeFingerprint(request));
             // 3. 博客、内容、关系、导入成功及资源问题清单共同提交。
-            saved = persistNew(request, draft, parsed.origin().code(), task.getId(), sourceSha256);
+            saved = persistNew(request, draft, parsed.origin().code(), taskId, sourceSha256);
         } catch (RuntimeException failure) {
             try {
-                documentImportTaskService.failed(task.getId(), failure);
+                documentImportTaskService.failed(taskId, failure);
             } catch (RuntimeException traceFailure) {
                 LOG.error("Import failure trace unavailable, taskId={}, failureType={}",
-                        task.getId(), traceFailure.getClass().getSimpleName());
+                        taskId, traceFailure.getClass().getSimpleName());
                 failure.addSuppressed(traceFailure);
             }
             throw failure;
@@ -385,22 +398,22 @@ public class BlogServiceImpl implements BlogService {
 
     /** 按 Markdown 相对路径匹配上传文件，保留目录层级区分同名文件；不读取服务器上的同名路径。 */
     private Map<String, DocumentInputResource> localResources(List<MultipartFile> input) {
-        if (input.size() > documentProperties.getMaxResources()) {
+        if (input.size() > documentImportLimits.getMaxResources()) {
             throw invalid("本地资源数量过多");
         }
         Map<String, DocumentInputResource> local = new HashMap<>();
         long total = 0;
         for (var resource : input) {
-            String path = DocumentResourceResolver.localPath(resource.getOriginalFilename());
+            String path = documentResourcePreparationService.localPath(resource.getOriginalFilename());
             if (local.containsKey(path)) {
                 throw invalid("本地资源路径重复");
             }
             total += resource.getSize();
-            if (total > documentProperties.getMaxImportBytes()) {
+            if (total > documentImportLimits.getMaxImportBytes()) {
                 throw invalid("导入资源总大小超过限制");
             }
             local.put(path, new DocumentInputResource(path, resource.getContentType(),
-                    read(resource, documentProperties.getMaxImportBytes())));
+                    read(resource, documentImportLimits.getMaxImportBytes())));
         }
         return local;
     }
@@ -432,9 +445,9 @@ public class BlogServiceImpl implements BlogService {
             if (importTaskId == null) {
                 var creation = documentService.findCreation(draft.editor(), draft.requestId());
                 if (creation != null) {
-                    requireSameHash(creation.getCreateRequestHash(), draft.requestHash());
-                    return new SavedDraft(blogByDocument(creation.getId()),
-                            documentService.read(creation.getId(), true));
+                    requireSameHash(creation.requestHash(), draft.requestHash());
+                    return new SavedDraft(blogByDocument(creation.documentId()),
+                            documentService.read(creation.documentId(), true));
                 }
             }
             requireAvailableSlug(cleanSlug(request.slug()), null);
@@ -556,17 +569,14 @@ public class BlogServiceImpl implements BlogService {
         List<DocumentResourceVo> resources;
         String previewIssue = null;
         try {
-            resources = documentRenderer.resources(document, manage);
+            resources = documentResourceViewService.resources(document, manage);
         } catch (ApiException failure) {
             if (!manage || !failure.code().status().is5xxServerError()) {
                 throw failure;
             }
             LOG.warn("Blog preview unavailable, blogId={}, contentId={}", blog.getId(), document.contentId());
             previewIssue = "正文已保存，资源预览暂时不可用，请稍后重新读取。";
-            resources = document.resources().stream()
-                    .map(resource -> DocumentConvert.MAPPER.to(
-                    resource, null, resource.status(), resource.originalUri(), resource.errorMessage()))
-                    .toList();
+            resources = documentResourceViewService.resourcesWithoutPreview(document);
         }
         boolean resourcesReady = previewIssue == null
                 && resources.stream()

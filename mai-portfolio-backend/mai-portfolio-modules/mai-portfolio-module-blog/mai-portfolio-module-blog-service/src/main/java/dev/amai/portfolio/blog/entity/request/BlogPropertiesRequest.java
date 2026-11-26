@@ -1,7 +1,7 @@
 package dev.amai.portfolio.blog.entity.request;
 
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
-import static dev.amai.portfolio.blog.constant.DocumentPolicy.REQUEST_ID_PATTERN;
+import static dev.amai.portfolio.document.constant.DocumentPolicy.REQUEST_ID_PATTERN;
 
 import dev.amai.portfolio.validation.ValidationGroups;
 import jakarta.validation.constraints.*;

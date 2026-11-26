@@ -1,6 +1,7 @@
 package dev.amai.portfolio.blog.entity.vo;
 
-import dev.amai.portfolio.blog.enums.ContentStage;
+import dev.amai.portfolio.document.entity.vo.DocumentResourceVo;
+import dev.amai.portfolio.document.enums.ContentStage;
 import dev.amai.portfolio.system.api.TagData;
 import java.time.LocalDateTime;
 import java.util.List;

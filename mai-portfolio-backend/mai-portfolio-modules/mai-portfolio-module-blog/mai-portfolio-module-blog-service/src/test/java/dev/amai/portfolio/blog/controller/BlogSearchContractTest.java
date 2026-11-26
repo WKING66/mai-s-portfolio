@@ -6,10 +6,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import dev.amai.portfolio.blog.service.BlogService;
-import dev.amai.portfolio.blog.service.DocumentExportService;
-import dev.amai.portfolio.blog.service.DocumentImportTaskService;
 import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.ViewPageVO;
+import dev.amai.portfolio.document.api.DocumentExportService;
+import dev.amai.portfolio.document.api.DocumentImportTaskService;
 import dev.amai.portfolio.web.advice.GlobalExceptionHandler;
 import java.util.List;
 import org.junit.jupiter.api.Test;

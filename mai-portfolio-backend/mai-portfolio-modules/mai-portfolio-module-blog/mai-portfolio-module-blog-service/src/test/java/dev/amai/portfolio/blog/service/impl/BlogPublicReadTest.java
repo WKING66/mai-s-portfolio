@@ -3,12 +3,13 @@ package dev.amai.portfolio.blog.service.impl;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import dev.amai.portfolio.blog.component.DocumentRenderer;
-import dev.amai.portfolio.blog.entity.domain.*;
+import dev.amai.portfolio.blog.entity.domain.BlogPostDO;
 import dev.amai.portfolio.blog.entity.dto.PublishedBlogData;
-import dev.amai.portfolio.blog.enums.ContentStage;
 import dev.amai.portfolio.blog.mapper.BlogPostMapper;
-import dev.amai.portfolio.blog.service.DocumentService;
+import dev.amai.portfolio.document.api.DocumentResourceViewService;
+import dev.amai.portfolio.document.api.DocumentService;
+import dev.amai.portfolio.document.entity.domain.*;
+import dev.amai.portfolio.document.enums.ContentStage;
 import dev.amai.portfolio.web.exception.ApiErrorCode;
 import dev.amai.portfolio.web.exception.ApiException;
 import jakarta.validation.Validator;
@@ -21,7 +22,7 @@ class BlogPublicReadTest {
     void publishedSubjectIsReusedWithoutReadingIdentityOrDraftAgain() {
         var blogPostMapper = mock(BlogPostMapper.class);
         var documentService = mock(DocumentService.class);
-        var renderer = mock(DocumentRenderer.class);
+        var renderer = mock(DocumentResourceViewService.class);
         var service = new BlogServiceImpl(blogPostMapper, documentService, null, null, null,
                 renderer, null, null, null, null, mock(PlatformTransactionManager.class), mock(Validator.class));
         var article = new PublishedBlogData();
@@ -32,12 +33,11 @@ class BlogPublicReadTest {
         blog.setSlug("article");
         blog.setAllowVisitorDownload(1);
         article.setBlog(blog);
-        article.setDocument(new DocumentDO());
-        article.setContent(new DocumentContentDO());
+        article.setDocument(new PublishedDocumentData());
         var document = new Document(2, 3, 4, ContentStage.PUBLISHED, false, true,
                 "正式标题", "", "正式正文", List.of(), List.of());
         when(blogPostMapper.selectPublishedArticle("article", 1, 1)).thenReturn(article);
-        when(documentService.readPublished(article.getDocument(), article.getContent())).thenReturn(document);
+        when(documentService.readPublished(article.getDocument())).thenReturn(document);
         when(renderer.resources(document, false)).thenReturn(List.of());
 
         var result = service.publicArticle("article");
@@ -45,7 +45,7 @@ class BlogPublicReadTest {
         assertThat(result.content()).isEqualTo("正式正文");
         assertThat(result.hasDraft()).isNull();
         assertThat(result.revision()).isNull();
-        verify(documentService).readPublished(article.getDocument(), article.getContent());
+        verify(documentService).readPublished(article.getDocument());
         verifyNoMoreInteractions(documentService);
         verify(blogPostMapper).selectPublishedArticle("article", 1, 1);
         verifyNoMoreInteractions(blogPostMapper);
@@ -55,7 +55,7 @@ class BlogPublicReadTest {
     void missingOrUnpublishedArticleDoesNotLoadOrSignResources() {
         var blogPostMapper = mock(BlogPostMapper.class);
         var documentService = mock(DocumentService.class);
-        var renderer = mock(DocumentRenderer.class);
+        var renderer = mock(DocumentResourceViewService.class);
         var service = new BlogServiceImpl(blogPostMapper, documentService, null, null, null,
                 renderer, null, null, null, null, mock(PlatformTransactionManager.class), mock(Validator.class));
 

@@ -144,7 +144,17 @@
             </dependency>
             <dependency>
                 <groupId>dev.amai</groupId>
+                <artifactId>mai-portfolio-module-document-provider</artifactId>
+                <version>${portfolio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.amai</groupId>
                 <artifactId>mai-portfolio-module-blog-service</artifactId>
+                <version>${portfolio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.amai</groupId>
+                <artifactId>mai-portfolio-module-document-service</artifactId>
                 <version>${portfolio.version}</version>
             </dependency>
             <dependency>

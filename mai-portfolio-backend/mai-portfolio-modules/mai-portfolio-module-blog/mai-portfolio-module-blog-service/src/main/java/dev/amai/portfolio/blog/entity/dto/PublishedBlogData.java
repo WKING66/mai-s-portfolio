@@ -1,8 +1,7 @@
 package dev.amai.portfolio.blog.entity.dto;
 
 import dev.amai.portfolio.blog.entity.domain.BlogPostDO;
-import dev.amai.portfolio.blog.entity.domain.DocumentContentDO;
-import dev.amai.portfolio.blog.entity.domain.DocumentDO;
+import dev.amai.portfolio.document.entity.domain.PublishedDocumentData;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -12,7 +11,5 @@ import lombok.Setter;
 public class PublishedBlogData {
     private BlogPostDO blog;
 
-    private DocumentDO document;
-
-    private DocumentContentDO content;
+    private PublishedDocumentData document;
 }

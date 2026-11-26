@@ -10,5 +10,5 @@
     </parent>
     <artifactId>mai-portfolio-module-blog-provider</artifactId>
     <name>mai-portfolio-module-blog-provider</name>
-    <description>博客与统一文档域的跨模块契约。</description>
+    <description>博客域的跨模块契约。</description>
 </project>
