@@ -20,7 +20,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
-    mem_limit: 1400m
+    mem_limit: 1100m
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
@@ -32,10 +32,14 @@ services:
     env_file:
       - path: /srv/mai-portfolio/shared/env/ai.env
         format: raw
+    # 单 worker 的 4c4g 并发压测基线。
+    environment:
+      EXECUTION_CONCURRENCY: "20"
+      EXECUTION_QUEUE_LIMIT: "10"
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
-    mem_limit: 900m
+    mem_limit: 700m
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }
@@ -50,7 +54,7 @@ services:
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
     restart: unless-stopped
-    mem_limit: 800m
+    mem_limit: 650m
     logging:
       driver: json-file
       options: { max-size: "20m", max-file: "3" }

@@ -10,7 +10,8 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   mvc:
     async:
-      request-timeout: ${BLOG_EXPORT_TIMEOUT:120s}
+      # 聊天流与导出使用 MVC 异步超时，兼容已有部署变量。
+      request-timeout: ${BLOG_EXPORT_TIMEOUT:300s}
   task:
     execution:
       pool:

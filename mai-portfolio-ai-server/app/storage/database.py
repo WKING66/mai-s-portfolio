@@ -10,8 +10,8 @@ def create_database(database_url: str, schema: str) -> AsyncEngine:
     return create_async_engine(
         make_url(database_url).set(drivername="postgresql+psycopg"),
         connect_args={"options": f"-c search_path={schema}"},
-        pool_size=8,
-        max_overflow=0,
+        pool_size=12,
+        max_overflow=4,
         pool_timeout=3,
         pool_pre_ping=True,
         hide_parameters=True,

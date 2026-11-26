@@ -32,7 +32,7 @@ def validate_provider_url(value: str) -> URL:
 def provider_http_client() -> AsyncClient:
     # 由 HTTPX 使用供应商域名建立 TLS，让系统网络处理 DNS 和连接。
     return AsyncClient(
-        limits=Limits(max_connections=16, max_keepalive_connections=0),
+        limits=Limits(max_connections=48, max_keepalive_connections=24),
         follow_redirects=False,
         trust_env=False,
     )

@@ -2,6 +2,7 @@ import asyncio
 import os
 import sys
 from base64 import urlsafe_b64encode
+from collections.abc import AsyncGenerator, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -13,15 +14,137 @@ from sqlalchemy import update as update_rows
 from sqlmodel import col
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.chat_timing import ChatTiming
 from app.config import Settings
+from app.contracts.wire import ExecutionRejected
 from app.main import create_app
-from app.service.execution import Execution, ExecutionCode, Executions, lock_submission
+from app.provider.model_routing import ModelRouting
+from app.service.execution import (
+    Execution,
+    ExecutionCode,
+    Executions,
+    SubmitExecution,
+    lock_submission,
+)
 from app.storage.database import Sessions, create_database
+from app.workflow.chat_graph import ChatState, ConfiguredChat
 
 TEST_DATABASE = os.getenv("AI_TEST_DATABASE_URL")
 pytestmark = pytest.mark.skipif(
     not TEST_DATABASE, reason="Requires isolated migrated PostgreSQL."
 )
+
+
+class ScriptedChat(ConfiguredChat):
+    def __init__(self, http: httpx.AsyncClient, chunks: Callable[[], AsyncGenerator[str]]) -> None:
+        super().__init__(ModelRouting(http), [])
+        self.chunks = chunks
+
+    def stream(
+        self, state: ChatState, *, on_thinking: Callable[[], None] | None = None,
+        timing: ChatTiming | None = None,
+    ) -> AsyncGenerator[str]:
+        return self.chunks()
+
+
+@pytest.mark.parametrize("exit_path", ["complete", "failure", "stop", "shutdown", "deadline"])
+def test_execution_commits_first_chunk_batches_and_flushes_tail(
+    exit_path: str, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert TEST_DATABASE
+    database_url = TEST_DATABASE
+    if exit_path != "deadline":
+        monkeypatch.setattr("app.service.execution.BODY_FLUSH_INTERVAL", 10.0)
+
+    async def check() -> None:
+        engine = create_database(database_url, os.getenv("AI_TEST_DB_SCHEMA", "site_guide_test"))
+        sessions = Sessions(engine, class_=AsyncSession)
+        reached_first, reached_partial, reached_threshold, reached_tail = (
+            asyncio.Event() for _ in range(4)
+        )
+        release_first, release_partial, release_threshold, release_tail = (
+            asyncio.Event() for _ in range(4)
+        )
+        request_id = uuid4()
+        partial = "你" * 85  # 255 字节，追加一个 ASCII 字节时触发阈值。
+
+        async def chunks() -> AsyncGenerator[str]:
+            yield ""
+            yield "首"
+            reached_first.set()
+            await release_first.wait()
+            yield partial
+            reached_partial.set()
+            await release_partial.wait()
+            yield "a"
+            reached_threshold.set()
+            await release_threshold.wait()
+            yield "尾"
+            reached_tail.set()
+            await release_tail.wait()
+            if exit_path == "failure":
+                raise ExecutionRejected(503, "MODEL_STREAM_INTERRUPTED", "fixture")
+
+        try:
+            async with httpx.AsyncClient() as http:
+                async def configure(_: AsyncSession) -> tuple[ConfiguredChat, str]:
+                    return ScriptedChat(http, chunks), ""
+
+                service = Executions(sessions, configure, concurrency=1, queue_limit=0)
+                request = SubmitExecution(
+                    request_id=request_id, question="Hello", history=[],
+                    accept_before=datetime.now(UTC) + timedelta(minutes=1),
+                )
+                async with asyncio.timeout(8):
+                    snapshot = await service.submit(request)
+                    execution_id = int(snapshot.execution_id)
+                    try:
+                        await reached_first.wait()
+                        assert (await service.get(execution_id)).text == "首"
+                        release_first.set()
+                        await reached_partial.wait()
+                        if exit_path == "deadline":
+                            # 上游停在事件门，定时刷库不依赖下一块到达。
+                            async with asyncio.timeout(3):
+                                while (await service.get(execution_id)).text == "首":
+                                    await asyncio.sleep(0.01)
+                            assert (await service.get(execution_id)).text == "首" + partial
+                            assert not reached_threshold.is_set()
+                        else:
+                            assert (await service.get(execution_id)).text == "首"
+                        release_partial.set()
+                        await reached_threshold.wait()
+                        if exit_path != "deadline":
+                            assert (await service.get(execution_id)).text == "首" + partial + "a"
+                        release_threshold.set()
+                        await reached_tail.wait()
+                        if exit_path == "stop":
+                            stopped = await service.stop(execution_id)
+                            assert stopped.status == "interrupted"
+                            assert stopped.text == "首" + partial + "a尾"
+                        elif exit_path == "shutdown":
+                            await service.close()
+                        else:
+                            release_tail.set()
+                            await service.tasks[execution_id]
+                        terminal = await service.get(execution_id)
+                        assert terminal.text == "首" + partial + "a尾"
+                        if exit_path == "failure":
+                            assert terminal.status == "failed"
+                            assert terminal.error is not None
+                            assert terminal.error.code == "MODEL_STREAM_INTERRUPTED"
+                        elif exit_path in ("stop", "shutdown"):
+                            assert terminal.status == "interrupted"
+                        else:
+                            assert terminal.status == "completed"
+                    finally:
+                        await service.close()
+        finally:
+            async with sessions.begin() as session:
+                await session.exec(delete(Execution).where(col(Execution.request_id) == request_id))
+            await engine.dispose()
+
+    asyncio.run(check(), loop_factory=asyncio.SelectorEventLoop if sys.platform == "win32" else None)
 
 
 def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
