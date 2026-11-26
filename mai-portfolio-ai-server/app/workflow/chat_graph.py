@@ -7,6 +7,7 @@ from langchain_core.messages.ai import UsageMetadata
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.chat_timing import ChatTiming
+from app.contracts.execution_diagnostics import ExecutionDiagnostics
 from app.provider.model_routing import Candidate, ModelRouting
 
 SYSTEM_PROMPT = """角色与目标
@@ -65,6 +66,7 @@ class ConfiguredChat:
     def __init__(self, routing: ModelRouting, candidates: list[Candidate]) -> None:
         self.routing = routing
         self.candidates = candidates
+        self.diagnostics = ExecutionDiagnostics()
         self.input_tokens: int | None = None
         self.output_tokens: int | None = None
         self.usage_status = 3
@@ -85,7 +87,7 @@ class ConfiguredChat:
         async with aclosing(
             self.routing.stream_chat(
                 self.candidates, chat_messages(state), self.record_usage, on_thinking=on_thinking,
-                timing=timing,
+                timing=timing, diagnostics=self.diagnostics,
             )
         ) as chunks:
             async for chunk in chunks:

@@ -9,14 +9,27 @@ from enum import IntEnum
 from typing import Literal, cast
 from uuid import UUID
 
+from openai import APIError
 from pydantic import AwareDatetime
 from pydantic import Field as ValidationField
-from sqlalchemy import BigInteger, DateTime, SmallInteger, Text, case, func, update
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    SmallInteger,
+    Text,
+    case,
+    false,
+    func,
+    update,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Field, SQLModel, col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
+from sqlmodel.sql.expression import Select
 
 from app.chat_timing import ChatTiming
+from app.contracts.execution_diagnostics import ExecutionDiagnostics, FinishReason
 from app.contracts.wire import ExecutionRejected, WireModel
 from app.storage.database import Sessions
 from app.workflow.chat_graph import ConfiguredChat, HistoryEntry
@@ -77,6 +90,13 @@ class Execution(SQLModel, table=True):
     input_hash: str = Field(sa_type=Text)
     text: str = Field(default="", sa_type=Text)
     error: str | None = Field(default=None, sa_type=Text)
+    finish_reason: int | None = Field(default=None, sa_type=SmallInteger)
+    is_body_committed: bool | None = Field(
+        default=False, nullable=True, sa_column_kwargs={"server_default": false()},
+    )
+    attempts: list[dict[str, int | bool]] | None = Field(
+        default=None, sa_type=JSONB(none_as_null=True),
+    )
     input_tokens: int | None = Field(default=None, sa_type=BigInteger)
     output_tokens: int | None = Field(default=None, sa_type=BigInteger)
     usage_status: int = Field(default=0, sa_type=SmallInteger)
@@ -116,6 +136,8 @@ BODY_FLUSH_BYTES = 256
 @dataclass
 class BodyBatch:
     timing: ChatTiming | None
+    diagnostics: ExecutionDiagnostics
+    committed: bool = False
     changed: asyncio.Condition = field(default_factory=asyncio.Condition)
     parts: list[str] = field(default_factory=list)
     size: int = 0
@@ -150,7 +172,10 @@ class Executions:
             await session.exec(
                 update(Execution)
                 .where(col(Execution.status).in_(ACTIVE_CODES))
-                .values(status=ExecutionCode.INTERRUPTED, usage_status=3, finished_at=func.now())
+                .values(
+                    status=ExecutionCode.INTERRUPTED, usage_status=3, finished_at=func.now(),
+                    finish_reason=FinishReason.WORKER_LOST, attempts=None,
+                )
             )
 
     async def close(self) -> None:
@@ -248,7 +273,7 @@ class Executions:
                 execution_id = execution.id
             # 4. 受理记录提交后才调度。订阅必须始终能读到对应的持久记录。
             timing = ChatTiming(request.request_id, execution_id) if self.chat_timing_enabled else None
-            body = BodyBatch(timing)
+            body = BodyBatch(timing, graph.diagnostics)
             self.body_batches[execution_id] = body
             task = asyncio.create_task(self.run(execution_id, request, graph, persona, body))
             self.tasks[execution_id] = task
@@ -277,28 +302,36 @@ class Executions:
         condition = col(Execution.id) == execution_id
         if request_id is not None:
             condition = col(Execution.request_id) == request_id
-        row = (await session.exec(select(Execution).where(condition))).one_or_none()
+        statement = select(col(Execution.id), col(Execution.request_id)).add_columns(
+            col(Execution.status), col(Execution.text), col(Execution.error),
+            col(Execution.input_tokens), col(Execution.output_tokens), col(Execution.usage_status),
+            col(Execution.input_hash),
+        ).where(condition)
+        # add_columns 保留 SQLModel Select 子类，SQLAlchemy 的返回类型仅标注其基类。
+        projection = cast(Select[int, UUID, int, str, str | None, int | None, int | None, int, str], statement)
+        row = (await session.exec(projection)).one_or_none()
         # 缺少记录由查询入口返回 404，查询路径始终不创建执行。
         if row is None:
             return None
+        row_id, row_request_id, status, text, error_code, input_tokens, output_tokens, usage_status, input_hash = row
         error = None
         # 只返回稳定错误码。供应商异常可能包含密钥或会话正文。
-        if row.error:
+        if error_code:
             error = ExecutionError(
-                code=row.error,
+                code=error_code,
                 message="Chat could not finish.",
-                request_id=row.request_id,
+                request_id=row_request_id,
             )
         return Snapshot(
-            execution_id=str(row.id),
-            request_id=row.request_id,
-            status=cast(ExecutionStatus, ExecutionCode(row.status).name.lower()),
-            text=row.text,
+            execution_id=str(row_id),
+            request_id=row_request_id,
+            status=cast(ExecutionStatus, ExecutionCode(status).name.lower()),
+            text=text,
             error=error,
-            input_tokens=row.input_tokens,
-            output_tokens=row.output_tokens,
-            usage_status=row.usage_status,
-        ), row.input_hash
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            usage_status=usage_status,
+        ), input_hash
 
     async def get(
         self,
@@ -336,7 +369,10 @@ class Executions:
                             col(Execution.id) == int(snapshot.execution_id),
                             col(Execution.status).in_(ACTIVE_CODES),
                         )
-                        .values(status=ExecutionCode.INTERRUPTED, usage_status=3, finished_at=func.now())
+                        .values(
+                            status=ExecutionCode.INTERRUPTED, usage_status=3, finished_at=func.now(),
+                            finish_reason=FinishReason.WORKER_LOST, attempts=None,
+                        )
                         .returning(col(Execution.id))
                     )
                     if recovered is not None:
@@ -353,9 +389,12 @@ class Executions:
 
     # 只允许活动执行进入终态。迟到的停止或失败不能覆盖已有结果。
     async def finish(
-        self, execution_id: int, status: ExecutionCode, error: str | None = None,
-        graph: ConfiguredChat | None = None,
+        self, execution_id: int, status: ExecutionCode, reason: FinishReason,
+        error: str | None = None, graph: ConfiguredChat | None = None,
+        *, diagnostics: ExecutionDiagnostics | None = None,
     ) -> bool:
+        trace = graph.diagnostics if graph is not None else diagnostics
+        attempts = trace.snapshot() if trace is not None else []
         async with self.sessions.begin() as session:
             updated = await session.scalar(
                 update(Execution)
@@ -366,6 +405,8 @@ class Executions:
                 .values(
                     status=status,
                     error=error,
+                    finish_reason=reason,
+                    attempts=attempts,
                     input_tokens=graph.input_tokens if graph else None,
                     output_tokens=graph.output_tokens if graph else None,
                     usage_status=graph.usage_status if graph else 3,
@@ -379,40 +420,49 @@ class Executions:
         self.require_worker()
         body = self.body_batches.get(execution_id)
         if body is None:
-            await self.finish(execution_id, ExecutionCode.INTERRUPTED)
+            await self.finish(execution_id, ExecutionCode.INTERRUPTED, FinishReason.USER_STOPPED)
         else:
             # 序列化正文追加与停止。中断提交前保存已接收的正文，终态后不再追加。
             async with body.changed:
-                await self.flush_body(execution_id, body)
-                if await self.finish(execution_id, ExecutionCode.INTERRUPTED):
-                    body.closed = True
-                    task = self.tasks.get(execution_id)
-                    if task is not None:
-                        task.cancel()
+                # 停止事务进行期间允许当前上游读取返回，但拦住下一次模型调用。
+                body.diagnostics.dispatch_allowed.clear()
+                try:
+                    await self.flush_body(execution_id, body)
+                    if await self.finish(
+                        execution_id, ExecutionCode.INTERRUPTED, FinishReason.USER_STOPPED,
+                        diagnostics=body.diagnostics,
+                    ):
+                        body.closed = True
+                        task = self.tasks.get(execution_id)
+                        if task is not None:
+                            task.cancel()
+                finally:
+                    body.diagnostics.dispatch_allowed.set()
         return await self.get(execution_id)
 
     async def flush_body(self, execution_id: int, body: BodyBatch) -> bool:
         if not body.parts:
             return True
         text = "".join(body.parts)
+        visible = bool(text.strip())
+        statement = (
+            update(Execution)
+            .where(col(Execution.id) == execution_id, col(Execution.status) == ExecutionCode.RUNNING)
+            .values(text=col(Execution.text) + text)
+        )
+        if visible and not body.committed:
+            statement = statement.values(is_body_committed=True)
         async with self.sessions.begin() as session:
-            saved = await session.scalar(
-                update(Execution)
-                .where(
-                    col(Execution.id) == execution_id,
-                    col(Execution.status) == ExecutionCode.RUNNING,
-                )
-                .values(text=col(Execution.text) + text)
-                .returning(col(Execution.id))
-            )
+            saved = await session.scalar(statement.returning(col(Execution.id)))
         body.parts.clear()
         body.size = 0
         body.deadline = asyncio.get_running_loop().time() + BODY_FLUSH_INTERVAL
         if saved is None:
             body.closed = True
             return False
+        body.committed = body.committed or visible
         timing = body.timing
-        if timing is not None and timing.first_body_committed_ms is None and text.strip():
+        if timing is not None and timing.first_body_committed_ms is None and visible:
             timing.first_body_committed_ms = timing.elapsed_ms()
         return True
 
@@ -509,9 +559,27 @@ class Executions:
                 # 2. 首块立即保存，后续合批；订阅者只读取已提交的正文。
                 await self.stream_body(execution_id, request, graph, persona, body)
                 # 3. 全部正文保存后再发布完成，终态快照因此包含最终正文。
-                await self.finish(execution_id, ExecutionCode.COMPLETED, graph=graph)
+                if not body.committed:
+                    await self.finish(
+                        execution_id, ExecutionCode.FAILED, FinishReason.EMPTY_BODY,
+                        "MODEL_UNAVAILABLE", graph,
+                    )
+                    return
+                await self.finish(
+                    execution_id, ExecutionCode.COMPLETED, FinishReason.COMPLETED,
+                    graph=graph,
+                )
         except ExecutionRejected as error:
-            await self.finish(execution_id, ExecutionCode.FAILED, error.code, graph)
+            reason = body.diagnostics.finish_reason
+            if reason is None:
+                reason = (FinishReason.STREAM_INTERRUPTED
+                          if body.committed and error.code == "MODEL_STREAM_INTERRUPTED"
+                          else FinishReason.INTERNAL_ERROR)
+            if reason == FinishReason.STREAM_INTERRUPTED and not body.committed:
+                reason = FinishReason.UNAVAILABLE
+            await self.finish(
+                execution_id, ExecutionCode.FAILED, reason, error.code, graph,
+            )
         except Exception as error:  # noqa: BLE001 - 任务边界统一脱敏
             # 只记录异常类型链，区分 DNS 超时和传输失败，避免输出密钥、请求体或供应商响应。
             cause = error.__cause__
@@ -526,7 +594,12 @@ class Executions:
                 " -> ".join(causes) or "-",
             )
             try:
-                await self.finish(execution_id, ExecutionCode.FAILED, "EXECUTION_FAILED", graph)
+                await self.finish(
+                    execution_id, ExecutionCode.FAILED,
+                    (body.diagnostics.finish_reason or FinishReason.UNAVAILABLE)
+                    if isinstance(error, APIError) else FinishReason.INTERNAL_ERROR,
+                    "EXECUTION_FAILED", graph,
+                )
             except SQLAlchemyError:
                 logger.error("could not persist execution failure id=%s", execution_id)
         finally:

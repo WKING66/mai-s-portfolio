@@ -4,18 +4,19 @@ import sys
 from base64 import urlsafe_b64encode
 from collections.abc import AsyncGenerator, Callable
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 import pytest
 from pydantic import PostgresDsn, SecretStr
 from sqlalchemy import delete
 from sqlalchemy import update as update_rows
-from sqlmodel import col
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.chat_timing import ChatTiming
 from app.config import Settings
+from app.contracts.execution_diagnostics import FinishReason
 from app.contracts.wire import ExecutionRejected
 from app.main import create_app
 from app.provider.model_routing import ModelRouting
@@ -40,14 +41,18 @@ class ScriptedChat(ConfiguredChat):
         super().__init__(ModelRouting(http), [])
         self.chunks = chunks
 
-    def stream(
+    async def stream(
         self, state: ChatState, *, on_thinking: Callable[[], None] | None = None,
         timing: ChatTiming | None = None,
     ) -> AsyncGenerator[str]:
-        return self.chunks()
+        self.diagnostics.start(1, 0)
+        async for text in self.chunks():
+            self.diagnostics.observe(bool(text.strip()))
+            yield text
+        self.diagnostics.end(FinishReason.COMPLETED)
 
 
-@pytest.mark.parametrize("exit_path", ["complete", "failure", "stop", "shutdown", "deadline"])
+@pytest.mark.parametrize("exit_path", ["complete", "failure", "stop", "shutdown", "deadline", "race"])
 def test_execution_commits_first_chunk_batches_and_flushes_tail(
     exit_path: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -101,6 +106,10 @@ def test_execution_commits_first_chunk_batches_and_flushes_tail(
                     try:
                         await reached_first.wait()
                         assert (await service.get(execution_id)).text == "首"
+                        async with sessions() as session:
+                            active = (await session.exec(select(Execution).where(col(Execution.id) == execution_id))).one()
+                            assert active.is_body_committed is True
+                            assert active.finish_reason is None and active.attempts is None
                         release_first.set()
                         await reached_partial.wait()
                         if exit_path == "deadline":
@@ -124,6 +133,12 @@ def test_execution_commits_first_chunk_batches_and_flushes_tail(
                             assert stopped.text == "首" + partial + "a尾"
                         elif exit_path == "shutdown":
                             await service.close()
+                        elif exit_path == "race":
+                            worker = service.tasks[execution_id]
+                            stopper = asyncio.create_task(service.stop(execution_id))
+                            release_tail.set()
+                            await stopper
+                            await asyncio.gather(worker, return_exceptions=True)
                         else:
                             release_tail.set()
                             await service.tasks[execution_id]
@@ -135,8 +150,26 @@ def test_execution_commits_first_chunk_batches_and_flushes_tail(
                             assert terminal.error.code == "MODEL_STREAM_INTERRUPTED"
                         elif exit_path in ("stop", "shutdown"):
                             assert terminal.status == "interrupted"
+                        elif exit_path == "race":
+                            assert terminal.status in ("completed", "interrupted")
                         else:
                             assert terminal.status == "completed"
+                        async with sessions() as session:
+                            row = (await session.exec(select(Execution).where(col(Execution.id) == execution_id))).one()
+                        assert row.is_body_committed is True
+                        expected_reason = {
+                            "failure": FinishReason.STREAM_INTERRUPTED,
+                            "stop": FinishReason.USER_STOPPED,
+                            "shutdown": FinishReason.WORKER_LOST,
+                        }.get(exit_path, FinishReason.COMPLETED)
+                        if exit_path == "race" and terminal.status == "interrupted":
+                            expected_reason = FinishReason.USER_STOPPED
+                        assert row.finish_reason == expected_reason
+                        if exit_path == "shutdown":
+                            assert row.attempts is None
+                        elif exit_path == "stop":
+                            assert row.attempts is not None and row.attempts[0]["outcome"] == 13
+                        assert not await service.finish(execution_id, ExecutionCode.INTERRUPTED, FinishReason.USER_STOPPED)
                     finally:
                         await service.close()
         finally:
@@ -159,6 +192,7 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
 
         service = Executions(sessions, no_configuration, concurrency=1, queue_limit=0)
         request_id = uuid4()
+        pending_request_id = uuid4()
         try:
             async with sessions.begin() as session:
                 await lock_submission(session, request_id)
@@ -179,6 +213,10 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
             assert snapshot.execution_id == str(execution_id)
             assert snapshot.status == "interrupted"
             assert snapshot.text == "partial answer"
+            async with sessions() as session:
+                orphan = (await session.exec(select(Execution).where(col(Execution.id) == execution_id))).one()
+                assert orphan.finish_reason == FinishReason.WORKER_LOST
+                assert orphan.attempts is None
             # 新受理暂时占有锁时，读取终态快照仍能立即返回。
             async with service.submissions:
                 visible = await asyncio.wait_for(service.get(execution_id), timeout=3)
@@ -188,7 +226,8 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
                     update_rows(Execution)
                     .where(col(Execution.id) == execution_id)
                     .values(
-                        status=ExecutionCode.COMPLETED,
+                        status=ExecutionCode.COMPLETED, finish_reason=FinishReason.COMPLETED,
+                        is_body_committed=True, attempts=[],
                         finished_at=datetime.now(UTC) - timedelta(days=2),
                     )
                 )
@@ -199,10 +238,26 @@ def test_request_lookup_waits_for_acceptance_and_recovers_orphan() -> None:
             assert expired.status == "completed"
             assert expired.error is not None
             assert expired.error.code == "EXECUTION_TEXT_EXPIRED"
+            async with sessions() as session:
+                expired_row = (await session.exec(select(Execution).where(col(Execution.id) == execution_id))).one()
+                assert expired_row.finish_reason == FinishReason.COMPLETED
+                assert expired_row.is_body_committed is True and expired_row.attempts == []
+            # 无所属任务、尚未派发的执行也可以显式停止，保留已知零次尝试。
+            async with sessions.begin() as session:
+                pending = Execution(request_id=pending_request_id, status=ExecutionCode.ACCEPTED, input_hash="fixture")
+                session.add(pending)
+                await session.flush()
+                pending_id = pending.id
+            assert pending_id is not None
+            assert (await service.stop(pending_id)).status == "interrupted"
+            async with sessions() as session:
+                stopped = (await session.exec(select(Execution).where(col(Execution.id) == pending_id))).one()
+                assert stopped.finish_reason == FinishReason.USER_STOPPED
+                assert stopped.is_body_committed is False and stopped.attempts == []
         finally:
             async with sessions.begin() as session:
                 await session.exec(
-                    delete(Execution).where(col(Execution.request_id) == request_id)
+                    delete(Execution).where(col(Execution.request_id).in_((request_id, pending_request_id)))
                 )
             await engine.dispose()
 
@@ -312,6 +367,12 @@ def test_execution_routes_and_catalog(monkeypatch: pytest.MonkeyPatch) -> None:
             assert stopped.json()["status"] == "completed"
             assert (stopped.json()["inputTokens"], stopped.json()["outputTokens"]) == (5, 2)
             assert stopped.json()["usageStatus"] == 1
+            async with app.state.executions.sessions() as session:
+                row = (await session.exec(select(Execution).where(col(Execution.request_id) == UUID(request_id)))).one()
+                assert row.finish_reason == FinishReason.COMPLETED
+                assert row.is_body_committed is True
+                assert row.attempts is not None and len(row.attempts) == 1
+                assert row.attempts[0]["outcome"] == FinishReason.COMPLETED
             assert set(stopped.json()) == {
                 "requestId",
                 "executionId",

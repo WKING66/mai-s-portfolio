@@ -11,6 +11,11 @@ from openai import APIError
 from pydantic import SecretStr, ValidationError
 
 from app.chat_timing import ChatTiming
+from app.contracts.execution_diagnostics import (
+    Attempt,
+    ExecutionDiagnostics,
+    FinishReason,
+)
 from app.contracts.model_catalog import ChatParameters, ModelConfig
 from app.contracts.wire import ExecutionRejected
 from app.provider import model_routing
@@ -29,15 +34,130 @@ def candidate(model_id: int, model_key: str) -> Candidate:
     )
 
 
-def stream_data(model: str, text: str) -> bytes:
+def stream_data(model: str, text: str, finish_reason: str | None = None) -> bytes:
     chunk = {
         "id": "chatcmpl-test",
         "object": "chat.completion.chunk",
         "created": 0,
         "model": model,
-        "choices": [{"index": 0, "delta": {"role": "assistant", "content": text}}],
+        "choices": [{"index": 0, "delta": {"role": "assistant", "content": text}, "finish_reason": finish_reason}],
     }
     return f"data: {json.dumps(chunk)}\n\n".encode()
+
+
+@pytest.mark.parametrize(
+    ("body", "finish_signal", "expected"),
+    [
+        ("\u3000", "stop", FinishReason.EMPTY_BODY),
+        ("partial", "length", FinishReason.OUTPUT_LIMIT),
+        ("", "content_filter", FinishReason.UPSTREAM_REJECTED),
+    ],
+)
+def test_terminal_diagnostics_follow_upstream_outcome(
+    body: str, finish_signal: str, expected: FinishReason,
+) -> None:
+    def respond(_: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, content=stream_data("fixture", body, finish_signal) + b"data: [DONE]\n\n",
+            headers={"content-type": "text/event-stream"},
+        )
+
+    async def check() -> None:
+        diagnostics = ExecutionDiagnostics()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+            with pytest.raises(ExecutionRejected):
+                _ = [chunk async for chunk in ModelRouting(http).stream_chat(
+                    [candidate(1, "fixture")], [HumanMessage("hello")], diagnostics=diagnostics,
+                )]
+        attempts = diagnostics.snapshot()
+        assert diagnostics.finish_reason == expected
+        assert len(attempts) == 1 and attempts[0]["outcome"] == expected
+        assert ("first_body_ms" in attempts[0]) == bool(body.strip())
+
+    asyncio.run(check())
+
+
+def test_done_without_generation_chunks_falls_back() -> None:
+    calls: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        model = json.loads(request.content)["model"]
+        calls.append(model)
+        body = b"" if model == "primary" else stream_data(model, "backup", "stop")
+        return httpx.Response(
+            200, content=body + b"data: [DONE]\n\n", headers={"content-type": "text/event-stream"},
+        )
+
+    async def check() -> None:
+        diagnostics = ExecutionDiagnostics()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+            received = [chunk.text async for chunk in ModelRouting(http).stream_chat(
+                [candidate(1, "primary"), candidate(2, "backup")], [HumanMessage("hello")],
+                diagnostics=diagnostics,
+            )]
+        assert calls == ["primary", "backup"]
+        assert "".join(received) == "backup"
+        assert diagnostics.finish_reason == FinishReason.COMPLETED
+        assert [(attempt["outcome"], attempt["next"]) for attempt in diagnostics.snapshot()] == [
+            (FinishReason.EMPTY_BODY, 1), (FinishReason.COMPLETED, 0),
+        ]
+
+    asyncio.run(check())
+
+
+def test_first_chunk_timeout_and_retry_are_recorded_before_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(model_routing, "MODEL_RESPONSE_TIMEOUT", 0.05)
+    retry_calls = 0
+
+    async def respond(request: httpx.Request) -> httpx.Response:
+        nonlocal retry_calls
+        model = json.loads(request.content)["model"]
+        if model == "primary":
+            retry_calls += 1
+            if retry_calls == 1:
+                return httpx.Response(429)
+            await asyncio.sleep(1)
+            pytest.fail("first upstream chunk should time out")
+        return httpx.Response(
+            200, content=stream_data(model, "answer", "stop") + b"data: [DONE]\n\n",
+            headers={"content-type": "text/event-stream"},
+        )
+
+    async def check() -> None:
+        diagnostics = ExecutionDiagnostics()
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http:
+            received = [chunk.text async for chunk in ModelRouting(http).stream_chat(
+                [candidate(1, "primary"), candidate(2, "backup")], [HumanMessage("hello")],
+                diagnostics=diagnostics,
+            )]
+        assert "".join(received) == "answer"
+        assert diagnostics.finish_reason == FinishReason.COMPLETED
+        assert [(attempt["outcome"], attempt["next"]) for attempt in diagnostics.snapshot()] == [
+            (FinishReason.CAPACITY_LIMIT, 2), (FinishReason.FIRST_CHUNK_TIMEOUT, 1),
+            (FinishReason.COMPLETED, 0),
+        ]
+
+    asyncio.run(check())
+
+
+def test_attempt_snapshot_preserves_latest_and_rejects_non_allowlisted_fields() -> None:
+    diagnostics = ExecutionDiagnostics()
+    for model_id in range(1, 17):
+        diagnostics.start(model_id, 0)
+        diagnostics.end(FinishReason.CAPACITY_LIMIT, 1)
+    exactly_sixteen = diagnostics.snapshot()
+    assert len(exactly_sixteen) == 16 and "truncated" not in exactly_sixteen[-1]
+    diagnostics.start(17, 4)
+    overflow = diagnostics.snapshot()
+    assert overflow[:15] == exactly_sixteen[:15]
+    assert overflow[-1] == {
+        "n": 17, "model_id": 17, "revision": 4, "next": 0, "outcome": 13,
+        "elapsed_ms": overflow[-1]["elapsed_ms"], "truncated": True, "omitted_count": 1,
+    }
+    for field, value in (("prompt", "private"), ("model_id", "17"), ("elapsed_ms", -1),
+                         ("outcome", 14), ("next", 3), ("truncated", 1)):
+        with pytest.raises(ValidationError):
+            Attempt.model_validate({**overflow[-1], field: value})
 
 
 @pytest.mark.parametrize(
