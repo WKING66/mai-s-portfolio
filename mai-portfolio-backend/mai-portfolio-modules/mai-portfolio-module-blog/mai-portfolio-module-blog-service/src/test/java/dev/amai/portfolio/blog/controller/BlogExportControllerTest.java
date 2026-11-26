@@ -1,16 +1,16 @@
 package dev.amai.portfolio.blog.controller;
 
-import dev.amai.portfolio.blog.service.DocumentImportTaskService;
-import dev.amai.portfolio.blog.enums.ContentStage;
+import dev.amai.portfolio.document.api.DocumentImportTaskService;
+import dev.amai.portfolio.document.enums.ContentStage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import dev.amai.portfolio.blog.entity.domain.Document;
-import dev.amai.portfolio.blog.entity.domain.DocumentExport;
 import dev.amai.portfolio.blog.service.BlogService;
-import dev.amai.portfolio.blog.service.DocumentExportService;
+import dev.amai.portfolio.document.api.DocumentExportService;
+import dev.amai.portfolio.document.entity.domain.Document;
+import dev.amai.portfolio.document.entity.domain.DocumentExport;
 import java.util.List;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

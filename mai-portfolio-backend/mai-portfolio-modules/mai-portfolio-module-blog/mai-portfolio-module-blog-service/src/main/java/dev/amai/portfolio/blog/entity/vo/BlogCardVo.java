@@ -1,6 +1,6 @@
 package dev.amai.portfolio.blog.entity.vo;
 
-import dev.amai.portfolio.blog.enums.ContentStage;
+import dev.amai.portfolio.document.enums.ContentStage;
 import java.time.LocalDateTime;
 
 /** 列表摘要与详情使用相同的槽位和修订语义。 */

@@ -1,19 +1,22 @@
 package dev.amai.portfolio.blog.controller;
 
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
-import static dev.amai.portfolio.blog.constant.DocumentPolicy.REQUEST_ID_PATTERN;
+import static dev.amai.portfolio.document.constant.DocumentPolicy.REQUEST_ID_PATTERN;
 
 import cn.dev33.satoken.annotation.*;
 import cn.hutool.core.collection.CollUtil;
 import dev.amai.portfolio.blog.entity.request.*;
 import dev.amai.portfolio.blog.entity.vo.*;
 import dev.amai.portfolio.blog.enums.BlogAction;
-import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.blog.service.BlogService;
 import dev.amai.portfolio.common.ContentListRequest;
 import dev.amai.portfolio.common.PageRequest;
 import dev.amai.portfolio.common.PageVO;
 import dev.amai.portfolio.common.R;
 import dev.amai.portfolio.common.ViewPageVO;
+import dev.amai.portfolio.document.api.DocumentExportService;
+import dev.amai.portfolio.document.api.DocumentImportTaskService;
+import dev.amai.portfolio.document.entity.vo.DocumentImportTaskVo;
 import dev.amai.portfolio.system.api.AuthConstants;
 import dev.amai.portfolio.system.api.OwnerView;
 import io.swagger.v3.oas.annotations.Operation;

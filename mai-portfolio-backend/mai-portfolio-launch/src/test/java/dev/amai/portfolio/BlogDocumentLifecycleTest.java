@@ -11,9 +11,12 @@ import dev.amai.portfolio.blog.entity.request.BlogRequest;
 import dev.amai.portfolio.blog.entity.request.BlogRevisionRequest;
 import dev.amai.portfolio.blog.entity.vo.BlogVo;
 import dev.amai.portfolio.blog.enums.BlogAction;
-import dev.amai.portfolio.blog.enums.ResourceStatus;
-import dev.amai.portfolio.blog.service.*;
+import dev.amai.portfolio.blog.service.BlogService;
 import dev.amai.portfolio.common.ContentListRequest;
+import dev.amai.portfolio.document.api.DocumentExportService;
+import dev.amai.portfolio.document.api.DocumentImportTaskService;
+import dev.amai.portfolio.document.api.DocumentService;
+import dev.amai.portfolio.document.enums.ResourceStatus;
 import dev.amai.portfolio.security.context.AccountContext;
 import dev.amai.portfolio.storage.*;
 import dev.amai.portfolio.system.api.*;
@@ -60,7 +63,7 @@ import javax.imageio.ImageIO;
 class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
     @MockitoBean org.redisson.api.RedissonClient redis;
     @MockitoBean ObjectStorage storage;
-    @MockitoBean dev.amai.portfolio.blog.component.RemoteResourceFetcher remote;
+    @MockitoBean dev.amai.portfolio.document.component.RemoteResourceFetcher remote;
     @Autowired BlogService blogs;
     @Autowired DocumentService documents;
     @Autowired DocumentExportService exports;
@@ -114,11 +117,11 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                         });
         when(remote.fetch(anyString(), anyInt(), anyLong()))
                 .thenReturn(
-                        new dev.amai.portfolio.blog.entity.domain.DocumentInputResource(
+                        new dev.amai.portfolio.document.entity.domain.DocumentInputResource(
                                 "https://example.com/a.png",
                                 "image/png",
                                 png(),
-                                dev.amai.portfolio.blog.enums.ResourceSource.REMOTE));
+                                dev.amai.portfolio.document.enums.ResourceSource.REMOTE));
         doAnswer(
                         call -> {
                             objects.remove(call.getArgument(0));
@@ -214,11 +217,17 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
                         () ->
                                 edit(republished, "renamed", "Second", "# Second", true))
                 .isInstanceOf(ApiException.class);
-        transition(republished, BlogAction.UNPUBLISH);
+        var unpublished = transition(republished, BlogAction.UNPUBLISH);
         assertThatThrownBy(() -> blogs.publicArticle("snapshot-test"))
                 .isInstanceOfSatisfying(
                         ApiException.class,
                         e -> assertThat(e.code()).isEqualTo(ApiErrorCode.NOT_FOUND));
+
+        var unpublishedDraft = edit(unpublished, "snapshot-test", "Third", "# Third", true);
+        var restored = transition(unpublishedDraft, BlogAction.RESTORE);
+        assertThat(restored.hasDraft()).isTrue();
+        assertThat(blogs.publicArticle("snapshot-test").content()).isEqualTo("# Second");
+        assertThat(blogs.get(restored.id()).content()).isEqualTo("# Third");
     }
 
     @Test

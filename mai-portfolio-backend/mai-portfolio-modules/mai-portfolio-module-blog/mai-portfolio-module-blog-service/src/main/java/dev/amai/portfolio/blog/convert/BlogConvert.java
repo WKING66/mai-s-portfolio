@@ -1,7 +1,11 @@
 package dev.amai.portfolio.blog.convert;
 
-import dev.amai.portfolio.blog.entity.domain.*;
-import dev.amai.portfolio.blog.entity.vo.*;
+import dev.amai.portfolio.blog.entity.domain.BlogPostDO;
+import dev.amai.portfolio.blog.entity.vo.BlogCardVo;
+import dev.amai.portfolio.blog.entity.vo.BlogVo;
+import dev.amai.portfolio.document.entity.domain.Document;
+import dev.amai.portfolio.document.entity.domain.DocumentSummary;
+import dev.amai.portfolio.document.entity.vo.DocumentResourceVo;
 import java.util.List;
 import org.mapstruct.*;
 import org.mapstruct.factory.Mappers;

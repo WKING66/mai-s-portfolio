@@ -33,6 +33,10 @@
         </dependency>
         <dependency>
             <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-module-document-service</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
             <artifactId>mai-portfolio-module-agent-service</artifactId>
         </dependency>
 

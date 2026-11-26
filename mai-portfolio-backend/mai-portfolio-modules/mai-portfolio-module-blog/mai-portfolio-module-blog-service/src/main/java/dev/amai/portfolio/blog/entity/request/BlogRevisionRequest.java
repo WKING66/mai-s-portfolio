@@ -1,6 +1,6 @@
 package dev.amai.portfolio.blog.entity.request;
 
-import static dev.amai.portfolio.blog.constant.DocumentPolicy.REQUEST_ID_PATTERN;
+import static dev.amai.portfolio.document.constant.DocumentPolicy.REQUEST_ID_PATTERN;
 
 import jakarta.validation.constraints.*;
 
