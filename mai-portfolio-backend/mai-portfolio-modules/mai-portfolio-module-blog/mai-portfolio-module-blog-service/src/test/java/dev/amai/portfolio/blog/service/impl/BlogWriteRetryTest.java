@@ -36,14 +36,14 @@ class BlogWriteRetryTest {
         var blog = new BlogPostDO();
         blog.setId(11L);
         blog.setDocumentId(9L);
-        blog.setStatus(0);
+        blog.setPublishStatus(0);
         blog.setSlug("my-article");
         blog.setAllowVisitorDownload(1);
         var document = new Document(9L, 10L, 1L, ContentStage.DRAFT, true, false,
                 "中文标题", "摘要", "纯正文", List.of(), List.of());
         when(documentService.findCreation(7L, request.requestId())).thenReturn(creation);
         when(blogPostMapper.selectOne(any())).thenReturn(blog);
-        when(blogPostMapper.selectById(11L)).thenReturn(blog);
+        when(blogPostMapper.selectWithPublication(11L)).thenReturn(blog);
         when(documentService.read(9L, true)).thenReturn(document);
         when(renderer.resources(document, true)).thenReturn(List.of());
 

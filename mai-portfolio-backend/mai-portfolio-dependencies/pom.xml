@@ -222,6 +222,16 @@
                 <artifactId>aliyun-sdk-oss</artifactId>
                 <version>${aliyun-oss.version}</version>
             </dependency>
+            <dependency>
+                <groupId>dev.amai</groupId>
+                <artifactId>mai-portfolio-module-knowledge-provider</artifactId>
+                <version>${portfolio.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.amai</groupId>
+                <artifactId>mai-portfolio-module-knowledge-service</artifactId>
+                <version>${portfolio.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 </project>

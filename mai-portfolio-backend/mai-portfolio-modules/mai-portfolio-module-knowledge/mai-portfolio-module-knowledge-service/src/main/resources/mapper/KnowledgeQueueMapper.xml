@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="dev.amai.portfolio.knowledge.mapper.KnowledgeQueueMapper">
+    <sql id="columns">
+        id, source_type, source_id, change_seq, projection_hash, action, build_mode, status,
+        due_at, CAST(lease_token AS text) AS lease_token, lease_until, attempt_count, last_error
+    </sql>
+    <sql id="types">
+        source_type IN
+        <foreach collection="types" item="type" open="(" separator="," close=")">#{type}</foreach>
+    </sql>
+    <select id="bySource" resultType="dev.amai.portfolio.knowledge.mapper.KnowledgeQueueMapper$Row">
+        SELECT <include refid="columns"/> FROM knowledge_source_sync_queue
+        WHERE source_type = #{type} AND source_id = #{id}
+    </select>
+    <select id="lockSource" resultType="dev.amai.portfolio.knowledge.mapper.KnowledgeQueueMapper$Row" useCache="false">
+        SELECT <include refid="columns"/> FROM knowledge_source_sync_queue
+        WHERE source_type = #{type} AND source_id = #{id} FOR UPDATE
+    </select>
+    <select id="lockLease" resultType="dev.amai.portfolio.knowledge.mapper.KnowledgeQueueMapper$Row" useCache="false">
+        SELECT <include refid="columns"/> FROM knowledge_source_sync_queue WHERE id = #{id} FOR UPDATE
+    </select>
+    <select id="all" resultType="dev.amai.portfolio.knowledge.mapper.KnowledgeQueueMapper$Row">
+        SELECT <include refid="columns"/> FROM knowledge_source_sync_queue
+    </select>
+    <select id="expired" resultType="dev.amai.portfolio.knowledge.mapper.KnowledgeQueueMapper$Row" useCache="false">
+        SELECT <include refid="columns"/> FROM knowledge_source_sync_queue
+        WHERE status = 1 AND lease_until &lt;= #{now}
+        ORDER BY lease_until, id LIMIT 128 FOR UPDATE SKIP LOCKED
+    </select>
+    <select id="due" resultType="dev.amai.portfolio.knowledge.mapper.KnowledgeQueueMapper$Row" useCache="false">
+        SELECT <include refid="columns"/> FROM knowledge_source_sync_queue
+        WHERE status IN (0, 2) AND due_at &lt;= #{now} AND attempt_count &lt; 5 AND <include refid="types"/>
+        ORDER BY due_at, source_type, source_id LIMIT #{limit} FOR UPDATE SKIP LOCKED
+    </select>
+    <select id="nextDue" resultType="java.time.Instant">
+        SELECT MIN(CASE WHEN status = 1 THEN lease_until ELSE due_at END)
+        FROM knowledge_source_sync_queue WHERE status IN (0, 1, 2) AND <include refid="types"/>
+    </select>
+    <insert id="register">
+        INSERT INTO knowledge_source_sync_queue
+            (source_type, source_id, change_seq, projection_hash, action, build_mode, status, due_at)
+        VALUES
+            (#{target.sourceType}, #{target.sourceId}, 1, #{target.projectionHash,jdbcType=BINARY},
+             #{target.action}, #{target.buildMode}, 0, #{target.dueAt})
+        ON CONFLICT (source_type, source_id)
+        <choose>
+            <when test="insertOnly">DO NOTHING</when>
+            <otherwise>
+                DO UPDATE SET change_seq = knowledge_source_sync_queue.change_seq + 1,
+                    projection_hash = EXCLUDED.projection_hash, action = EXCLUDED.action, build_mode = EXCLUDED.build_mode,
+                    status = 0, due_at = EXCLUDED.due_at, lease_token = NULL, lease_until = NULL,
+                    attempt_count = 0, last_error = NULL, updated_at = now()
+            </otherwise>
+        </choose>
+    </insert>
+    <update id="updateLeased">
+        UPDATE knowledge_source_sync_queue
+        SET status = #{status}, due_at = #{dueAt}, lease_token = CAST(#{token,jdbcType=VARCHAR} AS uuid),
+            lease_until = #{until,jdbcType=TIMESTAMP}, last_error = #{error,jdbcType=SMALLINT}, updated_at = now()
+        WHERE id = #{row.id} AND source_type = #{row.sourceType} AND source_id = #{row.sourceId}
+          AND change_seq = #{row.changeSeq} AND lease_token = CAST(#{row.leaseToken} AS uuid)
+          AND status = 1 AND lease_until &gt; clock_timestamp()
+    </update>
+    <update id="update">
+        UPDATE knowledge_source_sync_queue
+        SET status = #{status}, due_at = #{dueAt}, lease_token = CAST(#{token,jdbcType=VARCHAR} AS uuid),
+            lease_until = #{until,jdbcType=TIMESTAMP}, attempt_count = #{attempts},
+            last_error = #{error,jdbcType=SMALLINT}, updated_at = now()
+        WHERE id = #{id}
+    </update>
+</mapper>

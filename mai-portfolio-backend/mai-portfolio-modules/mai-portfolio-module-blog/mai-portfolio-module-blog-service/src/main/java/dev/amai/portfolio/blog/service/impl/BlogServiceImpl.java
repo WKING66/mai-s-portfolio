@@ -1,5 +1,8 @@
 package dev.amai.portfolio.blog.service.impl;
 
+import dev.amai.portfolio.document.api.DocumentPublicationOptions;
+import dev.amai.portfolio.document.enums.DocumentPublishStatus;
+import dev.amai.portfolio.document.enums.DocumentVisibilityLevel;
 import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
 import static dev.amai.portfolio.document.constant.DocumentPolicy.MAX_SOURCE_FILENAME_LENGTH;
 
@@ -123,10 +126,11 @@ public class BlogServiceImpl implements BlogService {
         }
         Integer status = null;
         if (!manage) {
-            status = PUBLISHED;
+            status = DocumentPublishStatus.PUBLISHED.code();
         } else if (request.getStatus() != null && !request.getStatus().isBlank()) {
             // 入口已校验枚举名称，这里只负责映射既有数据库状态码。
-            status = "DRAFT".equals(request.getStatus()) ? DRAFT : PUBLISHED;
+            status = "DRAFT".equals(request.getStatus()) ? DocumentPublishStatus.UNPUBLISHED.code()
+                    : DocumentPublishStatus.PUBLISHED.code();
         }
         var result = blogPostMapper.selectListPage(new Page<>(page, size), status,
                 request.getKeyword(), manage, ContentStage.DRAFT.code(), ContentStage.PUBLISHED.code());
@@ -159,7 +163,7 @@ public class BlogServiceImpl implements BlogService {
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public BlogVo publicArticle(String slug) {
         // 先在三表关联中定位上架的正式正文；不能为了少查一次而取草稿，也不把长正文与每张图片重复 JOIN。
-        var article = blogPostMapper.selectPublishedArticle(slug, PUBLISHED, ContentStage.PUBLISHED.code());
+        var article = blogPostMapper.selectPublishedArticle(slug, DocumentPublishStatus.PUBLISHED.code(), ContentStage.PUBLISHED.code());
         if (article == null) {
             // 下架、没有正式正文或 slug 不存在均不提供公开文章；原有 OSS 地址不由这里撤销。
             throw missing();
@@ -273,7 +277,11 @@ public class BlogServiceImpl implements BlogService {
                 boolean draftChanged = !Objects.equals(StrUtil.emptyToNull(current.title()), title)
                         || !Objects.equals(StrUtil.emptyToNull(current.summary()), summary) || !sameTags;
                 int download = request.allowDownload() ? VISITOR_DOWNLOAD_ENABLED : VISITOR_DOWNLOAD_DISABLED;
-                if (!draftChanged && !slugChanged && blog.getAllowVisitorDownload() == download) {
+                var options = request.publicationOptions(false);
+                boolean publicationChanged = (options.visibilityLevel() != null || options.aiIndexEnabled() != null)
+                        && documentService.changePublication(blog.getDocumentId(), null, options);
+                if (!draftChanged && !slugChanged && blog.getAllowVisitorDownload() == download
+                        && !publicationChanged) {
                     return new SavedDraft(blog, current);
                 }
                 if (draftChanged) {
@@ -429,7 +437,6 @@ public class BlogServiceImpl implements BlogService {
                 blog.setDocumentId(document.id());
                 blog.setAllowVisitorDownload(request.allowDownload()
                         ? VISITOR_DOWNLOAD_ENABLED : VISITOR_DOWNLOAD_DISABLED);
-                blog.setStatus(DRAFT);
                 blog.setUpdatedAt(now());
                 blog.setCreatedAt(blog.getUpdatedAt());
                 blogPostMapper.insert(blog);
@@ -462,7 +469,10 @@ public class BlogServiceImpl implements BlogService {
     @Override
     public BlogVo transition(long id, BlogRevisionRequest request, BlogAction action) {
         var initial = required(id);
-        String actionHash = sha256(action.name().getBytes(StandardCharsets.UTF_8));
+        var options = request.publicationOptions(action == BlogAction.UNPUBLISH);
+        String command = options.equals(new DocumentPublicationOptions(null, null, null, false))
+                ? action.name() : action.name() + options;
+        String actionHash = sha256(command.getBytes(StandardCharsets.UTF_8));
         transactionTemplate.executeWithoutResult(status -> {
             // 1. 同一身份锁和修订保护所有状态动作，重试不重复改变正文。
             if (!documentService.beginWrite(initial.getDocumentId(), request.revision(),
@@ -479,32 +489,35 @@ public class BlogServiceImpl implements BlogService {
                         throw invalid("没有已保存的草稿；重新上架请使用恢复操作");
                     }
                     validatePublish(blog, current);
-                    documentService.publish(blog.getDocumentId());
-                    blog.setStatus(PUBLISHED);
                     blog.setPublishedAt(now());
+                    blog.setUpdatedAt(now());
+                    blogPostMapper.updateById(blog);
+                    documentService.publish(blog.getDocumentId(), options);
                 }
                 case UNPUBLISH -> {
                     // 下架只关闭公开入口，正文和正在编辑的草稿都保留，已签发的静态资源地址不要求立即失效。
-                    if (blog.getStatus() != PUBLISHED) {
+                    if (blog.getPublishStatus() != DocumentPublishStatus.PUBLISHED.code()) {
                         throw invalid("文章当前未上架");
                     }
-                    blog.setStatus(DRAFT);
+                    documentService.changePublication(blog.getDocumentId(), DocumentPublishStatus.OFFLINE, options);
                 }
                 case RESTORE -> {
                     // 恢复的是最近正式正文：即使同时有草稿，也不能把未发布修改提前展示给访客。
-                    if (blog.getStatus() == PUBLISHED || !current.hasPublished()) {
+                    if (blog.getPublishStatus() != DocumentPublishStatus.OFFLINE.code() || !current.hasPublished()) {
                         throw invalid("只有已下架且存在正式正文的文章才能恢复");
                     }
                     validatePublish(blog, documentService.read(blog.getDocumentId(), false));
-                    blog.setStatus(PUBLISHED);
+                    documentService.changePublication(blog.getDocumentId(), DocumentPublishStatus.PUBLISHED, options);
                 }
                 case DISCARD_DRAFT -> {
                     // 只丢弃正在编辑的副本；正式正文及其上架状态保持原样。
                     documentService.discardDraft(blog.getDocumentId());
                 }
             }
-            blog.setUpdatedAt(now());
-            blogPostMapper.updateById(blog);
+            if (action != BlogAction.PUBLISH) {
+                blog.setUpdatedAt(now());
+                blogPostMapper.updateById(blog);
+            }
             documentService.recordWrite(blog.getDocumentId(), request.requestId(),
                     actionHash);
         });
@@ -539,7 +552,7 @@ public class BlogServiceImpl implements BlogService {
                     request.requestId(), sha256("DELETE".getBytes(StandardCharsets.UTF_8)));
             var blog = required(id);
             // 先要求下架；拒绝时没有触碰正文、草稿或图片附件引用。
-            if (blog.getStatus() == PUBLISHED) {
+            if (blog.getPublishStatus() == DocumentPublishStatus.PUBLISHED.code()) {
                 throw invalid("已上架文章不得删除，请先下架");
             }
             // 再检查正文是否还有草稿：有则提示先发布或丢弃，全部检查通过后才删除正文和引用；导入记录仍保留。
@@ -557,7 +570,8 @@ public class BlogServiceImpl implements BlogService {
     public Document exportDocument(long id, String view) {
         boolean manage = manage(view);
         var blog = required(id);
-        if (!manage && (blog.getStatus() != PUBLISHED
+        if (!manage && (blog.getPublishStatus() != DocumentPublishStatus.PUBLISHED.code()
+                || blog.getVisibilityLevel() != DocumentVisibilityLevel.L1.code()
                 || blog.getAllowVisitorDownload() != VISITOR_DOWNLOAD_ENABLED)) {
             throw new ApiException(ApiErrorCode.FORBIDDEN, "该文章当前不允许下载");
         }
@@ -588,7 +602,7 @@ public class BlogServiceImpl implements BlogService {
     }
 
     private BlogPostDO required(long id) {
-        var blog = blogPostMapper.selectById(id);
+        var blog = blogPostMapper.selectWithPublication(id);
         if (blog == null) {
             throw missing();
         }
@@ -681,6 +695,10 @@ public class BlogServiceImpl implements BlogService {
         addFingerprintField(digest, request.summary());
         addFingerprintField(digest, Boolean.toString(request.allowDownload()));
         request.tagIds().forEach(id -> addFingerprintField(digest, id.toString()));
+        var options = request.publicationOptions(false);
+        if (options.visibilityLevel() != null || options.aiIndexEnabled() != null || options.indexBuildMode() != null) {
+            addFingerprintField(digest, options.toString());
+        }
         return HexFormat.of().formatHex(digest.digest());
     }
 
@@ -708,7 +726,7 @@ public class BlogServiceImpl implements BlogService {
     }
 
     private String state(BlogPostDO blog) {
-        return blog.getStatus() == PUBLISHED ? "PUBLISHED" : "DRAFT";
+        return Integer.valueOf(DocumentPublishStatus.PUBLISHED.code()).equals(blog.getPublishStatus()) ? "PUBLISHED" : "DRAFT";
     }
 
     private LocalDateTime now() {

@@ -69,6 +69,10 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-module-knowledge-service</artifactId>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

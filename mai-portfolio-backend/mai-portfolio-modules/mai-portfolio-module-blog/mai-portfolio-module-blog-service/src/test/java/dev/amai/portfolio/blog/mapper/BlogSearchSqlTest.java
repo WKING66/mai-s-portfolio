@@ -32,14 +32,14 @@ class BlogSearchSqlTest {
     void draftExistenceWinsEvenWhenItsTitleIsNullAndKeywordIsBound() throws Exception {
         String query = sql("x%'_\\", 0);
         assertThat(query).contains("CASE WHEN draft.id IS NOT NULL THEN draft.title ELSE published.title END")
-                .contains("b.status = ?", "LOWER(?)", "strpos(")
+                .contains("d.publish_status IN (0, 2)", "LOWER(?)", "strpos(")
                 .doesNotContain("COALESCE", "x%'_", " LIKE ");
         assertThat(query).contains("ORDER BY b.published_at DESC, b.id DESC");
     }
 
     @Test
     void noSearchDoesNotJoinOrReadDocumentContent() throws Exception {
-        assertThat(sql(null, null)).doesNotContain("JOIN", "document_content", "WHERE")
+        assertThat(sql(null, null)).doesNotContain("document_content", "WHERE")
                 .contains("ORDER BY b.published_at DESC, b.id DESC");
     }
 
@@ -47,7 +47,7 @@ class BlogSearchSqlTest {
     void optimizedCountRetainsTheSameTitleSelectionAndFilters() throws Exception {
         String count = new PaginationInnerInterceptor(DbType.POSTGRE_SQL)
                 .autoCountSql(new Page<>(), sql("algorithm", 1));
-        assertThat(count.toLowerCase()).contains("count(", "draft.id", "draft.title", "published.title", "b.status")
+        assertThat(count.toLowerCase()).contains("count(", "draft.id", "draft.title", "published.title", "d.publish_status")
                 .doesNotContain("order by");
     }
 }

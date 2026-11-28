@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 
-/** 博客身份及公开状态；正式正文由 Document 的 PUBLISHED 槽位提供。 */
+/** 博客渠道属性。读取时可附带文档授权状态用于兼容现有响应。 */
 @Getter
 @Setter
 @TableName("blog_post")
@@ -18,7 +18,11 @@ public class BlogPostDO {
     @TableField(updateStrategy = FieldStrategy.ALWAYS)
     private String slug;
 
-    private Integer status;
+    @TableField(exist = false)
+    private Integer publishStatus;
+
+    @TableField(exist = false)
+    private Integer visibilityLevel;
 
     private Integer allowVisitorDownload;
 

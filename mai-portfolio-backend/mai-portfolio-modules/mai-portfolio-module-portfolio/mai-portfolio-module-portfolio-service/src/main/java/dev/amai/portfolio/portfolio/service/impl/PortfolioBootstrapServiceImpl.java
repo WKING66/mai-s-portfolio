@@ -1,5 +1,8 @@
 package dev.amai.portfolio.portfolio.service.impl;
 
+import dev.amai.portfolio.knowledge.api.KnowledgeBuildMode;
+import dev.amai.portfolio.knowledge.api.KnowledgeSourceType;
+import dev.amai.portfolio.knowledge.api.KnowledgeSyncRegistrar;
 import dev.amai.portfolio.portfolio.entity.domain.SiteConfigDO;
 import dev.amai.portfolio.portfolio.mapper.SiteConfigMapper;
 import dev.amai.portfolio.portfolio.service.PortfolioBootstrapService;
@@ -11,9 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PortfolioBootstrapServiceImpl implements PortfolioBootstrapService {
     private final SiteConfigMapper siteConfigMapper;
+    private final KnowledgeSyncRegistrar knowledgeSyncRegistrar;
 
-    public PortfolioBootstrapServiceImpl(SiteConfigMapper siteConfigMapper) {
+    public PortfolioBootstrapServiceImpl(SiteConfigMapper siteConfigMapper, KnowledgeSyncRegistrar knowledgeSyncRegistrar) {
         this.siteConfigMapper = siteConfigMapper;
+        this.knowledgeSyncRegistrar = knowledgeSyncRegistrar;
     }
 
     @Override
@@ -33,5 +38,7 @@ public class PortfolioBootstrapServiceImpl implements PortfolioBootstrapService 
         profile.setEmail("2899964923@qq.com");
         profile.setUpdatedAt(LocalDateTime.now(ZoneOffset.UTC));
         siteConfigMapper.insert(profile);
+        knowledgeSyncRegistrar.register(KnowledgeSourceType.PROFILE, profile.getId(),
+                KnowledgeBuildMode.IMMEDIATE, false, true);
     }
 }

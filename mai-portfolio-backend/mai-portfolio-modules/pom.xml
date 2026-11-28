@@ -18,5 +18,6 @@
         <module>mai-portfolio-module-document</module>
         <module>mai-portfolio-module-blog</module>
         <module>mai-portfolio-module-agent</module>
+        <module>mai-portfolio-module-knowledge</module>
     </modules>
 </project>

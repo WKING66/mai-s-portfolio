@@ -1,12 +1,13 @@
 package dev.amai.portfolio.document.api;
 
+import dev.amai.portfolio.document.enums.DocumentPublishStatus;
 import dev.amai.portfolio.document.entity.domain.*;
 import dev.amai.portfolio.system.api.TagData;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** 文档身份、当前内容及关系的事务边界；不处理博客可见性或外部文件 IO。 */
+/** 文档身份、当前内容、授权及关系的事务边界。 */
 public interface DocumentService {
     Map<Long, DocumentSummary> summaries(Set<Long> ids, boolean manage);
 
@@ -37,6 +38,10 @@ public interface DocumentService {
     boolean beginWrite(long id, long revision, String requestId, String requestHash);
 
     void publish(long id);
+
+    void publish(long id, DocumentPublicationOptions options);
+
+    boolean changePublication(long id, DocumentPublishStatus status, DocumentPublicationOptions options);
 
     void discardDraft(long id);
 

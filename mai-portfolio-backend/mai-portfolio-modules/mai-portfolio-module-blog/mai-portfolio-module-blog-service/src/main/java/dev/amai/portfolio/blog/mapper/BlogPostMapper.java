@@ -9,9 +9,12 @@ import org.apache.ibatis.annotations.Param;
 
 @Mapper
 public interface BlogPostMapper extends BaseMapper<BlogPostDO> {
+    BlogPostDO selectWithPublication(@Param("id") long id);
+
     /** 按视图在数据库筛选可见标题/标识，再分页；不会将一篇文章的两个槽位重复计数。 */
     Page<BlogPostDO> selectListPage(
-            Page<BlogPostDO> page,
+            /** 按视图在数据库筛选可见标题/标识，再分页；不会将一篇文章的两个槽位重复计数。 */
+    Page<BlogPostDO> page,
             @Param("status") Integer status,
             @Param("keyword") String keyword,
             @Param("manage") boolean manage,

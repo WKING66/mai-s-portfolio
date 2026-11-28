@@ -15,7 +15,10 @@ import dev.amai.portfolio.system.api.AuthConstants;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 
 import org.junit.jupiter.api.Test;
+import dev.amai.portfolio.agent.mapper.AgentSiteSettingsMapper;
+import dev.amai.portfolio.agent.mapper.AgentTurnMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
@@ -33,11 +36,13 @@ import javax.sql.DataSource;
             "spring.datasource.druid.password=unused",
             "spring.datasource.druid.initial-size=0",
             "spring.flyway.enabled=false",
+            "site-guide.ai-server-token=",
             "springdoc.api-docs.enabled=true",
             "portfolio.bootstrap.enabled=false",
             "portfolio.media.storage=local"
         })
 @AutoConfigureMockMvc
+@MockitoBean(types = {AgentSiteSettingsMapper.class, AgentTurnMapper.class})
 @Import(BootContextSmokeTest.RoleAnnotationProbeController.class)
 class BootContextSmokeTest extends AuthKeyTestSupport {
     @org.springframework.test.context.bean.override.mockito.MockitoBean
@@ -54,6 +59,17 @@ class BootContextSmokeTest extends AuthKeyTestSupport {
 
     @Autowired private DataSource dataSource;
     @Autowired private MockMvc mvc;
+
+    @Test
+    void internalKnowledgeRejectsRequestsWithBlankConfiguredToken() throws Exception {
+        mvc.perform(post("/internal/v1/knowledge/auth/validate")
+                        .header("Authorization", "Bearer supplied")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"items\":[]}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.retryable").value(false));
+    }
 
     @Test
     void bootFourContextStartsWithSelectedLibraries() {

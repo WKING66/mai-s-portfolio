@@ -65,5 +65,9 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>dev.amai</groupId>
+            <artifactId>mai-portfolio-module-knowledge-provider</artifactId>
+        </dependency>
     </dependencies>
 </project>

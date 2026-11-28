@@ -9,7 +9,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.amai.portfolio.system.api.AuthConstants;
 
 import org.junit.jupiter.api.Test;
+import dev.amai.portfolio.agent.mapper.AgentSiteSettingsMapper;
+import dev.amai.portfolio.agent.mapper.AgentTurnMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.core.env.Environment;
@@ -32,6 +35,7 @@ import tools.jackson.databind.json.JsonMapper;
             "portfolio.media.storage=local"
         })
 @AutoConfigureMockMvc
+@MockitoBean(types = {AgentSiteSettingsMapper.class, AgentTurnMapper.class})
 @ActiveProfiles("dev")
 class OpenApiContractTest extends AuthKeyTestSupport {
     @org.springframework.test.context.bean.override.mockito.MockitoBean

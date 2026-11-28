@@ -60,10 +60,10 @@ class BlogPartialSaveTest {
         blog.setId(11L);
         blog.setDocumentId(9L);
         blog.setSlug("Legacy.Slug");
-        blog.setStatus(0);
+        blog.setPublishStatus(0);
         blog.setAllowVisitorDownload(1);
         current = document("stored", List.of(), true, false);
-        when(blogPostMapper.selectById(11L)).thenReturn(blog);
+        when(blogPostMapper.selectWithPublication(11L)).thenReturn(blog);
         when(documentService.read(9, true)).thenAnswer(call -> current);
         when(documentService.references(9)).thenReturn(Map.of());
         when(documentService.beginWrite(eq(9L), anyLong(), anyString(), anyString())).thenReturn(true);
