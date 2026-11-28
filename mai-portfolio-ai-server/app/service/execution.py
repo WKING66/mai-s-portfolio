@@ -495,6 +495,7 @@ class Executions:
                     graph.stream(
                         {
                             "execution_id": execution_id,
+                            "request_id": request.request_id,
                             "question": request.question,
                             "history": request.history,
                             "persona": persona,
