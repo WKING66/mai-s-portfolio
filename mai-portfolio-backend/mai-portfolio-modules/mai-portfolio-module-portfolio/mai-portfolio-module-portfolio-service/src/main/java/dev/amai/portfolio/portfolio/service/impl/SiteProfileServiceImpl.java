@@ -1,5 +1,8 @@
 package dev.amai.portfolio.portfolio.service.impl;
 
+import dev.amai.portfolio.knowledge.api.KnowledgeBuildMode;
+import dev.amai.portfolio.knowledge.api.KnowledgeSourceType;
+import dev.amai.portfolio.knowledge.api.KnowledgeSyncRegistrar;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.asset.api.AssetResourceData;
@@ -33,21 +36,24 @@ public class SiteProfileServiceImpl implements SiteProfileService {
     private static final Logger LOG = LoggerFactory.getLogger(SiteProfileServiceImpl.class);
     private static final Pattern GITHUB_PROFILE_PATH = Pattern.compile("/[A-Za-z0-9-]+/?");
     private final SiteConfigMapper siteConfigMapper;
+    private final KnowledgeSyncRegistrar knowledgeSyncRegistrar;
     private final TaxonomyQueryService taxonomyQueryService;
     private final AssetQueryService assetQueryService;
 
     public SiteProfileServiceImpl(
             SiteConfigMapper siteConfigMapper,
             TaxonomyQueryService taxonomyQueryService,
-            AssetQueryService assetQueryService) {
+            AssetQueryService assetQueryService,
+            KnowledgeSyncRegistrar knowledgeSyncRegistrar) {
         this.siteConfigMapper = siteConfigMapper;
+        this.knowledgeSyncRegistrar = knowledgeSyncRegistrar;
         this.taxonomyQueryService = taxonomyQueryService;
         this.assetQueryService = assetQueryService;
     }
 
     @Override
     public SiteProfileVo profile() {
-        return toVo(siteProfile());
+        return toVo(siteProfile(false));
     }
 
     @Override
@@ -59,7 +65,7 @@ public class SiteProfileServiceImpl implements SiteProfileService {
         validateGithubProfile(githubUrl);
 
         // 2. 读取单例资料并核对并发令牌，避免覆盖另一位编辑者刚保存的内容。
-        SiteConfigDO existing = siteProfile();
+        SiteConfigDO existing = siteProfile(true);
         if (!existing.getUpdatedAt().equals(request.updatedAt())) {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, WebMessageConstants.DATA_CONFLICT);
         }
@@ -81,12 +87,21 @@ public class SiteProfileServiceImpl implements SiteProfileService {
             throw new ApiException(ApiErrorCode.DATA_CONFLICT, WebMessageConstants.DATA_CONFLICT);
         }
         LOG.info("Site profile updated, profileId={}", existing.getId());
-        return toVo(siteConfigMapper.selectById(existing.getId()));
+        var updated = siteConfigMapper.selectById(existing.getId());
+        if (!ProfileKnowledgeSourceImpl.projection(existing).equals(ProfileKnowledgeSourceImpl.projection(updated))) {
+            knowledgeSyncRegistrar.register(KnowledgeSourceType.PROFILE, existing.getId(),
+                    KnowledgeBuildMode.IMMEDIATE, false, false);
+        }
+        return toVo(updated);
     }
 
     /** 网站资料是单例业务事实；缺失或重复都不应默默选取任意一条。 */
-    private SiteConfigDO siteProfile() {
-        List<SiteConfigDO> profiles = siteConfigMapper.selectList(null);
+    private SiteConfigDO siteProfile(boolean lock) {
+        var query = Wrappers.<SiteConfigDO>lambdaQuery();
+        if (lock) {
+            query.last("FOR UPDATE");
+        }
+        List<SiteConfigDO> profiles = siteConfigMapper.selectList(query);
         if (profiles.size() != 1) {
             throw new IllegalStateException(PortfolioMessageConstants.PROFILE_NOT_INITIALIZED);
         }

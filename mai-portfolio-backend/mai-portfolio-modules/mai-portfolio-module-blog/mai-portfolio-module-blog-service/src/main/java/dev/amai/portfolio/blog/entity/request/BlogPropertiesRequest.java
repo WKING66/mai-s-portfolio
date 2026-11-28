@@ -4,6 +4,7 @@ import static dev.amai.portfolio.blog.constant.BlogPolicy.*;
 import static dev.amai.portfolio.document.constant.DocumentPolicy.REQUEST_ID_PATTERN;
 
 import dev.amai.portfolio.validation.ValidationGroups;
+import dev.amai.portfolio.document.api.DocumentPublicationOptions;
 import jakarta.validation.constraints.*;
 import java.util.List;
 
@@ -38,4 +39,26 @@ public record BlogPropertiesRequest(
         List<@NotNull @Positive Long> tagIds,
 
         @NotNull
-        Boolean allowDownload) {}
+        Boolean allowDownload,
+
+        @Min(1)
+        @Max(3)
+        Integer visibilityLevel,
+
+        Boolean aiIndexEnabled,
+
+        @Min(1)
+        @Max(2)
+        Integer indexBuildMode,
+
+        Boolean purgeVectorPayload) {
+    public BlogPropertiesRequest(Long revision, String requestId, String title, String summary, String slug,
+                                 List<Long> tagIds, Boolean allowDownload) {
+        this(revision, requestId, title, summary, slug, tagIds, allowDownload, null, null, null, null);
+    }
+
+    public DocumentPublicationOptions publicationOptions(boolean allowPurge) {
+        return new DocumentPublicationOptions(visibilityLevel, aiIndexEnabled, indexBuildMode,
+                allowPurge && Boolean.TRUE.equals(purgeVectorPayload));
+    }
+}

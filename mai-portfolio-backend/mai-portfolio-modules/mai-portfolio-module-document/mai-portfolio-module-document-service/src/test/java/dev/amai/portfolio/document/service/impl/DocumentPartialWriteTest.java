@@ -7,6 +7,7 @@ import static org.mockito.Mockito.*;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import dev.amai.portfolio.knowledge.api.KnowledgeSyncRegistrar;
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.document.entity.domain.*;
 import dev.amai.portfolio.document.enums.ContentStage;
@@ -27,7 +28,7 @@ class DocumentPartialWriteTest {
     private final DocumentContentTagMapper tagMapper = mock(DocumentContentTagMapper.class);
     private final AssetQueryService assets = mock(AssetQueryService.class);
     private final DocumentServiceImpl service = new DocumentServiceImpl(
-            documentMapper, contentMapper, resourceMapper, tagMapper, assets);
+            documentMapper, contentMapper, resourceMapper, tagMapper, assets, mock(KnowledgeSyncRegistrar.class));
 
     @BeforeAll
     static void initializeMetadata() {

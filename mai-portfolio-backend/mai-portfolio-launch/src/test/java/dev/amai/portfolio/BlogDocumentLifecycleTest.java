@@ -3,6 +3,9 @@ package dev.amai.portfolio;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import dev.amai.portfolio.asset.api.*;
 import dev.amai.portfolio.blog.entity.request.BlogContentRequest;
@@ -17,7 +20,15 @@ import dev.amai.portfolio.document.api.DocumentExportService;
 import dev.amai.portfolio.document.api.DocumentImportTaskService;
 import dev.amai.portfolio.document.api.DocumentService;
 import dev.amai.portfolio.document.enums.ResourceStatus;
+import dev.amai.portfolio.knowledge.service.CachedDocumentAuthSnapshot;
+import dev.amai.portfolio.knowledge.service.KnowledgeEndpointException;
+import dev.amai.portfolio.knowledge.service.KnowledgeSyncService;
+import dev.amai.portfolio.portfolio.entity.request.UpdateProfileRequest;
+import dev.amai.portfolio.portfolio.service.PortfolioBootstrapService;
+import dev.amai.portfolio.portfolio.service.SiteProfileService;
 import dev.amai.portfolio.security.context.AccountContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import dev.amai.portfolio.storage.*;
 import dev.amai.portfolio.system.api.*;
 import dev.amai.portfolio.web.exception.*;
@@ -44,6 +55,7 @@ import javax.imageio.ImageIO;
 @SpringBootTest(
         properties = {
             "spring.profiles.active=test",
+            "site-guide.ai-server-token=integration-knowledge-token",
             "spring.datasource.druid.url=${BLOG_TEST_JDBC_URL}",
             "spring.datasource.druid.username=${BLOG_TEST_JDBC_USERNAME:postgres}",
             "spring.datasource.druid.password=${BLOG_TEST_JDBC_PASSWORD:}",
@@ -57,6 +69,7 @@ import javax.imageio.ImageIO;
             "spring.flyway.enabled=true",
             "portfolio.media.storage=local"
         })
+@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(
         named = "BLOG_TEST_JDBC_URL",
         matches = "jdbc:postgresql://127\\.0\\.0\\.1:[0-9]+/blog_document_test(?:_[a-z0-9_]+)?")
@@ -69,6 +82,13 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
     @Autowired DocumentExportService exports;
     @Autowired AssetFileService files;
     @Autowired JdbcTemplate jdbc;
+    @Autowired org.springframework.test.web.servlet.MockMvc mvc;
+    @Autowired javax.sql.DataSource dataSource;
+    @Autowired KnowledgeSyncService sync;
+    @Autowired PortfolioBootstrapService portfolioBootstrap;
+    @Autowired SiteProfileService profiles;
+    @Autowired CachedDocumentAuthSnapshot authorization;
+    @Autowired PlatformTransactionManager transactions;
     private final Map<String, byte[]> objects = new HashMap<>();
     private long account;
     private MockedStatic<AccountContext> identity;
@@ -77,7 +97,7 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
     void prepare() throws Exception {
         jdbc.execute(
                 "TRUNCATE"
-                    + " blog_post,document,document_content,document_resource,document_content_tag,"
+                    + " knowledge_source_sync_queue,site_config,blog_post,document,document_content,document_resource,document_content_tag,"
                     + "document_import_task,document_processing_task,media_asset,user_account"
                     + " CASCADE");
         account =
@@ -169,6 +189,298 @@ class BlogDocumentLifecycleTest extends AuthKeyTestSupport {
         var output = new ByteArrayOutputStream();
         ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), "png", output);
         return output.toByteArray();
+    }
+
+
+
+
+
+    @Test
+    void backfillAndReconcileRecoverLegacyAndDriftedProjections() {
+        var draft = create("sync-legacy", "Legacy", "# Legacy", false);
+        long id = documentId(draft);
+        jdbc.update("UPDATE document_content SET stage = 1 WHERE document_id = ?", id);
+        jdbc.update("UPDATE document SET publish_status = 1 WHERE id = ?", id);
+
+        assertThat(sync.backfill(List.of(1), true).enqueued()).isEqualTo(1);
+        assertThat(sequence(id)).isNull();
+        assertThat(sync.backfill(List.of(1), false).enqueued()).isEqualTo(1);
+        assertThat(sync.backfill(List.of(1), false).skipped()).isEqualTo(1);
+        assertThat(sequence(id)).isEqualTo(1);
+        jdbc.update("UPDATE document_content SET title = 'External edit' WHERE document_id = ?", id);
+        assertThat(decision(id, 1).authorized()).isFalse();
+        assertThat(sync.reconcile(List.of(1), List.of(id)).repaired()).isEqualTo(1);
+        assertThat(sequence(id)).isEqualTo(2);
+        assertThat(decision(id, 2).title()).isEqualTo("External edit");
+    }
+
+    @Test
+    void profileBootstrapAndEditsSyncOnlyThePublicProjection() {
+        portfolioBootstrap.initialize();
+        var initial = profiles.profile();
+        var first = sync.claim(List.of(2), 1).claims().getFirst();
+        assertThat(first.projection().keySet())
+                .containsExactlyInAnyOrder("displayName", "headline", "intro", "githubUrl", "email");
+        assertThat(first.changeSeq()).isEqualTo(1);
+        assertThat(authorization.validate(List.of(new CachedDocumentAuthSnapshot.Candidate(2, first.sourceId(), 1)))
+                .getFirst()).satisfies(result -> {
+                    assertThat(result.authorized()).isTrue();
+                    assertThat(result.slug()).isNull();
+                });
+
+        var updated = profiles.updateProfile(new UpdateProfileRequest("New author", initial.headline(), initial.intro(),
+                null, null, initial.updatedAt()));
+        var second = sync.claim(List.of(2), 1).claims().getFirst();
+        assertThat(second.changeSeq()).isEqualTo(2);
+        assertThat(second.projection()).containsEntry("displayName", "New author").doesNotContainKeys("email", "githubUrl");
+        profiles.updateProfile(new UpdateProfileRequest("New author", updated.headline(), updated.intro(),
+                null, null, updated.updatedAt()));
+        assertThat(sync.reconcile(List.of(2), null).mismatched()).isZero();
+        assertThat(sync.claim(List.of(2), 1).claims()).isEmpty();
+    }
+
+    @Test
+    void internalHttpReturnsRawClaimsAndChecksBearerBeforeHandling() throws Exception {
+        transition(create("sync-http", "Formal", "# Formal", false), BlogAction.PUBLISH);
+        var request = post("/internal/v1/knowledge/sync/claims")
+                .contentType("application/json")
+                .content("{\"workerId\":\"test-worker\"}");
+        mvc.perform(request.header("Authorization", "Bearer wrong"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(post("/internal/v1/knowledge/sync/claims")
+                        .contentType("application/json")
+                        .header("Authorization", "Bearer integration-knowledge-token")
+                        .content("{\"workerId\":\"test-worker\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.claims[0].leaseUntil").isString())
+                .andExpect(jsonPath("$.claims[0].projection.markdown").value("# Formal"));
+    }
+
+    @Test
+    void syncTracksPublicationAuthorizationAndCommittedSequence() {
+        var draft = create("sync-state", "First", "# First", true);
+        long id = documentId(draft);
+        assertThat(publication(id)).isZero();
+        assertThat(sequence(id)).isNull();
+        var command = new BlogRevisionRequest(draft.revision(), requestId());
+        var published = blogs.transition(draft.id(), command, BlogAction.PUBLISH);
+        assertThat(publication(id)).isEqualTo(1);
+        assertThat(sequence(id)).isEqualTo(1);
+        blogs.transition(draft.id(), command, BlogAction.PUBLISH);
+        assertThat(sequence(id)).isEqualTo(1);
+
+        var edited = edit(published, "sync-state", "Second", "# Second", true);
+        assertThat(sequence(id)).isEqualTo(1);
+        assertThat(decision(id, 1).authorized()).isTrue();
+        assertThat(decision(id, 1).slug()).isEqualTo("sync-state");
+        var leased = sync.claim(List.of(1), 1).claims().getFirst();
+        assertThat(leased.projection()).containsEntry("markdown", "# First");
+        assertThat(leased.projectionHash()).hasSize(64);
+        var republished = transition(edited, BlogAction.PUBLISH);
+        assertThat(sequence(id)).isEqualTo(2);
+        assertThat(decision(id, 1).authorized()).isFalse();
+        assertThat(decision(id, 2).title()).isEqualTo("Second");
+
+        var offline = blogs.transition(republished.id(), new BlogRevisionRequest(republished.revision(),
+                requestId(), null, null, 2, true), BlogAction.UNPUBLISH);
+        assertThat(publication(id)).isEqualTo(2);
+        assertThat(decision(id, 2).authorized()).isFalse();
+        var withdrawal = sync.claim(List.of(1), 1).claims().getFirst();
+        assertThat(withdrawal.action()).isEqualTo(3);
+        assertThat(withdrawal.buildMode()).isEqualTo(1);
+        assertThat(withdrawal.projection()).isNull();
+
+        var restored = blogs.transition(offline.id(), new BlogRevisionRequest(offline.revision(),
+                requestId(), 2, true, null, null), BlogAction.RESTORE);
+        assertThat(blogs.list(new ContentListRequest("PUBLIC", 1, 12, null)).getItems()).isEmpty();
+        assertThatThrownBy(() -> blogs.publicArticle("sync-state")).isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> blogs.exportDocument(restored.id(), "PUBLIC")).isInstanceOf(ApiException.class);
+        assertThat(decision(id, 4).authorized()).isTrue();
+        var privatePost = blogs.saveProperties(restored.id(), new BlogPropertiesRequest(restored.revision(),
+                requestId(), "Second", "summary", "sync-state", List.of(), true, 3, true, null, null));
+        assertThat(decision(id, 5).authorized()).isFalse();
+        var unchanged = blogs.saveProperties(privatePost.id(), new BlogPropertiesRequest(privatePost.revision(),
+                requestId(), "Second", "summary", "sync-state", List.of(), true, 3, true, null, null));
+        assertThat(unchanged.revision()).isEqualTo(privatePost.revision());
+        assertThat(sequence(id)).isEqualTo(5);
+    }
+
+    @Test
+    void deleteOfflineEnqueuesPurgeAndUnauthorizedPublishNeverEnqueues() {
+        var neverIndexed = create("private-only", "Private", "# Private", false);
+        long privateDocId = documentId(neverIndexed);
+        var publishedPrivate = blogs.transition(neverIndexed.id(), new BlogRevisionRequest(neverIndexed.revision(),
+                requestId(), 3, true, null, null), BlogAction.PUBLISH);
+        assertThat(sequence(privateDocId)).isNull();
+        var offlinePrivate = transition(publishedPrivate, BlogAction.UNPUBLISH);
+        assertThat(sequence(privateDocId)).isNull();
+        blogs.delete(offlinePrivate.id(), new BlogRevisionRequest(offlinePrivate.revision(), requestId()));
+        assertThat(sequence(privateDocId)).isNull();
+
+        var normal = transition(create("delete-purge", "DeleteMe", "# Body", false), BlogAction.PUBLISH);
+        long normalDocId = documentId(normal);
+        assertThat(sequence(normalDocId)).isEqualTo(1);
+        var offlineNormal = transition(normal, BlogAction.UNPUBLISH);
+        assertThat(sequence(normalDocId)).isEqualTo(2);
+        assertThat(jdbc.queryForObject(
+                "SELECT action FROM knowledge_source_sync_queue WHERE source_type=1 AND source_id=?",
+                Integer.class, normalDocId)).isEqualTo(2);
+        // 已下架状态下调整 L2/AI 开关仍未授权，不应重复推进 withdraw 序号。
+        var stillOffline = blogs.saveProperties(offlineNormal.id(), new BlogPropertiesRequest(offlineNormal.revision(),
+                requestId(), offlineNormal.title(), offlineNormal.summary(), "delete-purge", List.of(), false, 2, false, null, null));
+        assertThat(sequence(normalDocId)).isEqualTo(2);
+        blogs.delete(stillOffline.id(), new BlogRevisionRequest(stillOffline.revision(), requestId()));
+        assertThat(sequence(normalDocId)).isEqualTo(3);
+        assertThat(jdbc.queryForObject(
+                "SELECT action FROM knowledge_source_sync_queue WHERE source_type=1 AND source_id=?",
+                Integer.class, normalDocId)).isEqualTo(3);
+        assertThat(decision(normalDocId, 3).authorized()).isFalse();
+    }
+
+    @Test
+    void claimLimitOneDoesNotStarveReadyTaskBehindInvalidOrSkippedRow() {
+        var first = transition(create("claim-skip-1", "Skip1", "# Body1", false), BlogAction.PUBLISH);
+        var second = transition(create("claim-skip-2", "Skip2", "# Body2", false), BlogAction.PUBLISH);
+        long firstDocId = documentId(first);
+        long secondDocId = documentId(second);
+        // 让先到期的任务指纹失配（将被标终态），验证 limit=1 仍能当次领到后面的就绪任务。
+        jdbc.update("""
+                UPDATE knowledge_source_sync_queue
+                SET projection_hash = decode(repeat('00', 32), 'hex'), due_at = now() - interval '10 seconds'
+                WHERE source_type = 1 AND source_id = ?
+                """, firstDocId);
+        jdbc.update("""
+                UPDATE knowledge_source_sync_queue
+                SET due_at = now() - interval '5 seconds'
+                WHERE source_type = 1 AND source_id = ?
+                """, secondDocId);
+        var claims = sync.claim(List.of(1), 1).claims();
+        assertThat(claims).hasSize(1);
+        assertThat(claims.getFirst().sourceId()).isEqualTo(secondDocId);
+        assertThat(jdbc.queryForObject(
+                "SELECT status FROM knowledge_source_sync_queue WHERE source_type=1 AND source_id=?",
+                Integer.class, firstDocId)).isEqualTo(4);
+    }
+
+    @Test
+    void rollbackOfPublishedStateRollsBackQueueAndPreservesCachedAuthorization() {
+        var published = transition(create("sync-rollback", "Formal", "# Formal", true), BlogAction.PUBLISH);
+        long id = documentId(published);
+        assertThat(decision(id, 1).authorized()).isTrue();
+        new TransactionTemplate(transactions).executeWithoutResult(status -> {
+            blogs.transition(published.id(), new BlogRevisionRequest(published.revision(), requestId()),
+                    BlogAction.UNPUBLISH);
+            assertThat(sequence(id)).isEqualTo(2);
+            status.setRollbackOnly();
+        });
+        assertThat(publication(id)).isEqualTo(1);
+        assertThat(sequence(id)).isEqualTo(1);
+        assertThat(decision(id, 1).authorized()).isTrue();
+    }
+
+
+    @Test
+    void concurrentFormalAuthorizationChangesEachAdvanceSequence() throws Exception {
+        var published = transition(create("sync-concurrent", "Formal", "# Formal", false), BlogAction.PUBLISH);
+        long id = documentId(published);
+        var template = new TransactionTemplate(transactions);
+        try (var executor = java.util.concurrent.Executors.newFixedThreadPool(2)) {
+            var start = new java.util.concurrent.CountDownLatch(1);
+            var writes = java.util.stream.IntStream.of(2, 3).mapToObj(level -> executor.submit(() -> {
+                assertThat(start.await(10, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+                template.executeWithoutResult(status -> documents.changePublication(id, null,
+                        new dev.amai.portfolio.document.api.DocumentPublicationOptions(level, null, null, false)));
+                return level;
+            })).toList();
+            start.countDown();
+            for (var write : writes) {
+                write.get(10, java.util.concurrent.TimeUnit.SECONDS);
+            }
+        }
+        assertThat(sequence(id)).isEqualTo(3);
+    }
+
+    @Test
+    void v20BackfillsAllThreeStatesWithoutChangingFormalContent() {
+        String schema = "v20_" + UUID.randomUUID().toString().replace("-", "");
+        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+                .schemas(schema).locations("classpath:db/postgresql").target("19").load().migrate();
+        jdbc.execute("INSERT INTO " + schema + """
+                .document(id, owner_id, origin_type, revision, created_at, updated_at)
+                VALUES (1,1,1,1,now(),now()), (2,1,1,1,now(),now()), (3,1,1,1,now(),now())
+                """);
+        jdbc.execute("INSERT INTO " + schema + """
+                .blog_post(document_id, slug, status, allow_visitor_download, created_at, updated_at)
+                VALUES (1,'unpublished',0,0,now(),now()), (2,'published',1,0,now(),now()),
+                       (3,'offline',0,0,now(),now())
+                """);
+        jdbc.execute("INSERT INTO " + schema + """
+                .document_content(document_id, stage, content, reading_time_minutes, updated_by, created_at, updated_at)
+                VALUES (1,0,'draft',1,1,now(),now()), (2,1,'published body',1,1,now(),now()),
+                       (3,1,'offline body',1,1,now(),now())
+                """);
+        org.flywaydb.core.Flyway.configure().dataSource(dataSource)
+                .schemas(schema).locations("classpath:db/postgresql").load().migrate();
+        assertThat(jdbc.queryForList("SELECT publish_status FROM " + schema + ".document ORDER BY id", Integer.class))
+                .containsExactly(0, 1, 2);
+        assertThat(jdbc.queryForList("SELECT content FROM " + schema + ".document_content ORDER BY document_id", String.class))
+                .containsExactly("draft", "published body", "offline body");
+        assertThat(jdbc.queryForObject("""
+                SELECT count(*) FROM information_schema.columns
+                WHERE table_schema = ? AND table_name = 'blog_post' AND column_name = 'status'
+                """, Integer.class, schema)).isZero();
+    }
+
+    @Test
+    void expiredTokenIsRejectedAndFifthFailureIsTerminal() {
+        var published = transition(create("sync-leases", "Formal", "# Formal", true), BlogAction.PUBLISH);
+        long id = documentId(published);
+        var claim = sync.claim(List.of(1), 1).claims().getFirst();
+        jdbc.update("UPDATE knowledge_source_sync_queue SET lease_until = now() - interval '1 second' WHERE id = ?",
+                claim.queueId());
+        var expired = lease(claim);
+        assertThatThrownBy(() -> sync.renew(claim.queueId(), expired))
+                .isInstanceOfSatisfying(KnowledgeEndpointException.class, e -> assertThat(e.status()).isEqualTo(409));
+        assertThatThrownBy(() -> sync.complete(claim.queueId(), expired))
+                .isInstanceOfSatisfying(KnowledgeEndpointException.class, e -> assertThat(e.status()).isEqualTo(409));
+        assertThat(sync.claim(List.of(1), 1).claims()).isEmpty();
+        for (int attempt = 2; attempt <= 5; attempt++) {
+            jdbc.update("UPDATE knowledge_source_sync_queue SET due_at = now() - interval '1 second' WHERE id = ?",
+                    claim.queueId());
+            var next = sync.claim(List.of(1), 1).claims().getFirst();
+            assertThat(next.attemptCount()).isEqualTo(attempt);
+            assertThat(next.leaseToken()).isNotEqualTo(claim.leaseToken());
+            assertThat(sync.fail(next.queueId(), lease(next), 1, false).status())
+                    .isEqualTo(attempt == 5 ? "terminal" : "retryScheduled");
+        }
+        assertThat(sync.claim(List.of(1), 1).claims()).isEmpty();
+        assertThat(sync.retry(1, id).changeSeq()).isEqualTo(1);
+        var retried = sync.claim(List.of(1), 1).claims().getFirst();
+        assertThat(retried.attemptCount()).isEqualTo(1);
+        sync.complete(retried.queueId(), lease(retried));
+        assertThat(sync.claim(List.of(1), 1).claims()).isEmpty();
+    }
+
+    private KnowledgeSyncService.Lease lease(KnowledgeSyncService.Claim claim) {
+        return new KnowledgeSyncService.Lease(claim.sourceType(), claim.sourceId(), claim.changeSeq(),
+                UUID.fromString(claim.leaseToken()));
+    }
+
+    private CachedDocumentAuthSnapshot.Decision decision(long id, long seq) {
+        return authorization.validate(List.of(new CachedDocumentAuthSnapshot.Candidate(1, id, seq))).getFirst();
+    }
+
+    private long documentId(BlogVo blog) {
+        return jdbc.queryForObject("SELECT document_id FROM blog_post WHERE id = ?", Long.class, blog.id());
+    }
+
+    private int publication(long id) {
+        return jdbc.queryForObject("SELECT publish_status FROM document WHERE id = ?", Integer.class, id);
+    }
+
+    private Long sequence(long id) {
+        return jdbc.query("SELECT change_seq FROM knowledge_source_sync_queue WHERE source_type=1 AND source_id=?",
+                (rows, index) -> rows.getLong(1), id).stream().findFirst().orElse(null);
     }
 
     @Test

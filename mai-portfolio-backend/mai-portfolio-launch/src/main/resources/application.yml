@@ -63,11 +63,20 @@ springdoc:
     enabled: true
   swagger-ui:
     enabled: true
+  paths-to-exclude: /internal/**
 
 site-guide:
   ai-base-url: ${SITE_GUIDE_AI_BASE_URL:http://127.0.0.1:9344}
   # 由部署方通过 Spring 配置或环境变量指定，值与 Python 的 AI_SERVER_TOKEN 一致。
   ai-server-token: ${SITE_GUIDE_AI_TOKEN:}
+
+knowledge:
+  off-peak:
+    zone: ${KNOWLEDGE_OFF_PEAK_ZONE:Asia/Shanghai}
+    start: ${KNOWLEDGE_OFF_PEAK_START:02:00}
+    end: ${KNOWLEDGE_OFF_PEAK_END:05:00}
+  auth:
+    cache-ttl: ${KNOWLEDGE_AUTH_CACHE_TTL:PT12H}
 
 portfolio:
   media:

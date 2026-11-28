@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import dev.amai.portfolio.knowledge.api.KnowledgeSyncRegistrar;
 import dev.amai.portfolio.asset.api.AssetQueryService;
 import dev.amai.portfolio.document.entity.domain.*;
 import dev.amai.portfolio.document.enums.ContentStage;
@@ -24,7 +25,7 @@ class DocumentServiceLifecycleTest {
     private final DocumentContentTagMapper documentContentTagMapper = mock(DocumentContentTagMapper.class);
     private final DocumentServiceImpl documentService = new DocumentServiceImpl(documentMapper,
             documentContentMapper, documentResourceMapper, documentContentTagMapper,
-            mock(AssetQueryService.class));
+            mock(AssetQueryService.class), mock(KnowledgeSyncRegistrar.class));
 
     @BeforeAll
     static void initializeMetadata() {
@@ -96,6 +97,12 @@ class DocumentServiceLifecycleTest {
     void publishingPromotesSavedDraftAndRemovesOldFormalRelations() {
         var draft = content(11, "DRAFT");
         when(documentContentMapper.selectOne(any())).thenReturn(draft, content(10, "PUBLISHED"));
+
+        var identity = identity();
+        identity.setPublishStatus(1);
+        identity.setVisibilityLevel(1);
+        identity.setAiIndexEnabled(true);
+        when(documentMapper.selectOne(any())).thenReturn(identity);
 
         documentService.publish(7);
 

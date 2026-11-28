@@ -17,6 +17,12 @@ public class DocumentDO {
 
     private Integer originType;
 
+    private Integer publishStatus;
+
+    private Integer visibilityLevel;
+
+    private Boolean aiIndexEnabled;
+
     private Long revision;
 
     private String createRequestId;

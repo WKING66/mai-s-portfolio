@@ -29,7 +29,7 @@ class BlogPublicReadTest {
         var blog = new BlogPostDO();
         blog.setId(1L);
         blog.setDocumentId(2L);
-        blog.setStatus(1);
+        blog.setPublishStatus(1);
         blog.setSlug("article");
         blog.setAllowVisitorDownload(1);
         article.setBlog(blog);

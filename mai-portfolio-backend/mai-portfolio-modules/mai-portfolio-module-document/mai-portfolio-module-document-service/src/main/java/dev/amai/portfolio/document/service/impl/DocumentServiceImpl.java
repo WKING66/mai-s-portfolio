@@ -1,5 +1,10 @@
 package dev.amai.portfolio.document.service.impl;
 
+import dev.amai.portfolio.document.api.DocumentPublicationOptions;
+import dev.amai.portfolio.document.enums.DocumentPublishStatus;
+import dev.amai.portfolio.knowledge.api.KnowledgeBuildMode;
+import dev.amai.portfolio.knowledge.api.KnowledgeSyncRegistrar;
+import dev.amai.portfolio.knowledge.api.KnowledgeSourceType;
 import static org.springframework.transaction.annotation.Isolation.REPEATABLE_READ;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
@@ -36,16 +41,20 @@ public class DocumentServiceImpl implements DocumentService {
 
     private final AssetQueryService assetQueryService;
 
+    private final KnowledgeSyncRegistrar knowledgeSyncRegistrar;
+
     public DocumentServiceImpl(DocumentMapper documentMapper,
                                DocumentContentMapper documentContentMapper,
                                DocumentResourceMapper documentResourceMapper,
                                DocumentContentTagMapper documentContentTagMapper,
-                               AssetQueryService assetQueryService) {
+                               AssetQueryService assetQueryService,
+                               KnowledgeSyncRegistrar knowledgeSyncRegistrar) {
         this.documentMapper = documentMapper;
         this.documentContentMapper = documentContentMapper;
         this.documentResourceMapper = documentResourceMapper;
         this.documentContentTagMapper = documentContentTagMapper;
         this.assetQueryService = assetQueryService;
+        this.knowledgeSyncRegistrar = knowledgeSyncRegistrar;
     }
 
     /**
@@ -263,8 +272,7 @@ public class DocumentServiceImpl implements DocumentService {
     @Transactional(propagation = Propagation.MANDATORY)
     public boolean beginWrite(long id, long revision, String requestId, String requestHash) {
         // 1. 保存和发布必须围绕同一篇文档依次完成，避免用旧草稿覆盖刚发布的正文；事务结束才释放锁。
-        var identity = documentMapper.selectOne(Wrappers.<DocumentDO>lambdaQuery()
-                .eq(DocumentDO::getId, id).last("FOR UPDATE"));
+        var identity = locked(id);
         if (identity == null) {
             throw new ApiException(ApiErrorCode.NOT_FOUND, "文档不存在");
         }
@@ -404,6 +412,59 @@ public class DocumentServiceImpl implements DocumentService {
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void publish(long id) {
+        publish(id, new DocumentPublicationOptions(null, null, null, false));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void publish(long id, DocumentPublicationOptions options) {
+        changePublication(id, DocumentPublishStatus.PUBLISHED, options, true);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public boolean changePublication(long id, DocumentPublishStatus status, DocumentPublicationOptions options) {
+        return changePublication(id, status, options, false);
+    }
+
+    private boolean changePublication(long id, DocumentPublishStatus status, DocumentPublicationOptions options,
+                                      boolean promoteDraft) {
+        var identity = locked(id);
+        if (identity == null) {
+            throw new ApiException(ApiErrorCode.NOT_FOUND, "文档不存在");
+        }
+        if (promoteDraft) {
+            promoteDraft(id);
+        } else if (status != null && status != DocumentPublishStatus.UNPUBLISHED
+                && slot(id, ContentStage.PUBLISHED) == null) {
+            throw conflict("没有可上架或下架的正式正文");
+        }
+        int published = status == null ? identity.getPublishStatus() : status.code();
+        int visibility = options.visibilityLevel() == null ? identity.getVisibilityLevel() : options.visibilityLevel();
+        boolean enabled = options.aiIndexEnabled() == null ? identity.getAiIndexEnabled() : options.aiIndexEnabled();
+        boolean changed = promoteDraft || published != identity.getPublishStatus()
+                || visibility != identity.getVisibilityLevel() || enabled != identity.getAiIndexEnabled();
+        if (changed) {
+            documentMapper.update(null, Wrappers.<DocumentDO>lambdaUpdate()
+                    .eq(DocumentDO::getId, id)
+                    .set(DocumentDO::getPublishStatus, published)
+                    .set(DocumentDO::getVisibilityLevel, visibility)
+                    .set(DocumentDO::getAiIndexEnabled, enabled));
+        }
+        if (published != DocumentPublishStatus.UNPUBLISHED.code() && (changed || options.purgeVectorPayload())) {
+            var mode = Integer.valueOf(KnowledgeBuildMode.OFF_PEAK.code()).equals(options.indexBuildMode())
+                    ? KnowledgeBuildMode.OFF_PEAK : KnowledgeBuildMode.IMMEDIATE;
+            knowledgeSyncRegistrar.register(KnowledgeSourceType.DOCUMENT, id, mode, options.purgeVectorPayload(), changed);
+        }
+        return changed;
+    }
+
+    private DocumentDO locked(long id) {
+        return documentMapper.selectOne(Wrappers.<DocumentDO>lambdaQuery()
+                .eq(DocumentDO::getId, id).last("FOR UPDATE"));
+    }
+
+    private void promoteDraft(long id) {
         var draft = slot(id, ContentStage.DRAFT);
         if (draft == null) {
             throw conflict("没有已保存的草稿；重新上架请使用恢复操作");
@@ -451,6 +512,7 @@ public class DocumentServiceImpl implements DocumentService {
             removeContent(content.getId());
         }
         documentMapper.deleteById(id);
+        knowledgeSyncRegistrar.register(KnowledgeSourceType.DOCUMENT, id, KnowledgeBuildMode.IMMEDIATE, true, false);
     }
 
     private void removeContent(long contentId) {
