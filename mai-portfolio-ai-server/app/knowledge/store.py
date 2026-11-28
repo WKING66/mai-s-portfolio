@@ -63,6 +63,48 @@ class KnowledgeStore:
     def __init__(self, engine: AsyncEngine) -> None:
         self.engine = engine
 
+    async def committed_count(self, claim: Claim, chunks: list[Chunk]) -> int | None:
+        """校验 BUILD 是否已提交，供回执重试在路由前复用结果。"""
+        async with self.engine.connect() as connection:
+            return await self._committed_build_count(connection, claim, chunks)
+
+    async def _committed_build_count(
+        self, connection: AsyncConnection, claim: Claim, chunks: list[Chunk],
+    ) -> int | None:
+        # 同一条查询读取来源水位和切块，避免并发更新让两次读取看到不同版本。
+        rows = (await connection.execute(text("""
+            SELECT s.change_seq, s.is_active, s.space_key, s.chunk_count,
+                   c.ordinal, c.content_hash, c.chunk_text, c.space_key AS chunk_space_key
+            FROM knowledge_source_state s
+            LEFT JOIN knowledge_chunk c
+              ON c.source_type = s.source_type AND c.source_id = s.source_id
+             AND c.change_seq = s.change_seq AND c.change_seq = :change_seq
+             AND c.cleared_at IS NULL
+            WHERE s.source_type = :source_type AND s.source_id = :source_id
+            ORDER BY c.ordinal
+        """), {
+            **_source_params(claim.source_type, claim.source_id), "change_seq": claim.change_seq,
+        })).all()
+        if not rows or rows[0].change_seq < claim.change_seq:
+            return None
+        current = rows[0]
+        if current.change_seq > claim.change_seq:
+            raise StaleSequenceError("Stale knowledge sequence behind current state.")
+        if current.is_active is not True or current.space_key is None or current.chunk_count != len(chunks):
+            raise KnowledgeValidationError("Conflicting knowledge state for the same sequence.")
+
+        # 同一序号的重试以已提交的向量空间为准，路由切换不影响回执。
+        applied = [
+            (row.ordinal, row.content_hash, row.chunk_text, row.chunk_space_key)
+            for row in rows if row.ordinal is not None
+        ]
+        expected = [
+            (chunk.ordinal, chunk.content_hash, chunk.text, current.space_key) for chunk in chunks
+        ]
+        if applied != expected:
+            raise KnowledgeValidationError("Conflicting knowledge payload for the same sequence.")
+        return current.chunk_count
+
     async def reusable(
         self, claim: Claim, space: EmbeddingSpace, chunks: dict[bytes, Chunk],
     ) -> dict[bytes, Vector]:
@@ -147,6 +189,13 @@ class KnowledgeStore:
         self, connection: AsyncConnection, claim: Claim, params: dict,
         chunks: list[PreparedChunk],
     ) -> int:
+        if claim.action == 1:
+            # CAS 未写入时已持有来源行锁，校验在准备向量期间提交的版本。
+            count = await self._committed_build_count(connection, claim, [item.chunk for item in chunks])
+            if count is None:
+                raise KnowledgeValidationError("Missing committed knowledge state after sequence conflict.")
+            return count
+
         current = (await connection.execute(text(f"""
             SELECT change_seq, is_active, space_key, chunk_count
             FROM knowledge_source_state WHERE {_SOURCE} FOR UPDATE
@@ -155,22 +204,11 @@ class KnowledgeStore:
             raise StaleSequenceError("Stale knowledge sequence behind current state.")
         if tuple(current)[1:] != (params["active"], params["space_key"], params["count"]):
             raise KnowledgeValidationError("Conflicting knowledge state for the same sequence.")
-        payloads = (await connection.execute(text(f"""
-            SELECT change_seq, ordinal, content_hash, chunk_text, space_key
+        generations = (await connection.execute(text(f"""
+            SELECT DISTINCT change_seq
             FROM knowledge_chunk WHERE {_SOURCE} AND cleared_at IS NULL
-            ORDER BY change_seq DESC, ordinal
-        """), params)).all()
-        if claim.action == 1:
-            applied = [tuple(row)[1:] for row in payloads if row.change_seq == claim.change_seq]
-            expected = [
-                (item.chunk.ordinal, item.chunk.content_hash, item.chunk.text, params["space_key"])
-                for item in chunks
-            ]
-            matches = applied == expected
-        else:
-            generations = {row.change_seq for row in payloads}
-            matches = len(generations) <= (1 if claim.action == 2 else 0)
-        if not matches:
+        """), params)).scalars().all()
+        if len(generations) > (1 if claim.action == 2 else 0):
             raise KnowledgeValidationError("Conflicting knowledge payload for the same sequence.")
         return len(chunks)
 

@@ -171,6 +171,10 @@ class KnowledgeWorker:
             if previous.text.encode("utf-8") != chunk.text.encode("utf-8"):
                 raise ContentHashCollision("Knowledge content hash collision.")
 
+        committed = await self.store.committed_count(claim, chunks)
+        if committed is not None:
+            return committed
+
         await self.yield_to_chat()
         options = self.routing.embedding_options(await self.candidates())
         if not options:

@@ -258,6 +258,108 @@ def test_reuse_retention_revocation_and_collision(isolated_store) -> None:
     asyncio.run(scenario(), loop_factory=LOOP_FACTORY)
 
 
+@pytest.mark.parametrize("route_changed", [False, True], ids=["unavailable", "changed-space"])
+def test_worker_reclaims_committed_build_without_routing(isolated_store, route_changed: bool) -> None:
+    async def scenario() -> None:
+        batches: list[list[str]] = []
+        completions: list[dict] = []
+        current = [CANDIDATE]
+        route_checks = 0
+
+        async def candidates() -> list[Candidate]:
+            nonlocal route_checks
+            route_checks += 1
+            return current
+
+        def java(request: httpx.Request) -> httpx.Response:
+            assert request.url.path.endswith("/complete")
+            completions.append(json.loads(request.content))
+            if len(completions) == 1:
+                raise httpx.ConnectError("Completion callback unavailable.")
+            return httpx.Response(200, json={"status": "completed", "alreadyApplied": False})
+
+        async with isolated_store() as store, httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: embed_response(request, batches)),
+        ) as provider, httpx.AsyncClient(transport=httpx.MockTransport(java)) as backend:
+            worker = KnowledgeWorker(
+                KnowledgeClient(backend, "http://java", TOKEN), store, ModelRouting(provider),
+                candidates, lambda: 0, threshold=4, poll_seconds=1,
+            )
+            projection = document("a\n\nb")
+            first = claim(1, projection)
+            with pytest.raises(httpx.ConnectError):
+                await worker.handle(first)
+
+            current = [replace(CANDIDATE, model_revision=3)] if route_changed else []
+            reclaimed = claim(1, projection)
+            await worker.handle(reclaimed)
+
+            assert await store.live_spaces() == {ModelRouting.embedding_space(CANDIDATE).space_key}
+            assert batches == [["标题\n\na", "标题\n\nb"]]
+            assert route_checks == 1
+            assert [body["chunkCount"] for body in completions] == [2, 2]
+            assert [body["leaseToken"] for body in completions] == [
+                str(first.lease_token), str(reclaimed.lease_token),
+            ]
+
+    asyncio.run(scenario(), loop_factory=LOOP_FACTORY)
+
+
+@pytest.mark.parametrize("stale", [False, True], ids=["conflicting-payload", "stale-sequence"])
+def test_worker_rejects_build_before_routing(isolated_store, stale: bool) -> None:
+    async def scenario() -> None:
+        batches: list[list[str]] = []
+        route_checks = 0
+
+        async def candidates() -> list[Candidate]:
+            nonlocal route_checks
+            route_checks += 1
+            return [CANDIDATE]
+
+        async with isolated_store() as store, httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: embed_response(request, batches)),
+        ) as provider, httpx.AsyncClient() as backend:
+            worker = KnowledgeWorker(
+                KnowledgeClient(backend, "http://java", TOKEN), store, ModelRouting(provider),
+                candidates, lambda: 0, threshold=4, poll_seconds=1,
+            )
+            projection = document("body")
+            assert await worker.apply(claim(2, projection)) == 1
+
+            if stale:
+                replayed = claim(1, document("old body"))
+                error = StaleSequenceError
+            else:
+                replayed = claim(2, document("changed body"))
+                error = KnowledgeValidationError
+            with pytest.raises(error):
+                await worker.apply(replayed)
+
+            assert route_checks == 1
+            assert batches == [["标题\n\nbody"]]
+
+    asyncio.run(scenario(), loop_factory=LOOP_FACTORY)
+
+
+def test_store_reuses_concurrently_committed_build_in_another_space(isolated_store) -> None:
+    async def scenario() -> None:
+        projection = document("a\n\nb")
+        work = claim(1, projection)
+        chunks = projection_chunks(work.source_type, work.source_id, projection)
+        first = ModelRouting.embedding_space(CANDIDATE)
+        second = ModelRouting.embedding_space(replace(CANDIDATE, model_revision=3))
+        async with isolated_store() as store:
+            assert await asyncio.gather(
+                store.apply(work, first, [PreparedChunk(chunk, first.vector([1, 0])) for chunk in chunks]),
+                store.apply(work, second, [PreparedChunk(chunk, second.vector([0, 1])) for chunk in chunks]),
+            ) == [2, 2]
+            assert await store.live_spaces() in ({first.space_key}, {second.space_key})
+            with pytest.raises(KnowledgeValidationError):
+                await store.apply(claim(1, action=2))
+
+    asyncio.run(scenario(), loop_factory=LOOP_FACTORY)
+
+
 def test_atomic_activation_races_and_reconcile(isolated_store) -> None:
     async def scenario() -> None:
         space = ModelRouting.embedding_space(CANDIDATE)
