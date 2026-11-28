@@ -133,20 +133,37 @@ public class KnowledgeSyncService implements KnowledgeSyncRegistrar {
         this.transaction = new TransactionTemplate(transactionManager);
     }
 
+    /**
+     * 登记知识源变更对应的索引同步目标。
+     * 调用方必须在已有的源记录写事务（{@code MANDATORY}）中持有源记录行锁直至事务结束，
+     * 使目标投影快照和队列状态与本次源记录变更保持一致。
+     *
+     * @param type 知识源类型
+     * @param id 源记录 ID
+     * @param mode 构建任务的调度模式
+     * @param purge 是否要求彻底清除向量数据
+     * @param changed 源记录是否发生变更
+     */
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
     public void register(KnowledgeSourceType type, long id, KnowledgeBuildMode mode, boolean purge, boolean changed) {
+        // 1. 读取当前队列记录并确定目标。源不可索引时，保留物理删除或彻底清除要求（PURGE），
+        // 避免后续普通下架或失去索引资格时将彻底清除降级为撤回（WITHDRAW）。
         var current = knowledgeQueueMapper.bySource(type.code(), id);
         var target = target(type, id, mode.code(), purge || isPurge(current));
+        // 2. 从未入队且当前不可索引的源（如未授权文档或草稿）没有索引可撤回或清理。
         if (current == null && target.action() != BUILD.code()) {
             return;
         }
+        // 3. 同类撤回或清除动作复用现有任务，避免递增 change_seq 导致重复清理向量。
         if (current != null && current.action() != BUILD.code() && target.action() == current.action()) {
+            // 源记录有变更时仍发布 KnowledgeSourceChanged，提交后使授权快照缓存失效，供下次读取时刷新。
             if (changed) {
                 events.publishEvent(new KnowledgeSourceChanged(type, id));
             }
             return;
         }
+        // 4. 源记录或同步目标有变更时，在同一事务中写入队列并发布变更事件。
         if (changed || differs(current, target)) {
             persist(type, target, false);
         }
