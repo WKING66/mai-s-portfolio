@@ -1,12 +1,18 @@
 from cryptography.fernet import Fernet
 from pydantic import (
     AliasChoices,
+    AnyHttpUrl,
     Field,
     PostgresDsn,
     SecretStr,
     field_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import (
+    BaseSettings,
+    EnvSettingsSource,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 from app.keygen import default_secret_path
 
@@ -15,7 +21,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         extra="ignore",
         hide_input_in_errors=True,
-        env_ignore_empty=True,
+        env_ignore_empty=False,
         env_file=default_secret_path(),
         validate_by_name=True,
     )
@@ -31,6 +37,41 @@ class Settings(BaseSettings):
     execution_concurrency: int = Field(default=2, gt=0, le=32)
     execution_queue_limit: int = Field(default=8, ge=0, le=128)
     chat_timing_enabled: bool = False
+    java_base_url: AnyHttpUrl | None = Field(
+        default=AnyHttpUrl("http://127.0.0.1:9333"),
+        validation_alias="JAVA_BACKEND_BASE_URL",
+    )
+    knowledge_sync_enabled: bool = False
+    knowledge_sync_poll_seconds: float = Field(default=2, gt=0, le=300)
+    knowledge_sync_chat_threshold: int = Field(default=4, gt=0, le=160)
+    knowledge_rag_enabled: bool = False
+
+    @classmethod
+    def settings_customise_sources(
+        cls, settings_cls: type[BaseSettings], init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource, dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        # 仅 Java 地址的空值具有停用含义，其余配置保留原先的空值回退行为。
+        for source in (env_settings, dotenv_settings):
+            if isinstance(source, EnvSettingsSource):
+                source.env_vars = {
+                    name: value for name, value in source.env_vars.items()
+                    if value != "" or name.casefold() == "java_backend_base_url"
+                }
+        return init_settings, env_settings, dotenv_settings, file_secret_settings
+
+    @field_validator("java_base_url", mode="before")
+    @classmethod
+    def blank_java_url(cls, value: object) -> object:
+        return (value.strip() or None) if isinstance(value, str) else value
+
+    @field_validator("java_base_url")
+    @classmethod
+    def check_java_url(cls, value: AnyHttpUrl | None) -> AnyHttpUrl | None:
+        if value is not None and (value.username or value.password or value.query or value.fragment):
+            raise ValueError("Java backend URL must not contain credentials, query or fragment.")
+        return value
 
     @field_validator("ai_server_token")
     @classmethod

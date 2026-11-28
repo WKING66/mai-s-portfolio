@@ -10,15 +10,22 @@ from httpx import AsyncClient, ConnectError, ConnectTimeout
 from langchain_core.messages import AIMessageChunk, BaseMessage
 from langchain_core.messages.ai import UsageMetadata
 from langchain_core.outputs import ChatGenerationChunk
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from openai import APIConnectionError, APIError, APIStatusError, RateLimitError
-from pydantic import PrivateAttr, SecretStr
+from langchain_openai import ChatOpenAI
+from openai import (
+    APIConnectionError,
+    APIError,
+    APIStatusError,
+    AsyncOpenAI,
+    RateLimitError,
+)
+from pydantic import PrivateAttr, SecretStr, ValidationError
 from tenacity import AsyncRetrying, retry_if_exception, stop_after_attempt
 
 from app.chat_timing import SAFE_PROVIDER_CODES, ChatTiming, ModelAttemptTiming
 from app.contracts.execution_diagnostics import ExecutionDiagnostics, FinishReason
 from app.contracts.model_catalog import ChatParameters, EmbeddingParameters
 from app.contracts.wire import ExecutionRejected
+from app.provider.embedding import EmbeddingResult, EmbeddingSpace, InvalidEmbedding
 
 MODEL_RESPONSE_TIMEOUT = 5
 CONTEXT_TOKENS = 32_768
@@ -302,17 +309,45 @@ class ModelRouting:
         diagnostics.finish_reason = reason
         raise ExecutionRejected(503, "MODEL_UNAVAILABLE", "模型服务暂不可用。")
 
-    async def embed(self, candidates: list[Candidate], text: str) -> list[float]:
-        for candidate in self.available(candidates):
+    @staticmethod
+    def embedding_space(candidate: Candidate) -> EmbeddingSpace:
+        try:
             parameters = EmbeddingParameters.model_validate(candidate.config)
-            model = OpenAIEmbeddings(
-                model=candidate.model_key,
+        except ValidationError:
+            raise InvalidEmbedding("Invalid embedding parameters.") from None
+        if parameters.dimensions is None or parameters.dimensions > 16_000:
+            raise InvalidEmbedding("Embedding dimensions must be configured within pgvector limits.")
+        # 模型目录修订绑定部署权重版本，凭据轮换不改变向量空间。
+        return EmbeddingSpace(
+            candidate.model_id, candidate.model_revision, parameters.dimensions,
+            candidate.base_url.rstrip("/"), candidate.model_key,
+        )
+
+    def embedding_options(self, candidates: list[Candidate]) -> list[tuple[Candidate, EmbeddingSpace]]:
+        options = []
+        invalid = False
+        for candidate in self.available(candidates):
+            try:
+                options.append((candidate, self.embedding_space(candidate)))
+            except InvalidEmbedding:
+                invalid = True
+        if not options and invalid:
+            raise InvalidEmbedding("No available embedding space has configured dimensions.")
+        return options
+
+    async def embed(self, candidates: list[Candidate], text: str) -> EmbeddingResult:
+        return (await self.embed_batch(candidates, [text]))[0]
+
+    async def embed_batch(
+        self, candidates: list[Candidate], texts: list[str],
+    ) -> list[EmbeddingResult]:
+        for candidate, space in self.embedding_options(candidates):
+            model = AsyncOpenAI(
                 base_url=candidate.base_url,
-                api_key=candidate.api_key,
-                dimensions=parameters.dimensions,
+                api_key=candidate.api_key.get_secret_value(),
                 max_retries=0,
-                http_async_client=self.http,
-                check_embedding_ctx_length=False,
+                # OpenAI SDK 的类型标注仅包含 httpx2，运行时兼容现有的 httpx 连接池。
+                http_client=cast(Any, self.http),
             )
             try:
                 async for attempt in AsyncRetrying(
@@ -322,11 +357,21 @@ class ModelRouting:
                 ):
                     with attempt:
                         async with asyncio.timeout(MODEL_RESPONSE_TIMEOUT):
-                            vector = await model.aembed_query(text)
-                        if vector and len(vector) == parameters.dimensions:
-                            self.retry_at.pop(candidate.revision_key, None)
-                            return vector
-                        self.cool_down(candidate, ValueError())
+                            response = await model.embeddings.create(
+                                model=candidate.model_key, input=texts,
+                                dimensions=space.dimensions, encoding_format="float",
+                            )
+                        if response.model != candidate.model_key:
+                            raise InvalidEmbedding("Embedding response model does not match the deployment.")
+                        indexed = sorted(response.data, key=lambda item: item.index)
+                        if [item.index for item in indexed] != list(range(len(texts))):
+                            raise InvalidEmbedding("Embedding response indexes do not match the batch.")
+                        results = [
+                            EmbeddingResult(space.vector(item.embedding), space)
+                            for item in indexed
+                        ]
+                        self.retry_at.pop(candidate.revision_key, None)
+                        return results
             except (TimeoutError, APIConnectionError, APIStatusError) as error:
                 self.cool_down(candidate, error)
         raise ExecutionRejected(503, "EMBEDDING_UNAVAILABLE", "向量服务暂不可用。")

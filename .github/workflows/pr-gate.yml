@@ -69,7 +69,7 @@ jobs:
         working-directory: mai-portfolio-ai-server
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_PASSWORD: test-only
           POSTGRES_DB: agent_test

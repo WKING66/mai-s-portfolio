@@ -3,6 +3,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from sqlalchemy import func, text
 from sqlalchemy.exc import SQLAlchemyError
@@ -15,7 +16,11 @@ from app.api.routes import router
 from app.config import Settings
 from app.contracts.model_catalog import RouteType
 from app.contracts.wire import ExecutionRejected
-from app.provider.model_routing import ModelRouting
+from app.knowledge.client import KnowledgeClient
+from app.knowledge.rag import KnowledgeRag
+from app.knowledge.store import KnowledgeStore
+from app.knowledge.worker import KnowledgeWorker
+from app.provider.model_routing import Candidate, ModelRouting
 from app.provider.provider_http import provider_http_client
 from app.service.execution import Executions
 from app.service.model_catalog import load_candidates
@@ -26,7 +31,9 @@ from app.workflow.chat_graph import ConfiguredChat
 logger = logging.getLogger(__name__)
 
 
-async def monitor_worker(connection: AsyncConnection, executions: Executions) -> None:
+async def monitor_worker(
+    connection: AsyncConnection, executions: Executions, knowledge_task: asyncio.Task[None] | None,
+) -> None:
     while True:
         try:
             # 锁和探活使用同一连接。失去会话后停止受理，不能用新连接假装仍持锁。
@@ -35,6 +42,8 @@ async def monitor_worker(connection: AsyncConnection, executions: Executions) ->
                 await connection.commit()
         except (SQLAlchemyError, TimeoutError) as error:
             executions.worker_available = False
+            if knowledge_task is not None:
+                knowledge_task.cancel()
             logger.error(
                 "AI worker lost its database session type=%s invalidated=%s; restart required.",
                 type(error).__name__,
@@ -63,7 +72,9 @@ def create_app(settings: Settings) -> FastAPI:
         engine = create_database(str(settings.ai_database_url), settings.ai_db_schema)
         sessions = Sessions(engine, class_=AsyncSession)
         provider_client = provider_http_client()
+        java_http = httpx.AsyncClient(follow_redirects=False, trust_env=False)
         routing = ModelRouting(provider_client)
+        knowledge: KnowledgeRag | None = None
         try:
 
             async def configured_chat(session: AsyncSession) -> tuple[ConfiguredChat, str] | None:
@@ -72,7 +83,14 @@ def create_app(settings: Settings) -> FastAPI:
                     return None
                 if not routing.available(candidates):
                     raise ExecutionRejected(503, "MODEL_UNAVAILABLE", "模型服务暂不可用。")
-                return ConfiguredChat(routing, candidates), await active_persona(session)
+                return (
+                    ConfiguredChat(routing, candidates, knowledge=knowledge),
+                    await active_persona(session),
+                )
+
+            async def embedding_candidates() -> list[Candidate]:
+                async with sessions() as session:
+                    return await load_candidates(session, settings, RouteType.EMBEDDING)
 
             executions = Executions(
                 sessions,
@@ -97,16 +115,41 @@ def create_app(settings: Settings) -> FastAPI:
                     await executions.recover()
                     app.state.executions = executions
                     app.state.sessions = sessions
+                    knowledge_task = None
+                    if settings.java_base_url and (
+                        settings.knowledge_rag_enabled or settings.knowledge_sync_enabled
+                    ):
+                        if current >= "0013":
+                            client = KnowledgeClient(
+                                java_http, str(settings.java_base_url),
+                                settings.ai_server_token.get_secret_value(),
+                            )
+                            store = KnowledgeStore(engine)
+                            if settings.knowledge_rag_enabled:
+                                knowledge = KnowledgeRag(store, client, embedding_candidates)
+                            if settings.knowledge_sync_enabled:
+                                worker = KnowledgeWorker(
+                                    client, store, routing, embedding_candidates,
+                                    lambda: len(executions.tasks),
+                                    threshold=settings.knowledge_sync_chat_threshold,
+                                    poll_seconds=settings.knowledge_sync_poll_seconds,
+                                )
+                                knowledge_task = asyncio.create_task(worker.run())
+                        else:
+                            logger.warning("Knowledge features require migration 0013.")
                     monitor = asyncio.create_task(
-                        monitor_worker(connection, executions)
+                        monitor_worker(connection, executions, knowledge_task)
                     )
                     cleanup = asyncio.create_task(clean_expired_answers(executions))
                     try:
                         yield
                     finally:
-                        for task in (monitor, cleanup):
+                        tasks = [monitor, cleanup]
+                        if knowledge_task is not None:
+                            tasks.append(knowledge_task)
+                        for task in tasks:
                             task.cancel()
-                        await asyncio.gather(monitor, cleanup, return_exceptions=True)
+                        await asyncio.gather(*tasks, return_exceptions=True)
                         await executions.close()
                 finally:
                     if executions.worker_available and not connection.invalidated:
@@ -115,7 +158,7 @@ def create_app(settings: Settings) -> FastAPI:
                         )
         finally:
             try:
-                await provider_client.aclose()
+                await asyncio.gather(provider_client.aclose(), java_http.aclose())
             finally:
                 await engine.dispose()
 
